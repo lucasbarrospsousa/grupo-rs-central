@@ -37914,7 +37914,81 @@ func _send_to_stock(sku: String) -> void:
 	)
 
 
+var reserve_stock_lookup_busy := false
+
+
+func _lookup_reserve_stock_plate(serial: String) -> Dictionary:
+	if not _grupo_rs_supports_modern_api() or not _grupo_rs_api_reads_enabled():
+		return {"ok": false, "message": "A API oficial desta filial nao esta disponivel. O aparelho continua em Reserva."}
+	var response := await _grupo_rs_api_get("/endpoints/veiculos.php?q=%s&skip=0&take=50" % serial.uri_encode(), true, true)
+	if not bool(response.get("ok", false)):
+		return {"ok": false, "message": "Falha ao consultar a API; nenhuma alteracao foi gravada."}
+	var rows := _grupo_rs_api_extract_rows(JSON.parse_string(str(response.get("body", ""))))
+	if rows.size() >= 50:
+		return {"ok": false, "message": "Consulta ampla demais para confirmar um vinculo unico. Reserva preservada."}
+	var matches: Array[Dictionary] = []
+	for row in rows:
+		var normalized := _grupo_rs_api_normalize_location(row)
+		if _digits_only(str(normalized.get("serial", ""))) == serial:
+			matches.append(normalized)
+	if matches.size() != 1 or str(matches[0].get("plate", "")).strip_edges() == "":
+		return {"ok": false, "message": "A API nao retornou uma unica placa para esta serie. Reserva preservada."}
+	return {"ok": true, "plate": str(matches[0].plate).strip_edges().to_upper()}
+
+
+func _reserve_to_stock_from_api(sku: String) -> Dictionary:
+	if reserve_stock_lookup_busy:
+		return {"ok": false, "stage": "busy"}
+	reserve_stock_lookup_busy = true
+	var original_store = store
+	var original_branch := selected_branch_id
+	var before := store.get_product(sku).duplicate(true)
+	var serial := _digits_only(str(before.get("equipment_number", "")))
+	if serial == "": serial = _digits_only(str(before.get("sku", sku)))
+	if serial == "":
+		reserve_stock_lookup_busy = false
+		return {"ok": false, "stage": "identity"}
+	var lookup := await _lookup_reserve_stock_plate(serial)
+	reserve_stock_lookup_busy = false
+	if store != original_store or selected_branch_id != original_branch or store.get_product(sku) != before:
+		return {"ok": false, "stage": "stale", "message": "Filial ou cadastro mudou durante a consulta; resposta descartada."}
+	if not bool(lookup.get("ok", false)):
+		_show_error("Reserva preservada", str(lookup.get("message", "Consulta nao confirmada.")))
+		return lookup
+	var product := before.duplicate(true)
+	var model := str(product.get("model", "")).strip_edges()
+	if _search_key(model) in ["", "naoinformado", "semmodelo", "rs300", "-"]:
+		model = _infer_bulk_model_from_plate(str(lookup.plate))
+		if model == "":
+			_show_error("Tipo pendente", "Nao foi possivel determinar o tipo pela identificacao. Preencha o tipo antes de enviar ao estoque.")
+			return {"ok": false, "stage": "model"}
+		product["model"] = model
+	product["plate"] = lookup.plate
+	product["identification_plate"] = lookup.plate
+	product["vehicle_plate"] = ""
+	product["tracker_status"] = "Estoque"
+	product["status"] = "Estoque"
+	product["location"] = "Estoque"
+	product["stock"] = 1
+	if product.has("quantity"): product["quantity"] = 1
+	product["active"] = true
+	var saved := store.upsert_product_replacing_sku(sku, product)
+	if saved.is_empty():
+		_show_error("Erro", "O banco nao confirmou placa, tipo e status. Tente novamente.")
+		return {"ok": false, "stage": "store"}
+	var persisted := await _ensure_local_database_modification_saved(sku, saved)
+	if not bool(persisted.get("ok", false)):
+		_show_error("Confirmacao pendente", "A gravacao foi solicitada, mas a releitura do banco nao confirmou o resultado.")
+		return {"ok": false, "stage": "local_database"}
+	_log_system_action("Reserva enviada para estoque", "Placa consultada pela serie na API: %s | Tipo: %s" % [lookup.plate, model], sku)
+	_refresh_table()
+	_show_success("Estoque atualizado", "Placa %s e tipo %s salvos. Aparelho em Estoque." % [lookup.plate, model])
+	return {"ok": true, "stage": "confirmed", "product": saved}
+
+
 func _send_to_stock_confirmed(sku: String) -> Dictionary:
+	if store != null and _status_key(store.get_product(sku)) == "reserva":
+		return await _reserve_to_stock_from_api(sku)
 	if store == null or not store.set_tracker_status(sku, "Estoque"):
 		_show_error("Erro", "Nao foi possivel enviar o aparelho para estoque.")
 		return {"ok": false, "stage": "store"}
