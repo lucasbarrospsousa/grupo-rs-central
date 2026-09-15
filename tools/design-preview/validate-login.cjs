@@ -21,10 +21,10 @@ const fs=require('fs');
   if(await page.locator('#password').inputValue())throw Error('password retained');
   await page.reload();
   const output=path.resolve(__dirname,'../../tmp/login-preview');fs.mkdirSync(output,{recursive:true});
-  await page.screenshot({path:path.join(output,'desktop.png'),fullPage:true});
+  await page.screenshot({path:path.join(output,'desktop.png'),fullPage:true,animations:'disabled'});
   await page.setViewportSize({width:390,height:844});
   if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('horizontal overflow');
-  await page.screenshot({path:path.join(output,'mobile.png'),fullPage:true});
+  await page.screenshot({path:path.join(output,'mobile.png'),fullPage:true,animations:'disabled'});
   if(errors.length)throw Error(errors.join('\n'));
   console.log('LOGIN_PREVIEW_OK '+output);
  }finally{await browser.close()}
