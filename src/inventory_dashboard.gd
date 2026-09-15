@@ -3450,6 +3450,27 @@ func _make_sidebar_branch_card() -> Control:
 	sidebar_branch_name_label.add_theme_font_size_override("font_size", 15)
 	sidebar_branch_name_label.add_theme_color_override("font_color", Color.WHITE)
 	stack.add_child(sidebar_branch_name_label)
+	sidebar_branch_name_label.hide()
+	var selector := OptionButton.new()
+	selector.name = "SidebarBranchSelector"
+	selector.custom_minimum_size = Vector2(0, 36)
+	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selector.fit_to_longest_item = false
+	selector.tooltip_text = "Trocar base de operação"
+	for config in _branch_configs():
+		var index := selector.item_count
+		var id := str(config.get("id", ""))
+		selector.add_item(_branch_display_name(id, str(config.get("name", ""))))
+		selector.set_item_metadata(index, id)
+		selector.set_item_disabled(index, not bool(config.get("enabled", false)))
+		if id == selected_branch_id: selector.select(index)
+	selector.item_selected.connect(func(index: int):
+		var destination := str(selector.get_item_metadata(index))
+		for i in range(selector.item_count):
+			if str(selector.get_item_metadata(i)) == selected_branch_id: selector.select(i)
+		_request_sidebar_branch_switch(destination)
+	)
+	stack.add_child(selector)
 
 	var status_row := HBoxContainer.new()
 	status_row.add_theme_constant_override("separation", 6)
@@ -3466,6 +3487,29 @@ func _make_sidebar_branch_card() -> Control:
 	sidebar_branch_status_label.add_theme_color_override("font_color", AppDesignSystem.GREEN)
 	status_row.add_child(sidebar_branch_status_label)
 	return panel
+
+
+func _sidebar_branch_switch_busy() -> bool:
+	return equipment_registration_running or equipment_api_edit_running or vehicle_reassignment_running \
+		or inventory_reset_running or registration_probe_running or bulk_client_lookup_running \
+		or not remote_queue_active_jobs.is_empty() or not remote_operation_queue.is_empty()
+
+
+func _request_sidebar_branch_switch(branch_id: String) -> void:
+	if branch_id == selected_branch_id: return
+	var config := _branch_config(branch_id)
+	if config.is_empty() or not bool(config.get("enabled", false)): return
+	if _sidebar_branch_switch_busy():
+		_show_warning("Troca de base", "Aguarde a conclusão das operações em andamento antes de trocar de base.")
+		return
+	_confirm_action("Trocar base", "Abrir a base %s? Dados já salvos serão preservados. Alterações ainda não salvas nesta tela serão descartadas. Cancele para salvar primeiro. O acesso seguirá a autenticação da base de destino." % _branch_display_name(branch_id), func():
+		if _sidebar_branch_switch_busy():
+			_show_warning("Troca de base", "Há uma operação em andamento. Aguarde e tente novamente.")
+			return
+		_clear_screen()
+		store = null
+		_enter_selected_branch(branch_id)
+	)
 
 
 func _make_sidebar_button(

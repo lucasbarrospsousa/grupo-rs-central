@@ -16,6 +16,7 @@ static func install(host: Node) -> void:
 	tree.node_added.connect(on_added)
 	watch.tree_exiting.connect(func():
 		if tree.node_added.is_connected(on_added): tree.node_added.disconnect(on_added)
+		if is_instance_valid(host): host.remove_meta("button_motion_installed")
 	)
 
 static func attach(button: BaseButton) -> void:
