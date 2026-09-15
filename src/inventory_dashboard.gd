@@ -34939,7 +34939,7 @@ func _parse_bulk_smart_line(line: String, cells: Array[String]) -> Dictionary:
 		if model == "" and _bulk_key(model_candidate) != _bulk_key(clean) and model_candidate != "":
 			model = model_candidate
 		var operator_candidate := _normalize_bulk_operator(clean)
-		if operator_name == "" and ["Tim", "Claro", "Vivo"].has(operator_candidate):
+		if operator_name == "" and ["Tim", "Claro", "Vivo", "Multi Operadora"].has(operator_candidate):
 			operator_name = operator_candidate
 
 	if serial == "":
@@ -35464,6 +35464,8 @@ func _normalize_bulk_operator(value: String) -> String:
 			return "Claro"
 		"vivo":
 			return "Vivo"
+		"multioperadora", "multioperador":
+			return "Multi Operadora"
 		"semoperadora":
 			return "Sem operadora"
 		_:
@@ -38033,7 +38035,7 @@ func _make_bulk_operator_picker() -> Control:
 	bulk_operator_option.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_style_option_button(bulk_operator_option)
 	bulk_operator_option.custom_minimum_size = Vector2(150, 42)
-	for item in ["Claro", "Vivo", "Tim"]:
+	for item in ["Claro", "Vivo", "Tim", "Multioperadora"]:
 		bulk_operator_option.add_item(item)
 	bulk_operator_option.select(0)
 	stack.add_child(bulk_operator_option)
