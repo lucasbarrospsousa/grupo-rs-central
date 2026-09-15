@@ -218,6 +218,7 @@ static func metric(host: Control, item: Array, value: int) -> Button:
 	stack.add_child(text(str(value), 44, ink))
 	stack.add_child(text(item[2], 12, ink))
 	ignore_mouse(stack)
+	preload("res://src/ui/card_hover_motion.gd").attach(button)
 	return button
 
 static func ignore_mouse(node: Control) -> void:

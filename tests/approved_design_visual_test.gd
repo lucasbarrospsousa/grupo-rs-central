@@ -14,6 +14,9 @@ func _run() -> void:
 	for i in range(6):
 		store.upsert_product({"sku":"099900%03d" % i,"imei":"099900%03d" % i,"plate":"TST-%03d" % i,"tracker_status":"Estoque","stock":1,"quantity":1,"model":"RS Novo","operator":"Vivo" if i % 2 == 0 else "Claro"})
 	var shell := Shell.new()
+	var reserved: Dictionary = store.get_products()[0].duplicate(true)
+	reserved["tracker_status"] = "Reserva"
+	store.upsert_product(reserved)
 	shell.store = store
 	shell.online_data_available = true
 	root.add_child(shell)
@@ -28,12 +31,21 @@ func _run() -> void:
 	assert(approved != null, "Home navigation must mount the new dashboard")
 	var stock_card := shell.find_child("Metric_available", true, false) as Button
 	assert(stock_card != null)
+	var resting_position := stock_card.position
+	stock_card.mouse_entered.emit()
+	await create_timer(0.4).timeout
+	assert(stock_card.scale.y > 1.0)
+	assert(stock_card.position == resting_position)
+	stock_card.mouse_exited.emit()
+	await create_timer(0.3).timeout
+	assert(stock_card.scale.is_equal_approx(Vector2.ONE))
 	stock_card.pressed.emit()
 	await create_timer(0.5).timeout
 	assert(shell.current_section == "inventory", "Card must open stock through the existing route")
 	assert(shell.content_area.get_child_count() == 1)
 	assert(shell.find_child("ApprovedDashboard", true, false) == null, "Previous dashboard must be removed on navigation")
-	assert(shell._filtered_products().size() == 6)
+	assert(shell._filtered_products().size() == 5)
+	shell.selected_status_filter_key = "all"
 	print("DESIGN_NAVIGATION_OK: home -> stock card, single mounted view, old builders absent")
 	for page in ["inicio","estoque","novo","edicao","sms","relatorio","cadastro","config"]:
 		var view: Control
@@ -100,6 +112,13 @@ func _run() -> void:
 			assert(shell.inventory_report_preview_host.get_child_count() == 1)
 			print("DESIGN_REPORT_OK: sections, format, zoom, single preview document")
 		await create_timer(0.5).timeout
+		if page == "estoque":
+			var groups := shell.find_children("InventoryRowActions", "HFlowContainer", true, false)
+			assert(not groups.is_empty())
+			for group in groups:
+				for action in group.get_children():
+					assert(action.position.x + action.size.x <= group.size.x + 1.0, "Action cropped horizontally")
+					assert(action.position.y + action.size.y <= group.size.y + 1.0, "Action cropped vertically")
 		assert(view.position.y >= 38, "Animation must preserve container top margin")
 		if DisplayServer.get_name() != "headless":
 			RenderingServer.force_draw()

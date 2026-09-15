@@ -28519,11 +28519,13 @@ func _make_table_row(product: Dictionary) -> Control:
 		)
 	)
 
-	var actions := HBoxContainer.new()
+	var actions := HFlowContainer.new()
+	actions.name = "InventoryRowActions"
 	actions.custom_minimum_size = Vector2(255, 0)
 	actions.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 6)
+	actions.alignment = FlowContainer.ALIGNMENT_CENTER
+	actions.add_theme_constant_override("h_separation", 6)
+	actions.add_theme_constant_override("v_separation", 6)
 	row.add_child(actions)
 
 	# Editar
