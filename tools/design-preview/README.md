@@ -18,3 +18,21 @@ Microsoft Edge disponível. Capturas ficam em tmp/design-preview-validation.
 Nenhuma chamada externa é permitida pelo teste.
 
 Não integrar ao aplicativo antes da aprovação visual do usuário.
+
+## Revisão 02 — fidelidade aos fluxos atuais
+
+Referências consultadas: `src/features/sms/sms_panel_view.gd` (painel ativo,
+histórico e retorno após SMS), e `src/inventory_dashboard.gd` nas funções
+`_build_list_view`, `_build_table_header`, `_make_table_row` e
+`_build_status_quick_filters`.
+
+O SMS agora representa acompanhamento, não composição livre. Mostra saldo,
+solicitações, aceitos, custo, status, origem, retorno e histórico com filtros.
+Estoque distingue Imperatriz das regionais: período, estados, paginação,
+campos de placa, conectividade e ações condicionais. Comandos são abertos
+pela linha do aparelho. Ações de gravação e exportação continuam simuladas
+em janelas informativas; não reproduzem toda a lógica de negócio.
+
+O gráfico inicial mostra operadoras e o menu usa SVGs uniformes.
+Teste desta revisão: `node tools/design-preview/validate-refinements.cjs`.
+O validador original documenta a proposta 01, não o contrato atual de SMS.
