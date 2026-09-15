@@ -112,6 +112,12 @@ func _run() -> void:
 			assert(shell.inventory_report_preview_host.get_child_count() == 1)
 			print("DESIGN_REPORT_OK: sections, format, zoom, single preview document")
 		await create_timer(0.5).timeout
+		if page == "inicio":
+			assert(not _labels(view).contains("Equipamentos da filial"))
+			assert(not _labels(view).contains("Atenção da central"))
+			var hub_scroll := view as ScrollContainer
+			assert(hub_scroll != null)
+			assert(hub_scroll.get_v_scroll_bar().max_value <= hub_scroll.get_v_scroll_bar().page, "Hub should fit at 1920x1080")
 		if page == "estoque":
 			var groups := shell.find_children("InventoryRowActions", "HFlowContainer", true, false)
 			assert(not groups.is_empty())

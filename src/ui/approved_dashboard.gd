@@ -134,33 +134,6 @@ static func build(host: Control) -> Control:
 		line.add_child(text(str(item[1]), 13))
 		legend.add_child(line)
 		legend.add_child(HSeparator.new())
-	var bottom := HBoxContainer.new()
-	bottom.add_theme_constant_override("separation", 22)
-	root.add_child(bottom)
-	var devices := panel("Equipamentos da filial")
-	devices.get_parent().size_flags_stretch_ratio = 1.55
-	bottom.add_child(devices.get_parent())
-	var products: Array = host.store.get_products()
-	for product in products.slice(0, 4):
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 16)
-		var serial := text(str(product.get("sku", "")))
-		serial.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(serial)
-		row.add_child(text(str(product.get("plate", "Sem veículo")), 13, Design.MUTED))
-		row.add_child(text(str(product.get("tracker_status", "")), 13))
-		devices.add_child(row)
-	devices.add_child(action(host, "Ver todos →", host._show_list))
-	var attention := panel("Atenção da central")
-	bottom.add_child(attention.get_parent())
-	attention.add_child(text("%s equipamentos disponíveis nesta filial." % stats.get("available", 0), 14, Design.MUTED))
-	if not host._is_regional_branch():
-		attention.add_child(action(host, "Em reserva: %s →" % stats.get("reserved", 0), Callable(host, "_show_list_with_status").bind("reserva")))
-	attention.add_child(action(host, "Inativos: %s →" % stats.get("inactive", 0), Callable(host, "_show_list_with_status").bind("inativo")))
-	attention.add_child(action(host, "Cadastro em massa →", host._show_bulk_registration))
-	if not host._is_regional_branch():
-		attention.add_child(action(host, "Painel SMS →", host._show_sms_panel))
-	attention.add_child(action(host, "Atualizar indicadores", host._refresh_dashboard_data))
 	return scroll
 
 static func bar(caption: String, count: int, total: int, color: Color) -> HBoxContainer:
