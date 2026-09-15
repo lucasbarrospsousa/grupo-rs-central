@@ -2,6 +2,7 @@ extends SceneTree
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
 	root.size = Vector2i(360,380)
+	root.content_scale_size = Vector2i(360,380)
 	root.gui_embed_subwindows = true
 	var background := ColorRect.new()
 	background.color = Color("#102f4c")
