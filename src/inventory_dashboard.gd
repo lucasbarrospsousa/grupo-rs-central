@@ -3457,6 +3457,7 @@ func _make_sidebar_branch_card() -> Control:
 	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	selector.fit_to_longest_item = false
 	selector.tooltip_text = "Trocar base de operação"
+	preload("res://src/ui/branch_selector_style.gd").apply(selector)
 	for config in _branch_configs():
 		var index := selector.item_count
 		var id := str(config.get("id", ""))
