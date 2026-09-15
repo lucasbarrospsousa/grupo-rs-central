@@ -28010,19 +28010,31 @@ func _filtered_products() -> Array[Dictionary]:
 				continue
 		result.append(product)
 
-	if query != "":
-		result.sort_custom(func(a, b):
-			var score_a := _search_relevance(a, query)
-			var score_b := _search_relevance(b, query)
-			if score_a == score_b:
-				return _inventory_installation_is_newer(a, b)
-			return score_a > score_b
-		)
-		return result
-
-	result.sort_custom(_inventory_installation_is_newer)
+	_sort_inventory_products(result, query)
 
 	return result
+
+
+func _sort_inventory_products(products: Array[Dictionary], query: String = "") -> void:
+	# Compute normalization once per row, not twice per comparison.
+	# Indices preserve the existing comparator even with duplicate identifiers.
+	var keys: Array = []
+	var indices: Array = []
+	for i in range(products.size()):
+		var product := products[i]
+		keys.append([_search_relevance(product, query) if query != "" else 0,
+			_inventory_installation_sort_key(product),
+			_search_key(str(product.get("imei", product.get("sku", ""))))])
+		indices.append(i)
+	indices.sort_custom(func(a, b):
+		var ka: Array = keys[a]
+		var kb: Array = keys[b]
+		if ka[0] != kb[0]: return ka[0] > kb[0]
+		if ka[1] != kb[1]: return ka[1] > kb[1]
+		return ka[2] < kb[2]
+	)
+	var original := products.duplicate()
+	for i in range(indices.size()): products[i] = original[indices[i]]
 
 
 func _inventory_installation_sort_key(product: Dictionary) -> String:
