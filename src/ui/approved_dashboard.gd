@@ -15,6 +15,7 @@ static func text(value: String, pixels: int = 14, ink: Color = Design.TEXT) -> L
 
 static func panel(title: String, subtitle: String = "") -> VBoxContainer:
 	var outer := PanelContainer.new()
+	preload("res://src/ui/card_hover_motion.gd").attach(outer)
 	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var style := Design.surface(Color.WHITE, Color("#e0e8f0"), 1, 19, true)
 	style.shadow_color = Color(0.09, 0.23, 0.35, 0.04)

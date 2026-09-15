@@ -1,7 +1,10 @@
 extends RefCounted
 ## Presentation only: never changes callbacks, input values or operational state.
 
-static func apply(root: Control) -> void:
+static func apply(root: Control, inside_card: bool = false) -> void:
+	var is_card := root is PanelContainer
+	if is_card and not inside_card:
+		preload("res://src/ui/card_hover_motion.gd").attach(root)
 	if root is Button and root.icon != null:
 		root.expand_icon = true
 		root.add_theme_constant_override("icon_max_width", 22)
@@ -19,7 +22,7 @@ static func apply(root: Control) -> void:
 			root.add_theme_stylebox_override("panel", box)
 	for child in root.get_children():
 		if child is Control:
-			apply(child)
+			apply(child, inside_card or is_card)
 
 static func metric_ink(root: Control, ink: Color) -> void:
 	if root is Label:
