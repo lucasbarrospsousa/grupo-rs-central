@@ -88,7 +88,7 @@ static func build(host: Control) -> Control:
 	var operators := panel("Distribuição por operadora", "Chips dos equipamentos da filial")
 	operators.get_parent().size_flags_stretch_ratio = 1.55
 	charts.add_child(operators.get_parent())
-	var counts: Dictionary = stats.get("operators", {})
+	var counts := operator_counts(stats.get("operators", {}))
 	var names: Array = ["Vivo", "Claro", "TIM", "Multioperadora"]
 	for key in counts:
 		var found := false
@@ -96,7 +96,7 @@ static func build(host: Control) -> Control:
 			if str(name).to_lower() == str(key).to_lower(): found = true
 		if not found: names.append(key)
 	for name in names:
-		var count := int(host._dashboard_operator_value(counts, str(name)))
+		var count := int(counts.get(name, 0))
 		var colors := {"vivo":"#713fba", "claro":"#de3b4b", "tim":"#1478d0", "multioperadora":"#ef8b20"}
 		operators.add_child(bar(str(name), count, int(stats.get("total", 0)), Color(colors.get(str(name).to_lower(), "#60758c"))))
 	var profile := panel("Perfil da base", "Organização para decidir com clareza")
@@ -136,12 +136,24 @@ static func build(host: Control) -> Control:
 		legend.add_child(HSeparator.new())
 	return scroll
 
+static func operator_counts(raw: Dictionary) -> Dictionary:
+	var result := {}
+	var labels := {"vivo":"Vivo", "claro":"Claro", "tim":"TIM", "multioperadora":"Multioperadora"}
+	for key in raw:
+		var original := str(key).strip_edges()
+		var normalized := original.to_lower().replace(" ", "").replace("-", "").replace("_", "")
+		var label := str(labels.get(normalized, original))
+		result[label] = int(result.get(label, 0)) + int(raw[key])
+	return result
+
 static func bar(caption: String, count: int, total: int, color: Color) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size.y = 34
 	row.add_theme_constant_override("separation", 16)
 	var name := text(caption, 13)
 	name.custom_minimum_size.x = 104
+	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name.tooltip_text = caption
 	row.add_child(name)
 	var track := ProgressBar.new()
 	track.size_flags_horizontal = Control.SIZE_EXPAND_FILL
