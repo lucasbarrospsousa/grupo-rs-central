@@ -3217,6 +3217,7 @@ func _refresh_open_branch_from_remote(local_database_sync: Node, branch_id: Stri
 		"dashboard":
 			_show_dashboard()
 func _build_ui() -> void:
+	preload("res://src/ui/button_motion.gd").install(self)
 	var background := ColorRect.new()
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.color = AppDesignSystem.BACKGROUND
