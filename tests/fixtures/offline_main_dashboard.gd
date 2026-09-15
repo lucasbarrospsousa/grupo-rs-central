@@ -1,15 +1,14 @@
 ## Shell principal determinístico: constrói Estoque/Sair sem qualquer integração.
-extends "res://src/features/big_map/big_map_tracking_layout.gd"
-
-const Integration := preload("res://src/features/location/vehicle_location_integration.gd")
+extends "res://src/inventory_dashboard.gd"
 
 var offline_external_calls := 0
 
 
 func _ready() -> void:
-	vehicle_location_integration = Integration.new()
-	selected_branch_id = "imperatriz"
-	selected_branch_name = "Imperatriz"
+	if selected_branch_id == "":
+		selected_branch_id = "imperatriz"
+	if selected_branch_name == "":
+		selected_branch_name = "Imperatriz"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var app_theme := Theme.new()
 	app_theme.default_font = UI_FONT
@@ -32,10 +31,14 @@ func _local_database_sync() -> Node:
 
 
 func _inventory_summary_stats() -> Dictionary:
+	if store != null:
+		return super._inventory_summary_stats()
 	return {"total": 0, "estoque": 0, "reserva": 0, "instalado": 0, "manutencao": 0, "inativo": 0}
 
 
 func _filtered_products() -> Array[Dictionary]:
+	if store != null:
+		return super._filtered_products()
 	return []
 
 
@@ -45,6 +48,11 @@ func _sync_inventory_visible_scope(_products: Array[Dictionary]) -> void:
 
 func _schedule_sga_status_for_products(_products: Array[Dictionary]) -> void:
 	offline_external_calls += 1
+
+
+func _schedule_visible_arya_status_batch(_products: Array[Dictionary], _start_index: int, _end_index: int, _total_count: int) -> void:
+	# Connectivity is a separate retained feature, excluded from lookup tests.
+	pass
 
 
 func schedule_visible_inventory_device_cycle(_products: Array[Dictionary], _start_index: int, _end_index: int, _total_count: int) -> void:

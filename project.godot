@@ -11,17 +11,14 @@ config_version=5
 [application]
 
 config/name="GRUPO RS CENTRAL"
-config/version="4.2.1"
+config/version="4.2.2"
 run/main_scene="res://scenes/estoque_profissional.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+run/low_processor_mode=true
+run/low_processor_mode_sleep_usec=16000
 boot_splash/bg_color=Color(0.027451, 0.227451, 0.458824, 1)
 boot_splash/show_image=false
 config/icon="res://assets/branding/app_icon.png"
-
-[application/run]
-
-low_processor_mode=true
-low_processor_mode_sleep_usec=16000
 
 [autoload]
 

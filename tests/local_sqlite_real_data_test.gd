@@ -1,13 +1,18 @@
 extends SceneTree
 
 const StoreScript := preload("res://src/inventory_store.gd")
+const TEST_DB := "user://local_sqlite_real_data_test.sqlite"
 var failures: Array[String] = []
 
 func _init() -> void: call_deferred("_run")
 
 func _run() -> void:
+	var test_path := ProjectSettings.globalize_path(TEST_DB)
+	for suffix in ["", "-wal", "-shm", ".pending.json"]:
+		if FileAccess.file_exists(test_path + suffix):
+			DirAccess.remove_absolute(test_path + suffix)
 	var store: InventoryStore = StoreScript.new()
-	store.configure("", "", "imperatriz", false)
+	store.configure_isolated_sqlite_for_testing(test_path, "imperatriz_test")
 	store.load_db()
 	var fixtures: Array[Dictionary] = [
 		{"sku":"TESTE-SQLITE-001","imei":"869990000000001","chip_number":"8955000000000000001","plate":"TST-0001","name":"Rastreador teste 1","category":"Rastreador","status":"Estoque","tracker_status":"Estoque","stock":1,"quantity":1,"operator":"lucasabm"},

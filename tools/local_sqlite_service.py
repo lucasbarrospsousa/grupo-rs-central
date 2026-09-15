@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,applied
 """
 def now(): return datetime.now(timezone.utc).isoformat(timespec="seconds")
 def connect(path):
+
+    # Fail before connect can silently recreate an empty operational database.
+    operational = Path('C:/GRUPO RS CENTRAL/database/grupo_rs_central.sqlite')
+    if Path(path).resolve() == operational.resolve() and not Path(path).is_file():
+        raise RuntimeError('Banco operacional ausente; recriacao automatica bloqueada. Recuperacao explicita necessaria.')
     path.parent.mkdir(parents=True,exist_ok=True); con=sqlite3.connect(path,timeout=30); con.row_factory=sqlite3.Row; con.executescript(SCHEMA)
     con.execute("INSERT OR IGNORE INTO schema_migrations VALUES(?,?,?)",(VERSION,now(),"initial offline schema")); con.commit(); return con
 def pick(row,*keys):

@@ -22,7 +22,6 @@ const ALLOWED_ACTIONS := [
 	"open_maintenance",
 	"open_logs",
 	"open_settings",
-	"open_monitor_4g",
 ]
 
 var settings: AISettings

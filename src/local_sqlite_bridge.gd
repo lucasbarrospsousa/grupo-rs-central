@@ -6,6 +6,14 @@ var last_error := ""
 
 func execute(operation: String, database_path: String, request: Dictionary = {}) -> Dictionary:
 	last_error = ""
+	var resolved_path := ProjectSettings.globalize_path(database_path).replace("\\", "/").simplify_path().to_lower()
+	var operational := "c:/grupo rs central/database/grupo_rs_central.sqlite"
+	if resolved_path == operational:
+		# Script runners include test fixtures and probes. Even a load can create
+		# schema, so reject before launching the service or touching any file.
+		for argument in OS.get_cmdline_args():
+			if argument == "--script" or argument == "-s" or argument.begins_with("--script="):
+				return _failure("Acesso ao banco operacional bloqueado para scripts de teste. Use um banco SQLite isolado.")
 	var python := _find_python()
 	if python == "": return _failure("Runtime Python com SQLite nao encontrado.")
 	var token := "%s_%s" % [Time.get_ticks_msec(), randi()]

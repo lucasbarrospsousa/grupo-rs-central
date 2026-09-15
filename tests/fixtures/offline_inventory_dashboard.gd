@@ -7,6 +7,10 @@ var offline_in_flight := 0
 var offline_max_in_flight := 0
 var offline_stop_after_batch := false
 
+func _ready() -> void:
+	# Unit fixtures must not start the production branch selector/intro.
+	pass
+
 func _grupo_rs_supports_modern_api() -> bool:
 	return true
 
