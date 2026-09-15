@@ -36,3 +36,15 @@ em janelas informativas; não reproduzem toda a lógica de negócio.
 O gráfico inicial mostra operadoras e o menu usa SVGs uniformes.
 Teste desta revisão: `node tools/design-preview/validate-refinements.cjs`.
 O validador original documenta a proposta 01, não o contrato atual de SMS.
+
+## Cadastro, reentrada e relatório
+
+Revisados `_build_form_view`, `_request_save_as_stock_form` e
+`_build_inventory_report_builder` no código atual antes de criar as telas.
+Novo equipamento e Editar abrem formulários completos de demonstração,
+com identificação, APN, chip, telefone, operadora, placa, tipo local e status.
+Reentrada mantém identidade do registro selecionado. Resumo atualiza durante
+a edição; salvar/consultar não acessam integrações nem persistem dados.
+Relatório herda busca, status, filial e período, permite selecionar suas quatro
+seções, formato PDF/XLSX e zoom entre 80% e 120%. Geração é simulada.
+Validação adicional: `node tools/design-preview/validate-forms.cjs`.
