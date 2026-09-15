@@ -7,7 +7,7 @@ func _init() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
-	_check(str(ProjectSettings.get_setting("application/config/version")) == "4.2.2", "Wrong package version")
+	_check(str(ProjectSettings.get_setting("application/config/version")) == "4.3.0", "Wrong package version")
 	var script := load("res://src/inventory_dashboard.gd") as Script
 	_check(script != null, "Dashboard script missing")
 	if script != null:
@@ -22,7 +22,7 @@ func _run() -> void:
 	if not OS.has_feature("editor") or "--audit-package" in OS.get_cmdline_user_args():
 		_audit_directory("res://")
 	if failures.is_empty():
-		print("PACKAGE_CONTRACT_TEST: OK | 4.2.2 | retired entry points absent; stock and individual location preserved")
+		print("PACKAGE_CONTRACT_TEST: OK | 4.3.0 | retired entry points absent; stock and individual location preserved")
 		quit(0)
 	else:
 		for failure in failures: push_error(failure)

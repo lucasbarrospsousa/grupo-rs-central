@@ -1,17 +1,17 @@
 extends RefCounted
 
-const BACKGROUND := Color("#F3F7FB")
+const BACKGROUND := Color("#F3F6FA")
 const SURFACE := Color("#FFFFFF")
 const BORDER := Color("#DCE6EF")
-const TEXT := Color("#182536")
-const MUTED := Color("#64748B")
-const NAVY := Color("#123552")
-const BLUE := Color("#087ABC")
+const TEXT := Color("#163655")
+const MUTED := Color("#60758C")
+const NAVY := Color("#112F4E")
+const BLUE := Color("#1674D4")
 const BLUE_SOFT := Color("#EAF5FD")
 const GREEN := Color("#12A86B")
-const ORANGE := Color("#F59A23")
-const SIDEBAR_WIDTH := 224.0
-const TOPBAR_HEIGHT := 92.0
+const ORANGE := Color("#FF851B")
+const SIDEBAR_WIDTH := 258.0
+const TOPBAR_HEIGHT := 88.0
 
 
 static func surface(

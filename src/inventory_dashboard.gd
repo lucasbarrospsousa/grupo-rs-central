@@ -31,6 +31,7 @@ const AnatelCoverageScript := preload("res://src/anatel_coverage.gd")
 const GuardianScript := preload("res://src/system_guardian.gd")
 const LocalDataServiceScript := preload("res://src/local_data_service.gd")
 const AppDesignSystem := preload("res://src/ui/app_design_system.gd")
+const ApprovedVisuals := preload("res://src/ui/approved_visuals.gd")
 const SecretVaultScript := preload("res://src/security/secret_vault.gd")
 const LunaChatScript := preload("res://ai/luna_chat.gd")
 const LunaSettingsPanelScript := preload("res://ai/luna_settings_panel.gd")
@@ -3271,13 +3272,13 @@ func _build_ui() -> void:
 func _build_sidebar() -> Control:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(AppDesignSystem.SIDEBAR_WIDTH, 0)
-	panel.add_theme_stylebox_override("panel", AppDesignSystem.surface(Color("#0a2b4a"), Color("#0a2b4a"), 0, 0, false))
+	panel.add_theme_stylebox_override("panel", AppDesignSystem.surface(Color("#112f4e"), Color("#112f4e"), 0, 0, false))
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_top", 30)
 	margin.add_theme_constant_override("margin_bottom", 18)
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
 	panel.add_child(margin)
 
 	var list := VBoxContainer.new()
@@ -3290,11 +3291,12 @@ func _build_sidebar() -> Control:
 	var divider := HSeparator.new()
 	divider.add_theme_constant_override("separation", 10)
 	divider.add_theme_color_override("separator_color", Color("#315775"))
+	divider.visible = false
 	list.add_child(divider)
 	var navigation_caption := Label.new()
-	navigation_caption.text = "NAVEGAÇÃO"
+	navigation_caption.text = "CENTRAL DE OPERAÇÕES"
 	navigation_caption.add_theme_font_override("font", UI_FONT)
-	navigation_caption.add_theme_font_size_override("font_size", 11)
+	navigation_caption.add_theme_font_size_override("font_size", 10)
 	navigation_caption.add_theme_color_override("font_color", Color("#9cb8cf"))
 	var navigation_margin := MarginContainer.new()
 	navigation_margin.add_theme_constant_override("margin_left", 12)
@@ -3309,6 +3311,7 @@ func _build_sidebar() -> Control:
 	var section_divider := HSeparator.new()
 	section_divider.add_theme_constant_override("separation", 8)
 	section_divider.add_theme_color_override("separator_color", Color("#315775"))
+	section_divider.visible = false
 	list.add_child(section_divider)
 	list.add_child(_make_sidebar_button("Configurações", "configuracoes", "settings", _show_arya_config))
 
@@ -3390,14 +3393,15 @@ func _make_sidebar_equipment_group() -> Control:
 
 func _make_sidebar_brand() -> Control:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, 82)
+	row.custom_minimum_size = Vector2(0, 76)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 
 	var logo := TextureRect.new()
 	logo.texture = LOGO_TEXTURE
-	logo.custom_minimum_size = Vector2(56, 56)
-	logo.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	logo.custom_minimum_size = Vector2(58, 58)
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	row.add_child(logo)
 
@@ -3409,15 +3413,15 @@ func _make_sidebar_brand() -> Control:
 	var title := Label.new()
 	title.text = "GRUPO RS"
 	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", 13)
 	title.add_theme_color_override("font_color", Color.WHITE)
 	stack.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "CENTRAL"
 	subtitle.add_theme_font_override("font", UI_FONT)
-	subtitle.add_theme_font_size_override("font_size", 13)
-	subtitle.add_theme_color_override("font_color", AppDesignSystem.ORANGE)
+	subtitle.add_theme_font_size_override("font_size", 24)
+	subtitle.add_theme_color_override("font_color", Color.WHITE)
 	stack.add_child(subtitle)
 	return row
 
@@ -8279,8 +8283,8 @@ func _restore_backup(path: String) -> void:
 
 
 func _show_dashboard() -> void:
-	_set_page_context("dashboard", "Dashboard inicial", "Resumo da operacao e indicadores em tempo real")
-	_set_content_margins(22, 14, 22, 14)
+	_set_page_context("dashboard", "Visão geral da operação", "Estoque, equipamentos e rotina da filial")
+	_set_content_margins(44, 38, 44, 38)
 	_set_content(_build_dashboard_view())
 
 
@@ -8317,7 +8321,7 @@ func _show_list() -> void:
 	# A sincronizacao remota usa uma copia dos dados capturados antes desta tela.
 	editing_sku = ""
 	_set_page_context("inventory", "Estoque de equipamentos", "Cadastro, disponibilidade e situação dos rastreadores")
-	_set_content_margins(22, 16, 22, 14)
+	_set_content_margins(44, 38, 44, 38)
 	_set_content(_build_list_view())
 	# Entrega primeiro a estrutura da pagina ao renderizador. As dez linhas
 	# visiveis sao preenchidas no proximo ciclo, sem congelar o clique do menu.
@@ -8340,7 +8344,7 @@ func _show_inventory_report_builder() -> void:
 	inventory_report_format = "pdf"
 	inventory_report_zoom = 1.0
 	_set_page_context("inventory", "Gerar relatório de estoque", "Cadastro, disponibilidade e situação dos rastreadores")
-	_set_content_margins(22, 16, 22, 18)
+	_set_content_margins(44, 38, 44, 38)
 	_set_content(_build_inventory_report_builder())
 
 
@@ -8364,20 +8368,32 @@ func _report_section_title(text_value: String) -> Label:
 func _build_inventory_report_builder() -> Control:
 	inventory_report_format_buttons.clear()
 	inventory_report_option_buttons.clear()
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 27)
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var headings := VBoxContainer.new()
+	headings.add_theme_constant_override("separation", 9)
+	headings.add_child(preload("res://src/ui/approved_dashboard.gd").text("GRUPO RS CENTRAL / " + selected_branch_name.to_upper(), 11, AppDesignSystem.MUTED))
+	headings.add_child(preload("res://src/ui/approved_dashboard.gd").text("Relatório de equipamentos", 36))
+	headings.add_child(preload("res://src/ui/approved_dashboard.gd").text("Escolha o conteúdo e confira o documento antes de gerar.", 14, AppDesignSystem.MUTED))
+	page.add_child(headings)
 	var root := HBoxContainer.new()
 	root.name = "InventoryReportBuilder"
 	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 16)
+	root.add_theme_constant_override("separation", 22)
+	page.add_child(root)
 
 	var config_panel := PanelContainer.new()
-	config_panel.custom_minimum_size = Vector2(455, 0)
-	config_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	config_panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#dce7f1"), 1, 12, true))
+	config_panel.custom_minimum_size = Vector2(400, 0)
+	config_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	config_panel.size_flags_stretch_ratio = 0.75
+	config_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	config_panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#dce7f1"), 1, 19, true))
 	root.add_child(config_panel)
 	var config_margin := MarginContainer.new()
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		config_margin.add_theme_constant_override(side, 22)
+		config_margin.add_theme_constant_override(side, 30)
 	config_panel.add_child(config_margin)
 	var config := VBoxContainer.new()
 	config.add_theme_constant_override("separation", 14)
@@ -8439,6 +8455,7 @@ func _build_inventory_report_builder() -> Control:
 		check.toggled.connect(func(enabled: bool):
 			check.text = "✓" if enabled else ""
 			check.add_theme_stylebox_override("normal", _style_box(BLUE if enabled else Color.WHITE, BLUE, 1, 5))
+			_rebuild_inventory_report_preview()
 		)
 		inventory_report_option_buttons[option[0]] = check
 		option_row.add_child(check)
@@ -8458,7 +8475,7 @@ func _build_inventory_report_builder() -> Control:
 	config.add_child(formats)
 	for format_key in ["pdf", "xlsx"]:
 		var title := "PDF" if format_key == "pdf" else "XLSX"
-		var button := _make_action_button(title, BLUE if format_key == "pdf" else Color.WHITE, BLUE, Color.WHITE if format_key == "pdf" else BLUE_DARK, Vector2(150, 40), Callable(self, "_select_inventory_report_format").bind(format_key))
+		var button := _make_action_button(title, BLUE if format_key == "pdf" else Color.WHITE, BLUE, Color.WHITE if format_key == "pdf" else BLUE_DARK, Vector2(150, 76), Callable(self, "_select_inventory_report_format").bind(format_key))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.icon = load("res://assets/icons/report/%s.svg" % format_key)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -8483,14 +8500,15 @@ func _build_inventory_report_builder() -> Control:
 	var cancel := _make_action_button("Cancelar", Color.WHITE, BORDER, BLUE_DARK, Vector2(130, 42), _show_list)
 	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(cancel)
-	var generate := _make_action_button("Gerar relatório", GREEN, GREEN, Color.WHITE, Vector2(180, 42), _generate_inventory_report)
+	var generate := _make_action_button("Gerar relatório", AppDesignSystem.ORANGE, AppDesignSystem.ORANGE, AppDesignSystem.TEXT, Vector2(180, 42), _generate_inventory_report)
 	generate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(generate)
 
 	var preview_panel := PanelContainer.new()
 	preview_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_panel.size_flags_stretch_ratio = 1.35
 	preview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	preview_panel.add_theme_stylebox_override("panel", _style_box(Color("#f6f9fc"), Color("#dce7f1"), 1, 12, true))
+	preview_panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, AppDesignSystem.BORDER, 1, 19, true))
 	root.add_child(preview_panel)
 	var preview_margin := MarginContainer.new()
 	preview_margin.add_theme_constant_override("margin_left", 18)
@@ -8526,7 +8544,7 @@ func _build_inventory_report_builder() -> Control:
 	inventory_report_preview_host.add_theme_constant_override("separation", 10)
 	center.add_child(inventory_report_preview_host)
 	_rebuild_inventory_report_preview()
-	return root
+	return page
 
 
 func _inventory_report_chip(text_value: String) -> Label:
@@ -8570,6 +8588,7 @@ func _change_inventory_report_zoom(delta: float) -> void:
 
 func _select_inventory_report_format(format_key: String) -> void:
 	inventory_report_format = format_key
+	_rebuild_inventory_report_preview()
 	for key in inventory_report_format_buttons:
 		var button: Button = inventory_report_format_buttons[key]
 		var active := str(key) == format_key
@@ -8586,105 +8605,12 @@ func _inventory_report_status_label() -> String:
 
 
 func _rebuild_inventory_report_preview() -> void:
-	if inventory_report_preview_host == null:
+	if not is_instance_valid(inventory_report_preview_host):
 		return
 	for child in inventory_report_preview_host.get_children():
+		inventory_report_preview_host.remove_child(child)
 		child.queue_free()
-	var paper := PanelContainer.new()
-	paper.custom_minimum_size = Vector2(690, 835)
-	paper.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#d7e2ec"), 1, 4, true))
-	inventory_report_preview_host.add_child(paper)
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 34)
-	margin.add_theme_constant_override("margin_right", 34)
-	margin.add_theme_constant_override("margin_top", 25)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	paper.add_child(margin)
-	var doc := VBoxContainer.new()
-	doc.add_theme_constant_override("separation", 9)
-	margin.add_child(doc)
-	var brand := HBoxContainer.new()
-	brand.add_theme_constant_override("separation", 12)
-	doc.add_child(brand)
-	var logo := TextureRect.new()
-	logo.texture = LOGO_TEXTURE
-	logo.custom_minimum_size = Vector2(54, 54)
-	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	brand.add_child(logo)
-	var brand_text := VBoxContainer.new()
-	brand.add_child(brand_text)
-	brand_text.add_child(_report_label("GRUPO RS CENTRAL", 18, BLUE_DARK, true))
-	brand_text.add_child(_report_label("GESTÃO INTELIGENTE DE EQUIPAMENTOS", 9, ORANGE, true))
-	doc.add_child(HSeparator.new())
-	doc.add_child(_report_label("Relatório de equipamentos em estoque", 22, TEXT, true))
-	doc.add_child(_report_label("Filial: RS %s   •   Situação: %s   •   %s" % [selected_branch_name.to_upper(), _inventory_report_status_label(), Time.get_date_string_from_system()], 10, MUTED))
-	var stats := _inventory_report_counts("operator")
-	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 8)
-	doc.add_child(cards)
-	for definition in [["TOTAL", inventory_report_products.size(), BLUE, "res://assets/icons/report/box.svg", Color("#e5f5ff")], ["VIVO", int(stats.get("Vivo", 0)), GREEN, "res://assets/icons/report/antenna.svg", Color("#e5f8ef")], ["CLARO", int(stats.get("Claro", 0)), RED, "res://assets/icons/report/antenna-red.svg", Color("#fdebed")], ["SEM CHIP", _inventory_report_missing_chip_count(), MUTED, "res://assets/icons/report/no-chip.svg", Color("#eef2f6")]]:
-		var card := PanelContainer.new()
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.custom_minimum_size = Vector2(0, 68)
-		card.add_theme_stylebox_override("panel", _style_box(Color("#f4f8fc"), Color("#dce7f1"), 1, 7))
-		var center_card := CenterContainer.new()
-		card.add_child(center_card)
-		var card_row := HBoxContainer.new()
-		card_row.add_theme_constant_override("separation", 8)
-		center_card.add_child(card_row)
-		var card_icon_box := PanelContainer.new()
-		card_icon_box.custom_minimum_size = Vector2(36, 36)
-		card_icon_box.add_theme_stylebox_override("panel", _style_box(definition[4], definition[4], 0, 18))
-		card_row.add_child(card_icon_box)
-		var card_icon_center := CenterContainer.new()
-		card_icon_box.add_child(card_icon_center)
-		var card_icon := TextureRect.new()
-		card_icon.texture = load(definition[3])
-		card_icon.custom_minimum_size = Vector2(21, 21)
-		card_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		card_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		card_icon_center.add_child(card_icon)
-		var card_stack := VBoxContainer.new()
-		card_stack.alignment = BoxContainer.ALIGNMENT_CENTER
-		card_row.add_child(card_stack)
-		var card_title := _report_label(definition[0], 9, MUTED, true)
-		card_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		card_stack.add_child(card_title)
-		var card_value := _report_label(str(definition[1]), 21, definition[2], true)
-		card_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		card_stack.add_child(card_value)
-		cards.add_child(card)
-	doc.add_child(_report_label("Distribuição por modelo", 14, TEXT, true))
-	var model_counts := _inventory_report_counts("model")
-	var max_model := 1
-	for value in model_counts.values(): max_model = maxi(max_model, int(value))
-	var displayed := 0
-	for model in model_counts:
-		if displayed >= 4: break
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		var name := _report_label(str(model), 10, MUTED)
-		name.custom_minimum_size = Vector2(130, 20)
-		row.add_child(name)
-		var bar := ColorRect.new()
-		bar.color = BLUE
-		bar.custom_minimum_size = Vector2(320.0 * float(model_counts[model]) / float(max_model), 9)
-		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(bar)
-		row.add_child(_report_label(str(model_counts[model]), 10, TEXT, true))
-		doc.add_child(row)
-		displayed += 1
-	doc.add_child(_report_label("Lista de equipamentos", 14, TEXT, true))
-	var header := _inventory_report_preview_row(["SÉRIE", "IDENTIFICAÇÃO", "MODELO", "OPERADORA", "SITUAÇÃO"], true)
-	doc.add_child(header)
-	for index in range(mini(inventory_report_products.size(), 9)):
-		var product: Dictionary = inventory_report_products[index]
-		doc.add_child(_inventory_report_preview_row([str(product.get("sku", product.get("imei", "-"))), str(product.get("plate", product.get("placa", "Sem placa"))), str(product.get("model", product.get("category", "Não informado"))), str(product.get("operator", "Não informada")), _regional_status_label(product) if _is_regional_branch() else str(product.get("tracker_status", product.get("status", "Não informado")))], false, index % 2 == 1))
-	var footer := _report_label("Grupo RS Central • Relatório gerado pelo sistema                                      Página 1", 9, MUTED)
-	footer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	footer.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	doc.add_child(footer)
+	inventory_report_preview_host.add_child(preload("res://src/ui/approved_report_document.gd").build(self))
 
 
 func _inventory_report_preview_row(values: Array, header: bool, alternate: bool = false) -> Control:
@@ -9253,7 +9179,7 @@ func _show_arya_config() -> void:
 	if config_selected_section in ["luna", "codex"]:
 		config_selected_section = "connections"
 	_set_page_context("settings", "Configuracoes", "Integracoes, seguranca, atualizacoes e armazenamento")
-	_set_content_margins(28, 18, 28, 18)
+	_set_content_margins(44, 38, 44, 38)
 	_set_content(_build_arya_config_view(), true)
 
 
@@ -9274,6 +9200,7 @@ func _set_content(control: Control, allow_offline: bool = false) -> void:
 		online_unavailable_visible = true
 	else:
 		online_unavailable_visible = false
+	ApprovedVisuals.apply(control)
 	_replace_content_area(control, navigation_id)
 
 
@@ -9460,12 +9387,14 @@ func _toggle_sidebar_collapsed() -> void:
 func _animate_content_in(control: Control) -> void:
 	if not is_instance_valid(control):
 		return
+	if OS.get_environment("GRUPO_RS_REDUCED_MOTION") == "1":
+		return
 	control.modulate.a = 0.0
-	control.position.y = 8.0
+	# Containers own child positions. Never tween a layout-managed node to y=0:
+	# doing so silently erases the page's top padding after every navigation.
 	var tween := control.create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(control, "modulate:a", 1.0, MOTION_BASE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(control, "position:y", 0.0, MOTION_SLOW).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _animate_children_cascade(parent: Control, step_delay: float, base_delay: float = 0.0) -> void:
@@ -9485,113 +9414,9 @@ func _animate_children_cascade(parent: Control, step_delay: float, base_delay: f
 
 
 func _build_dashboard_view() -> Control:
-	var stock_module := _app_module("stock")
-	var stats: Dictionary = stock_module.call("get_summary", store) if stock_module != null else store.get_tracker_stats()
-	var diagnostics: Array = stock_module.call("get_diagnostics", store) if stock_module != null else store.get_diagnostics()
-	var trends := _capture_dashboard_trends(stats)
+	return preload("res://src/ui/approved_dashboard.gd").build(self)
 
-	var scroll := ScrollContainer.new()
-	scroll.name = "DashboardScroll"
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var root := VBoxContainer.new()
-	root.name = "DashboardCompactView"
-	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.custom_minimum_size = Vector2(0, 730)
-	root.add_theme_constant_override("separation", 14)
-	scroll.add_child(root)
 
-	var welcome := PanelContainer.new()
-	welcome.custom_minimum_size = Vector2(0, 82)
-	welcome.add_theme_stylebox_override("panel", AppDesignSystem.surface(Color("#FBFDFE"), Color("#E0E8F0"), 1, 7))
-	root.add_child(welcome)
-
-	var welcome_margin := MarginContainer.new()
-	welcome_margin.add_theme_constant_override("margin_left", 18)
-	welcome_margin.add_theme_constant_override("margin_right", 18)
-	welcome_margin.add_theme_constant_override("margin_top", 12)
-	welcome_margin.add_theme_constant_override("margin_bottom", 12)
-	welcome.add_child(welcome_margin)
-
-	var welcome_row := HBoxContainer.new()
-	welcome_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	welcome_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	welcome_row.add_theme_constant_override("separation", 12)
-	welcome_margin.add_child(welcome_row)
-
-	var welcome_icon_panel := PanelContainer.new()
-	welcome_icon_panel.custom_minimum_size = Vector2(52, 52)
-	welcome_icon_panel.add_theme_stylebox_override(
-		"panel",
-		AppDesignSystem.surface(Color("#edf5ff"), Color("#d8e9fb"), 1, 26)
-	)
-	var welcome_icon_center := CenterContainer.new()
-	welcome_icon_panel.add_child(welcome_icon_center)
-	var welcome_icon := _make_sidebar_icon("assistente", BLUE_DARK)
-	welcome_icon.custom_minimum_size = Vector2(28, 28)
-	welcome_icon_center.add_child(welcome_icon)
-	welcome_row.add_child(welcome_icon_panel)
-
-	var welcome_stack := VBoxContainer.new()
-	welcome_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	welcome_stack.add_theme_constant_override("separation", 1)
-	welcome_row.add_child(welcome_stack)
-	var greeting := Label.new()
-	greeting.text = "%s, %s!" % [_dashboard_day_greeting(), str(_load_auth_config().get("user", DEFAULT_AUTH_USER))]
-	greeting.add_theme_font_override("font", UI_FONT)
-	greeting.add_theme_font_size_override("font_size", 20)
-	greeting.add_theme_color_override("font_color", AppDesignSystem.TEXT)
-	welcome_stack.add_child(greeting)
-	var welcome_hint := Label.new()
-	welcome_hint.text = "Aqui esta o resumo da operacao de hoje."
-	welcome_hint.add_theme_font_override("font", UI_FONT)
-	welcome_hint.add_theme_font_size_override("font_size", 13)
-	welcome_hint.add_theme_color_override("font_color", AppDesignSystem.MUTED)
-	welcome_stack.add_child(welcome_hint)
-	var welcome_actions := HBoxContainer.new()
-	welcome_actions.alignment = BoxContainer.ALIGNMENT_END
-	welcome_actions.add_theme_constant_override("separation", 8)
-	var refresh_button := _make_action_button("Atualizar", Color.WHITE, Color("#D8E4EF"), AppDesignSystem.TEXT, Vector2(95, 42), _refresh_dashboard_data)
-	refresh_button.icon = load(ICON_DIR + "atualizar.svg")
-	refresh_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	welcome_actions.add_child(refresh_button)
-	var branch_button := _make_action_button("Trocar filial", AppDesignSystem.BLUE, AppDesignSystem.BLUE, Color.WHITE, Vector2(152, 42), _show_branch_selector)
-	branch_button.icon = load(ICON_DIR + "atualizar.svg")
-	branch_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	welcome_actions.add_child(branch_button)
-	welcome_row.add_child(welcome_actions)
-
-	var metrics := HBoxContainer.new()
-	metrics.name = "DashboardMetricCards"
-	metrics.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	metrics.custom_minimum_size = Vector2(0, 176)
-	metrics.add_theme_constant_override("separation", 12)
-	root.add_child(metrics)
-	var featured := _make_stat_card("Equipamentos", str(stats.get("total", 0)), "Total de equipamentos", BLUE, trends.get("Equipamentos", {}), Callable(self, "_show_list_with_status").bind("all"))
-	featured.custom_minimum_size = Vector2(264, 176)
-	featured.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	metrics.add_child(featured)
-	metrics.add_child(_make_stat_card("Em estoque", str(stats.get("available", 0)), "Disponíveis para uso", GREEN, trends.get("Em estoque", {}), Callable(self, "_show_list_with_status").bind("estoque")))
-	metrics.add_child(_make_stat_card("Instalados", str(stats.get("installed", 0)), "Aparelhos instalados", BLUE, trends.get("Instalados", {}), Callable(self, "_show_list_with_status").bind("instalado")))
-	if _is_regional_branch():
-		metrics.add_child(_make_stat_card("Inativos", str(stats.get("inactive", 0)), "Fora da operação", RED, trends.get("Inativos", {}), Callable(self, "_show_list_with_status").bind("inativo")))
-	else:
-		metrics.add_child(_make_stat_card("Em reserva", str(stats.get("reserved", 0)), "Aparelhos em reserva", YELLOW, trends.get("Em reserva", trends.get("Reserva", {})), Callable(self, "_show_list_with_status").bind("reserva")))
-		metrics.add_child(_make_stat_card("Em manutenção", str(stats.get("maintenance", 0)), "Encaminhados para revisão", ORANGE, trends.get("Em manutenção", trends.get("Manutencoes", {})), Callable(self, "_show_list_with_status").bind("manutencao")))
-		metrics.add_child(_make_stat_card("Inativos", str(stats.get("inactive", 0)), "Fora da operação", RED, trends.get("Inativos", {}), Callable(self, "_show_list_with_status").bind("inativo")))
-
-	var charts := HBoxContainer.new()
-	charts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var chart_height := 346.0 if get_viewport_rect().size.y >= 930.0 else 300.0
-	charts.custom_minimum_size = Vector2(0, chart_height)
-	charts.add_theme_constant_override("separation", 12)
-	root.add_child(charts)
-
-	charts.add_child(_build_operator_panel(stats))
-	charts.add_child(_build_situation_panel(stats))
-	return scroll
 
 
 func _dashboard_day_greeting() -> String:
@@ -9747,7 +9572,7 @@ func _build_list_view() -> Control:
 	var root := VBoxContainer.new()
 	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 12)
+	root.add_theme_constant_override("separation", 27)
 
 	var title_row := HBoxContainer.new()
 	title_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -9756,11 +9581,17 @@ func _build_list_view() -> Control:
 	root.add_child(title_row)
 
 	var title := Label.new()
-	title.text = "Equipamentos"
+	title.text = "Estoque de equipamentos"
 	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 27)
+	title.add_theme_font_size_override("font_size", 32)
 	title.add_theme_color_override("font_color", TEXT)
-	title_row.add_child(title)
+	var heading_text := VBoxContainer.new()
+	heading_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading_text.add_theme_constant_override("separation", 9)
+	heading_text.add_child(preload("res://src/ui/approved_dashboard.gd").text("GRUPO RS CENTRAL / " + selected_branch_name.to_upper(), 11, AppDesignSystem.MUTED))
+	heading_text.add_child(title)
+	heading_text.add_child(preload("res://src/ui/approved_dashboard.gd").text("Consulta e ações conforme a filial selecionada.", 14, AppDesignSystem.MUTED))
+	title_row.add_child(heading_text)
 
 	var count_pill := Label.new()
 	count_pill.text = "%s equipamentos" % _format_inventory_count(int(summary_stats.get("total", 0)))
@@ -9776,7 +9607,7 @@ func _build_list_view() -> Control:
 	count_margin.add_theme_constant_override("margin_top", 1)
 	count_margin.add_theme_constant_override("margin_bottom", 1)
 	count_margin.add_child(count_pill)
-	title_row.add_child(count_margin)
+
 
 	inventory_communication_status_label = Label.new()
 	inventory_communication_status_label.text = "Comunicação: aguardando API oficial"
@@ -9786,27 +9617,34 @@ func _build_list_view() -> Control:
 	inventory_communication_status_label.add_theme_font_size_override("font_size", 12)
 	inventory_communication_status_label.add_theme_color_override("font_color", Color("#53677f"))
 	inventory_communication_status_label.tooltip_text = "Prioridade: comunicação vencida = amarelo; GPS anormal com servidor atualizado = roxo; desligado atualizado = vermelho; ligado atualizado = verde."
-	title_row.add_child(inventory_communication_status_label)
 
 	var controls_panel := PanelContainer.new()
 	controls_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	controls_panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#e4edf7"), 1, 10, true))
+	controls_panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, AppDesignSystem.BORDER, 1, 19, true))
+	controls_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(controls_panel)
 
 	var controls_margin := MarginContainer.new()
-	controls_margin.add_theme_constant_override("margin_left", 16)
-	controls_margin.add_theme_constant_override("margin_right", 16)
-	controls_margin.add_theme_constant_override("margin_top", 14)
-	controls_margin.add_theme_constant_override("margin_bottom", 14)
+	controls_margin.add_theme_constant_override("margin_left", 30)
+	controls_margin.add_theme_constant_override("margin_right", 30)
+	controls_margin.add_theme_constant_override("margin_top", 30)
+	controls_margin.add_theme_constant_override("margin_bottom", 30)
 	controls_panel.add_child(controls_margin)
 
 	var controls_stack := VBoxContainer.new()
 	controls_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	controls_stack.add_theme_constant_override("separation", 12)
-	var controls_layout := HBoxContainer.new()
+	var controls_layout := VBoxContainer.new()
 	controls_layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	controls_layout.add_theme_constant_override("separation", 12)
 	controls_margin.add_child(controls_layout)
+	var card_heading := HBoxContainer.new()
+	card_heading.add_theme_constant_override("separation", 12)
+	card_heading.add_child(preload("res://src/ui/approved_dashboard.gd").text("Equipamentos · " + selected_branch_name, 19))
+	card_heading.add_child(count_margin)
+	inventory_communication_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	card_heading.add_child(inventory_communication_status_label)
+	controls_layout.add_child(card_heading)
 	controls_layout.add_child(controls_stack)
 
 	var toolbar := HBoxContainer.new()
@@ -9814,8 +9652,7 @@ func _build_list_view() -> Control:
 	toolbar.add_theme_constant_override("separation", 8)
 	controls_stack.add_child(toolbar)
 
-	if not _is_regional_branch():
-		toolbar.add_child(_make_new_equipment_button())
+
 
 	search_input = LineEdit.new()
 	search_input.placeholder_text = "Buscar por placa, série, telefone, chip ou operadora"
@@ -9857,13 +9694,14 @@ func _build_list_view() -> Control:
 	search_busy_timer.timeout.connect(_animate_search_busy)
 	search_input.add_child(search_busy_timer)
 
-	var side_actions := VBoxContainer.new()
+	var side_actions := HBoxContainer.new()
 	side_actions.custom_minimum_size = Vector2(126, 0)
 	side_actions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	side_actions.add_theme_constant_override("separation", 8)
-	controls_layout.add_child(side_actions)
-	side_actions.add_child(_make_action_button("Gerar relatório", GREEN, GREEN, Color.WHITE, Vector2(142, 36), _show_inventory_report_builder))
+	title_row.add_child(side_actions)
+	side_actions.add_child(_make_action_button("Gerar relatório", Color.WHITE, BORDER, AppDesignSystem.TEXT, Vector2(142, 46), _show_inventory_report_builder))
 	if not _is_regional_branch():
+		side_actions.add_child(_make_new_equipment_button())
 		inventory_reset_button = _make_action_button(
 			"Reconectar",
 			Color("#eef3f8"),
@@ -9878,7 +9716,7 @@ func _build_list_view() -> Control:
 		side_actions.add_child(inventory_reset_button)
 
 	status_quick_filters = _build_status_quick_filters(summary_stats)
-	var filter_and_period_row := HBoxContainer.new()
+	var filter_and_period_row := VBoxContainer.new()
 	filter_and_period_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	filter_and_period_row.add_theme_constant_override("separation", 12)
 	controls_stack.add_child(filter_and_period_row)
@@ -9910,14 +9748,12 @@ func _build_list_view() -> Control:
 	var table_panel := PanelContainer.new()
 	table_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	table_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	table_panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#e4edf7"), 1, 10, true))
-	var summary_strip := _build_inventory_summary_strip(summary_stats)
-	root.add_child(summary_strip)
-	root.add_child(table_panel)
+	table_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	controls_layout.add_child(table_panel)
 
 	var table_margin := MarginContainer.new()
-	table_margin.add_theme_constant_override("margin_left", 10)
-	table_margin.add_theme_constant_override("margin_right", 10)
+	table_margin.add_theme_constant_override("margin_left", 0)
+	table_margin.add_theme_constant_override("margin_right", 0)
 	table_margin.add_theme_constant_override("margin_top", 10)
 	table_margin.add_theme_constant_override("margin_bottom", 10)
 	table_panel.add_child(table_margin)
@@ -18692,7 +18528,7 @@ func _check_label_state(key: String) -> String:
 
 func _show_bulk_registration() -> void:
 	_set_page_context("bulk", "Cadastro em massa", "Importacao assistida com validacao e previa")
-	_set_content_margins(40, 32, 40, 24)
+	_set_content_margins(44, 38, 44, 38)
 	_set_content(_build_bulk_registration_view())
 
 
@@ -18796,102 +18632,7 @@ func _build_bulk_registration_view() -> Control:
 	bulk_summary_status_label = null
 	bulk_summary_status_panel = null
 
-	var root := VBoxContainer.new()
-	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 14)
-
-	var header := HBoxContainer.new()
-	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_theme_constant_override("separation", 18)
-	root.add_child(header)
-
-	var title_stack := VBoxContainer.new()
-	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_stack.add_theme_constant_override("separation", 2)
-	header.add_child(title_stack)
-
-	var title := Label.new()
-	title.text = "Cadastro em massa"
-	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", TEXT)
-	title_stack.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.text = "Importacao assistida com validacao e previa"
-	subtitle.add_theme_font_override("font", UI_FONT)
-	subtitle.add_theme_font_size_override("font_size", 15)
-	subtitle.add_theme_color_override("font_color", MUTED)
-	title_stack.add_child(subtitle)
-
-	var header_actions := HBoxContainer.new()
-	header_actions.add_theme_constant_override("separation", 10)
-	header.add_child(header_actions)
-	header_actions.add_child(_make_bulk_operator_picker())
-	var back_button := _make_action_button("Voltar", Color("#eef3f8"), BORDER, BLUE_DARK, Vector2(108, 42), _show_list)
-	back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header_actions.add_child(back_button)
-
-	var toolbar := _build_bulk_command_toolbar()
-	root.add_child(toolbar)
-
-	var progress_panel := PanelContainer.new()
-	progress_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	progress_panel.add_theme_stylebox_override("panel", _style_box(Color("#f7f9fc"), Color("#dce6f0"), 1, 8))
-	root.add_child(progress_panel)
-
-	var progress_margin := MarginContainer.new()
-	progress_margin.add_theme_constant_override("margin_left", 16)
-	progress_margin.add_theme_constant_override("margin_right", 16)
-	progress_margin.add_theme_constant_override("margin_top", 9)
-	progress_margin.add_theme_constant_override("margin_bottom", 9)
-	progress_panel.add_child(progress_margin)
-
-	var steps := HBoxContainer.new()
-	steps.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	steps.add_theme_constant_override("separation", 12)
-	progress_margin.add_child(steps)
-	steps.add_child(_make_bulk_step("1", "Arquivo", ORANGE))
-	steps.add_child(_make_bulk_step_connector(ORANGE))
-	steps.add_child(_make_bulk_step("2", "Validacao", ORANGE))
-	steps.add_child(_make_bulk_step_connector(Color("#b7c4d1")))
-	steps.add_child(_make_bulk_step("3", "Previa", Color("#b7c4d1")))
-	steps.add_child(_make_bulk_step_connector(Color("#b7c4d1")))
-	steps.add_child(_make_bulk_step("4", "Salvar", Color("#b7c4d1")))
-
-	var workspace := HBoxContainer.new()
-	workspace.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	workspace.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	workspace.add_theme_constant_override("separation", 16)
-	root.add_child(workspace)
-
-	var input_panel := _build_bulk_input_panel()
-	var preview_panel := _build_bulk_preview_panel()
-	workspace.add_child(input_panel)
-	workspace.add_child(preview_panel)
-
-	var summary_panel := _build_bulk_analysis_summary()
-	root.add_child(summary_panel)
-
-	bulk_result_label = Label.new()
-	bulk_result_label.custom_minimum_size = Vector2(0, 56)
-	bulk_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	bulk_result_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	bulk_result_label.add_theme_font_override("font", UI_FONT)
-	bulk_result_label.add_theme_font_size_override("font_size", 16)
-	bulk_result_label.add_theme_color_override("font_color", BLUE_DARK)
-	bulk_result_label.add_theme_stylebox_override("normal", _field_box(Color("#eef6fd"), Color("#cfe0ef")))
-	bulk_result_label.text = "Cole os dados ou escolha um arquivo para analisar antes de salvar."
-	# O feedback operacional fica no resumo visual; mantemos este label apenas
-	# para mensagens internas e acessibilidade, sem ocupar espaco no layout.
-	bulk_result_label.visible = false
-
-	_render_bulk_preview([], [], [])
-	_update_bulk_analysis_summary({})
-	_animate_bulk_registration_reveal([header, toolbar, progress_panel, input_panel, preview_panel, summary_panel])
-
-	return root
+	return preload("res://src/ui/approved_bulk_view.gd").build(self)
 
 
 func _build_bulk_command_toolbar() -> Control:
@@ -18913,7 +18654,7 @@ func _build_bulk_command_toolbar() -> Control:
 
 	groups.add_child(_make_bulk_action_group("DADOS", [
 		_make_action_button("Escolher .xlsx", BLUE, BLUE, Color.WHITE, Vector2(158, 40), _open_bulk_xlsx_dialog),
-		_make_action_button("Cadastrar", GREEN, GREEN, Color.WHITE, Vector2(132, 40), _request_register_bulk_items),
+		_make_action_button("Cadastrar", ORANGE, ORANGE, BLUE_DARK, Vector2(132, 40), _request_register_bulk_items),
 		_make_action_button("Limpar", Color("#eef3f8"), BORDER, BLUE_DARK, Vector2(102, 40), _request_clear_bulk_registration),
 	]))
 	groups.add_child(_make_bulk_toolbar_separator())
@@ -19088,17 +18829,17 @@ func _run_bulk_registration_reveal(controls: Array) -> void:
 
 func _build_bulk_input_panel() -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(560, 440)
+	panel.custom_minimum_size = Vector2(480, 440)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.size_flags_stretch_ratio = 0.94
-	panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#d9e4ee"), 1, 8, true))
+	panel.size_flags_stretch_ratio = 1.15
+	panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#d9e4ee"), 1, 19, true))
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 30)
+	margin.add_theme_constant_override("margin_right", 30)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
 	panel.add_child(margin)
 
 	var stack := VBoxContainer.new()
@@ -19117,7 +18858,7 @@ func _build_bulk_input_panel() -> Control:
 	var icon_center := CenterContainer.new()
 	icon_panel.add_child(icon_center)
 	var icon := TextureRect.new()
-	icon.texture = load(ICON_DIR + "arquivo.svg")
+	icon.texture = load("res://assets/icons/approved/file.svg")
 	icon.custom_minimum_size = Vector2(27, 27)
 	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -19132,7 +18873,7 @@ func _build_bulk_input_panel() -> Control:
 	title_row.add_child(title_stack)
 
 	var title := Label.new()
-	title.text = "Dados de entrada"
+	title.text = "01 · Adicionar equipamentos"
 	title.add_theme_font_override("font", UI_FONT)
 	title.add_theme_font_size_override("font_size", 21)
 	title.add_theme_color_override("font_color", TEXT)
@@ -19195,17 +18936,17 @@ func _build_bulk_input_panel() -> Control:
 
 func _build_bulk_preview_panel() -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(680, 440)
+	panel.custom_minimum_size = Vector2(480, 440)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.size_flags_stretch_ratio = 1.06
-	panel.add_theme_stylebox_override("panel", _style_box(Color("#f8fbfe"), Color("#d9e4ee"), 1, 8, true))
+	panel.size_flags_stretch_ratio = 1.0
+	panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#d9e4ee"), 1, 19, true))
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 30)
+	margin.add_theme_constant_override("margin_right", 30)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
 	panel.add_child(margin)
 
 	var stack := VBoxContainer.new()
@@ -19225,7 +18966,7 @@ func _build_bulk_preview_panel() -> Control:
 	var preview_icon_center := CenterContainer.new()
 	preview_icon_panel.add_child(preview_icon_center)
 	var preview_icon := TextureRect.new()
-	preview_icon.texture = load(ICON_DIR + "relatorios.svg")
+	preview_icon.texture = load("res://assets/icons/approved/check.svg")
 	preview_icon.custom_minimum_size = Vector2(27, 27)
 	preview_icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	preview_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -19239,7 +18980,7 @@ func _build_bulk_preview_panel() -> Control:
 	top.add_child(title_stack)
 
 	var title := Label.new()
-	title.text = "Previa inteligente"
+	title.text = "02 · Conferir a lista"
 	title.add_theme_font_override("font", UI_FONT)
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", TEXT)
@@ -24188,78 +23929,52 @@ func _build_system_health_view() -> Control:
 
 func _build_arya_config_view() -> Control:
 	var settings := _read_json_dictionary(SETTINGS_PATH)
-
-	var root := PanelContainer.new()
-	root.name = "SettingsCompactView"
+	var ui = preload("res://src/ui/approved_dashboard.gd")
+	var root := VBoxContainer.new()
+	root.name = "ApprovedSettingsView"
 	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_theme_stylebox_override("panel", _style_box(Color.WHITE, BORDER, 1, 7, false))
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
-	root.add_child(margin)
-
+	root.add_theme_constant_override("separation", 22)
+	root.add_child(ui.text("GRUPO RS CENTRAL / " + selected_branch_name.to_upper(), 11, MUTED))
+	root.add_child(ui.text("Configurações", 36))
+	root.add_child(ui.text("Conexões, segurança e atualizações da filial, em um só lugar.", 14, MUTED))
 	var layout := HBoxContainer.new()
 	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_theme_constant_override("separation", 12)
-	margin.add_child(layout)
-
-	var nav_panel := PanelContainer.new()
-	nav_panel.custom_minimum_size = Vector2(210, 0)
-	nav_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	nav_panel.add_theme_stylebox_override("panel", _style_box(Color("#F8FAFD"), Color("#DDE7F0"), 1, 7))
-	layout.add_child(nav_panel)
-	var nav_margin := MarginContainer.new()
-	nav_margin.add_theme_constant_override("margin_left", 9)
-	nav_margin.add_theme_constant_override("margin_right", 9)
-	nav_margin.add_theme_constant_override("margin_top", 10)
-	nav_margin.add_theme_constant_override("margin_bottom", 10)
-	nav_panel.add_child(nav_margin)
-	var nav_shell := VBoxContainer.new()
-	nav_shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	nav_shell.add_theme_constant_override("separation", 8)
-	nav_margin.add_child(nav_shell)
-	var nav_scroll := ScrollContainer.new()
-	nav_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	nav_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	nav_shell.add_child(nav_scroll)
-	var nav := VBoxContainer.new()
-	nav.add_theme_constant_override("separation", 5)
-	nav_scroll.add_child(nav)
-	nav.add_child(_make_config_nav_button("Conexoes das APIs", "connections"))
-	nav.add_child(_make_config_nav_button("Atualizacoes", "updates"))
-	var safe_note := Label.new()
-	safe_note.text = "Credenciais protegidas\npelo cofre de seguranca."
-	safe_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	safe_note.add_theme_font_override("font", UI_FONT)
-	safe_note.add_theme_font_size_override("font_size", 10)
-	safe_note.add_theme_color_override("font_color", MUTED)
-	nav_shell.add_child(safe_note)
-
+	layout.add_theme_constant_override("separation", 22)
+	root.add_child(layout)
 	var content_panel := PanelContainer.new()
 	content_panel.name = "SettingsContentPanel"
 	content_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content_panel.add_theme_stylebox_override("panel", _style_box(Color("#FBFCFE"), Color("#DDE7F0"), 1, 7))
+	content_panel.size_flags_stretch_ratio = 1.55
+	content_panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, BORDER, 1, 19, true))
 	layout.add_child(content_panel)
-
-	var content_margin := MarginContainer.new()
-	content_margin.add_theme_constant_override("margin_left", 16)
-	content_margin.add_theme_constant_override("margin_right", 16)
-	content_margin.add_theme_constant_override("margin_top", 14)
-	content_margin.add_theme_constant_override("margin_bottom", 14)
-	content_panel.add_child(content_margin)
-
+	var margin := MarginContainer.new()
+	for edge in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + edge, 30)
+	content_panel.add_child(margin)
+	var scroller := ScrollContainer.new()
+	scroller.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroller.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(scroller)
 	var stack := VBoxContainer.new()
 	stack.name = "SettingsContentStack"
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_theme_constant_override("separation", 9)
-	content_margin.add_child(stack)
+	stack.add_theme_constant_override("separation", 18)
+	scroller.add_child(stack)
+	var environment: VBoxContainer = ui.panel("Ambiente da operação", "Configurações da filial selecionada")
+	environment.get_parent().size_flags_stretch_ratio = 0.85
+	environment.get_parent().size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	layout.add_child(environment.get_parent())
+	environment.add_child(ui.text("Base selecionada", 19))
+	environment.add_child(ui.text(selected_branch_name, 16))
+	environment.add_child(_make_config_nav_button("Conexões das APIs", "connections"))
+	environment.add_child(_make_config_nav_button("Atualizações", "updates"))
+	var note: Label = ui.text("Credenciais protegidas pelo cofre de segurança. A abertura desta tela não altera o estoque nem as configurações salvas.", 14, MUTED)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	environment.add_child(note)
 	if config_selected_section not in ["connections", "updates"]:
 		_build_config_detail_back(stack)
 
@@ -24448,10 +24163,11 @@ func _make_api_session_card(definition: Dictionary) -> Control:
 	icon_shell.add_child(icon_margin)
 	var icon := TextureRect.new()
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.texture = load(_api_session_icon_path(str(definition.get("id", ""))))
+	var approved_icons := {"grupo_rs": "box", "aparelhos": "signal", "arya": "chip", "linksolutions": "signal"}
+	icon.texture = load("res://assets/icons/approved/%s.svg" % approved_icons.get(str(definition.get("id", "")), "chip"))
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.modulate = Color("#0B416D")
+	icon.modulate = Color.WHITE
 	icon_margin.add_child(icon)
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -27578,7 +27294,7 @@ func _build_form_view(sku: String) -> Control:
 	var page := VBoxContainer.new()
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	page.add_theme_constant_override("separation", 18)
+	page.add_theme_constant_override("separation", 27)
 
 	var heading := VBoxContainer.new()
 	heading.add_theme_constant_override("separation", 4)
@@ -27586,7 +27302,7 @@ func _build_form_view(sku: String) -> Control:
 	var title := Label.new()
 	title.text = "Reentrada de equipamento" if form_mode == "reentry" else "Novo equipamento"
 	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_font_size_override("font_size", 36)
 	title.add_theme_color_override("font_color", TEXT)
 	heading.add_child(title)
 	var subtitle := Label.new()
@@ -27599,7 +27315,7 @@ func _build_form_view(sku: String) -> Control:
 	var columns := HBoxContainer.new()
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.add_theme_constant_override("separation", 18)
+	columns.add_theme_constant_override("separation", 22)
 	page.add_child(columns)
 
 	var left := VBoxContainer.new()
@@ -27629,7 +27345,7 @@ func _build_form_view(sku: String) -> Control:
 	identity_note.add_theme_font_size_override("font_size", 13)
 	identity_note.add_theme_color_override("font_color", MUTED)
 	identity.add_child(identity_note)
-	left.add_child(_make_modern_section_card("Identificacao do aparelho", "Consulte o IMEI antes de salvar ou alterar qualquer integracao.", identity))
+	left.add_child(_make_modern_section_card("01 · Identificação do aparelho", "Consulte o IMEI antes de salvar ou alterar qualquer integracao.", identity))
 
 	var connectivity := VBoxContainer.new()
 	connectivity.add_theme_constant_override("separation", 12)
@@ -27641,7 +27357,7 @@ func _build_form_view(sku: String) -> Control:
 		_make_input_block("chip_phone", "Telefone chip", "DDD + numero"),
 		_make_option_block("operator", "Operadora *", ["Selecione", "Claro", "Multi Operadora", "NLT", "OI", "Tim", "Vivo"])
 	]))
-	left.add_child(_make_modern_section_card("Conectividade", "Troque chip, telefone, operadora e APN sem apagar os demais dados.", connectivity))
+	left.add_child(_make_modern_section_card("02 · Conectividade", "Troque chip, telefone, operadora e APN sem apagar os demais dados.", connectivity))
 
 	var vehicle := VBoxContainer.new()
 	vehicle.add_theme_constant_override("separation", 12)
@@ -27659,7 +27375,7 @@ func _build_form_view(sku: String) -> Control:
 		_make_option_block("tracker_status", "Status", ["Estoque", "Reserva", "Instalado", "Manutencao", "Inativo"]),
 		_make_form_spacer()
 	]))
-	left.add_child(_make_modern_section_card("Novo vinculo" if form_mode == "reentry" else "Configuracao inicial", "Informe a placa para vincular ao RS300. Deixe em branco para manter somente no estoque.", vehicle))
+	left.add_child(_make_modern_section_card("03 · Novo vínculo" if form_mode == "reentry" else "03 · Configuração inicial", "Informe a placa para vincular ao RS300. Deixe em branco para manter somente no estoque.", vehicle))
 
 	# Defaults internos: permanecem disponiveis para o payload da API, mas nunca
 	# aparecem como escolhas duplicadas para o operador.
@@ -27699,6 +27415,7 @@ func _build_form_view(sku: String) -> Control:
 	var summary := _make_modern_form_summary(sku)
 	summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary.size_flags_stretch_ratio = 0.85
+	summary.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	columns.add_child(summary)
 	for field_node in form_fields.values():
 		if field_node is LineEdit:
@@ -27736,20 +27453,20 @@ func _request_save_as_stock_form() -> void:
 func _make_modern_section_card(title_text: String, subtitle_text: String, content: Control) -> Control:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", _style_box(SURFACE, BORDER, 1, 10, true))
+	panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, AppDesignSystem.BORDER, 1, 19, true))
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 18)
-	margin.add_theme_constant_override("margin_right", 18)
-	margin.add_theme_constant_override("margin_top", 15)
-	margin.add_theme_constant_override("margin_bottom", 15)
+	margin.add_theme_constant_override("margin_left", 30)
+	margin.add_theme_constant_override("margin_right", 30)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_bottom", 30)
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 5)
+	stack.add_theme_constant_override("separation", 14)
 	margin.add_child(stack)
 	var title := Label.new()
 	title.text = title_text
 	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 19)
 	title.add_theme_color_override("font_color", TEXT)
 	stack.add_child(title)
 	var subtitle := Label.new()
@@ -27764,81 +27481,7 @@ func _make_modern_section_card(title_text: String, subtitle_text: String, conten
 
 
 func _make_modern_form_summary(sku: String) -> Control:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(330, 0)
-	panel.add_theme_stylebox_override("panel", _style_box(Color("#0e3d67"), Color("#0e3d67"), 0, 12, true))
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 22)
-	margin.add_theme_constant_override("margin_right", 22)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	panel.add_child(margin)
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 10)
-	margin.add_child(stack)
-	var title := Label.new()
-	title.text = "Resumo da reentrada" if form_mode == "reentry" else "Resumo do novo cadastro"
-	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 21)
-	title.add_theme_color_override("font_color", Color.WHITE)
-	stack.add_child(title)
-	var line := HSeparator.new()
-	line.modulate = Color(1, 1, 1, 0.3)
-	stack.add_child(line)
-	form_summary_status_label = Label.new()
-	form_summary_status_label.text = "Aguardando dados" if sku == "" else "Dados locais carregados"
-	form_summary_status_label.add_theme_font_override("font", UI_FONT)
-	form_summary_status_label.add_theme_font_size_override("font_size", 15)
-	form_summary_status_label.add_theme_color_override("font_color", Color("#8ff0bf"))
-	stack.add_child(form_summary_status_label)
-	form_summary_label = Label.new()
-	form_summary_label.text = ""
-	form_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	form_summary_label.custom_minimum_size = Vector2(0, 230)
-	form_summary_label.add_theme_font_override("font", UI_FONT)
-	form_summary_label.add_theme_font_size_override("font_size", 15)
-	form_summary_label.add_theme_color_override("font_color", Color("#e8f1f8"))
-	stack.add_child(form_summary_label)
-	var hint := Label.new()
-	hint.text = "A API sera consultada para completar os dados. Ao confirmar, todos os campos serao salvos no Banco local SQL." if form_mode == "new" else "Os dados consultados e preenchidos serao salvos no Banco local SQL."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_font_override("font", UI_FONT)
-	hint.add_theme_font_size_override("font_size", 13)
-	hint.add_theme_color_override("font_color", Color("#b8cfe3"))
-	stack.add_child(hint)
-	# As acoes ficam no painel azul de resumo: o operador ve o resultado e
-	# decide o destino no mesmo lugar, sem precisar rolar ate o fim do formulario.
-	var actions_separator := HSeparator.new()
-	actions_separator.modulate = Color(1, 1, 1, 0.3)
-	stack.add_child(actions_separator)
-	var actions_title := Label.new()
-	actions_title.text = "Acoes do cadastro"
-	actions_title.add_theme_font_override("font", UI_FONT)
-	actions_title.add_theme_font_size_override("font_size", 14)
-	actions_title.add_theme_color_override("font_color", Color("#b8cfe3"))
-	stack.add_child(actions_title)
-	var actions := VBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	stack.add_child(actions)
-	var local_button := _make_action_button(
-		"Salvar",
-		BLUE,
-		BLUE,
-		Color.WHITE,
-		Vector2(0, 44),
-		_request_save_form
-	)
-	local_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions.add_child(local_button)
-	if form_mode != "new":
-		form_grupo_rs_reassign_button = _make_action_button("Modificar", ORANGE, ORANGE, Color.WHITE, Vector2(0, 44), _request_modify_grupo_rs_equipment)
-		form_grupo_rs_reassign_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		form_grupo_rs_reassign_button.tooltip_text = "Confirme os dados antes de salvar no Banco local SQL."
-		actions.add_child(form_grupo_rs_reassign_button)
-	var cancel_button := _make_action_button("Voltar", SOFT_BG, BORDER, BLUE_DARK, Vector2(0, 42), _show_list)
-	cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions.add_child(cancel_button)
-	return panel
+	return preload("res://src/ui/approved_equipment_summary.gd").build(self, sku)
 
 
 func _update_form_vehicle_fields_state() -> void:
@@ -27874,171 +27517,9 @@ func _update_form_summary() -> void:
 		form_summary_label.text += "\nRegistro Banco local SQL: %s" % ("existente" if not local_record.is_empty() else "novo")
 	if form_summary_status_label != null and is_instance_valid(form_summary_status_label):
 		form_summary_status_label.text = "Pronto para revisar" if serial != "" else "Aguardando IMEI"
+	preload("res://src/ui/approved_equipment_summary.gd").update_values(self)
 
 
-func _build_legacy_form_view(sku: String) -> Control:
-	form_fields.clear()
-	form_options.clear()
-	form_grupo_rs_data.clear()
-	form_lookup_status_label = null
-
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(1090, 0)
-	panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, Color("#dbe6f1"), 1, 10, true))
-	center.add_child(panel)
-
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 0)
-	panel.add_child(stack)
-
-	var header := PanelContainer.new()
-	header.custom_minimum_size = Vector2(0, 78)
-	var header_style := _style_box(Color("#ffb703"), Color("#ffb703"), 0, 10)
-	header_style.corner_radius_bottom_left = 0
-	header_style.corner_radius_bottom_right = 0
-	header.add_theme_stylebox_override("panel", header_style)
-	stack.add_child(header)
-
-	var header_margin := MarginContainer.new()
-	header_margin.add_theme_constant_override("margin_left", 24)
-	header_margin.add_theme_constant_override("margin_right", 24)
-	header_margin.add_theme_constant_override("margin_top", 10)
-	header_margin.add_theme_constant_override("margin_bottom", 10)
-	header.add_child(header_margin)
-
-	var header_row := HBoxContainer.new()
-	header_row.add_theme_constant_override("separation", 12)
-	header_margin.add_child(header_row)
-
-	var icon_box := PanelContainer.new()
-	icon_box.custom_minimum_size = Vector2(54, 54)
-	icon_box.add_theme_stylebox_override("panel", _style_box(Color(1, 1, 1, 0.35), Color(1, 1, 1, 0.45), 1, 13))
-	header_row.add_child(icon_box)
-
-	var icon_center := CenterContainer.new()
-	icon_box.add_child(icon_center)
-
-	var icon := TextureRect.new()
-	icon.texture = load(ICON_DIR + "form_equipamento.svg")
-	icon.custom_minimum_size = Vector2(38, 38)
-	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon_center.add_child(icon)
-
-	var title_stack := VBoxContainer.new()
-	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_stack.add_theme_constant_override("separation", 0)
-	header_row.add_child(title_stack)
-
-	var title := Label.new()
-	title.text = "Editar equipamento" if sku != "" else "Novo equipamento"
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", TEXT)
-	title_stack.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.text = "Atualize os dados do rastreador" if sku != "" else "Cadastre um rastreador no estoque"
-	subtitle.add_theme_font_override("font", UI_FONT)
-	subtitle.add_theme_font_size_override("font_size", 15)
-	subtitle.add_theme_color_override("font_color", Color("#4d3a08"))
-	title_stack.add_child(subtitle)
-
-	var body_panel := PanelContainer.new()
-	var body_style := _style_box(Color("#53595d"), Color("#53595d"), 0, 10)
-	body_style.corner_radius_top_left = 0
-	body_style.corner_radius_top_right = 0
-	body_panel.add_theme_stylebox_override("panel", body_style)
-	stack.add_child(body_panel)
-
-	var body := MarginContainer.new()
-	body.add_theme_constant_override("margin_left", 24)
-	body.add_theme_constant_override("margin_right", 24)
-	body.add_theme_constant_override("margin_top", 24)
-	body.add_theme_constant_override("margin_bottom", 24)
-	body_panel.add_child(body)
-
-	var form := VBoxContainer.new()
-	form.add_theme_constant_override("separation", 18)
-	body.add_child(form)
-
-	form.add_child(_make_imei_lookup_block())
-	form.add_child(_make_form_row([
-		_make_option_block("apn_source", "APN / Origem *", ["Selecione", "hinova.br", "linksolutions.br"], Color.WHITE),
-		_make_chip_lookup_block()
-	]))
-	form.add_child(_make_form_row([
-		_make_input_block("chip_phone", "Telefone chip", "(99) 99999-9999", Color.WHITE),
-		_make_input_block("plate", "Placa", "AAA - 0A00", Color.WHITE)
-	]))
-	form.add_child(_make_form_row([
-		_make_option_block("model", "Tipo *", ["Selecione", "RS Novo", "Reutilizado", "Novo", "V7.3.5"], Color.WHITE),
-		_make_option_block("operator", "Operadora *", ["Selecione", "Claro", "Multi Operadora", "NLT", "OI", "Tim", "Vivo"], Color.WHITE)
-	]))
-	form.add_child(_make_form_row([
-		_make_option_block("tracker_status", "Status", ["Estoque", "Reserva", "Instalado", "Manutencao", "Inativo"], Color.WHITE),
-		_make_form_spacer()
-	]))
-
-	var buttons := HBoxContainer.new()
-	buttons.alignment = BoxContainer.ALIGNMENT_END
-	buttons.add_theme_constant_override("separation", 10)
-	form.add_child(buttons)
-
-	var btn_salvar := _make_action_button(
-		"Salvar",
-		ORANGE,
-		ORANGE,
-		Color.WHITE,
-		Vector2(112, 47),
-		_request_save_form
-	)
-
-	btn_salvar.icon = load(ICON_DIR + "salvar.svg")
-	btn_salvar.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-
-	buttons.add_child(btn_salvar)
-
-	form_grupo_rs_reassign_button = _make_action_button(
-		"Modificar",
-		BLUE,
-		BLUE,
-		Color.WHITE,
-		Vector2(150, 47),
-		_request_modify_grupo_rs_equipment
-	)
-	form_grupo_rs_reassign_button.icon = load(ICON_DIR + "editar.svg")
-	form_grupo_rs_reassign_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	form_grupo_rs_reassign_button.disabled = true
-	form_grupo_rs_reassign_button.tooltip_text = "Busque o equipamento no Grupo RS antes de modificar os dados remotos"
-	buttons.add_child(form_grupo_rs_reassign_button)
-
-	var btn_voltar := _make_action_button(
-		"Voltar",
-		Color("#eef3f8"),
-		BORDER,
-		BLUE_DARK,
-		Vector2(112, 47),
-		_show_list
-	)
-
-	btn_voltar.icon = load(ICON_DIR + "voltar.svg")
-	btn_voltar.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-
-	buttons.add_child(btn_voltar)
-
-	if sku != "":
-		_fill_form(store.get_product(sku))
-	else:
-		_set_option_value(form_options.get("tracker_status"), "Estoque")
-	_update_form_grupo_rs_reassign_button()
-
-	return center
 
 
 func _build_table_header() -> Control:
@@ -28837,9 +28318,11 @@ func _make_table_row(product: Dictionary) -> Control:
 	row_panel.custom_minimum_size = Vector2(0, 54)
 	var row_fill := Color("#fff8dd") if _is_exact_search_match(product) else Color("#ffffff")
 	var row_border := Color("#edc85e") if _is_exact_search_match(product) else Color("#e7edf4")
+	var row_style := _style_box(row_fill, row_border, 0, 0)
+	row_style.border_width_bottom = 1
 	row_panel.add_theme_stylebox_override(
 		"panel",
-		_style_box(row_fill, row_border, 1, 8)
+		row_style
 	)
 
 	var row_stack := VBoxContainer.new()
@@ -30611,9 +30094,14 @@ func _make_status_cell(status: String) -> Control:
 	wrap_mode.custom_minimum_size = Vector2(120, 0)
 
 	var status_color := _status_color(status)
+	match status.to_lower():
+		"estoque": status_color = Color("#197450")
+		"instalado": status_color = Color("#1a63a7")
+		"reserva": status_color = Color("#566b7f")
+		"manutencao", "manutenção": status_color = Color("#9b520e")
 	var pill := PanelContainer.new()
 	pill.custom_minimum_size = Vector2(104, 30)
-	pill.add_theme_stylebox_override("panel", _style_box(status_color, status_color.darkened(0.05), 1, 9, true))
+	pill.add_theme_stylebox_override("panel", _style_box(Color(status_color, 0.09), Color.TRANSPARENT, 0, 7))
 	wrap_mode.add_child(pill)
 
 	var margin := MarginContainer.new()
@@ -30630,6 +30118,7 @@ func _make_status_cell(status: String) -> Control:
 
 	var icon := TextureRect.new()
 	icon.texture = load(_status_icon_path(status))
+	icon.modulate = status_color
 	icon.custom_minimum_size = Vector2(15, 15)
 	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -30640,7 +30129,7 @@ func _make_status_cell(status: String) -> Control:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_override("font", UI_FONT)
 	label.add_theme_font_size_override("font_size", 14)
-	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_color", status_color)
 	row.add_child(label)
 
 	return wrap_mode
@@ -38324,16 +37813,26 @@ func _make_bar_row(label_text: String, value: int, max_value: int, color: Color)
 
 func _make_stat_card(title_text: String, value_text: String, hint_text: String, fill: Color, trend: Dictionary = {}, action: Callable = Callable()) -> Control:
 	var panel := Button.new()
-	var featured := title_text == "Equipamentos"
+	var featured := title_text in ["Equipamentos", "Instalados", "Em estoque"]
+	if title_text == "Equipamentos":
+		fill = Color("#236fba")
+	elif title_text == "Instalados":
+		fill = Color("#163e61")
+	elif title_text == "Em estoque":
+		fill = Color("#ff9228")
 	panel.custom_minimum_size = Vector2(0, 182)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.text = ""
 	panel.focus_mode = Control.FOCUS_NONE
 	var base_fill := fill if featured else AppDesignSystem.SURFACE
 	var base_border := fill if featured else AppDesignSystem.BORDER
-	panel.add_theme_stylebox_override("normal", AppDesignSystem.surface(base_fill, base_border, 1, 10, false))
-	panel.add_theme_stylebox_override("hover", AppDesignSystem.surface(fill.lightened(0.06) if featured else Color("#f8fcff"), fill if featured else Color("#a9cfee"), 1, 10, false))
-	panel.add_theme_stylebox_override("pressed", AppDesignSystem.surface(fill.darkened(0.07) if featured else Color("#eef7ff"), fill.darkened(0.05) if featured else BLUE, 1, 10, false))
+	panel.add_theme_stylebox_override("normal", AppDesignSystem.surface(base_fill, base_border, 1, 18, true))
+	panel.add_theme_stylebox_override("hover", AppDesignSystem.surface(fill.lightened(0.06) if featured else Color("#f8fcff"), fill if featured else Color("#a9cfee"), 1, 18, true))
+	panel.add_theme_stylebox_override("pressed", AppDesignSystem.surface(fill.darkened(0.07) if featured else Color("#eef7ff"), fill.darkened(0.05) if featured else BLUE, 1, 18, false))
+	if featured:
+		var backdrop := preload("res://src/ui/metric_backdrop.gd").new()
+		backdrop.base_color = fill
+		panel.add_child(backdrop)
 	if action.is_valid():
 		panel.tooltip_text = "Abrir %s" % title_text
 		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -38364,7 +37863,7 @@ func _make_stat_card(title_text: String, value_text: String, hint_text: String, 
 	icon_panel.custom_minimum_size = Vector2(52, 52)
 	icon_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon_fill := Color(1, 1, 1, 0.18) if featured else AppDesignSystem.metric_tint(fill)
-	icon_panel.add_theme_stylebox_override("panel", AppDesignSystem.surface(icon_fill, Color.TRANSPARENT, 0, 24, false))
+	icon_panel.add_theme_stylebox_override("panel", AppDesignSystem.surface(icon_fill, Color.TRANSPARENT, 0, 12, false))
 	title_row.add_child(icon_panel)
 	var icon_center := CenterContainer.new()
 	icon_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -38431,6 +37930,8 @@ func _make_stat_card(title_text: String, value_text: String, hint_text: String, 
 	trend_hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.8) if featured else MUTED)
 	trend_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	trend_row.add_child(trend_hint)
+	if title_text == "Em estoque":
+		ApprovedVisuals.metric_ink(panel, AppDesignSystem.NAVY)
 
 	return panel
 
@@ -38477,8 +37978,8 @@ func _make_chip_lookup_block() -> Control:
 
 	var label := Label.new()
 	label.text = "Numero chip / ICCID *"
-	label.add_theme_font_override("font", UI_FONT)
-	label.add_theme_font_size_override("font_size", 19)
+	label.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
+	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_color", TEXT)
 	block.add_child(label)
 
@@ -38519,8 +38020,8 @@ func _make_imei_lookup_block() -> Control:
 
 	var label := Label.new()
 	label.text = "Numero Serie (IMEI) *"
-	label.add_theme_font_override("font", UI_FONT)
-	label.add_theme_font_size_override("font_size", 19)
+	label.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
+	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_color", TEXT)
 	block.add_child(label)
 
@@ -38554,7 +38055,7 @@ func _make_imei_lookup_block() -> Control:
 	form_lookup_status_label = Label.new()
 	form_lookup_status_label.text = "Digite a serie e busque para preencher automaticamente."
 	form_lookup_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	form_lookup_status_label.add_theme_font_override("font", UI_FONT)
+	form_lookup_status_label.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
 	form_lookup_status_label.add_theme_font_size_override("font_size", 15)
 	form_lookup_status_label.add_theme_color_override("font_color", MUTED)
 	block.add_child(form_lookup_status_label)
@@ -38569,8 +38070,8 @@ func _make_input_block(key: String, label_text: String, placeholder: String, lab
 
 	var label := Label.new()
 	label.text = label_text
-	label.add_theme_font_override("font", UI_FONT)
-	label.add_theme_font_size_override("font_size", 19)
+	label.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
+	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_color", label_color)
 	block.add_child(label)
 
@@ -38594,8 +38095,8 @@ func _make_option_block(key: String, label_text: String, options: Array[String],
 
 	var label := Label.new()
 	label.text = label_text
-	label.add_theme_font_override("font", UI_FONT)
-	label.add_theme_font_size_override("font_size", 19)
+	label.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
+	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_color", label_color)
 	block.add_child(label)
 
@@ -38641,9 +38142,9 @@ func _make_table_label(text_value: String, width: int, expand: bool, color: Colo
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL if expand else Control.SIZE_SHRINK_BEGIN
 	label.horizontal_alignment = alignment
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_FONT)
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
+	label.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
+	label.add_theme_font_size_override("font_size", mini(font_size, 14))
+	label.add_theme_color_override("font_color", AppDesignSystem.TEXT if color == TEXT else color)
 	return label
 
 
@@ -38658,10 +38159,10 @@ func _make_copyable_table_cell(text_value: String, width: int, expand: bool, col
 	input.custom_minimum_size = Vector2(width, 0)
 	input.size_flags_horizontal = Control.SIZE_EXPAND_FILL if expand else Control.SIZE_SHRINK_BEGIN
 	input.alignment = alignment
-	input.add_theme_font_override("font", UI_FONT)
-	input.add_theme_font_size_override("font_size", font_size)
-	input.add_theme_color_override("font_color", color)
-	input.add_theme_color_override("font_uneditable_color", color)
+	input.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
+	input.add_theme_font_size_override("font_size", mini(font_size, 14))
+	input.add_theme_color_override("font_color", AppDesignSystem.TEXT if color == Color.BLACK else color)
+	input.add_theme_color_override("font_uneditable_color", AppDesignSystem.TEXT if color == Color.BLACK else color)
 	input.add_theme_stylebox_override("normal", _copy_cell_box(Color(1, 1, 1, 0.0), Color.TRANSPARENT))
 	input.add_theme_stylebox_override("focus", _copy_cell_box(Color.WHITE, BLUE))
 	input.add_theme_stylebox_override("read_only", _copy_cell_box(Color(1, 1, 1, 0.0), Color.TRANSPARENT))
@@ -38999,9 +38500,9 @@ func _style_inventory_date_input(input: LineEdit) -> void:
 
 
 func _style_line_edit(input: LineEdit) -> void:
-	input.add_theme_font_override("font", UI_FONT)
-	input.add_theme_font_size_override("font_size", 20)
-	input.add_theme_color_override("font_color", TEXT)
+	input.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
+	input.add_theme_font_size_override("font_size", 16)
+	input.add_theme_color_override("font_color", AppDesignSystem.TEXT)
 	input.add_theme_color_override("font_placeholder_color", Color("#59636f"))
 	input.add_theme_stylebox_override("normal", _field_box(Color.WHITE, BORDER))
 	input.add_theme_stylebox_override("focus", _field_box(Color.WHITE, BLUE))
@@ -39137,8 +38638,10 @@ func _style_box(fill: Color, border: Color, border_width: int, radius: int, shad
 	style.corner_radius_top_right = radius
 	style.corner_radius_bottom_left = radius
 	style.corner_radius_bottom_right = radius
-	# Cartões e botões não usam sombra: o contraste vem da borda e das cores.
-	# O parâmetro permanece por compatibilidade com chamadas existentes.
+	if shadow:
+		style.shadow_color = Color(0.07, 0.19, 0.31, 0.06)
+		style.shadow_size = 8
+		style.shadow_offset = Vector2(0, 4)
 	return style
 
 

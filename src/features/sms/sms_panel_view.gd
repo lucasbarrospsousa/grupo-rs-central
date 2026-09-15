@@ -33,7 +33,7 @@ static func style(bg: Color = Color.WHITE, border: Color = BORDER, radius: int =
 static func card() -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", style())
+	panel.add_theme_stylebox_override("panel", style(Color.WHITE, BORDER, 18, 20))
 	return panel
 
 static func row(gap: int = 14) -> HBoxContainer:
@@ -74,24 +74,32 @@ static func pill(caption: String, color: Color, background: Color) -> PanelConta
 
 static func metric(title: String, value: String, detail: String, symbol: String, color: Color) -> Control:
 	var panel := card()
-	panel.custom_minimum_size.y = 108
-	var line := row(16)
-	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.custom_minimum_size.y = 182
+	var filled := title != "Solicitados hoje"
+	var fill := Color("#236fba") if title == "Saldo disponível" else (Color("#163e61") if title == "Aceitos pelo serviço" else Color("#ff9228"))
+	if filled:
+		panel.add_theme_stylebox_override("panel", style(fill, fill, 19, 24))
+	var foreground := Color("#163655") if not filled or title == "Custo hoje" else Color.WHITE
+	var line := stack(6)
 	panel.add_child(line)
 	var icon := PanelContainer.new()
-	icon.custom_minimum_size = Vector2(48,48)
+	icon.custom_minimum_size = Vector2(38,38)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	icon.add_theme_stylebox_override("panel", style(color,color,24,0))
-	var glyph := text(symbol,25,Color.WHITE,true)
-	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon.add_theme_stylebox_override("panel", style(Color(1,1,1,0.18) if filled else Color("#fff1e5"),Color.TRANSPARENT,12,10))
+	var glyph := TextureRect.new()
+	glyph.texture = load("res://assets/icons/report/box.svg" if symbol == "▣" else "res://assets/icons/navigation/communications.svg")
+	glyph.custom_minimum_size = Vector2(24,24)
+	glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glyph.modulate = foreground
 	icon.add_child(glyph)
-	line.add_child(icon)
-	var labels := stack(4)
-	labels.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(labels)
-	labels.add_child(text(title,14,MUTED))
-	labels.add_child(text(value,28,color,true))
-	labels.add_child(text(detail,12,MUTED))
+	var title_row := row(12)
+	title_row.add_child(text(title,13,foreground))
+	title_row.add_child(spacer())
+	title_row.add_child(icon)
+	line.add_child(title_row)
+	line.add_child(text(value,44,foreground,true))
+	line.add_child(text(detail,12,foreground))
 	return panel
 
 static func bar(value: int, maximum: int, color: Color) -> ProgressBar:
@@ -167,27 +175,15 @@ static func build(host) -> Control:
 	var status_stack := stack(16)
 	status_card.add_child(status_stack)
 	status_stack.add_child(text("Status dos envios",17,NAVY,true))
-	var segments := row(0)
-	for index in range(4):
-		var key: String = counts.keys()[index]
-		if counts[key] > 0:
-			var segment := bar(1,1,[BLUE,Color("#79b5f5"),Color("#0eaf73"),Color("#ec5265")][index])
-			segment.size_flags_stretch_ratio = counts[key]
-			segments.add_child(segment)
-	if segments.get_child_count() == 0: segments.add_child(bar(0,1,BLUE))
-	status_stack.add_child(segments)
-	var stat_tiles := row(12)
-	status_stack.add_child(stat_tiles)
-	for index in range(4):
-		var tile := card()
-		tile.add_theme_stylebox_override("panel",style(Color.WHITE,BORDER,6,8))
-		stat_tiles.add_child(tile)
-		var labels := stack(2)
-		tile.add_child(labels)
-		labels.add_child(text("●  "+["Aceitos","Enviados","Entregues","Falhos"][index],12,[BLUE,Color("#79b5f5"),Color("#0eaf73"),Color("#ec5265")][index]))
-		var count := text(str(counts[counts.keys()[index]]),20)
-		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		labels.add_child(count)
+	for status in counts:
+		var status_row := row(16)
+		status_row.custom_minimum_size.y = 30
+		var caption := text(status, 13)
+		caption.custom_minimum_size.x = 80
+		status_row.add_child(caption)
+		status_row.add_child(bar(int(counts[status]), maxi(events.size(), 1), BLUE))
+		status_row.add_child(text(str(counts[status]), 13))
+		status_stack.add_child(status_row)
 	var origin_card := card()
 	summaries.add_child(origin_card)
 	var origin_stack := stack(18)
