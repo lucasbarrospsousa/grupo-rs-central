@@ -309,9 +309,31 @@ func _confirm_message(context: Dictionary, recipient: String, message: String, m
  for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]:review_style.set_content_margin(side,28)
  dialog.theme.set_stylebox("panel","AcceptDialog",review_style)
  dialog.borderless=true
+ dialog.transparent_bg=true
+ dialog.transparent=true
  dialog.dialog_text="Revisar mensagem\n\nAparelho: %s\nDestinatário: %s\nAPN: %s\nModo: %s\nGateway: %s\n\n%s\n\nSMS pode gerar custo e alterar a configuração do rastreador.\nValidade: 2 horas; o envio será automático quando disponível." % [context.serial,formatted,context.apn_snapshot,"Personalizado" if mode=="custom" else "Configuração padrão",context.get("gateway_url",gateway_url),message]
  dialog.ok_button_text="Confirmar e colocar na fila"
  dialog.cancel_button_text="Voltar e editar"
+ dialog.get_label().hide()
+ var review_box:=VBoxContainer.new();review_box.name="ReviewCards";review_box.add_theme_constant_override("separation",16);dialog.add_child(review_box)
+ var title:=Label.new();title.text="Revisar mensagem";title.add_theme_font_size_override("font_size",23);title.add_theme_font_override("font",host.UI_FONT);review_box.add_child(title)
+ var subtitle:=Label.new();subtitle.text="Confira o destino e o comando antes de confirmar.";subtitle.add_theme_color_override("font_color",Color("#58738e"));review_box.add_child(subtitle)
+ var summaries:=HBoxContainer.new();summaries.add_theme_constant_override("separation",16);review_box.add_child(summaries)
+ summaries.add_child(_summary_card("APARELHO • IMPERATRIZ",str(context.serial),"res://assets/icons/approved/chip.svg",Color("#176dc0"),"ReviewEquipment"))
+ summaries.add_child(_summary_card("DESTINATÁRIO",formatted,"res://assets/icons/approved/mail.svg",Color("#137d78"),"ReviewRecipient"))
+ var command_card:=PanelContainer.new();command_card.name="ReviewCommand";review_box.add_child(command_card)
+ var command_style:StyleBox=host._style_box(Color.WHITE,Color("#c5daed"),1,16,true)
+ for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP,SIDE_BOTTOM]:command_style.set_content_margin(side,18)
+ command_card.add_theme_stylebox_override("panel",command_style);CARD_MOTION.attach(command_card)
+ var command_box:=VBoxContainer.new();command_box.add_theme_constant_override("separation",10);command_card.add_child(command_box)
+ var mode_label:=Label.new();mode_label.text="COMANDO PERSONALIZADO" if mode=="custom" else "CONFIGURAÇÃO PADRÃO";mode_label.add_theme_font_size_override("font_size",12);mode_label.add_theme_color_override("font_color",Color("#176dc0"));command_box.add_child(mode_label)
+ var command_text:=Label.new();command_text.name="ReviewCommandText";command_text.text=message;command_text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;command_text.custom_minimum_size=Vector2(680,70);command_text.add_theme_font_size_override("font_size",18);command_box.add_child(command_text)
+ var connection:=Label.new();connection.text="APN: %s   •   Gateway: %s" % [context.apn_snapshot,context.get("gateway_url",gateway_url)];connection.add_theme_font_size_override("font_size",13);connection.add_theme_color_override("font_color",Color("#58738e"));command_box.add_child(connection)
+ var warning:=PanelContainer.new();warning.add_theme_stylebox_override("panel",host._style_box(Color("#fff2e4"),Color("#f5dfc5"),1,12));review_box.add_child(warning)
+ var warning_margin:=MarginContainer.new()
+ for side in ["left","right","top","bottom"]:warning_margin.add_theme_constant_override("margin_"+side,14)
+ warning.add_child(warning_margin)
+ var warning_text:=Label.new();warning_text.text="SMS pode gerar custo e alterar a configuração do rastreador.\nFila válida por 2 horas; envio automático quando o gateway estiver disponível.";warning_text.add_theme_font_size_override("font_size",14);warning_text.add_theme_color_override("font_color",Color("#88551e"));warning_margin.add_child(warning_text)
  for button in [dialog.get_ok_button(),dialog.get_cancel_button()]:
   button.custom_minimum_size.y=46
   button.add_theme_font_override("font",REGULAR)
@@ -325,10 +347,24 @@ func _confirm_message(context: Dictionary, recipient: String, message: String, m
    var button_style:StyleBox=button.get_theme_stylebox(state_name)
    button_style.set_content_margin(SIDE_TOP,12);button_style.set_content_margin(SIDE_BOTTOM,12)
    button_style.set_content_margin(SIDE_LEFT,18);button_style.set_content_margin(SIDE_RIGHT,18)
+  button.add_theme_stylebox_override("focus",host._style_box(Color.TRANSPARENT,Color("#78b4ed"),2,10))
+  CARD_MOTION.attach(button)
+ var confirm_button:=dialog.get_ok_button()
+ for color_name in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]:confirm_button.add_theme_color_override(color_name,Color.WHITE)
+ for state_name in ["normal","hover","pressed"]:
+  var confirm_style:StyleBox=host._style_box(Color("#1678d4") if state_name=="normal" else Color("#1164b5"),Color("#1678d4"),1,10)
+  for side in [SIDE_TOP,SIDE_BOTTOM]:confirm_style.set_content_margin(side,12)
+  for side in [SIDE_LEFT,SIDE_RIGHT]:confirm_style.set_content_margin(side,20)
+  confirm_button.add_theme_stylebox_override(state_name,confirm_style)
  dialog.get_label().add_theme_color_override("font_color",Color("#123555"))
  dialog.get_label().add_theme_font_override("font",REGULAR)
  card.hide()
- host.add_child(dialog);dialog.popup_centered(Vector2i(800,380))
+ host.add_child(dialog);dialog.popup_centered(Vector2i(820,580))
+ if OS.get_environment("GRUPO_RS_REDUCED_MOTION")!="1":
+  var destination:=dialog.position;dialog.position+=Vector2i(0,20);review_box.modulate.a=0.0
+  var entrance:=dialog.create_tween().set_parallel(true)
+  entrance.tween_property(dialog,"position",destination,0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+  entrance.tween_property(review_box,"modulate:a",1.0,0.22)
  dialog.canceled.connect(func():
   dialog.hide()
   dialog.queue_free()

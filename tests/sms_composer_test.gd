@@ -39,7 +39,21 @@ func run() -> void:
 	message.text="reset,123456";phone.text="+5521999999999";send.pressed.emit()
 	var review:ConfirmationDialog=shell.get_node("SMSReview")
 	assert(review.dialog_text.contains("reset,123456") and review.dialog_text.contains("Destinatário: (21) 99999-9999"))
-	await create_timer(0.2).timeout
+	assert(review.transparent and review.transparent_bg)
+	assert(review.find_child("ReviewCommandText",true,false).text=="reset,123456")
+	var review_start:=review.position
+	await create_timer(0.4).timeout
+	assert(review.position.y<review_start.y)
+	for name_value in ["ReviewEquipment","ReviewRecipient","ReviewCommand"]:
+		var animated:Control=review.find_child(name_value,true,false)
+		assert(animated.has_meta("card_hover_motion"))
+		for child in animated.get_children():
+			if child.get_script()==preload("res://src/ui/card_hover_motion.gd"):
+				child.set_process(false);child.animate(true)
+				await create_timer(0.4).timeout
+				assert(animated.scale.y>1.0)
+				child.animate(false);await create_timer(0.25).timeout
+				assert(animated.scale.is_equal_approx(Vector2.ONE))
 	assert(card.size.y<800)
 	if DisplayServer.get_name()!="headless":
 		RenderingServer.force_draw()
@@ -47,6 +61,7 @@ func run() -> void:
 	review.canceled.emit();await process_frame
 	quick.pressed.emit();review=shell.get_node("SMSReview")
 	assert(review.dialog_text.contains(context.standard_command_snapshot))
+	assert(review.find_child("ReviewCommandText",true,false).text==context.standard_command_snapshot)
 	assert(review.dialog_text.contains("Destinatário: (11) 99999-9999") and not review.dialog_text.contains("reset,123456"))
 	review.canceled.emit();await process_frame
 	message.text="reset,123456";phone.text="(11) 99999-9999"
