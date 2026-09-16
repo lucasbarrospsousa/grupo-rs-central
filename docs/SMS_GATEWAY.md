@@ -93,7 +93,7 @@ colunas de planilha separadas por tabulação ou por ponto e vírgula. A importa
 preserva ordem e zeros iniciais, formata telefone sem alterar os dígitos nacionais,
 exige grupo 1–4 e rejeita duplicados/linhas inválidas sem substituir a lista atual.
 Listas maiores ficam divididas em páginas de até dez, sem descarte do excedente:
-28 aparelhos resultam em 10/10/8. Cada página exige consulta e confirmação próprias;
+28 aparelhos resultam em 10/10/8. Cada página exige revisão e confirmação próprias;
 navegar/colar não consulta plataformas, grava cadastros ou agenda SMS. Edições
 permanecem ao navegar. A lista de preparação fica somente na janela, não é uma
 fila persistente; somente lotes explicitamente confirmados entram na fila.
@@ -101,10 +101,15 @@ Limite de importação: 1000 aparelhos e 100 mil caracteres, sem truncamento sil
 
 Em Cadastro em massa, o botão SMS em massa abre até dez linhas de série, telefone
 e grupo obrigatório (1–4). O grupo troca somente os dois servidores do comando
-para gruporsN.ddns.net; portas 5940/5941 e APN/credenciais consultadas são preservadas.
-Esta versão opera pela base Imperatriz e exige aparelho presente no estoque local;
-o grupo de configuração não muda a filial do cadastro. Cada telefone deve coincidir
-com a consulta exata online. A revisão exibe os comandos antes de Confirmar lote.
+para gruporsN.ddns.net; portas 5940/5941, APN hinova.br e usuário/senha hinova são fixos
+e exibidos na revisão. Por solicitação do usuário, novos lotes manuais usam somente
+série, telefone e grupo informados, sem exigir estoque local nem consulta online.
+Isso não confirma a titularidade ou correção do telefone: o operador deve revisá-lo.
+A operação continua pela conexão de Imperatriz; não cria nem altera cadastros.
+O sinalizador manual fica somente em batch_items, fora do pacote Android v2.
+A migração conserva lotes antigos com manual=0 e sua revalidação original.
+SMS individual mantém consulta exata e suas proteções. A fila revalida apenas os
+lotes antigos; novos lotes manuais usam o conteúdo imutável explicitamente confirmado.
 
 A fila persistente registra todas as linhas atomicamente, com prazo imutável de
 duas horas. Só transmite uma por vez; depois de confirmação sent/delivered recebida

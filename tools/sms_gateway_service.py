@@ -58,6 +58,10 @@ def connect(path):
     CREATE TABLE IF NOT EXISTS acknowledgements(job_id TEXT NOT NULL,state TEXT NOT NULL,observed_at INTEGER NOT NULL,remote_at INTEGER,PRIMARY KEY(job_id,state));
     CREATE TABLE IF NOT EXISTS batch_items(job_id TEXT PRIMARY KEY,batch_id TEXT NOT NULL,position INTEGER NOT NULL,group_no INTEGER NOT NULL);
     """)
+    with db:
+        db.execute('BEGIN IMMEDIATE')
+        if 'manual' not in {r['name'] for r in db.execute('PRAGMA table_info(batch_items)')}:
+            db.execute('ALTER TABLE batch_items ADD COLUMN manual INTEGER NOT NULL DEFAULT 0')
     return db
 
 def config_get(db, secret=False):
@@ -72,7 +76,7 @@ def row_get(db,id):
     row=db.execute("SELECT * FROM jobs WHERE id=?",(id,)).fetchone()
     if not row:return None
     value=dict(row);value["payload"]=json.loads(value["payload"])
-    batch=db.execute('SELECT batch_id,position,group_no FROM batch_items WHERE job_id=?',(id,)).fetchone()
+    batch=db.execute('SELECT batch_id,position,group_no,manual FROM batch_items WHERE job_id=?',(id,)).fetchone()
     if batch:value['batch']=dict(batch)
     value['acknowledgements']=[dict(r) for r in db.execute('SELECT state,observed_at,remote_at FROM acknowledgements WHERE job_id=? ORDER BY observed_at,state',(id,))]
     return value
@@ -145,6 +149,8 @@ def operate(db,op,p):
         request_remote(value,"GET","/health")
         value["protected_token"]=protect(value.pop("token"));db.execute("UPDATE config SET value=? WHERE id=1",(json.dumps(value),));db.commit();return {"ok":True}
     if op=='enqueue_batch':
+        manual=p.get('manual',False)
+        assert type(manual) is bool,'Origem do lote invalida'
         assert config_get(db),'Gateway nao pareado'
         assert not db.execute("SELECT 1 FROM jobs WHERE state IN ('waiting_gateway','received','sending') LIMIT 1").fetchone(),'Conclua ou cancele a fila anterior'
         rows=p.get('rows',[]);assert 1<=len(rows)<=10,'Lote permite de 1 a 10 linhas'
@@ -156,6 +162,10 @@ def operate(db,op,p):
             assert value['command_mode']=='standard','Lote somente de configuracao'
             parts=value['command'].split(';')
             assert len(parts)==12 and parts[7]==parts[9]==f'grupors{group}.ddns.net' and parts[8]=='5940' and parts[10]=='5941','Servidor do grupo divergente'
+            if manual:
+                expected=f"ST300NTW;{value['serial']};319H;0;hinova.br;hinova;hinova;grupors{group}.ddns.net;5940;grupors{group}.ddns.net;5941;#"
+                assert value['command']==expected and value['apn_snapshot']=='hinova.br','Comando manual deve usar a configuracao padrao Hinova'
+                assert value['status_snapshot']=='Informado no lote','Origem manual nao confirmada'
             assert value['serial'] not in seen and value['phone'] not in seen,'Serie ou telefone repetido'
             seen.update((value['serial'],value['phone']));values.append((value,group))
         with db:
@@ -163,7 +173,7 @@ def operate(db,op,p):
             assert not db.execute("SELECT 1 FROM jobs WHERE state IN ('waiting_gateway','received','sending') LIMIT 1").fetchone(),'Fila mudou: consulte novamente'
             for index,(value,group) in enumerate(values):
                 db.execute("INSERT INTO jobs(id,payload,state) VALUES(?,?,'waiting_gateway')",(value['id'],json.dumps(value,sort_keys=True)))
-                db.execute('INSERT INTO batch_items VALUES(?,?,?,?)',(value['id'],batch_id,index,group))
+                db.execute('INSERT INTO batch_items(job_id,batch_id,position,group_no,manual) VALUES(?,?,?,?,?)',(value['id'],batch_id,index,group,int(manual)))
         return {'ok':True,'batch_id':batch_id,'count':len(values)}
     if op=='cancel_batch':
         rows=db.execute('SELECT job_id FROM batch_items WHERE batch_id=?',(p['batch_id'],)).fetchall()

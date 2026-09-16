@@ -477,13 +477,18 @@ func _tick() -> void:
  ticking=false
 
 func _sync_one() -> void:
- if busy or not is_instance_valid(host) or str(host.selected_branch_id)!="imperatriz" or host.store==null:return
+ if busy or not is_instance_valid(host) or str(host.selected_branch_id)!="imperatriz":return
  var pending := await call_service("pending")
  var job: Variant=pending.get("job")
  if not job is Dictionary:return
  var id: String=str(job.get("id",""))
  var sync := await call_service("reconcile",{"id":id})
  if not sync.get("needs_validation",false):return
+ if str(host.selected_branch_id)!="imperatriz":return
+ # Manual batches are explicitly reviewed from the supplied list, not stock.
+ # The queue service validates their fixed command and preserves pacing/expiry.
+ if int(job.get("batch",{}).get("manual",0))==1:
+  await call_service("reconcile",{"id":id,"validated":true});return
  if str(host.selected_branch_id)!="imperatriz" or host.store==null:return
  var bound_store: Variant=host.store
  var payload: Dictionary=job.get("payload",{})

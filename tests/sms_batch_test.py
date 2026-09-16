@@ -12,6 +12,38 @@ class BatchTests(base.QueueTests):
    rows.append(dict(version=2,serial=serial,phone=phone,command=command,command_mode='standard',source_phone_snapshot=phone,standard_command_snapshot=command,apn_snapshot='hinova.br',status_snapshot='Estoque',group=group))
   return rows
  def jobs(self):return [g.row_get(self.db,r[0]) for r in self.db.execute('SELECT id FROM jobs ORDER BY rowid')]
+ def manual_rows(self,count=2):
+  rows=self.rows(count)
+  for row in rows:row['status_snapshot']='Informado no lote'
+  return rows
+ def test_manual_persists_without_inventory_and_preserves_gate(self):
+  g.operate(self.db,'enqueue_batch',{'manual':True,'rows':self.manual_rows()})
+  first,second=self.jobs()
+  self.assertEqual(first['batch']['manual'],1)
+  self.assertNotIn('manual',first['payload'])
+  self.db.close();self.db=g.connect(self.path)
+  self.assertEqual(g.row_get(self.db,first['id'])['batch']['manual'],1)
+  with patch.object(g,'request_remote',return_value=(404,{})):
+   self.assertTrue(g.operate(self.db,'reconcile',{'id':first['id']})['needs_validation'])
+  self.assertNotEqual(g.batch_gate(self.db,second,10000),'')
+  g.acknowledge(self.db,first,dict(first['payload'],state='sent',updated_at=10000))
+  self.assertNotEqual(g.batch_gate(self.db,second,10059),'')
+  self.assertEqual(g.batch_gate(self.db,second,10060),'')
+  with patch.object(g.time,'time',return_value=17200):g.operate(self.db,'pending',{})
+  self.assertEqual(g.row_get(self.db,second['id'])['state'],'expired')
+ def test_manual_rejects_nonstandard_apn_and_false_origin(self):
+  for key,value in [('apn_snapshot','other'),('status_snapshot','Estoque')]:
+   rows=self.manual_rows();rows[0][key]=value
+   with self.assertRaises(AssertionError):g.operate(self.db,'enqueue_batch',{'manual':True,'rows':rows})
+   self.assertEqual(self.jobs(),[])
+ def test_old_batch_migration_retains_validation(self):
+  self.db.execute('DROP TABLE batch_items')
+  self.db.execute('CREATE TABLE batch_items(job_id TEXT PRIMARY KEY,batch_id TEXT NOT NULL,position INTEGER NOT NULL,group_no INTEGER NOT NULL)')
+  self.db.execute("INSERT INTO batch_items VALUES('legacy','old',0,1)")
+  self.db.commit();self.db.close();self.db=g.connect(self.path)
+  self.assertEqual(self.db.execute("SELECT manual FROM batch_items WHERE job_id='legacy'").fetchone()[0],0)
+  g.operate(self.db,'enqueue_batch',{'rows':self.rows(1)})
+  self.assertEqual(self.jobs()[0]['batch']['manual'],0)
  def test_limit_group_and_atomic_validation(self):
   for count in [0,11]:
    with self.assertRaises(AssertionError):g.operate(self.db,'enqueue_batch',{'rows':self.rows(count)})
