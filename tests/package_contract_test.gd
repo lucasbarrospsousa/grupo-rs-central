@@ -17,7 +17,7 @@ func _run() -> void:
 		for kept in ["_show_list", "_show_location_lookup", "_refresh_table", "_generate_inventory_report"]:
 			_check(dashboard.has_method(kept), "Required method missing: " + kept)
 		dashboard.free()
-	for required in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://assets/icons/report/pdf.svg"]:
+	for required in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py", "res://assets/icons/report/pdf.svg"]:
 		_check(FileAccess.file_exists(required) or ResourceLoader.exists(required), "Required resource missing: " + required)
 	if not OS.has_feature("editor") or "--audit-package" in OS.get_cmdline_user_args():
 		_audit_directory("res://")
@@ -38,7 +38,7 @@ func _audit_directory(path: String) -> void:
 		_check(file.get_extension() not in ["sqlite", "db", "vault", "enc", "jsonl", "log"], "Private data file shipped: " + file)
 		_check(not file.begins_with("res://tests/") and not file.begins_with("res://reports/") and not file.begins_with("res://backups/"), "Private/test directory shipped")
 		if file.ends_with(".py"):
-			_check(file in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py"], "Unreviewed Python script shipped: " + file)
+			_check(file in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py"], "Unreviewed Python script shipped: " + file)
 	for name in dir.get_directories():
 		_audit_directory(path.path_join(name))
 

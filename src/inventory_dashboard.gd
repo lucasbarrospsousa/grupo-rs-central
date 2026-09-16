@@ -1349,6 +1349,7 @@ var assistant_codex_auto_send_disabled_for_tests := false
 
 
 func _ready() -> void:
+	call_deferred("_ensure_phone_sms_gateway")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var app_theme := Theme.new()
 	app_theme.default_font = UI_FONT
@@ -24808,6 +24809,7 @@ func _build_config_linksolutions_section(stack: VBoxContainer, settings: Diction
 
 
 func _build_config_experttexting_section(stack: VBoxContainer, settings: Dictionary) -> void:
+	stack.add_child(_make_action_button("Gateway SMS Android • parear / fila", BLUE, BLUE, Color.WHITE, Vector2(340, 44), func(): _ensure_phone_sms_gateway().configure_dialog()))
 	_add_config_section_heading(stack, "ExpertTexting", "Canal oficial para envio, saldo, status e SMS recebidos pelo monitor.")
 
 	var state_row := HBoxContainer.new()
@@ -29511,7 +29513,26 @@ func _normalize_linksolutions_status(value: Variant) -> String:
 	return "desconhecido"
 
 
+func _ensure_phone_sms_gateway() -> Node:
+	var gateway := get_node_or_null("PhoneSMSGateway")
+	if gateway == null:
+		gateway = preload("res://src/sms_gateway.gd").new()
+		gateway.name = "PhoneSMSGateway"
+		add_child(gateway)
+		gateway.setup(self)
+	return gateway
+
+
 func _show_arya_sms_dialog(product: Dictionary) -> void:
+	if selected_branch_id == "imperatriz":
+		var gateway := _ensure_phone_sms_gateway()
+		var gateway_config: Dictionary = await gateway.call_service("config")
+		if not bool(gateway_config.get("ok", false)):
+			_show_warning("Gateway SMS", "Nao foi possivel verificar o gateway. Envio bloqueado; nenhum provedor alternativo sera usado.")
+			return
+		if not gateway_config.get("config", {}).is_empty():
+			await gateway.confirm_send(product)
+			return
 	if not _branch_supports_sms():
 		_show_warning("SMS", "O envio de SMS esta desativado nas bases regionais.")
 		return
@@ -29601,8 +29622,6 @@ func _resolve_grupo_rs_manual_sms_target(product: Dictionary) -> Dictionary:
 	if not _grupo_rs_supports_modern_api():
 		return {"ok": false, "message": "SMS Manual pela fila esta disponivel somente no Grupo RS novo.", "origin": "filial"}
 
-	var local_phone := _format_grupo_rs_sms_phone(str(product.get("phone", product.get("chip_phone", ""))))
-	var local_apn := str(product.get("apn", "")).strip_edges().to_lower()
 	var chosen: Dictionary = {}
 	var rows := await _fetch_grupo_rs_equipment_rows(serial)
 	if not rows.is_empty():
@@ -29612,14 +29631,15 @@ func _resolve_grupo_rs_manual_sms_target(product: Dictionary) -> Dictionary:
 				continue
 			var candidate := row as Dictionary
 			if _search_key(str(candidate.get("serial", ""))) == serial_key:
+				if not chosen.is_empty():
+					return {"ok": false, "message": "Consulta retornou aparelhos duplicados para a mesma serie. SMS bloqueado.", "origin": "Grupo RS"}
 				chosen = candidate
-				break
-		if chosen.is_empty() and typeof(rows[0]) == TYPE_DICTIONARY:
-			chosen = rows[0] as Dictionary
+	if chosen.is_empty():
+		return {"ok": false, "message": "A consulta nao confirmou exatamente o aparelho. SMS bloqueado.", "origin": "Grupo RS"}
 
-	var phone := local_phone
-	var apn := local_apn
-	var origin := "cadastro local"
+	var phone := ""
+	var apn := ""
+	var origin := "Grupo RS"
 	if not chosen.is_empty():
 		origin = "Grupo RS"
 		var online_phone := _format_grupo_rs_sms_phone(str(chosen.get("phone", "")))

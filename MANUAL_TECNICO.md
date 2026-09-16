@@ -44,6 +44,8 @@ Mudanças visuais requerem execução renderizada. Antes de entrega, testar regr
 Nenhuma suíte funcional foi aprovada como offline nesta padronização; selecionar e revisar antes de executar.
 
 ## Limites
+
+Integração Android opcional de SMS: consultar `docs/SMS_GATEWAY.md` para pareamento, fila de duas horas, segurança e evidências/limitações dos testes.
 Não alterar estoque, vínculos, cofre, banco de dados ou serviços externos sem autorização específica. Testes de descarga/cadastro não são testes rápidos seguros.
 Preservar alterações existentes. Não excluir builds, caches ou dados para liberar RAM. Não publicar no GitHub nem substituir o EXE operacional sem pedido.
 Consultar a política em `C:/Users/lugan/OneDrive/Documentos/Sidera Code/AGENTS.md`. Reservar conversa e pasta para este projeto; se a tarefa estiver associada a outro projeto, sinalizar e usar sempre a raiz explícita. Não mover conversas/pastas automaticamente.
