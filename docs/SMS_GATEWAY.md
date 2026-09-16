@@ -146,3 +146,25 @@ tests/sms_batch_test.py cobre fila temporária, persistência, 60 segundos,
 vencimento, APN divergente e atomicidade. Nenhum envio ou consulta de produção
 faz parte desses testes. A imagem aprovada é referência de composição e cores,
 não uma medida de identidade pixel a pixel com fontes renderizadas pelo Godot.
+
+## Recuperar lote após falha confirmada
+
+No Painel SMS, selecionar a linha com Falhou e clicar Resolver falha e continuar.
+Escolher Já enviei este comando manualmente ou Pular este aparelho sem reenviar.
+A confirmação grava uma resolução separada em batch_resolutions, sem alterar o
+payload, o estado failed, os recibos Android ou os contadores de SMS enviados.
+O lote aguarda 60 segundos contados dessa decisão; repetir a mesma operação não
+renova o intervalo. O vencimento original permanece e a resolução persiste após
+reiniciar o Central. Linhas resolvidas deixam o contador de atenção, mas continuam
+identificadas no histórico como falha resolvida pelo operador.
+
+Só é permitido resolver uma falha confirmada de um lote não vencido. Não libera
+automaticamente waiting_gateway, received, sending ou indeterminate. O comando
+que falhou nunca é retransmitido por essa ação. Não pula outros erros posteriores:
+cada falha exige decisão explícita. Próximas páginas/lotes mantêm revisão e
+confirmação próprias. Não há alteração do aplicativo Android ou leitura de SMS
+pessoais para inferir que um envio manual corresponde ao pedido original.
+
+Testes isolados cobrem persistência, idempotência, espera de 60 segundos, prazo
+original, preservação de recibos/estado e rejeição de estados incertos. Interface
+testada com serviço simulado; nenhum lote real retomado na homologação.

@@ -4,8 +4,12 @@ class Shell extends "res://tests/fixtures/offline_main_dashboard.gd":
 class Gateway extends "res://src/sms_gateway.gd":
  var sample:Array=[]
  var receipt_polls:=0
+ var resolutions:Array=[]
  func call_service(op:String,_req:Dictionary={}) -> Dictionary:
-  assert(op in ["list","health","refresh_delivery"])
+  assert(op in ["list","health","refresh_delivery","pending","resolve_batch_failure"])
+  if op=="pending":return {"ok":true,"job":null}
+  if op=="resolve_batch_failure":
+   resolutions.append(_req.duplicate(true));return {"ok":true}
   await get_tree().process_frame
   if op=="refresh_delivery":receipt_polls+=1;return {"ok":true}
   if op=="list":return {"ok":true,"jobs":sample}
@@ -30,6 +34,26 @@ func run() -> void:
  assert(panel.find_child("DeliveryMetric0",true,false).has_meta("card_hover_motion"))
  await gateway._tick();assert(gateway.receipt_polls==1,"Receipt polling works with no active unsent job")
  panel.table.get_root().get_child(2).select(0);panel.show_details();assert(panel.detail.text.contains("SMS enviado"))
+ assert(not panel.resolve_button.visible)
+ gateway.sample[4]["batch"]={"batch_id":"example","position":0,"group_no":4}
+ panel.render_jobs(gateway.sample)
+ panel.table.get_root().get_child(4).select(0);panel.show_details()
+ assert(panel.resolve_button.visible)
+ panel.resolve_button.pressed.emit()
+ assert(gateway.resolutions.is_empty(),"Opening confirmation must not resume")
+ var resolution:ConfirmationDialog=panel.get_node("ResolveBatchFailure")
+ if DisplayServer.get_name()!="headless":
+  await create_timer(0.5).timeout;RenderingServer.force_draw()
+  assert(resolution.size.x<=root.size.x and resolution.size.y<=root.size.y)
+  var choice:Control=resolution.find_child("ResolutionReason",true,false)
+  var confirm:Control=resolution.find_child("ConfirmResolution",true,false)
+  assert(choice.get_global_rect().end.y<confirm.get_global_rect().position.y)
+  root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("sms-resolve-confirmation.png"))
+ resolution.confirmed.emit();await create_timer(0.2).timeout
+ assert(gateway.resolutions.size()==1 and gateway.resolutions[0].confirmed and gateway.resolutions[0].reason=="sent_manually")
+ gateway.sample[4]["resolution"]={"reason":"sent_manually","resolved_at":1789560000}
+ panel.render_jobs(gateway.sample);panel.show_details()
+ assert(not panel.resolve_button.visible and panel.detail.text.contains("Não é confirmação do Android"))
  if DisplayServer.get_name()!="headless":
   await process_frame;RenderingServer.force_draw()
   root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("sms-delivery-panel.png"))
@@ -47,5 +71,5 @@ func run() -> void:
  var regional:Control=shell.content_area.get_child(0)
  assert(regional.jobs.is_empty() and regional.connection.text.contains("somente em Imperatriz"))
  shell.queue_free();await process_frame
- print("SMS_DELIVERY_PANEL_OK: read-only, counters, details, empty state, animation")
+ print("SMS_DELIVERY_PANEL_OK: counters, details, explicit mocked resolution, no dispatch, empty state, animation")
  quit()

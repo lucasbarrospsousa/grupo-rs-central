@@ -58,6 +58,39 @@ class BatchTests(base.QueueTests):
   rows[1]['apn_snapshot']='linksolutions.br'
   with self.assertRaises(AssertionError):g.operate(self.db,'enqueue_batch',{'manual':True,'rows':rows})
   self.assertEqual(self.jobs(),[])
+ def test_resolve_failure_preserves_failure_and_waits_sixty_seconds(self):
+  g.operate(self.db,'enqueue_batch',{'manual':True,'rows':self.manual_rows()})
+  first,second=self.jobs();original=first['payload'].copy()
+  g.state(self.db,first['id'],'failed','Android failed')
+  with patch.object(g,'request_remote') as transport:
+   g.operate(self.db,'resolve_batch_failure',{'id':first['id'],'reason':'sent_manually','confirmed':True})
+   transport.assert_not_called()
+  resolved=g.row_get(self.db,first['id'])
+  self.assertEqual(resolved['state'],'failed')
+  self.assertEqual(resolved['payload'],original)
+  self.assertEqual(resolved['acknowledgements'],[])
+  self.assertEqual(resolved['resolution']['reason'],'sent_manually')
+  self.assertNotEqual(g.batch_gate(self.db,second,10059),'')
+  self.assertEqual(g.batch_gate(self.db,second,10060),'')
+  self.db.close();self.db=g.connect(self.path)
+  self.assertEqual(g.batch_gate(self.db,g.row_get(self.db,second['id']),10060),'')
+  with patch.object(g.time,'time',return_value=10030):
+   g.operate(self.db,'resolve_batch_failure',{'id':first['id'],'reason':'sent_manually','confirmed':True})
+  self.assertEqual(g.row_get(self.db,first['id'])['resolution']['resolved_at'],10000)
+  with patch.object(g.time,'time',return_value=17200):g.operate(self.db,'pending',{})
+  self.assertEqual(g.row_get(self.db,second['id'])['state'],'expired')
+ def test_resolution_rejects_uncertain_active_missing_confirmation_and_expiry(self):
+  g.operate(self.db,'enqueue_batch',{'manual':True,'rows':self.manual_rows()})
+  first,second=self.jobs()
+  for status in ['waiting_gateway','received','sending','indeterminate','sent','cancelled']:
+   g.state(self.db,first['id'],status)
+   with self.assertRaises(AssertionError):g.operate(self.db,'resolve_batch_failure',{'id':first['id'],'reason':'skip','confirmed':True})
+  g.state(self.db,first['id'],'failed')
+  with self.assertRaises(AssertionError):g.operate(self.db,'resolve_batch_failure',{'id':first['id'],'reason':'skip'})
+  with patch.object(g.time,'time',return_value=17200):
+   with self.assertRaises(AssertionError):g.operate(self.db,'resolve_batch_failure',{'id':first['id'],'reason':'skip','confirmed':True})
+  g.operate(self.db,'resolve_batch_failure',{'id':first['id'],'reason':'skip','confirmed':True})
+  self.assertEqual(g.row_get(self.db,first['id'])['resolution']['reason'],'skip')
  def test_limit_group_and_atomic_validation(self):
   for count in [0,11]:
    with self.assertRaises(AssertionError):g.operate(self.db,'enqueue_batch',{'rows':self.rows(count)})

@@ -57,6 +57,7 @@ def connect(path):
     CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,payload TEXT NOT NULL,state TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',remote_seen INTEGER NOT NULL DEFAULT 0,cancel_requested INTEGER NOT NULL DEFAULT 0,attempted INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS acknowledgements(job_id TEXT NOT NULL,state TEXT NOT NULL,observed_at INTEGER NOT NULL,remote_at INTEGER,PRIMARY KEY(job_id,state));
     CREATE TABLE IF NOT EXISTS batch_items(job_id TEXT PRIMARY KEY,batch_id TEXT NOT NULL,position INTEGER NOT NULL,group_no INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS batch_resolutions(job_id TEXT PRIMARY KEY,resolved_at INTEGER NOT NULL,reason TEXT NOT NULL);
     """)
     with db:
         db.execute('BEGIN IMMEDIATE')
@@ -78,6 +79,8 @@ def row_get(db,id):
     value=dict(row);value["payload"]=json.loads(value["payload"])
     batch=db.execute('SELECT batch_id,position,group_no,manual FROM batch_items WHERE job_id=?',(id,)).fetchone()
     if batch:value['batch']=dict(batch)
+    resolution=db.execute('SELECT resolved_at,reason FROM batch_resolutions WHERE job_id=?',(id,)).fetchone()
+    if resolution:value['resolution']=dict(resolution)
     value['acknowledgements']=[dict(r) for r in db.execute('SELECT state,observed_at,remote_at FROM acknowledgements WHERE job_id=? ORDER BY observed_at,state',(id,))]
     return value
 
@@ -117,16 +120,33 @@ def batch_gate(db,job,now):
     b=job['batch']
     previous=db.execute('SELECT j.id,j.state FROM batch_items b JOIN jobs j ON j.id=b.job_id WHERE b.batch_id=? AND b.position<? ORDER BY b.position',(b['batch_id'],b['position'])).fetchall()
     for row in previous:
+        resolution=db.execute('SELECT resolved_at FROM batch_resolutions WHERE job_id=?',(row['id'],)).fetchone()
+        if resolution:
+            if now<resolution[0]+60:return 'Intervalo de seguranca: 60 segundos apos resolucao manual'
+            continue
         if row['state'] not in ('sent','delivered'):return 'Lote pausado: linha anterior sem confirmacao de envio'
         ack=db.execute("SELECT MIN(observed_at) FROM acknowledgements WHERE job_id=? AND state IN ('sent','delivered')",(row['id'],)).fetchone()[0]
         if ack is None or now<ack+60:return 'Intervalo de seguranca: 60 segundos apos confirmacao'
     # Global cooldown also prevents back-to-back batches.
     last=db.execute("SELECT MAX(observed_at) FROM acknowledgements WHERE state IN ('sent','delivered')").fetchone()[0]
     if last is not None and now<last+60:return 'Intervalo de seguranca entre envios'
+    resolved=db.execute('SELECT MAX(resolved_at) FROM batch_resolutions').fetchone()[0]
+    if resolved is not None and now<resolved+60:return 'Intervalo de seguranca apos resolucao manual'
     return ''
 
 def operate(db,op,p):
     now=int(time.time())
+    if op=='resolve_batch_failure':
+        assert p.get('confirmed') is True,'Confirme a resolucao antes de continuar'
+        assert p.get('reason') in ('sent_manually','skip'),'Informe como resolver a linha'
+        with db:
+            db.execute('BEGIN IMMEDIATE')
+            job=row_get(db,p.get('id'))
+            assert job and job.get('batch'),'Selecione uma linha do lote'
+            assert job['state']=='failed','Somente falha confirmada pode ser resolvida; nao pule envio incerto ou em andamento'
+            assert job['payload']['expires_at']>now,'Lote expirado: prepare e confirme outro lote'
+            db.execute('INSERT OR IGNORE INTO batch_resolutions VALUES(?,?,?)',(job['id'],now,p['reason']))
+        return {'ok':True,'job':row_get(db,job['id'])}
     if op=="config":return {"ok":True,"config":config_get(db)}
     if op=='health':
         cfg=config_get(db,True)

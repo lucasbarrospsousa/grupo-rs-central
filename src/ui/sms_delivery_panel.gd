@@ -1,5 +1,5 @@
 extends MarginContainer
-## Read-only monitor: never enqueue, retransmit or cancel from this panel.
+## Monitor with explicit audited resolution of failed batch rows; never retransmit.
 const MOTION=preload("res://src/ui/card_hover_motion.gd")
 const COLORS={"waiting_gateway":"#2377ce","received":"#2377ce","sending":"#2377ce","sent":"#168364","delivered":"#168364","failed":"#c84545","expired":"#af641b","indeterminate":"#af641b","needs_confirmation":"#af641b","cancelled":"#64768a"}
 const TITLES={"waiting_gateway":"Aguardando celular","received":"Recebido pelo celular","sending":"Enviando SMS","sent":"SMS enviado","delivered":"Entrega confirmada","failed":"Falhou","expired":"Expirado","indeterminate":"Resultado indeterminado","needs_confirmation":"Nova confirmação necessária","cancelled":"Cancelado"}
@@ -13,6 +13,8 @@ var jobs:Array=[]
 var refreshing:=false
 var refreshing_button:Button
 var content:VBoxContainer
+var resolve_button:Button
+var resolving:=false
 
 func label(text:String,size:int=16,color:Color=Color("#123555")) -> Label:
  var item:=Label.new();item.text=text;item.add_theme_font_size_override("font_size",size);item.add_theme_color_override("font_color",color)
@@ -65,7 +67,10 @@ func setup(controller:Node) -> void:
  table.add_theme_color_override("title_button_color",Color("#536f8c"))
  table.add_theme_constant_override("v_separation",12);history_box.add_child(table);table.item_selected.connect(show_details)
  var details_card:=panel();content.add_child(details_card);MOTION.attach(details_card)
- detail=label("Nenhum pedido selecionado. O envio só é confirmado após o retorno do Android.",14);detail.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;detail.custom_minimum_size.y=62;details_card.add_child(detail)
+ var details_box:=VBoxContainer.new();details_card.add_child(details_box)
+ detail=label("Nenhum pedido selecionado. O envio só é confirmado após o retorno do Android.",14);detail.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;detail.custom_minimum_size.y=62;details_box.add_child(detail)
+ resolve_button=preload("res://src/ui/bulk_sms_view.gd").button("Resolver falha e continuar","refresh",resolve_failure,Color("#ff8918"),Color.WHITE)
+ resolve_button.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN;resolve_button.visible=false;details_box.add_child(resolve_button)
  var footer:=label("¹ Inclui entregas confirmadas. ² Horário em que o Central recebeu o estado.\nEnvio não significa entrega; entrega não comprova execução do comando. Sem retorno, não reenvie automaticamente.",12,Color("#617a95"));content.add_child(footer)
  var timer:=Timer.new();timer.wait_time=10;timer.timeout.connect(refresh);add_child(timer);timer.call_deferred("start")
  call_deferred("open")
@@ -106,6 +111,7 @@ func clock_text(stamp:Variant) -> String:
  return "%02d/%02d %02d:%02d:%02d" % [parts.day,parts.month,parts.hour,parts.minute,parts.second]
 
 func render_jobs(values:Array) -> void:
+ resolve_button.visible=false
  var selected_id:=""
  if table.get_selected():selected_id=str(table.get_selected().get_metadata(0))
  jobs=values;table.clear();var root_item:=table.create_item();var counts=[0,0,0,0]
@@ -114,10 +120,11 @@ func render_jobs(values:Array) -> void:
   if state in ["waiting_gateway","received","sending"]:counts[0]+=1
   if state in ["sent","delivered"]:counts[1]+=1
   if state=="delivered":counts[2]+=1
-  if state in ["failed","expired","indeterminate","needs_confirmation"]:counts[3]+=1
+  if state in ["failed","expired","indeterminate","needs_confirmation"] and not job.has("resolution"):counts[3]+=1
   var row:=table.create_item(root_item);row.set_metadata(0,job.get("id",""))
   row.set_text(0,str(payload.get("serial",""))+"\n"+host._format_grupo_rs_sms_phone(str(payload.get("phone",""))))
   row.set_text(1,TITLES.get(state,state));row.set_custom_color(1,Color(COLORS.get(state,"#64768a")))
+  if job.has("resolution"):row.set_text(1,"Falhou • resolvido pelo operador");row.set_custom_color(1,Color("#af641b"))
   if job.has("batch"):
    row.set_text(0,row.get_text(0)+" • Grupo %d" % int(job.batch.group_no))
    if state=="waiting_gateway" and not str(job.get("detail","")).is_empty():row.set_text(1,str(job.detail))
@@ -133,6 +140,7 @@ func render_jobs(values:Array) -> void:
  elif table.get_selected():show_details()
 
 func show_details() -> void:
+ resolve_button.visible=false
  if not table.get_selected():return
  var id:String=str(table.get_selected().get_metadata(0))
  for job in jobs:
@@ -143,3 +151,37 @@ func show_details() -> void:
   var hints={"waiting_gateway":"Mantenha o Galaxy ativo e conectado. A fila expira em duas horas.","received":"O celular recebeu o pedido; ainda não confirmou o envio do SMS.","sending":"Aguardando retorno do Android. Não envie novamente.","sent":"Envio confirmado pelo Android. A entrega ao rastreador ainda não foi confirmada.","delivered":"Entrega informada pela rede. Isso não comprova execução do comando.","failed":"Verifique chip, sinal e o erro antes de confirmar outro pedido.","expired":"Prazo encerrado. Consulte o cadastro e confirme um novo pedido se ainda necessário.","indeterminate":"Não reenvie automaticamente: o SMS pode ter sido transmitido.","needs_confirmation":"O cadastro mudou. Reconsulte o aparelho antes de confirmar outro pedido.","cancelled":"Pedido cancelado. Nenhuma nova transmissão será iniciada por este pedido."}
   detail.text="%s • %s\nComando: %s\n%s" % [p.get("serial",""),TITLES.get(job.get("state",""),"Desconhecido"),p.get("command",""),hints.get(job.get("state",""),info)]
   detail.tooltip_text="Pedido: "+id+"\nValidade: "+clock_text(p.get("expires_at",0))+"\nRetorno técnico: "+info
+  if job.has("resolution"):
+   var reason:="Envio manual informado" if job.resolution.reason=="sent_manually" else "Aparelho pulado pelo operador"
+   detail.text+="\n"+reason+" em "+clock_text(job.resolution.resolved_at)+". Não é confirmação do Android."
+  elif job.get("state")=="failed" and job.has("batch"):
+   resolve_button.visible=true;resolve_button.disabled=resolving
+   detail.text+="\nResolva esta linha para liberar as próximas, sem reenviar este pedido."
+  elif str(job.get("detail","")).begins_with("Lote pausado"):
+   detail.text+="\nSelecione a linha anterior com Falhou e use Resolver falha e continuar."
+
+func resolve_failure() -> void:
+ if resolving or not table.get_selected() or str(host.selected_branch_id)!="imperatriz":return
+ var id:=str(table.get_selected().get_metadata(0))
+ var selected:Dictionary={}
+ for job in jobs:
+  if str(job.get("id",""))==id:selected=job
+ if selected.get("state")!="failed" or not selected.has("batch") or selected.has("resolution"):return
+ var prompt:=ConfirmationDialog.new();add_child(prompt);prompt.title="Resolver falha do lote"
+ prompt.name="ResolveBatchFailure";prompt.theme=theme
+ prompt.ok_button_text="Confirmar e liberar próximas linhas";prompt.cancel_button_text="Voltar"
+ var reason:OptionButton=preload("res://src/ui/sms_resolution_dialog.gd").build(prompt,str(selected.payload.serial),host._format_grupo_rs_sms_phone(selected.payload.phone))
+ prompt.confirmed.connect(func():
+  if resolving:return
+  if str(host.selected_branch_id)!="imperatriz":prompt.queue_free();return
+  prompt.hide()
+  resolving=true;resolve_button.disabled=true
+  var result:Dictionary=await gateway.call_service("resolve_batch_failure",{"id":id,"confirmed":true,"reason":"sent_manually" if reason.selected==0 else "skip"})
+  resolving=false
+  if result.get("ok",false):
+   await refresh()
+  else:detail.text=str(result.get("error","Não foi possível resolver a linha."));resolve_button.disabled=false
+  prompt.queue_free()
+ )
+ prompt.canceled.connect(prompt.queue_free)
+ preload("res://src/ui/sms_resolution_dialog.gd").show_animated(prompt)
