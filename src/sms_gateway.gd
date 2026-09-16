@@ -118,7 +118,7 @@ func configure_dialog() -> void:
 func confirm_send(product: Dictionary) -> void:
  if str(host.selected_branch_id) != "imperatriz":return
  var branch := str(host.selected_branch_id)
- var result: Dictionary = await host._resolve_grupo_rs_manual_sms_target(product)
+ var result: Dictionary = await host._resolve_grupo_rs_manual_sms_target(product, false)
  if str(host.selected_branch_id)!=branch:return
  if not result.get("ok",false):
   host._show_warning("Gateway SMS",str(result.get("message","Consulta falhou")));return
@@ -126,21 +126,117 @@ func confirm_send(product: Dictionary) -> void:
  var apn := str(result.get("apn",""))
  var command: String=host._rs300_apn_command_for_apn(serial,apn)
  var phone: String="+55"+host._digits_only(str(result.get("phone","")))
- if command.is_empty():return
  var snapshot: String=str(product.get("tracker_status",product.get("status","")))
  if snapshot.is_empty():
   host._show_warning("Gateway SMS","Status do equipamento não confirmado.");return
  var conf := await call_service("config")
+ if str(host.selected_branch_id)!=branch:return
+ if not conf.get("ok",false) or conf.get("config",{}).is_empty():
+  host._show_warning("Gateway SMS","Gateway não pareado ou indisponível.");return
+ show_composer({"version":2,"serial":serial,"source_phone_snapshot":phone,"apn_snapshot":apn,"standard_command_snapshot":command,"status_snapshot":snapshot},str(conf.config.get("url","")))
+
+func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
+ var card := AcceptDialog.new()
+ card.name="SMSComposer"
+ card.title="SMS • aparelho "+str(context.serial)
+ card.min_size=Vector2i(1040,620)
+ card.get_ok_button().hide()
+ var palette:=Theme.new()
+ palette.default_font_size=18
+ palette.set_color("font_color","Label",Color("#123555"))
+ palette.set_stylebox("panel","AcceptDialog",host._style_box(Color("#f5f8fc"),Color("#d9e5f0"),1,18,true))
+ card.theme=palette
+ var root_box:=VBoxContainer.new();root_box.add_theme_constant_override("separation",0);card.add_child(root_box)
+ var banner:=PanelContainer.new()
+ var gradient:=Gradient.new();gradient.set_color(0,Color("#123f70"));gradient.set_color(1,Color("#137bd7"))
+ var texture:=GradientTexture2D.new();texture.gradient=gradient;texture.width=1024;texture.height=100;texture.fill_from=Vector2.ZERO;texture.fill_to=Vector2(1,0)
+ var banner_style:=StyleBoxTexture.new();banner_style.texture=texture
+ for side in [SIDE_LEFT,SIDE_RIGHT]:banner_style.set_content_margin(side,24)
+ for side in [SIDE_TOP,SIDE_BOTTOM]:banner_style.set_content_margin(side,20)
+ banner.add_theme_stylebox_override("panel",banner_style);root_box.add_child(banner)
+ var header:=HBoxContainer.new();header.add_theme_constant_override("separation",20);banner.add_child(header)
+ var heading:=VBoxContainer.new();heading.size_flags_horizontal=Control.SIZE_EXPAND_FILL;header.add_child(heading)
+ var title:=Label.new();title.text="Enviar comando por SMS";title.add_theme_font_size_override("font_size",26);title.add_theme_color_override("font_color",Color.WHITE);heading.add_child(title)
+ var subtitle:=Label.new();subtitle.text="Escreva a mensagem ou use a configuração rápida do aparelho.";subtitle.add_theme_font_size_override("font_size",16);subtitle.add_theme_color_override("font_color",Color("#d8eaff"));heading.add_child(subtitle)
+ var quick:Button=host._make_action_button("SMS padrão",Color.WHITE,Color.WHITE,Color("#174c7c"),Vector2(170,48),func():
+  _confirm_message(context,context.source_phone_snapshot,context.standard_command_snapshot,"standard",gateway_url,card)
+ )
+ quick.name="QuickSMS";quick.icon=load("res://assets/icons/approved/mail.svg");quick.tooltip_text="Consulta já confirmada: usar telefone original e comando de configuração, sem aproveitar o texto digitado.";quick.disabled=str(context.standard_command_snapshot).is_empty();header.add_child(quick)
+ var margin:=MarginContainer.new()
+ for side in ["left","right","top","bottom"]:margin.add_theme_constant_override("margin_"+side,24)
+ root_box.add_child(margin)
+ var columns:=HBoxContainer.new();columns.add_theme_constant_override("separation",24);margin.add_child(columns)
+ var box:=VBoxContainer.new();box.size_flags_horizontal=Control.SIZE_EXPAND_FILL;box.size_flags_stretch_ratio=2.2;box.add_theme_constant_override("separation",12);columns.add_child(box)
+ var badge:=Label.new();badge.text="APARELHO %s   •   IMPERATRIZ" % context.serial;badge.add_theme_font_size_override("font_size",15);badge.add_theme_color_override("font_color",Color("#166ec1"));box.add_child(badge)
+ var phone_label:=Label.new();phone_label.text="Telefone do chip do rastreador";box.add_child(phone_label)
+ var phone:=LineEdit.new();phone.name="Recipient";phone.text=str(context.source_phone_snapshot);phone.placeholder_text="DDD + telefone";host._style_line_edit(phone);box.add_child(phone)
+ var hint:=Label.new();hint.text="Preenchido pela consulta. Se editar, confira o novo destinatário.";hint.add_theme_font_size_override("font_size",14);box.add_child(hint)
+ var message_label:=Label.new();message_label.text="Mensagem / comando personalizado";box.add_child(message_label)
+ var message:=TextEdit.new();message.name="Message";message.placeholder_text="Digite o comando que deseja enviar…";message.custom_minimum_size=Vector2(0,150);host._style_text_edit(message);box.add_child(message)
+ var counter:=Label.new();counter.text="0 / 160 • somente texto simples; sem SMS dividido";counter.add_theme_font_size_override("font_size",14);box.add_child(counter)
+ message.text_changed.connect(func():counter.text="%d / 160 • somente texto simples; sem SMS dividido" % message.text.length())
+ var error:=Label.new();error.name="ValidationError";error.add_theme_color_override("font_color",Color("#b83232"));error.add_theme_font_size_override("font_size",14);error.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(error)
+ var send:Button=host._make_action_button("Enviar mensagem",Color("#1678d4"),Color("#1678d4"),Color.WHITE,Vector2(0,58),func():
+  _confirm_message(context,phone.text,message.text,"custom",gateway_url,card)
+ )
+ send.name="SendCustomSMS";send.icon=load("res://assets/icons/sms_send.svg");box.add_child(send)
+ var footer:=Label.new();footer.text="Você revisará o destinatário e o texto antes de confirmar. Validade: 2 horas.";footer.add_theme_font_size_override("font_size",14);footer.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(footer)
+ var preview:=PanelContainer.new();preview.custom_minimum_size.x=300;preview.size_flags_horizontal=Control.SIZE_EXPAND_FILL;preview.size_flags_vertical=Control.SIZE_SHRINK_BEGIN;preview.add_theme_stylebox_override("panel",host._style_box(Color("#e3edf6"),Color("#bfd2e5"),1,18,true));columns.add_child(preview)
+ var preview_margin:=MarginContainer.new()
+ for side in ["left","right","top","bottom"]:preview_margin.add_theme_constant_override("margin_"+side,20)
+ preview.add_child(preview_margin)
+ var preview_box:=VBoxContainer.new();preview_box.add_theme_constant_override("separation",16);preview_margin.add_child(preview_box)
+ var preview_title:=Label.new();preview_title.text="PRÉVIA DO SMS";preview_title.add_theme_font_size_override("font_size",15);preview_box.add_child(preview_title)
+ var bubble:=PanelContainer.new();bubble.add_theme_stylebox_override("panel",host._style_box(Color.WHITE,Color("#d1dfec"),1,16,true));preview_box.add_child(bubble)
+ var bubble_margin:=MarginContainer.new()
+ for side in ["left","right","top","bottom"]:bubble_margin.add_theme_constant_override("margin_"+side,18)
+ bubble.add_child(bubble_margin)
+ var bubble_box:=VBoxContainer.new();bubble_box.add_theme_constant_override("separation",16);bubble_margin.add_child(bubble_box)
+ var recipient_preview:=Label.new();recipient_preview.name="RecipientPreview";recipient_preview.add_theme_font_size_override("font_size",16);recipient_preview.add_theme_color_override("font_color",Color("#1473ce"));bubble_box.add_child(recipient_preview)
+ var message_preview:=Label.new();message_preview.name="MessagePreview";message_preview.custom_minimum_size.y=140;message_preview.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;message_preview.add_theme_font_size_override("font_size",17);bubble_box.add_child(message_preview)
+ var preview_note:=Label.new();preview_note.text="SMS via Galaxy\nWi-Fi local • fila de 2 horas\nNenhum envio antes da confirmação";preview_note.add_theme_font_size_override("font_size",14);preview_note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;preview_box.add_child(preview_note)
+ var update_preview:=func():
+  recipient_preview.text="Para: "+phone.text
+  message_preview.text=message.text if not message.text.is_empty() else "Sua mensagem aparecerá aqui antes do envio."
+ phone.text_changed.connect(func(_text:String):update_preview.call())
+ message.text_changed.connect(update_preview);update_preview.call()
+ host.add_child(card);card.canceled.connect(card.queue_free);card.popup_centered(Vector2i(1160,690))
+ return card
+
+func _confirm_message(context: Dictionary, recipient: String, message: String, mode: String, gateway_url: String, card: AcceptDialog) -> void:
+ if str(host.selected_branch_id)!="imperatriz":return
+ var formatted:String=host._format_grupo_rs_sms_phone(recipient)
+ var feedback:Label=card.find_child("ValidationError",true,false);feedback.text=""
+ if formatted.is_empty():feedback.text="Informe um telefone brasileiro válido com DDD.";return
+ if message.strip_edges().is_empty() or message.length()>160:
+  feedback.text="Digite uma mensagem de 1 a 160 caracteres.";return
+ for index in message.length():
+  if message.unicode_at(index)<32 or message.unicode_at(index)>126:
+   feedback.text="Use texto simples, sem acentos ou quebras de linha.";return
+ var payload:=context.duplicate(true)
+ payload["phone"]="+55"+host._digits_only(formatted)
+ payload["command"]=message
+ payload["command_mode"]=mode
  var dialog := ConfirmationDialog.new()
+ dialog.name="SMSReview"
  dialog.title="Confirmar SMS pelo celular"
- dialog.dialog_text="Aparelho: %s\nTelefone: %s\nAPN: %s\nGateway: %s\n\n%s\n\nValidade: 2 horas. SMS pode gerar custo.\nEntrará na fila; envio automático quando o gateway estiver disponível." % [serial,phone,apn,conf.get("config",{}).get("url",""),command]
+ dialog.dialog_text="Aparelho: %s\nDestinatário: %s\nTelefone consultado: %s\nModo: %s\nGateway: %s\n\n%s\n\nSMS pode gerar custo e alterar a configuração do rastreador.\nValidade: 2 horas; o envio será automático quando disponível." % [context.serial,payload.phone,context.source_phone_snapshot,mode,gateway_url,message]
  dialog.ok_button_text="Confirmar e colocar na fila"
+ card.hide()
  host.add_child(dialog);dialog.popup_centered(Vector2i(800,380))
- dialog.canceled.connect(dialog.queue_free)
- dialog.confirmed.connect(func():
+ dialog.canceled.connect(func():
+  dialog.hide()
   dialog.queue_free()
-  if str(host.selected_branch_id)!=branch:return
-  var saved := await call_service("enqueue",{"serial":serial,"phone":phone,"command":command,"status_snapshot":snapshot,"confirmed_at":int(Time.get_unix_time_from_system())})
+  if is_instance_valid(card):card.popup_centered(Vector2i(1160,690))
+ )
+ dialog.confirmed.connect(func():
+  dialog.hide()
+  dialog.queue_free()
+  if str(host.selected_branch_id)!="imperatriz":return
+  payload["confirmed_at"]=int(Time.get_unix_time_from_system())
+  var saved := await call_service("enqueue",payload)
+  if saved.get("ok",false) and is_instance_valid(card):card.queue_free()
+  elif is_instance_valid(card):card.popup_centered(Vector2i(1160,690))
   if saved.get("ok",false):host._show_success("Gateway SMS","Pedido registrado. Validade de 2 horas; acompanhe em Configurações SMS → Gateway.")
   else:host._show_warning("Gateway SMS",str(saved.get("error","Não gravado")))
  )
@@ -164,13 +260,16 @@ func _sync_one() -> void:
  var payload: Dictionary=job.get("payload",{})
  var product: Dictionary=host.store.get_product(str(payload.get("serial","")))
  if product.is_empty():return
- var target: Dictionary=await host._resolve_grupo_rs_manual_sms_target(product)
+ var target: Dictionary=await host._resolve_grupo_rs_manual_sms_target(product, int(payload.get("version",1))==1)
  if str(host.selected_branch_id)!="imperatriz" or host.store!=bound_store:return
  if not target.get("ok",false):return
  var phone: String="+55"+host._digits_only(str(target.get("phone","")))
  var command: String=host._rs300_apn_command_for_apn(str(payload.get("serial","")),str(target.get("apn","")))
  var latest: Dictionary=host.store.get_product(str(payload.get("serial","")))
  var status: String=str(latest.get("tracker_status",latest.get("status","")))
- if phone!=str(payload.get("phone","")) or command!=str(payload.get("command","")) or status!=str(payload.get("status_snapshot","")):
+ var expected_phone:String=str(payload.get("source_phone_snapshot",payload.get("phone","")))
+ var expected_command:String=str(payload.get("standard_command_snapshot",payload.get("command","")))
+ var changed_apn:bool=int(payload.get("version",1))==2 and str(target.get("apn",""))!=str(payload.get("apn_snapshot",""))
+ if phone!=expected_phone or command!=expected_command or changed_apn or status!=str(payload.get("status_snapshot","")):
   await call_service("revalidate_failed",{"id":id});return
  await call_service("reconcile",{"id":id,"validated":true})

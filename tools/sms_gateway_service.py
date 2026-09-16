@@ -76,14 +76,23 @@ def state(db,id,status,detail=""):
     return row_get(db,id)
 
 def validate(p,now):
-    assert p["version"]==1 and p["branch"]=="imperatriz","Base inválida"
+    assert p["version"] in (1,2) and p["branch"]=="imperatriz","Base inválida"
     assert re.fullmatch(r"024\d{6}",p["serial"]),"Série inválida"
     assert re.fullmatch(r"\+55[1-9]\d{9,10}",p["phone"]),"Telefone inválido"
     assert p["expires_at"]-p["created_at"]==7200,"Prazo inválido"
     assert now-7200<p["created_at"]<=now+60,"Confirmação inválida ou vencida"
     assert p["status_snapshot"],"Status ausente"
     command=p["command"]
-    assert command.startswith("ST300NTW;"+p["serial"]+";") and len(command)<=160 and all(32<=ord(c)<=126 for c in command),"Comando inválido"
+    assert command.strip() and len(command)<=160 and all(32<=ord(c)<=126 for c in command),"Use texto simples, sem quebras, com até 160 caracteres"
+    if p["version"]==1:
+        assert command.startswith("ST300NTW;"+p["serial"]+";"),"Comando inválido"
+    else:
+        assert p["command_mode"] in ("custom","standard"),"Modo inválido"
+        assert re.fullmatch(r"\+55[1-9]\d{9,10}",p["source_phone_snapshot"]),"Telefone consultado inválido"
+        assert isinstance(p["apn_snapshot"],str) and isinstance(p["standard_command_snapshot"],str),"Consulta ausente"
+        if p["command_mode"]=="standard":
+            assert command==p["standard_command_snapshot"] and command.startswith("ST300NTW;"+p["serial"]+";"),"Comando padrão divergente"
+            assert p["phone"]==p["source_phone_snapshot"],"Envio rápido usa o telefone consultado"
 
 def operate(db,op,p):
     now=int(time.time())
@@ -104,7 +113,7 @@ def operate(db,op,p):
         value["protected_token"]=protect(value.pop("token"));db.execute("UPDATE config SET value=? WHERE id=1",(json.dumps(value),));db.commit();return {"ok":True}
     if op=="enqueue":
         assert config_get(db),"Gateway não pareado"
-        value=dict(p);confirmed=int(value.pop("confirmed_at",now));value["id"]=str(uuid.uuid4());value["version"]=1;value["branch"]="imperatriz";value["created_at"]=confirmed;value["expires_at"]=confirmed+7200
+        value=dict(p);confirmed=int(value.pop("confirmed_at",now));value["id"]=str(uuid.uuid4());value["version"]=p.get("version",1);value["branch"]="imperatriz";value["created_at"]=confirmed;value["expires_at"]=confirmed+7200
         validate(value,now)
         duplicate=db.execute("SELECT payload FROM jobs WHERE state IN ('waiting_gateway','received','sending')").fetchall()
         assert not any(all(json.loads(r[0]).get(k)==value[k] for k in ("serial","phone","command")) for r in duplicate),"Já existe pedido igual pendente"

@@ -4,6 +4,16 @@ Escopo: somente Imperatriz. Projeto do telefone separado em `Sidera Code/RS SMS 
 
 ## Operação
 
+### Card de mensagem livre — protocolo 2
+
+Ao clicar em SMS, o card consulta o aparelho e preenche o telefone. O campo de mensagem começa vazio. A prévia lateral acompanha o telefone e o texto. O botão azul com avião abre a revisão do comando personalizado; o atalho **SMS padrão** ignora alterações nesses campos e usa o telefone consultado e o comando de configuração. Ambos exigem confirmação antes da fila.
+
+Editar o telefone altera apenas o destinatário daquele pedido, não o cadastro. Pedidos v2 registram `command_mode`, `source_phone_snapshot`, `apn_snapshot` e `standard_command_snapshot`. A revalidação compara esses dados de origem, sem substituir o texto personalizado nem o destinatário confirmado. Pedidos v1 existentes continuam compatíveis. Atualizar o Android para 0.2.0 antes de usar mensagens personalizadas.
+
+Limite atual: texto simples ASCII, sem quebras de linha, de 1 a 160 caracteres. O telefone também bloqueia divisão em múltiplos SMS. Cancelar a revisão mantém o rascunho e não cria pedido. Alterações do cadastro durante espera exigem nova confirmação.
+
+Validação adicional: 13 cenários distintos de fila (incluindo regressões v1), teste renderizado do card com edição do destinatário, prévia, envio rápido e ausência de envio antes da confirmação. Um comando personalizado autorizado individualmente recebeu recibo de entrega via Galaxy. Isso não comprova execução do comando pelo rastreador. Dados do teste real permanecem na área protegida, fora do Git.
+
 Em Configurações SMS, abrir **Gateway SMS Android • parear / fila**. Informar HTTPS/IP privado exibido no celular, conferir SHA256 e usar o código temporário. Mudança de IP preserva o certificado. Trocar a identidade de telefone com fila ativa é bloqueado.
 
 No botão SMS, o Central consulta exatamente a série, rejeita duplicidade e exige telefone/APN online. Exibe série, telefone, APN, comando e gateway antes da confirmação. A fila SQLite separada do estoque mantém UUID e vencimento imutável de 7200 segundos desde a confirmação. Serviço Python executa fora da thread de interface. Nenhuma mudança de cadastro ou vínculo é necessária.

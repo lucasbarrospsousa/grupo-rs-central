@@ -29613,7 +29613,7 @@ func _show_arya_sms_dialog(product: Dictionary) -> void:
 		)
 
 
-func _resolve_grupo_rs_manual_sms_target(product: Dictionary) -> Dictionary:
+func _resolve_grupo_rs_manual_sms_target(product: Dictionary, require_supported_apn: bool = true) -> Dictionary:
 	var serial := _digits_only(str(product.get("imei", product.get("sku", ""))))
 	if serial == "":
 		serial = _digits_only(str(product.get("equipment_number", product.get("serial", ""))))
@@ -29651,7 +29651,7 @@ func _resolve_grupo_rs_manual_sms_target(product: Dictionary) -> Dictionary:
 
 	if phone == "":
 		return {"ok": false, "message": "Telefone do aparelho nao localizado no Grupo RS.", "serial": serial, "apn": apn, "origin": origin}
-	if not _apn_is_hinova(apn) and not _apn_is_linksolutions(apn):
+	if require_supported_apn and not _apn_is_hinova(apn) and not _apn_is_linksolutions(apn):
 		return {"ok": false, "message": "APN %s nao permite envio automatico. Use Hinova ou Link Solutions." % _blank(apn), "serial": serial, "phone": phone, "apn": apn, "origin": origin}
 
 	return {
