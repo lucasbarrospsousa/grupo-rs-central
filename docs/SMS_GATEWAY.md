@@ -6,7 +6,13 @@ Escopo: somente Imperatriz. Projeto do telefone separado em `Sidera Code/RS SMS 
 
 ### Painel de retorno do celular
 
-Abrir **Acompanhar SMS** no estoque de Imperatriz ou em Configurações SMS. O painel também abre após confirmar um novo pedido. Exibe os últimos 100 pedidos, cards animados de andamento, enviados (incluindo entregues), entregas e atenção, além do estado da conexão e do modo diagnóstico. A tabela distingue cada etapa; selecionar a linha mostra o comando e a orientação adequada. O detalhe técnico e a validade estão na dica do quadro de detalhes.
+Abrir **Painel SMS** na navegação lateral. Os atalhos **Acompanhar SMS** no estoque e nas configurações levam à mesma página, sem janela sobreposta. A antiga interface de volume, consumo e recuperação foi retirada da navegação e seus dois construtores visuais foram removidos; dados históricos e rotinas de envio existentes foram preservados. Abrir a página não dispara mais a consulta antiga de recuperação.
+
+Após confirmar um novo pedido, aparece somente o aviso compacto **Solicitação enviada**, esclarecendo que foi registrada na fila. O botão **Painel SMS** abre a página; **Agora não** fecha o aviso sem mudar de aba. Registrar na fila não é confirmação de envio pelo Android. Nenhum comando é criado novamente ao abrir o painel.
+
+O aviso tem layout próprio de 520 × 250, fundo branco arredondado, ícone de envelope sobre azul claro, título destacado e ação principal azul. Entrada suave respeita movimento reduzido; botões usam o comportamento animado do sistema. Captura visual revisada no shell real em 1917 × 1022; navegação pelo botão, ausência de abertura automática da página e isolamento por filial verificados com dados sintéticos. Nenhum SMS foi enviado nesses testes.
+
+A página exibe os últimos 100 pedidos, cards animados de andamento, enviados (incluindo entregues), entregas e atenção, além do estado da conexão e do modo diagnóstico. A tabela distingue cada etapa; selecionar a linha mostra o comando e a orientação adequada. O detalhe técnico e a validade estão na dica do quadro de detalhes. Fora de Imperatriz, a página informa o limite do gateway sem exibir históricos de outra base.
 
 O ciclo do gateway consulta automaticamente um recibo por vez, em rodízio, a cada ciclo de aproximadamente dez segundos, além de reconciliar a fila. Com vários pedidos ou rede lenta, a atualização individual pode levar mais tempo. Pedidos enviados podem evoluir para entregues; indeterminados podem receber confirmação tardia de envio, entrega ou falha. Esse acompanhamento só executa GET: não recria UUID nem reenvia SMS. A API existente do Android 0.3.0 já fornece esses estados; não é necessária nova instalação no telefone.
 

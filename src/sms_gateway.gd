@@ -10,13 +10,52 @@ var runtime := ""
 var python := ""
 var timer: Timer
 var active_composer: AcceptDialog
-var delivery_panel:AcceptDialog
-
 func show_delivery_panel() -> void:
- if str(host.selected_branch_id)!="imperatriz":return
- if is_instance_valid(delivery_panel):delivery_panel.grab_focus();return
- delivery_panel=preload("res://src/ui/sms_delivery_panel.gd").new()
- host.add_child(delivery_panel);delivery_panel.setup(self);delivery_panel.open()
+ host._show_sms_panel()
+
+func show_submission_notice() -> AcceptDialog:
+ var notice:=ConfirmationDialog.new();notice.name="SMSSubmissionNotice"
+ notice.borderless=true;notice.transparent=true;notice.transparent_bg=true;notice.unresizable=true
+ notice.title="Solicitação enviada";notice.dialog_text="Solicitação enviada"
+ notice.ok_button_text="Painel SMS";notice.cancel_button_text="Agora não"
+ notice.theme=Theme.new();notice.theme.default_font=REGULAR;notice.theme.default_font_size=16
+ notice.add_theme_stylebox_override("panel",host._style_box(Color.WHITE,Color("#d9e5f0"),1,20,true))
+ notice.get_label().hide();notice.get_ok_button().hide();notice.get_cancel_button().hide()
+ var frame:=Control.new();frame.custom_minimum_size=Vector2(500,230);notice.add_child(frame)
+ var margin:=MarginContainer.new();frame.add_child(margin);margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+ for side in ["left","right","top","bottom"]:margin.add_theme_constant_override("margin_"+side,24)
+ var box:=VBoxContainer.new();box.add_theme_constant_override("separation",14);margin.add_child(box)
+ var heading:=HBoxContainer.new();heading.add_theme_constant_override("separation",14);box.add_child(heading)
+ var badge:=PanelContainer.new();badge.add_theme_stylebox_override("panel",host._style_box(Color("#e8f3ff"),Color.TRANSPARENT,0,14));badge.custom_minimum_size=Vector2(48,48);heading.add_child(badge)
+ var icon:=TextureRect.new();icon.texture=load("res://assets/icons/approved/mail.svg");icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;icon.custom_minimum_size=Vector2(24,24);icon.modulate=Color("#1678d4")
+ var icon_margin:=MarginContainer.new()
+ for side in ["left","right","top","bottom"]:icon_margin.add_theme_constant_override("margin_"+side,12)
+ badge.add_child(icon_margin);icon_margin.add_child(icon)
+ var titles:=VBoxContainer.new();titles.size_flags_horizontal=Control.SIZE_EXPAND_FILL;heading.add_child(titles)
+ var title:=Label.new();title.text="Solicitação enviada";title.add_theme_font_size_override("font_size",23);title.add_theme_color_override("font_color",Color("#123555"));titles.add_child(title)
+ var caption:=Label.new();caption.name="SubmissionStatus";caption.text="Pedido registrado na fila";caption.add_theme_font_size_override("font_size",13);caption.add_theme_color_override("font_color",Color("#5c7590"));titles.add_child(caption)
+ var text:=Label.new();text.text="Acompanhe a confirmação de envio e os detalhes\nno Painel SMS.";text.add_theme_color_override("font_color",Color("#526e8a"));box.add_child(text)
+ var actions:=HBoxContainer.new();actions.add_theme_constant_override("separation",12);box.add_child(actions)
+ var primary:Button=host._make_action_button("Painel SMS",Color("#1678d4"),Color("#1678d4"),Color.WHITE,Vector2(210,46),func():notice.confirmed.emit())
+ primary.name="OpenSMSPanel";primary.size_flags_horizontal=Control.SIZE_EXPAND_FILL;actions.add_child(primary)
+ var secondary:Button=host._make_action_button("Agora não",Color.WHITE,Color("#d8e5f0"),Color("#526e8a"),Vector2(130,46),func():notice.canceled.emit())
+ actions.add_child(secondary)
+ for button in [primary,secondary]:
+  for state_name in ["normal","hover","pressed"]:
+   var button_style:StyleBox=button.get_theme_stylebox(state_name).duplicate()
+   for side in [SIDE_LEFT,SIDE_RIGHT]:button_style.set_content_margin(side,18)
+   for side in [SIDE_TOP,SIDE_BOTTOM]:button_style.set_content_margin(side,12)
+   button.add_theme_stylebox_override(state_name,button_style)
+  CARD_MOTION.attach(button)
+ notice.confirmed.connect(func():notice.queue_free();show_delivery_panel())
+ notice.canceled.connect(notice.queue_free)
+ host.add_child(notice);notice.popup_centered(Vector2i(520,250))
+ if OS.get_environment("GRUPO_RS_REDUCED_MOTION")!="1":
+  box.modulate.a=0;var destination:=notice.position;notice.position+=Vector2i(0,12)
+  var entry:=notice.create_tween().set_parallel(true)
+  entry.tween_property(box,"modulate:a",1.0,0.2)
+  entry.tween_property(notice,"position",destination,0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+ return notice
 const REGULAR = preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf")
 const CARD_MOTION = preload("res://src/ui/card_hover_motion.gd")
 const COMPOSER_SIZE = Vector2i(1000,660)
@@ -385,7 +424,7 @@ func _confirm_message(context: Dictionary, recipient: String, message: String, m
   var saved := await call_service("enqueue",payload)
   if saved.get("ok",false) and is_instance_valid(card):card.queue_free()
   elif is_instance_valid(card):_open_composer(card)
-  if saved.get("ok",false):show_delivery_panel()
+  if saved.get("ok",false):show_submission_notice()
   elif is_instance_valid(card):card.find_child("ValidationError",true,false).text=str(saved.get("error","Não gravado"))
  )
 

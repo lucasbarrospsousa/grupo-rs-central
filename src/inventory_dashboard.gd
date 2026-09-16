@@ -18959,11 +18959,9 @@ func _refresh_auto_reset_dashboard_if_visible() -> void:
 
 
 func _show_sms_panel() -> void:
-	_set_page_context("sms_panel", "Painel SMS", "Envios, status e consumo da operacao em tempo real")
+	_set_page_context("sms_panel", "Painel SMS", "Retorno do celular e acompanhamento dos envios")
 	_set_content_margins(28, 22, 28, 22)
 	_set_content(_build_sms_panel_view(), true)
-	if not sms_recovery_report_open and not sms_recovery_check_running:
-		call_deferred("_sms_recovery_check_pending")
 
 
 func _sms_recovery_check_pending() -> void:
@@ -19105,177 +19103,11 @@ func _clear_sms_panel_filters() -> void:
 
 
 func _build_sms_panel_view() -> Control:
-	return preload("res://src/features/sms/sms_panel_view.gd").build(self)
+	var panel := preload("res://src/ui/sms_delivery_panel.gd").new()
+	panel.setup(_ensure_phone_sms_gateway())
+	return panel
 
 
-func _build_sms_panel_view_legacy() -> Control:
-	var root := VBoxContainer.new()
-	root.name = "SmsPanelView"
-	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 12)
-
-	var heading := HBoxContainer.new()
-	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(heading)
-	var heading_stack := VBoxContainer.new()
-	heading_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_child(heading_stack)
-	var title := Label.new()
-	title.text = "Painel SMS"
-	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 27)
-	title.add_theme_color_override("font_color", TEXT)
-	heading_stack.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "Acompanhe envios aceitos, falhas e consumo sem confundir a fila do portal com entrega final."
-	subtitle.add_theme_font_override("font", UI_FONT)
-	subtitle.add_theme_font_size_override("font_size", 14)
-	subtitle.add_theme_color_override("font_color", MUTED)
-	heading_stack.add_child(subtitle)
-	var automatic_label := _make_table_label("Atualizacao automatica", 190, true, GREEN, HORIZONTAL_ALIGNMENT_RIGHT, 14)
-	heading.add_child(automatic_label)
-
-	root.add_child(_build_experttexting_health_strip())
-	var events := _sms_panel_events_filtered()
-	var today_key := Time.get_date_string_from_system()
-	var today_count := 0
-	var accepted_count := 0
-	var failed_count := 0
-	var today_cost := 0.0
-	for event in events:
-		if str(event.get("date", "")) == today_key:
-			today_count += 1
-			today_cost += float(event.get("price", 0.0))
-		var status := str(event.get("status", ""))
-		if status in ["Aceito", "Enviado", "Entregue"]:
-			accepted_count += 1
-		if status == "Falho":
-			failed_count += 1
-
-	var cards := GridContainer.new()
-	cards.columns = 5
-	cards.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cards.add_theme_constant_override("h_separation", 10)
-	cards.add_child(_make_log_metric_card("Saldo", _format_monitor_usd(experttexting_last_balance) if experttexting_last_balance >= 0.0 else "--", _experttexting_status_label(), GREEN if experttexting_last_balance >= 0.0 else MUTED))
-	cards.add_child(_make_log_metric_card("Enviados hoje", str(today_count), "Programa + portal", BLUE))
-	cards.add_child(_make_log_metric_card("Aceitos", str(accepted_count), "Fila confirmada", GREEN))
-	cards.add_child(_make_log_metric_card("Falhos", str(failed_count), "Requer atencao" if failed_count > 0 else "Nenhuma falha local", RED if failed_count > 0 else GREEN))
-	cards.add_child(_make_log_metric_card("Custo hoje", _format_monitor_usd(today_cost), "Estimativa do provedor", ORANGE))
-	root.add_child(cards)
-
-	var charts := HBoxContainer.new()
-	charts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	charts.add_theme_constant_override("separation", 12)
-	charts.add_child(_build_sms_panel_volume_chart(events))
-	charts.add_child(_build_sms_panel_status_chart(events))
-	charts.add_child(_build_sms_panel_origin_chart(events))
-	root.add_child(charts)
-
-	var history := PanelContainer.new()
-	history.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	history.add_theme_stylebox_override("panel", _style_box(Color.WHITE, BORDER, 1, 8, true))
-	var hm := MarginContainer.new()
-	hm.add_theme_constant_override("margin_left", 16)
-	hm.add_theme_constant_override("margin_right", 16)
-	hm.add_theme_constant_override("margin_top", 14)
-	hm.add_theme_constant_override("margin_bottom", 12)
-	history.add_child(hm)
-	var hs := VBoxContainer.new()
-	hs.add_theme_constant_override("separation", 9)
-	hm.add_child(hs)
-	var ht := HBoxContainer.new()
-	ht.add_child(_make_table_label("Histórico recente", 220, true, TEXT, HORIZONTAL_ALIGNMENT_LEFT, 19))
-	var status_filter := OptionButton.new()
-	status_filter.custom_minimum_size = Vector2(130, 36)
-	for option in ["Todos", "Aceito", "Enviado", "Entregue", "Falho"]:
-		status_filter.add_item(option)
-	status_filter.select(maxi(0, ["Todos", "Aceito", "Enviado", "Entregue", "Falho"].find(sms_panel_status_filter)))
-	status_filter.item_selected.connect(func(index: int):
-			sms_panel_status_filter = status_filter.get_item_text(index)
-			_show_sms_panel()
-	)
-	ht.add_child(status_filter)
-	var origin_filter := OptionButton.new()
-	origin_filter.custom_minimum_size = Vector2(130, 36)
-	for option in ["Todos", "Programa", "Portal"]:
-		origin_filter.add_item(option)
-	origin_filter.select(maxi(0, ["Todos", "Programa", "Portal"].find(sms_panel_origin_filter)))
-	origin_filter.item_selected.connect(func(index: int):
-			sms_panel_origin_filter = origin_filter.get_item_text(index)
-			_show_sms_panel()
-	)
-	ht.add_child(origin_filter)
-	ht.add_child(_make_action_button("Exportar XLSX", GREEN, GREEN, Color.WHITE, Vector2(155, 36), _export_sms_panel_xlsx))
-	hs.add_child(ht)
-	var sms_filter_row := HBoxContainer.new()
-	sms_filter_row.name = "SmsHistoryFilters"
-	sms_filter_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sms_filter_row.add_theme_constant_override("separation", 8)
-	var sms_search_input := LineEdit.new()
-	sms_search_input.name = "SmsHistorySearch"
-	sms_search_input.placeholder_text = "Buscar por placa, série, telefone ou ID"
-	sms_search_input.text = sms_panel_search_filter
-	sms_search_input.custom_minimum_size = Vector2(0, 36)
-	sms_search_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_style_line_edit(sms_search_input)
-	sms_search_input.text_submitted.connect(func(text_value: String):
-		sms_panel_search_filter = text_value.strip_edges()
-		_show_sms_panel()
-	)
-	sms_filter_row.add_child(sms_search_input)
-	sms_panel_date_input = LineEdit.new()
-	sms_panel_date_input.placeholder_text = "Data inicial"
-	sms_panel_date_input.text = _system_log_calendar_display_value(sms_panel_start_date)
-	sms_panel_date_input.custom_minimum_size = Vector2(0, 36)
-	_style_line_edit(sms_panel_date_input)
-	sms_panel_date_input.text_submitted.connect(func(_text): _refresh_sms_panel_date_filters())
-	sms_filter_row.add_child(_make_log_filter_group("Inicial", _make_system_log_date_picker(sms_panel_date_input, false), 0, true))
-	sms_panel_end_date_input = LineEdit.new()
-	sms_panel_end_date_input.placeholder_text = "Data final"
-	sms_panel_end_date_input.text = _system_log_calendar_display_value(sms_panel_end_date)
-	sms_panel_end_date_input.custom_minimum_size = Vector2(0, 36)
-	_style_line_edit(sms_panel_end_date_input)
-	sms_panel_end_date_input.text_submitted.connect(func(_text): _refresh_sms_panel_date_filters())
-	sms_filter_row.add_child(_make_log_filter_group("Final", _make_system_log_date_picker(sms_panel_end_date_input, true), 0, true))
-	sms_filter_row.add_child(_make_action_button("Aplicar", BLUE, BLUE, Color.WHITE, Vector2(92, 36), func():
-		sms_panel_search_filter = sms_search_input.text.strip_edges()
-		_refresh_sms_panel_date_filters()
-	))
-	var clear_sms_filters := _make_action_button("Limpar", Color("#eef3f8"), BORDER, BLUE_DARK, Vector2(88, 36), _clear_sms_panel_filters)
-	clear_sms_filters.tooltip_text = "Limpar busca e período do histórico SMS"
-	sms_filter_row.add_child(clear_sms_filters)
-	hs.add_child(sms_filter_row)
-	var header := HBoxContainer.new()
-	for column in [["Data", 150], ["Série", 130], ["Telefone", 160], ["Origem", 120], ["Status", 120], ["ID", 170], ["Custo", 90]]:
-		header.add_child(_make_table_label(str(column[0]), int(column[1]), false, MUTED, HORIZONTAL_ALIGNMENT_LEFT, 13))
-	hs.add_child(header)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 150)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hs.add_child(scroll)
-	var rows := VBoxContainer.new()
-	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rows.add_theme_constant_override("separation", 4)
-	scroll.add_child(rows)
-	if events.is_empty():
-		rows.add_child(_make_empty_log_card("Nenhum envio registrado para os filtros atuais."))
-	else:
-		for event in events.slice(0, mini(events.size(), 80)):
-			var row := HBoxContainer.new()
-			row.custom_minimum_size = Vector2(0, 34)
-			row.add_theme_constant_override("separation", 8)
-			row.add_child(_make_table_label(str(event.get("timestamp", "")), 150, false, TEXT, HORIZONTAL_ALIGNMENT_LEFT, 12))
-			row.add_child(_make_table_label(str(event.get("serial", "")), 130, false, BLUE_DARK, HORIZONTAL_ALIGNMENT_LEFT, 12))
-			row.add_child(_make_table_label(str(event.get("phone", "")), 160, false, TEXT, HORIZONTAL_ALIGNMENT_LEFT, 12))
-			row.add_child(_make_table_label(str(event.get("origin", "")), 120, false, TEXT, HORIZONTAL_ALIGNMENT_LEFT, 12))
-			var status := str(event.get("status", ""))
-			row.add_child(_make_table_label(status, 120, false, GREEN if status != "Falho" else RED, HORIZONTAL_ALIGNMENT_LEFT, 12))
-			row.add_child(_make_table_label(str(event.get("message_id", "")), 170, true, MUTED, HORIZONTAL_ALIGNMENT_LEFT, 12))
-			row.add_child(_make_table_label(_format_monitor_usd(float(event.get("price", 0.0))), 90, true, TEXT, HORIZONTAL_ALIGNMENT_LEFT, 12))
-			rows.add_child(row)
-	root.add_child(history)
-	return root
 
 
 func _sms_panel_chart(title_text: String, color: Color) -> VBoxContainer:

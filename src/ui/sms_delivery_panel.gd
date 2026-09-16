@@ -1,4 +1,4 @@
-extends AcceptDialog
+extends MarginContainer
 ## Read-only monitor: never enqueue, retransmit or cancel from this panel.
 const MOTION=preload("res://src/ui/card_hover_motion.gd")
 const COLORS={"waiting_gateway":"#2377ce","received":"#2377ce","sending":"#2377ce","sent":"#168364","delivered":"#168364","failed":"#c84545","expired":"#af641b","indeterminate":"#af641b","needs_confirmation":"#af641b","cancelled":"#64768a"}
@@ -27,24 +27,18 @@ func panel(color:Color=Color.WHITE) -> PanelContainer:
 
 func setup(controller:Node) -> void:
  gateway=controller;host=controller.host;name="SMSDeliveryPanel"
- title="Acompanhamento de SMS";borderless=true;transparent=true;transparent_bg=true
- unresizable=true;get_ok_button().hide()
+ size_flags_horizontal=Control.SIZE_EXPAND_FILL;size_flags_vertical=Control.SIZE_EXPAND_FILL
  theme=Theme.new();theme.default_font=controller.REGULAR;theme.default_font_size=15
  theme.set_color("font_color","Label",Color("#123555"))
- theme.set_stylebox("panel","AcceptDialog",host._style_box(Color("#f3f7fc"),Color("#d8e5f0"),1,20,true))
- var frame:=Control.new();frame.custom_minimum_size=Vector2(1060,680);add_child(frame)
- content=VBoxContainer.new();frame.add_child(content);content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);content.add_theme_constant_override("separation",14)
- content.offset_left=22;content.offset_top=18;content.offset_right=-22;content.offset_bottom=-18
+ content=VBoxContainer.new();add_child(content);content.add_theme_constant_override("separation",18)
  var header:=HBoxContainer.new();content.add_child(header)
  var titles:=VBoxContainer.new();titles.size_flags_horizontal=Control.SIZE_EXPAND_FILL;header.add_child(titles)
  titles.add_child(label("ACOMPANHAMENTO • IMPERATRIZ",12,Color("#377abd")))
- titles.add_child(label("SMS: do pedido à confirmação",26))
+ titles.add_child(label("Painel SMS",30))
  titles.add_child(label("Retorno do Galaxy pelo Wi-Fi • atualização automática",14,Color("#617a95")))
  refreshing_button=host._make_action_button("Atualizar",Color.WHITE,Color("#d3e2ef"),Color("#123555"),Vector2(120,42),refresh)
  refreshing_button.name="RefreshStatus";header.add_child(refreshing_button)
  refreshing_button.size_flags_vertical=Control.SIZE_SHRINK_CENTER
- var close_button:Button=host._make_action_button("Fechar",Color.WHITE,Color("#d3e2ef"),Color("#123555"),Vector2(90,42),queue_free)
- close_button.size_flags_vertical=Control.SIZE_SHRINK_CENTER;header.add_child(close_button)
  var metrics:=HBoxContainer.new();metrics.add_theme_constant_override("separation",14);content.add_child(metrics)
  var names=["Na fila / em andamento","SMS enviados¹","Entrega confirmada","Precisam de atenção"]
  var accents=[Color("#2377ce"),Color("#168364"),Color("#168364"),Color("#af641b")]
@@ -73,20 +67,21 @@ func setup(controller:Node) -> void:
  var details_card:=panel();content.add_child(details_card);MOTION.attach(details_card)
  detail=label("Nenhum pedido selecionado. O envio só é confirmado após o retorno do Android.",14);detail.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;detail.custom_minimum_size.y=62;details_card.add_child(detail)
  var footer:=label("¹ Inclui entregas confirmadas. ² Horário em que o Central recebeu o estado.\nEnvio não significa entrega; entrega não comprova execução do comando. Sem retorno, não reenvie automaticamente.",12,Color("#617a95"));content.add_child(footer)
- canceled.connect(queue_free)
- var timer:=Timer.new();timer.wait_time=10;timer.timeout.connect(refresh);add_child(timer);timer.start()
+ var timer:=Timer.new();timer.wait_time=10;timer.timeout.connect(refresh);add_child(timer);timer.call_deferred("start")
+ call_deferred("open")
 
 func open() -> void:
- popup_centered(Vector2i(1100,740))
  if OS.get_environment("GRUPO_RS_REDUCED_MOTION")!="1":
-  var target:=position;position+=Vector2i(0,18);content.modulate.a=0
+  content.modulate.a=0
   var tween:=create_tween().set_parallel(true)
-  tween.tween_property(self,"position",target,0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
   tween.tween_property(content,"modulate:a",1.0,0.25)
  refresh()
 
 func refresh() -> void:
  if refreshing:return
+ if str(host.selected_branch_id)!="imperatriz":
+  connection.text="Gateway Android disponível somente em Imperatriz. Nenhum histórico de outra base é exibido."
+  render_jobs([]);refreshing_button.disabled=true;return
  refreshing=true;refreshing_button.disabled=true
  var data:Dictionary=await gateway.call_service("list")
  if not is_instance_valid(self):return
