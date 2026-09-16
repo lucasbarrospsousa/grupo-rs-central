@@ -13,7 +13,12 @@ func run() -> void:
 	var gateway:Node=shell._ensure_phone_sms_gateway()
 	var context={"version":2,"serial":"024000001","source_phone_snapshot":"+5511999999999","apn_snapshot":"hinova.br","standard_command_snapshot":"ST300NTW;024000001;TEST;#","status_snapshot":"Estoque"}
 	var card:AcceptDialog=gateway.show_composer(context,"https://192.168.1.2:8743")
-	await create_timer(0.2).timeout
+	var entry_position:=card.position
+	assert(card.find_child("ComposerLayout",true,false).modulate.a<0.1)
+	await create_timer(0.4).timeout
+	assert(card.position.y<entry_position.y)
+	assert(is_equal_approx(card.find_child("ComposerLayout",true,false).modulate.a,1.0))
+	assert(card.size==Vector2i(1000,660))
 	assert(card.size.y<800 and card.position.y+card.size.y<=root.size.y)
 	for name_value in ["EquipmentSummary","GatewaySummary","SMSPreviewCard"]:
 		var animated:Control=card.find_child(name_value,true,false)

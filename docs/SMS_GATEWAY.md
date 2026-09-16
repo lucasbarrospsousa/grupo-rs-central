@@ -12,6 +12,8 @@ Teste sintético de latência: atrasos de 300 ms em cada etapa, card visível an
 
 Cards de aparelho, gateway e prévia usam `card_hover_motion.gd`, compartilhado com o sistema: elevação suave com retorno, sem deslocar o layout, respeitando a opção de movimento reduzido. O teste verifica ampliação e retorno dos três cards. O contêiner do formulário impede que o cálculo transitório de quebra de texto amplie a janela para além da tela ao abrir ou voltar da confirmação. Validação visual com o tema real herdado e resolução 1917 × 1022.
 
+O painel compacto mede 1000 × 660 (antes 1160 × 740). Ao abrir ou voltar da revisão, desliza 24 px até o centro em 0,32 s e revela o conteúdo em 0,22 s. A opção de movimento reduzido desativa essa entrada. O teste verifica posição inicial/final, opacidade final e tamanho. A janela solicita fundo transparente para não pintar cantos escuros fora do contorno arredondado. Estado de consulta pendente usa cor informativa, não vermelha.
+
 Ao clicar em SMS, o card consulta o aparelho e preenche o telefone. O campo de mensagem começa vazio. A prévia lateral acompanha o telefone e o texto. O botão azul com avião abre a revisão do comando personalizado; o atalho **SMS padrão** ignora alterações nesses campos e usa o telefone consultado e o comando de configuração. Ambos exigem confirmação antes da fila.
 
 Editar o telefone altera apenas o destinatário daquele pedido, não o cadastro. Pedidos v2 registram `command_mode`, `source_phone_snapshot`, `apn_snapshot` e `standard_command_snapshot`. A revalidação compara esses dados de origem, sem substituir o texto personalizado nem o destinatário confirmado. Pedidos v1 existentes continuam compatíveis. Atualizar o Android para 0.2.0 antes de usar mensagens personalizadas.

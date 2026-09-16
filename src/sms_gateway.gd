@@ -12,6 +12,21 @@ var timer: Timer
 var active_composer: AcceptDialog
 const REGULAR = preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf")
 const CARD_MOTION = preload("res://src/ui/card_hover_motion.gd")
+const COMPOSER_SIZE = Vector2i(1000,660)
+
+func _open_composer(card:AcceptDialog) -> void:
+ card.popup_centered(COMPOSER_SIZE)
+ if OS.get_environment("GRUPO_RS_REDUCED_MOTION")=="1":return
+ var previous:Tween=card.get_meta("entry_tween") if card.has_meta("entry_tween") else null
+ if previous:previous.kill()
+ var destination:=card.position
+ card.position=destination+Vector2i(0,24)
+ var content:Control=card.find_child("ComposerLayout",true,false)
+ content.modulate.a=0.0
+ var entry:=card.create_tween().set_parallel(true)
+ entry.tween_property(card,"position",destination,0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+ entry.tween_property(content,"modulate:a",1.0,0.22)
+ card.set_meta("entry_tween",entry)
 
 func _summary_card(title_text:String, value_text:String, icon_path:String, accent:Color, node_name:String) -> PanelContainer:
  var panel:=PanelContainer.new();panel.name=node_name;panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -181,30 +196,32 @@ func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
  card.name="SMSComposer"
  card.title="SMS • aparelho "+str(context.serial)
  card.borderless=true
+ card.transparent_bg=true
+ card.transparent=true
  card.unresizable=true
- card.min_size=Vector2i(1040,620)
+ card.min_size=Vector2i(940,580)
  card.get_ok_button().hide()
  var palette:=Theme.new()
- palette.default_font_size=18
+ palette.default_font_size=16
  palette.default_font=REGULAR
  palette.set_color("font_color","Label",Color("#123555"))
  palette.set_stylebox("panel","AcceptDialog",host._style_box(Color("#f5f8fc"),Color("#d9e5f0"),1,18,true))
  card.theme=palette
  # A fixed layout host prevents transient autowrap minimum sizes (including
  # while hidden for review) from enlarging the native dialog beyond the screen.
- var layout_host:=Control.new();layout_host.custom_minimum_size=Vector2(1040,620);card.add_child(layout_host)
+ var layout_host:=Control.new();layout_host.name="ComposerLayout";layout_host.custom_minimum_size=Vector2(940,580);card.add_child(layout_host)
  var root_box:=VBoxContainer.new();root_box.add_theme_constant_override("separation",0);layout_host.add_child(root_box);root_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
  var banner:=PanelContainer.new()
  var banner_style:=StyleBoxTexture.new();banner_style.texture=preload("res://assets/ui/sms_header.svg")
  # Nine-patch margins retain the same 18 px top corners as the outer card.
  for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP]:banner_style.set_texture_margin(side,18)
  for side in [SIDE_LEFT,SIDE_RIGHT]:banner_style.set_content_margin(side,24)
- for side in [SIDE_TOP,SIDE_BOTTOM]:banner_style.set_content_margin(side,20)
+ for side in [SIDE_TOP,SIDE_BOTTOM]:banner_style.set_content_margin(side,14)
  banner.add_theme_stylebox_override("panel",banner_style);root_box.add_child(banner)
  var header:=HBoxContainer.new();header.add_theme_constant_override("separation",20);banner.add_child(header)
  var heading:=VBoxContainer.new();heading.size_flags_horizontal=Control.SIZE_EXPAND_FILL;header.add_child(heading)
- var title:=Label.new();title.text="Enviar comando por SMS";title.add_theme_font_size_override("font_size",26);title.add_theme_color_override("font_color",Color.WHITE);heading.add_child(title)
- var subtitle:=Label.new();subtitle.text="Escreva a mensagem ou use a configuração rápida do aparelho.";subtitle.add_theme_font_size_override("font_size",16);subtitle.add_theme_color_override("font_color",Color("#d8eaff"));heading.add_child(subtitle)
+ var title:=Label.new();title.text="Enviar comando por SMS";title.add_theme_font_size_override("font_size",22);title.add_theme_color_override("font_color",Color.WHITE);heading.add_child(title)
+ var subtitle:=Label.new();subtitle.text="Mensagem personalizada ou configuração rápida.";subtitle.add_theme_font_size_override("font_size",14);subtitle.add_theme_color_override("font_color",Color("#d8eaff"));heading.add_child(subtitle)
  var quick:Button=host._make_action_button("SMS padrão",Color.WHITE,Color.WHITE,Color("#174c7c"),Vector2(170,48),func():
   _confirm_message(context,context.source_phone_snapshot,context.standard_command_snapshot,"standard",gateway_url,card)
  )
@@ -217,23 +234,25 @@ func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
   quick.add_theme_stylebox_override(state_name,quick_style)
  var close:=Button.new();close.text="×";close.flat=true;close.add_theme_font_size_override("font_size",28);close.add_theme_color_override("font_color",Color.WHITE);close.pressed.connect(card.queue_free);header.add_child(close)
  var margin:=MarginContainer.new()
- for side in ["left","right","top","bottom"]:margin.add_theme_constant_override("margin_"+side,24)
+ for side in ["left","right","top","bottom"]:margin.add_theme_constant_override("margin_"+side,20)
  root_box.add_child(margin)
  var columns:=HBoxContainer.new();columns.add_theme_constant_override("separation",24);margin.add_child(columns)
- var box:=VBoxContainer.new();box.size_flags_horizontal=Control.SIZE_EXPAND_FILL;box.size_flags_stretch_ratio=2.2;box.add_theme_constant_override("separation",12);columns.add_child(box)
+ var box:=VBoxContainer.new();box.size_flags_horizontal=Control.SIZE_EXPAND_FILL;box.size_flags_stretch_ratio=2.2;box.add_theme_constant_override("separation",10);columns.add_child(box)
  var summaries:=HBoxContainer.new();summaries.add_theme_constant_override("separation",14);box.add_child(summaries)
  summaries.add_child(_summary_card("APARELHO • IMPERATRIZ",str(context.serial),"res://assets/icons/approved/chip.svg",Color("#176dc0"),"EquipmentSummary"))
  summaries.add_child(_summary_card("SMS VIA GALAXY","Conferindo conexão…" if not context.get("ready",true) else "Confirmação antes do envio","res://assets/icons/approved/signal.svg",Color("#137d78"),"GatewaySummary"))
  var phone_label:=Label.new();phone_label.text="Telefone do chip do rastreador";box.add_child(phone_label)
  var phone:=LineEdit.new();phone.name="Recipient";phone.text=host._format_grupo_rs_sms_phone(str(context.source_phone_snapshot));phone.placeholder_text="DDD + telefone";host._style_line_edit(phone);box.add_child(phone)
- var hint:=Label.new();hint.text="Telefone do cadastro. Conferência em segundo plano antes do envio.";hint.add_theme_font_size_override("font_size",14);box.add_child(hint)
+ var hint:=Label.new();hint.text="Telefone do cadastro • confira antes de enviar.";hint.add_theme_font_size_override("font_size",13);box.add_child(hint)
  var message_label:=Label.new();message_label.text="Mensagem / comando personalizado";box.add_child(message_label)
- var message:=TextEdit.new();message.name="Message";message.placeholder_text="Digite o comando que deseja enviar…";message.custom_minimum_size=Vector2(0,150);host._style_text_edit(message);box.add_child(message)
+ var message:=TextEdit.new();message.name="Message";message.placeholder_text="Digite o comando que deseja enviar…";message.custom_minimum_size=Vector2(0,120);host._style_text_edit(message);box.add_child(message)
  message.add_theme_font_override("font",REGULAR);message.add_theme_font_size_override("font_size",18)
  var counter:=Label.new();counter.text="0 / 160 • somente texto simples; sem SMS dividido";counter.add_theme_font_size_override("font_size",14);box.add_child(counter)
  message.text_changed.connect(func():counter.text="%d / 160 • somente texto simples; sem SMS dividido" % message.text.length())
  var error:=Label.new();error.name="ValidationError";error.add_theme_color_override("font_color",Color("#b83232"));error.add_theme_font_size_override("font_size",14);error.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(error)
- if not context.get("ready",true):error.text="Conferindo cadastro e gateway… Você já pode escrever."
+ if not context.get("ready",true):
+  error.text="Conferindo cadastro e gateway… Você já pode escrever."
+  error.add_theme_color_override("font_color",Color("#58738e"))
  var send:Button=host._make_action_button("Enviar mensagem",Color("#1678d4"),Color("#1678d4"),Color.WHITE,Vector2(0,58),func():
   _confirm_message(context,phone.text,message.text,"custom",gateway_url,card)
  )
@@ -263,7 +282,7 @@ func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
   message_preview.text=message.text if not message.text.is_empty() else "Sua mensagem aparecerá aqui antes do envio."
  phone.text_changed.connect(func(_text:String):update_preview.call())
  message.text_changed.connect(update_preview);update_preview.call()
- host.add_child(card);card.canceled.connect(card.queue_free);card.popup_centered(Vector2i(1160,740))
+ host.add_child(card);card.canceled.connect(card.queue_free);_open_composer(card)
  return card
 
 func _confirm_message(context: Dictionary, recipient: String, message: String, mode: String, gateway_url: String, card: AcceptDialog) -> void:
@@ -313,7 +332,7 @@ func _confirm_message(context: Dictionary, recipient: String, message: String, m
  dialog.canceled.connect(func():
   dialog.hide()
   dialog.queue_free()
-  if is_instance_valid(card):card.popup_centered(Vector2i(1160,740))
+  if is_instance_valid(card):_open_composer(card)
  )
  dialog.confirmed.connect(func():
   dialog.hide()
@@ -322,7 +341,7 @@ func _confirm_message(context: Dictionary, recipient: String, message: String, m
   payload["confirmed_at"]=int(Time.get_unix_time_from_system())
   var saved := await call_service("enqueue",payload)
   if saved.get("ok",false) and is_instance_valid(card):card.queue_free()
-  elif is_instance_valid(card):card.popup_centered(Vector2i(1160,740))
+  elif is_instance_valid(card):_open_composer(card)
   if saved.get("ok",false):host._show_success("Gateway SMS","Pedido registrado. Validade de 2 horas; acompanhe em Configurações SMS → Gateway.")
   elif is_instance_valid(card):card.find_child("ValidationError",true,false).text=str(saved.get("error","Não gravado"))
  )
