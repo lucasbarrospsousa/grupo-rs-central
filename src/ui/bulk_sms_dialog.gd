@@ -9,6 +9,14 @@ var validate_button:Button
 var confirm_button:Button
 var prepared:Array=[]
 var branch:String
+var pasted_rows:Array=[]
+var page:=0
+var page_label:Label
+var paste_button:Button
+var previous_button:Button
+var next_button:Button
+var row_labels:Array=[]
+var fields_locked:=false
 
 func setup(owner_node:Node) -> void:
 	host=owner_node;gateway=host._ensure_phone_sms_gateway();branch=str(host.selected_branch_id)
@@ -33,11 +41,18 @@ func setup(owner_node:Node) -> void:
 	var columns:=HBoxContainer.new();columns.add_theme_constant_override("separation",18);box.add_child(columns)
 	var panel:VBoxContainer=UI.panel("01 · Lista de aparelhos")
 	var table_panel:Control=panel.get_parent();table_panel.custom_minimum_size.x=600;columns.add_child(table_panel)
-	var list_scroll:=ScrollContainer.new();list_scroll.custom_minimum_size.y=360;list_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;panel.add_child(list_scroll)
+	var toolbar:=HBoxContainer.new();toolbar.add_theme_constant_override("separation",8);panel.add_child(toolbar)
+	paste_button=host._make_action_button("Colar lista",Color("#edf5ff"),Color("#d3e2ef"),Color("#174c7c"),Vector2(120,36),func():paste_text(DisplayServer.clipboard_get()))
+	toolbar.add_child(paste_button)
+	page_label=UI.text("Lote 1 · até 10",12);page_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL;toolbar.add_child(page_label)
+	previous_button=UI.action(host,"‹",func():change_page(-1));previous_button.custom_minimum_size=Vector2(36,36);toolbar.add_child(previous_button);previous_button.disabled=true
+	next_button=UI.action(host,"›",func():change_page(1));next_button.custom_minimum_size=Vector2(36,36);toolbar.add_child(next_button);next_button.disabled=true
+	previous_button.icon=null;next_button.icon=null
+	var list_scroll:=ScrollContainer.new();list_scroll.custom_minimum_size.y=306;list_scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;panel.add_child(list_scroll)
 	var grid:=GridContainer.new();grid.columns=4;grid.add_theme_constant_override("h_separation",10);grid.add_theme_constant_override("v_separation",8);list_scroll.add_child(grid)
 	for label in ["#","Série","Telefone · DDD","Grupo *"]:grid.add_child(UI.text(label,13))
 	for i in range(10):
-		grid.add_child(UI.text("%02d" % (i+1),12,Color("#7890a8")))
+		var row_label:=UI.text("%02d" % (i+1),12,Color("#7890a8"));grid.add_child(row_label);row_labels.append(row_label)
 		var serial:=LineEdit.new();serial.placeholder_text="024…";serial.custom_minimum_size.x=155;host._style_line_edit(serial);grid.add_child(serial)
 		var phone:=LineEdit.new();phone.placeholder_text="DDD + telefone";phone.custom_minimum_size.x=175;host._style_line_edit(phone);grid.add_child(phone)
 		var group:=OptionButton.new();group.custom_minimum_size.x=145;group.add_item("Selecionar",0)
@@ -79,9 +94,47 @@ func invalidate(_value:Variant=null) -> void:
 	if confirm_button:confirm_button.disabled=true
 
 func lock_fields(locked:bool) -> void:
+	fields_locked=locked
 	validate_button.disabled=locked
+	paste_button.disabled=locked
+	update_page_controls()
 	for row in inputs:
 		row[0].editable=not locked;row[1].editable=not locked;row[2].disabled=locked
+
+func paste_text(text:String) -> void:
+	if fields_locked:return
+	var parsed:Dictionary=preload("res://src/ui/sms_paste_parser.gd").parse(text)
+	if not parsed.get("ok",false):feedback.text=str(parsed.error)+" Nada foi substituído.";return
+	pasted_rows=parsed.rows;page=0;load_page()
+	feedback.text="%d aparelhos organizados em %d lotes de até 10. Cada lote exige consulta e confirmação; nada foi enviado." % [pasted_rows.size(),ceili(pasted_rows.size()/10.0)]
+
+func update_page_controls() -> void:
+	var pages:=maxi(1,ceili(pasted_rows.size()/10.0))
+	page_label.text="Lote %d/%d · %d aparelhos" % [page+1,pages,pasted_rows.size()] if not pasted_rows.is_empty() else "Lote 1 · até 10"
+	previous_button.disabled=fields_locked or page==0
+	next_button.disabled=fields_locked or page+1>=pages
+
+func change_page(direction:int) -> void:
+	if fields_locked or pasted_rows.is_empty():return
+	var target:=page+direction
+	if target<0 or target>=ceili(pasted_rows.size()/10.0):return
+	for i in range(10):
+		var index:=page*10+i
+		if index>=pasted_rows.size():
+			if inputs[i][0].text=="" and inputs[i][1].text=="" and inputs[i][2].get_selected_id()==0:continue
+			while pasted_rows.size()<=index:pasted_rows.append({})
+		pasted_rows[index]={"serial":inputs[i][0].text,"phone":inputs[i][1].text,"group":inputs[i][2].get_selected_id()}
+	page=target;load_page()
+	feedback.text="Lote %d selecionado. Consulte e confirme somente este lote." % (page+1)
+
+func load_page() -> void:
+	invalidate();review.text=""
+	for i in range(10):
+		var index:=page*10+i
+		var value:Dictionary=pasted_rows[index] if index<pasted_rows.size() else {}
+		inputs[i][0].text=str(value.get("serial",""));inputs[i][1].text=str(value.get("phone",""));inputs[i][2].select(int(value.get("group",0)))
+		row_labels[i].text="%02d" % (index+1)
+	update_page_controls()
 
 func prepare() -> void:
 	prepared.clear();confirm_button.disabled=true;review.text=""

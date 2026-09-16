@@ -88,6 +88,17 @@ não é fonte dessa atualização. Backup integral de todas as bases foi validad
 da implementação; os testes de gravação usam somente banco temporário sintético.
 # SMS em massa — 16/09/2026
 
+Colar lista aceita tabelas Markdown (incluindo separador após a primeira linha),
+colunas de planilha separadas por tabulação ou por ponto e vírgula. A importação
+preserva ordem e zeros iniciais, formata telefone sem alterar os dígitos nacionais,
+exige grupo 1–4 e rejeita duplicados/linhas inválidas sem substituir a lista atual.
+Listas maiores ficam divididas em páginas de até dez, sem descarte do excedente:
+28 aparelhos resultam em 10/10/8. Cada página exige consulta e confirmação próprias;
+navegar/colar não consulta plataformas, grava cadastros ou agenda SMS. Edições
+permanecem ao navegar. A lista de preparação fica somente na janela, não é uma
+fila persistente; somente lotes explicitamente confirmados entram na fila.
+Limite de importação: 1000 aparelhos e 100 mil caracteres, sem truncamento silencioso.
+
 Em Cadastro em massa, o botão SMS em massa abre até dez linhas de série, telefone
 e grupo obrigatório (1–4). O grupo troca somente os dois servidores do comando
 para gruporsN.ddns.net; portas 5940/5941 e APN/credenciais consultadas são preservadas.
