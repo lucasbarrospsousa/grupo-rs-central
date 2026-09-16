@@ -206,11 +206,30 @@ func confirm_send(product: Dictionary) -> void:
  input.text=host._format_grupo_rs_sms_phone(str(product.get("chip_phone","")))
  input.text_changed.emit(input.text)
  var initial_phone:=input.text
+ await _load_composer_target(card,product,context,branch,initial_phone)
+
+func _composer_failure(card: AcceptDialog, message: String, summary: String) -> void:
+ var feedback:Label=card.find_child("ValidationError",true,false)
+ feedback.text=message
+ feedback.add_theme_color_override("font_color",Color("#a25714"))
+ var value:Label=card.find_child("GatewaySummary",true,false).find_child("Value",true,false)
+ value.text=summary
+ value.add_theme_color_override("font_color",Color("#a25714"))
+ card.find_child("RetryLookup",true,false).show()
+
+func _load_composer_target(card: AcceptDialog, product: Dictionary, context: Dictionary, branch: String, initial_phone: String) -> void:
+ var input:LineEdit=card.find_child("Recipient",true,false)
+ var retry:Button=card.find_child("RetryLookup",true,false)
+ retry.hide()
+ if not retry.pressed.is_connected(_retry_composer.bind(card,product,context,branch)):
+  retry.pressed.connect(_retry_composer.bind(card,product,context,branch))
  var conf:=await call_service("config")
  if not is_instance_valid(card):return
  if str(host.selected_branch_id)!=branch:card.queue_free();return
  var feedback:Label=card.find_child("ValidationError",true,false)
- if not conf.get("ok",false):feedback.text="Não foi possível verificar o gateway. Envio bloqueado.";return
+ if not conf.get("ok",false):
+  _composer_failure(card,"Não foi possível ler a configuração do gateway. Consulte novamente.","Configuração indisponível")
+  return
  if conf.get("config",{}).is_empty():
   card.queue_free()
   host._show_arya_sms_dialog(product,true)
@@ -219,23 +238,40 @@ func confirm_send(product: Dictionary) -> void:
  if not is_instance_valid(card):return
  if str(host.selected_branch_id)!=branch:card.queue_free();return
  if not result.get("ok",false):
-  feedback.text=str(result.get("message","Consulta falhou. Envio bloqueado."));return
+  _composer_failure(card,str(result.get("message","Consulta falhou. Envio bloqueado.")),str(result.get("summary","Consulta não confirmada")))
+  return
  var serial := str(result.get("serial",""))
+ var local_sync:Dictionary=host._sync_confirmed_sms_contact(product,result)
  var apn := str(result.get("apn",""))
  var command: String=host._rs300_apn_command_for_apn(serial,apn)
  var phone: String="+55"+host._digits_only(str(result.get("phone","")))
  var snapshot: String=str(product.get("tracker_status",product.get("status","")))
  if snapshot.is_empty():
-  feedback.text="Status do equipamento não confirmado.";return
+  _composer_failure(card,"Status do equipamento não confirmado.","Status não confirmado")
+  return
  context.merge({"serial":serial,"source_phone_snapshot":phone,"apn_snapshot":apn,"standard_command_snapshot":command,"status_snapshot":snapshot,"gateway_url":str(conf.config.get("url","")),"ready":true},true)
  if input.text==initial_phone:
   input.text=host._format_grupo_rs_sms_phone(str(result.get("phone","")))
   input.text_changed.emit(input.text)
  feedback.text="Dados conferidos. Revise o destinatário antes de enviar."
+ if str(result.get("origin","")).begins_with("Portal"):
+  feedback.text="Telefone confirmado no portal: mesma série e chip. Revise antes de enviar."
+ if local_sync.get("changed",false):feedback.text+=" Cadastro local atualizado."
+ elif not local_sync.get("ok",false):feedback.text+=" Sem atualização local."
  card.find_child("GatewaySummary",true,false).find_child("Value",true,false).text="Pronto para revisar"
+ card.find_child("GatewaySummary",true,false).find_child("Value",true,false).add_theme_color_override("font_color",Color("#137d78"))
  feedback.add_theme_color_override("font_color",Color("#49708f"))
  card.find_child("QuickSMS",true,false).disabled=command.is_empty()
  card.find_child("SendCustomSMS",true,false).disabled=false
+
+func _retry_composer(card: AcceptDialog, product: Dictionary, context: Dictionary, branch: String) -> void:
+ if not is_instance_valid(card):return
+ context["ready"]=false
+ card.find_child("QuickSMS",true,false).disabled=true
+ card.find_child("SendCustomSMS",true,false).disabled=true
+ card.find_child("GatewaySummary",true,false).find_child("Value",true,false).text="Consultando aparelho…"
+ card.find_child("ValidationError",true,false).text="Conferindo o cadastro online. Você pode continuar escrevendo."
+ await _load_composer_target(card,product,context,branch,host._format_grupo_rs_sms_phone(str(product.get("chip_phone",""))))
 
 func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
  var card := AcceptDialog.new()
@@ -286,7 +322,7 @@ func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
  var box:=VBoxContainer.new();box.size_flags_horizontal=Control.SIZE_EXPAND_FILL;box.size_flags_stretch_ratio=2.2;box.add_theme_constant_override("separation",10);columns.add_child(box)
  var summaries:=HBoxContainer.new();summaries.add_theme_constant_override("separation",14);box.add_child(summaries)
  summaries.add_child(_summary_card("APARELHO • IMPERATRIZ",str(context.serial),"res://assets/icons/approved/chip.svg",Color("#176dc0"),"EquipmentSummary"))
- summaries.add_child(_summary_card("SMS VIA GALAXY","Conferindo conexão…" if not context.get("ready",true) else "Confirmação antes do envio","res://assets/icons/approved/signal.svg",Color("#137d78"),"GatewaySummary"))
+ summaries.add_child(_summary_card("VALIDAÇÃO PARA SMS","Consultando aparelho…" if not context.get("ready",true) else "Confirmação antes do envio","res://assets/icons/approved/signal.svg",Color("#137d78"),"GatewaySummary"))
  var phone_label:=Label.new();phone_label.text="Telefone do chip do rastreador";box.add_child(phone_label)
  var phone:=LineEdit.new();phone.name="Recipient";phone.text=host._format_grupo_rs_sms_phone(str(context.source_phone_snapshot));phone.placeholder_text="DDD + telefone";host._style_line_edit(phone);box.add_child(phone)
  var hint:=Label.new();hint.text="Telefone do cadastro • confira antes de enviar.";hint.add_theme_font_size_override("font_size",13);box.add_child(hint)
@@ -296,13 +332,16 @@ func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
  var counter:=Label.new();counter.text="0 / 160 • somente texto simples; sem SMS dividido";counter.add_theme_font_size_override("font_size",14);box.add_child(counter)
  message.text_changed.connect(func():counter.text="%d / 160 • somente texto simples; sem SMS dividido" % message.text.length())
  var error:=Label.new();error.name="ValidationError";error.add_theme_color_override("font_color",Color("#b83232"));error.add_theme_font_size_override("font_size",14);error.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(error)
+ var retry:Button=host._make_action_button("Consultar novamente",Color("#ffffff"),Color("#c7dcef"),Color("#174c7c"),Vector2(215,44),func():pass)
+ retry.name="RetryLookup";retry.icon=load("res://assets/icons/approved/refresh.svg");retry.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN;retry.hide()
  if not context.get("ready",true):
   error.text="Conferindo cadastro e gateway… Você já pode escrever."
   error.add_theme_color_override("font_color",Color("#58738e"))
  var send:Button=host._make_action_button("Enviar mensagem",Color("#1678d4"),Color("#1678d4"),Color.WHITE,Vector2(0,58),func():
   _confirm_message(context,phone.text,message.text,"custom",gateway_url,card)
  )
- send.name="SendCustomSMS";send.icon=load("res://assets/icons/sms_send.svg");send.icon_alignment=HORIZONTAL_ALIGNMENT_LEFT;send.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN;send.custom_minimum_size=Vector2(260,56);send.disabled=not context.get("ready",true);box.add_child(send)
+ var actions:=HBoxContainer.new();actions.add_theme_constant_override("separation",12);box.add_child(actions)
+ send.name="SendCustomSMS";send.icon=load("res://assets/icons/sms_send.svg");send.icon_alignment=HORIZONTAL_ALIGNMENT_LEFT;send.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN;send.custom_minimum_size=Vector2(260,56);send.disabled=not context.get("ready",true);actions.add_child(send);actions.add_child(retry)
  for state_name in ["normal","hover","pressed","focus"]:
   var send_style:StyleBox=send.get_theme_stylebox(state_name).duplicate()
   send_style.set_content_margin(SIDE_LEFT,24);send_style.set_content_margin(SIDE_RIGHT,24)

@@ -68,3 +68,21 @@ No Android, o modo diagnóstico começa com envio desligado. O usuário selecion
 Executar `tests/sms_gateway_queue_test.py` com Python 3.12. Executar os scripts `tests/sms_gateway_target_test.gd` e `tests/sms_gateway_dialog_test.gd` pelo executor `tools/test_offline.ps1`; usar `-Rendered` para inspeção visual. Para pacote exportado, usar `-Package` e `tests/package_contract_test.gd`.
 
 Não publicar filas, APKs de teste, chaves, credenciais ou relatórios operacionais. Android publicado separadamente em https://github.com/rayrangrupors-sudo/rs-sms-gateway (privado). Antes de substituir o executável principal, perguntar **posso atualizar agora?** e aguardar. Preservar a versão anterior e atualizar o mesmo caminho.
+# Consulta de telefone — correção de 16/09/2026
+
+O compositor diferencia consulta do aparelho de conectividade do gateway. Falhas
+encerram o indicador de consulta e permitem consultar novamente sem perder a mensagem.
+Quando o telefone está vazio na API, a validação de SMS consulta o portal configurado:
+exige uma única série exata e ICCID não vazio idêntico ao da API. O telefone da API
+já preenchido não é substituído; telefone local nunca é fallback automático.
+A origem complementar aparece no compositor. A fila usa a mesma revalidação;
+o cadastro remoto não é atualizado por essa consulta. Consulta real somente de leitura
+confirmou esse cenário; não foram enviados SMS nesta correção.
+
+Após consulta confirmada no compositor, telefone e ICCID válidos são sincronizados
+no SQLite local por uma operação transacional restrita à filial, SKU e IMEI exatos.
+Não insere aparelhos nem altera placa, status, quantidade ou vínculos. Campo vazio,
+ICCID inválido e identidade divergente não gravam. O card informa quando houve
+atualização ou quando ela não foi possível. O telefone digitado manualmente no card
+não é fonte dessa atualização. Backup integral de todas as bases foi validado antes
+da implementação; os testes de gravação usam somente banco temporário sintético.

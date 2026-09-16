@@ -29480,8 +29480,22 @@ func _resolve_grupo_rs_manual_sms_target(product: Dictionary, require_supported_
 		if online_apn.strip_edges() != "":
 			apn = online_apn.strip_edges().to_lower()
 
+	if phone == "" and str(chosen.get("phone", "")).strip_edges() == "":
+		# Complemento de leitura para SMS: nunca altera estoque, APN ou telefone
+		# preenchido na API. Reconsulta em cada validacao, inclusive na fila.
+		var portal_rows := await _sms_portal_equipment_rows(serial)
+		var exact: Array[Dictionary] = []
+		for candidate in portal_rows:
+			if _search_key(str(candidate.get("serial", ""))) == _search_key(serial):
+				exact.append(candidate)
+		if exact.size() == 1:
+			var api_chip := _digits_only(str(chosen.get("chip", "")))
+			var portal_chip := _digits_only(str(exact[0].get("chip", "")))
+			if api_chip != "" and api_chip == portal_chip:
+				phone = _format_grupo_rs_sms_phone(str(exact[0].get("phone", "")))
+				if phone != "": origin = "Portal Grupo RS (série e chip conferidos)"
 	if phone == "":
-		return {"ok": false, "message": "Telefone do aparelho nao localizado no Grupo RS.", "serial": serial, "apn": apn, "origin": origin}
+		return {"ok": false, "summary": "Telefone não confirmado", "message": "Não foi possível confirmar o telefone online para esta série e chip. O número exibido é local; consulte novamente antes de enviar.", "serial": serial, "apn": apn, "origin": origin}
 	if require_supported_apn and not _apn_is_hinova(apn) and not _apn_is_linksolutions(apn):
 		return {"ok": false, "message": "APN %s nao permite envio automatico. Use Hinova ou Link Solutions." % _blank(apn), "serial": serial, "phone": phone, "apn": apn, "origin": origin}
 
@@ -29492,7 +29506,24 @@ func _resolve_grupo_rs_manual_sms_target(product: Dictionary, require_supported_
 		"apn": apn,
 		"origin": origin,
 		"row": chosen,
+		"iccid": _digits_only(str(chosen.get("chip", ""))),
 	}
+
+
+func _sms_portal_equipment_rows(serial: String) -> Array[Dictionary]:
+	var response := await _modern_grupo_rs_read_get("equipamentos_listar.php?busca=%s&status=todos" % serial.uri_encode())
+	if not bool(response.get("ok", false)): return []
+	return _parse_grupo_rs_equipment_rows(str(response.get("body", "")))
+
+
+func _sync_confirmed_sms_contact(product: Dictionary, result: Dictionary) -> Dictionary:
+	if store == null or not bool(result.get("ok",false)): return {"ok":false}
+	var serial := _digits_only(str(result.get("serial","")))
+	if serial == "" or serial != _digits_only(str(product.get("imei",product.get("sku","")))): return {"ok":false}
+	var phone := _digits_only(_format_grupo_rs_sms_phone(str(result.get("phone",""))))
+	var iccid := _digits_only(str(result.get("iccid","")))
+	if iccid.length()<18 or iccid.length()>22: return {"ok":false}
+	return store.update_confirmed_chip_contact(str(product.get("sku",serial)),serial,phone,iccid)
 
 
 func _format_grupo_rs_sms_phone(value: String) -> String:

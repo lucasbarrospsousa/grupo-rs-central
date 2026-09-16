@@ -2,6 +2,8 @@ extends SceneTree
 class Shell extends "res://src/inventory_dashboard.gd":
 	var sample_rows: Array[Dictionary] = []
 	var sample_apn := "hinova.br"
+	var portal_rows: Array[Dictionary] = []
+	func _sms_portal_equipment_rows(_serial: String) -> Array[Dictionary]: return portal_rows
 	func _ready() -> void: pass
 	func _process(_delta: float) -> void: pass
 	func _grupo_rs_supports_modern_api() -> bool: return true
@@ -32,6 +34,19 @@ func run() -> void:
 	shell.sample_apn=""
 	result=await shell._resolve_grupo_rs_manual_sms_target(product)
 	assert(not result.get("ok",false),"Missing online APN must not fall back")
+	shell.sample_apn="hinova.br"
+	shell.sample_rows[0].merge({"phone":"","chip":"895500001"},true)
+	shell.portal_rows.assign([{"serial":"024000001","chip":"895500001","phone":"11999999999"}])
+	result=await shell._resolve_grupo_rs_manual_sms_target(product)
+	assert(result.get("ok",false) and str(result.origin).begins_with("Portal"))
+	shell.portal_rows[0].chip="895500002"
+	assert(not (await shell._resolve_grupo_rs_manual_sms_target(product)).get("ok",false))
+	shell.portal_rows[0].chip="895500001"
+	shell.portal_rows.append(shell.portal_rows[0].duplicate())
+	assert(not (await shell._resolve_grupo_rs_manual_sms_target(product)).get("ok",false))
+	shell.sample_rows[0].phone="21888888888"
+	result=await shell._resolve_grupo_rs_manual_sms_target(product)
+	assert(result.phone=="(21) 88888-8888","Existing API phone must win")
 	shell.queue_free()
 	await process_frame
 	print("SMS_GATEWAY_EXACT_TARGET_OK: six synthetic cases; no database/network")

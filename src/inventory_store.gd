@@ -134,6 +134,15 @@ func verify_product_persisted(serial: String, expected_product: Dictionary = {})
 	return {"ok": true, "found": true, "matches": true, "product": persisted, "source": "sqlite_disk"}
 
 
+func update_confirmed_chip_contact(sku: String, serial: String, phone: String, iccid: String) -> Dictionary:
+	if not _can_mutate(): return {"ok":false}
+	var result := _sqlite.execute("update_chip_contact",_db_path,{"branch":_branch_id,"sku":sku,"serial":serial,"phone":phone,"iccid":iccid})
+	if bool(result.get("ok",false)) and bool(result.get("found",false)):
+		var index := _find_product_index(sku)
+		if index >= 0: _db["products"][index] = _normalize_product(result.product)
+	return result
+
+
 func _persist_product_incremental(product: Dictionary, old_sku: String = "") -> bool:
 	var result := _sqlite.execute("upsert_device", _db_path, {
 		"branch": _branch_id,
