@@ -25,6 +25,15 @@ func run() -> void:
 	assert(dialog.prepared.size()==1)
 	assert(dialog.prepared[0].command.contains("grupors4.ddns.net;5940;grupors4.ddns.net;5941"))
 	assert(shell.queued.is_empty(),"Review does not enqueue")
+	dialog.apn_selector.select(1);dialog.apn_selector.item_selected.emit(1)
+	assert(dialog.confirm_button.disabled and dialog.prepared.is_empty() and dialog.review.text=="")
+	for group in range(1,5):
+		dialog.inputs[0][2].select(group)
+		await dialog.prepare()
+		assert(dialog.prepared[0].apn_snapshot=="linksolutions.br")
+		assert(dialog.prepared[0].command.contains(";linksolutions.br;link;link;grupors%d.ddns.net;5940;grupors%d.ddns.net;5941;"%[group,group]))
+	dialog.apn_selector.select(0);dialog.apn_selector.item_selected.emit(0);await dialog.prepare()
+	assert(dialog.prepared[0].command.contains(";hinova.br;hinova;hinova;"))
 	await create_timer(0.5).timeout
 	if DisplayServer.get_name()!="headless":
 		RenderingServer.force_draw();root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT")+"/sms-batch.png")

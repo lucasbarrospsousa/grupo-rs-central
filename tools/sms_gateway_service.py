@@ -163,8 +163,12 @@ def operate(db,op,p):
             parts=value['command'].split(';')
             assert len(parts)==12 and parts[7]==parts[9]==f'grupors{group}.ddns.net' and parts[8]=='5940' and parts[10]=='5941','Servidor do grupo divergente'
             if manual:
-                expected=f"ST300NTW;{value['serial']};319H;0;hinova.br;hinova;hinova;grupors{group}.ddns.net;5940;grupors{group}.ddns.net;5941;#"
-                assert value['command']==expected and value['apn_snapshot']=='hinova.br','Comando manual deve usar a configuracao padrao Hinova'
+                profiles={'hinova.br':('hinova','hinova'),'linksolutions.br':('link','link')}
+                apn=value['apn_snapshot']
+                assert apn in profiles,'APN do lote deve ser Hinova ou Link Solutions'
+                username,password=profiles[apn]
+                expected=f"ST300NTW;{value['serial']};319H;0;{apn};{username};{password};grupors{group}.ddns.net;5940;grupors{group}.ddns.net;5941;#"
+                assert value['command']==expected,'Comando manual diverge do perfil APN selecionado'
                 assert value['status_snapshot']=='Informado no lote','Origem manual nao confirmada'
             assert value['serial'] not in seen and value['phone'] not in seen,'Serie ou telefone repetido'
             seen.update((value['serial'],value['phone']));values.append((value,group))

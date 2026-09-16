@@ -101,8 +101,11 @@ Limite de importação: 1000 aparelhos e 100 mil caracteres, sem truncamento sil
 
 Em Cadastro em massa, o botão SMS em massa abre até dez linhas de série, telefone
 e grupo obrigatório (1–4). O grupo troca somente os dois servidores do comando
-para gruporsN.ddns.net; portas 5940/5941, APN hinova.br e usuário/senha hinova são fixos
-e exibidos na revisão. Por solicitação do usuário, novos lotes manuais usam somente
+para gruporsN.ddns.net; portas 5940/5941 permanecem fixas. O seletor APN do lote
+permite Hinova (hinova.br / hinova / hinova) ou Link Solutions
+(linksolutions.br / link / link). O perfil é exibido na revisão e validado pelo
+serviço local contra o comando completo. Alterar a APN invalida a revisão.
+Por solicitação do usuário, novos lotes manuais usam somente
 série, telefone e grupo informados, sem exigir estoque local nem consulta online.
 Isso não confirma a titularidade ou correção do telefone: o operador deve revisá-lo.
 A operação continua pela conexão de Imperatriz; não cria nem altera cadastros.
@@ -125,3 +128,21 @@ reinício e parada por falha foram testados em SQLite temporário e transporte
 simulado. Interface renderizada revisada; o Galaxy real, com envio desligado e tela
 apagada, recebeu os quatro comandos em pacotes v2 já vencidos e confirmou estado
 expired. Nenhum SMS real foi enviado; o intervalo entre SMS reais não foi ensaiado.
+
+## Layout aprovado e perfis APN — 16/09/2026
+
+Composição em src/ui/bulk_sms_view.gd, regras em bulk_sms_dialog.gd.
+SVGs vetoriais próprios em assets/icons/bulk_sms; cabeçalho recortado com cantos
+arredondados, três cards de política, lista/revisão e ações separadas.
+Seis linhas inicialmente; Adicionar linha permite chegar a dez. Colar listas
+maiores continua paginando 10/10/restante. Resumo de quantidade/grupos/APN reage
+às edições. A seleção da APN aplica-se ao lote, não altera cadastros ou filial.
+Entrada suave e interação de cards/botões respeitam GRUPO_RS_REDUCED_MOTION=1.
+
+Validação isolada: sms_batch_design_test.gd (captura 1536×1024, seis linhas,
+limite, resumo e movimento), sms_batch_ui_test.gd (dois perfis e grupos 1–4),
+sms_paste_test.gd e sms_manual_batch_worker_test.gd.
+tests/sms_batch_test.py cobre fila temporária, persistência, 60 segundos,
+vencimento, APN divergente e atomicidade. Nenhum envio ou consulta de produção
+faz parte desses testes. A imagem aprovada é referência de composição e cores,
+não uma medida de identidade pixel a pixel com fontes renderizadas pelo Godot.

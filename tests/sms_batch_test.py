@@ -44,6 +44,20 @@ class BatchTests(base.QueueTests):
   self.assertEqual(self.db.execute("SELECT manual FROM batch_items WHERE job_id='legacy'").fetchone()[0],0)
   g.operate(self.db,'enqueue_batch',{'rows':self.rows(1)})
   self.assertEqual(self.jobs()[0]['batch']['manual'],0)
+ def test_manual_link_all_groups(self):
+  rows=self.manual_rows(4)
+  for row in rows:
+   row['apn_snapshot']='linksolutions.br'
+   row['command']=row['command'].replace('hinova.br;hinova;hinova','linksolutions.br;link;link')
+   row['standard_command_snapshot']=row['command']
+  g.operate(self.db,'enqueue_batch',{'manual':True,'rows':rows})
+  self.assertEqual(len(self.jobs()),4)
+  for job in self.jobs():self.assertEqual(job['payload']['apn_snapshot'],'linksolutions.br')
+ def test_manual_apn_command_mismatch_is_atomic(self):
+  rows=self.manual_rows()
+  rows[1]['apn_snapshot']='linksolutions.br'
+  with self.assertRaises(AssertionError):g.operate(self.db,'enqueue_batch',{'manual':True,'rows':rows})
+  self.assertEqual(self.jobs(),[])
  def test_limit_group_and_atomic_validation(self):
   for count in [0,11]:
    with self.assertRaises(AssertionError):g.operate(self.db,'enqueue_batch',{'rows':self.rows(count)})
