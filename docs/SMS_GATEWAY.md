@@ -86,3 +86,26 @@ ICCID inválido e identidade divergente não gravam. O card informa quando houve
 atualização ou quando ela não foi possível. O telefone digitado manualmente no card
 não é fonte dessa atualização. Backup integral de todas as bases foi validado antes
 da implementação; os testes de gravação usam somente banco temporário sintético.
+# SMS em massa — 16/09/2026
+
+Em Cadastro em massa, o botão SMS em massa abre até dez linhas de série, telefone
+e grupo obrigatório (1–4). O grupo troca somente os dois servidores do comando
+para gruporsN.ddns.net; portas 5940/5941 e APN/credenciais consultadas são preservadas.
+Esta versão opera pela base Imperatriz e exige aparelho presente no estoque local;
+o grupo de configuração não muda a filial do cadastro. Cada telefone deve coincidir
+com a consulta exata online. A revisão exibe os comandos antes de Confirmar lote.
+
+A fila persistente registra todas as linhas atomicamente, com prazo imutável de
+duas horas. Só transmite uma por vez; depois de confirmação sent/delivered recebida
+do Android, aguarda no mínimo 60 segundos antes da próxima. O próximo lote também
+respeita o intervalo. Falhas/resultado indeterminado bloqueiam a continuação;
+Cancelar lote pendente solicita cancelamento das linhas restantes, sujeito ao
+retorno do celular para pedidos já recebidos. Não há reenvio automático incerto.
+Envios avulsos e outros lotes ficam bloqueados enquanto houver lote pendente.
+O intervalo reduz rajadas, mas não garante ausência de bloqueio pela operadora.
+
+Validação: limites, grupo obrigatório, prazo, intervalo com relógio controlado,
+reinício e parada por falha foram testados em SQLite temporário e transporte
+simulado. Interface renderizada revisada; o Galaxy real, com envio desligado e tela
+apagada, recebeu os quatro comandos em pacotes v2 já vencidos e confirmou estado
+expired. Nenhum SMS real foi enviado; o intervalo entre SMS reais não foi ensaiado.

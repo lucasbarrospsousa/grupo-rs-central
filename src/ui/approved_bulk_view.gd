@@ -39,6 +39,10 @@ static func build(host: Control) -> Control:
 	titles.add_child(UI.text("Da lista ao estoque: prepare, revise e confirme com segurança.", 14, Design.MUTED))
 	header.add_child(titles)
 	header.add_child(button(host, "Voltar ao estoque", "arrow", host._show_list))
+	header.add_child(button(host,"SMS em massa","mail",func():
+		var dialog:=preload("res://src/ui/bulk_sms_dialog.gd").new()
+		host.add_child(dialog);dialog.setup(host)
+	))
 	root.add_child(header)
 	var metrics := HBoxContainer.new()
 	metrics.name = "BulkMetricCards"

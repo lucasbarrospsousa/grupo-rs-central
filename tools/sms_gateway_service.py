@@ -56,6 +56,7 @@ def connect(path):
     CREATE TABLE IF NOT EXISTS config(id INTEGER PRIMARY KEY CHECK(id=1),value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,payload TEXT NOT NULL,state TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',remote_seen INTEGER NOT NULL DEFAULT 0,cancel_requested INTEGER NOT NULL DEFAULT 0,attempted INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS acknowledgements(job_id TEXT NOT NULL,state TEXT NOT NULL,observed_at INTEGER NOT NULL,remote_at INTEGER,PRIMARY KEY(job_id,state));
+    CREATE TABLE IF NOT EXISTS batch_items(job_id TEXT PRIMARY KEY,batch_id TEXT NOT NULL,position INTEGER NOT NULL,group_no INTEGER NOT NULL);
     """)
     return db
 
@@ -71,6 +72,8 @@ def row_get(db,id):
     row=db.execute("SELECT * FROM jobs WHERE id=?",(id,)).fetchone()
     if not row:return None
     value=dict(row);value["payload"]=json.loads(value["payload"])
+    batch=db.execute('SELECT batch_id,position,group_no FROM batch_items WHERE job_id=?',(id,)).fetchone()
+    if batch:value['batch']=dict(batch)
     value['acknowledgements']=[dict(r) for r in db.execute('SELECT state,observed_at,remote_at FROM acknowledgements WHERE job_id=? ORDER BY observed_at,state',(id,))]
     return value
 
@@ -105,6 +108,19 @@ def validate(p,now):
             assert command==p["standard_command_snapshot"] and command.startswith("ST300NTW;"+p["serial"]+";"),"Comando padrão divergente"
             assert p["phone"]==p["source_phone_snapshot"],"Envio rápido usa o telefone consultado"
 
+def batch_gate(db,job,now):
+    if not job.get('batch') or job['attempted']:return ''
+    b=job['batch']
+    previous=db.execute('SELECT j.id,j.state FROM batch_items b JOIN jobs j ON j.id=b.job_id WHERE b.batch_id=? AND b.position<? ORDER BY b.position',(b['batch_id'],b['position'])).fetchall()
+    for row in previous:
+        if row['state'] not in ('sent','delivered'):return 'Lote pausado: linha anterior sem confirmacao de envio'
+        ack=db.execute("SELECT MIN(observed_at) FROM acknowledgements WHERE job_id=? AND state IN ('sent','delivered')",(row['id'],)).fetchone()[0]
+        if ack is None or now<ack+60:return 'Intervalo de seguranca: 60 segundos apos confirmacao'
+    # Global cooldown also prevents back-to-back batches.
+    last=db.execute("SELECT MAX(observed_at) FROM acknowledgements WHERE state IN ('sent','delivered')").fetchone()[0]
+    if last is not None and now<last+60:return 'Intervalo de seguranca entre envios'
+    return ''
+
 def operate(db,op,p):
     now=int(time.time())
     if op=="config":return {"ok":True,"config":config_get(db)}
@@ -128,7 +144,33 @@ def operate(db,op,p):
         endpoint(p["url"]);value=config_get(db,True);value["url"]=p["url"]
         request_remote(value,"GET","/health")
         value["protected_token"]=protect(value.pop("token"));db.execute("UPDATE config SET value=? WHERE id=1",(json.dumps(value),));db.commit();return {"ok":True}
+    if op=='enqueue_batch':
+        assert config_get(db),'Gateway nao pareado'
+        assert not db.execute("SELECT 1 FROM jobs WHERE state IN ('waiting_gateway','received','sending') LIMIT 1").fetchone(),'Conclua ou cancele a fila anterior'
+        rows=p.get('rows',[]);assert 1<=len(rows)<=10,'Lote permite de 1 a 10 linhas'
+        values=[];seen=set();batch_id=str(uuid.uuid4())
+        for row in rows:
+            group=row.get('group');assert type(group) is int and 1<=group<=4,'Grupo obrigatorio: 1 a 4'
+            value=dict(row);value.pop('group');value.update(id=str(uuid.uuid4()),version=2,branch='imperatriz',created_at=now,expires_at=now+7200)
+            validate(value,now)
+            assert value['command_mode']=='standard','Lote somente de configuracao'
+            parts=value['command'].split(';')
+            assert len(parts)==12 and parts[7]==parts[9]==f'grupors{group}.ddns.net' and parts[8]=='5940' and parts[10]=='5941','Servidor do grupo divergente'
+            assert value['serial'] not in seen and value['phone'] not in seen,'Serie ou telefone repetido'
+            seen.update((value['serial'],value['phone']));values.append((value,group))
+        with db:
+            db.execute('BEGIN IMMEDIATE')
+            assert not db.execute("SELECT 1 FROM jobs WHERE state IN ('waiting_gateway','received','sending') LIMIT 1").fetchone(),'Fila mudou: consulte novamente'
+            for index,(value,group) in enumerate(values):
+                db.execute("INSERT INTO jobs(id,payload,state) VALUES(?,?,'waiting_gateway')",(value['id'],json.dumps(value,sort_keys=True)))
+                db.execute('INSERT INTO batch_items VALUES(?,?,?,?)',(value['id'],batch_id,index,group))
+        return {'ok':True,'batch_id':batch_id,'count':len(values)}
+    if op=='cancel_batch':
+        rows=db.execute('SELECT job_id FROM batch_items WHERE batch_id=?',(p['batch_id'],)).fetchall()
+        for row in rows:operate(db,'cancel',{'id':row[0]})
+        return {'ok':True,'count':len(rows)}
     if op=="enqueue":
+        assert not db.execute("SELECT 1 FROM batch_items b JOIN jobs j ON b.job_id=j.id WHERE j.state IN ('waiting_gateway','received','sending') LIMIT 1").fetchone(),'Lote ativo: aguarde ou cancele antes de enviar avulso'
         assert config_get(db),"Gateway não pareado"
         value=dict(p);confirmed=int(value.pop("confirmed_at",now));value["id"]=str(uuid.uuid4());value["version"]=p.get("version",1);value["branch"]="imperatriz";value["created_at"]=confirmed;value["expires_at"]=confirmed+7200
         validate(value,now)
@@ -171,6 +213,11 @@ def operate(db,op,p):
     if op=="reconcile":
         job=row_get(db,p["id"]);assert job,"Pedido não existe"
         if job["state"] in TERMINAL:return {"ok":True,"job":job}
+        if not job['attempted'] and job['payload']['expires_at']<=now:return {'ok':True,'job':state(db,job['id'],'expired')}
+        blocked=batch_gate(db,job,now)
+        if blocked and not job['cancel_requested']:
+            db.execute('UPDATE jobs SET detail=? WHERE id=?',(blocked,job['id']));db.commit()
+            return {'ok':True,'job':row_get(db,job['id']),'batch_wait':True}
         cfg=config_get(db,True);payload=job["payload"];path="/jobs/"+job["id"]
         try:
             code,remote=request_remote(cfg,"GET",path)

@@ -494,6 +494,8 @@ func _sync_one() -> void:
  if not target.get("ok",false):return
  var phone: String="+55"+host._digits_only(str(target.get("phone","")))
  var command: String=host._rs300_apn_command_for_apn(str(payload.get("serial","")),str(target.get("apn","")))
+ if job.has("batch"):
+  command=command.replace("grupors1.ddns.net","grupors%d.ddns.net" % int(job.batch.group_no))
  var latest: Dictionary=host.store.get_product(str(payload.get("serial","")))
  var status: String=str(latest.get("tracker_status",latest.get("status","")))
  var expected_phone:String=str(payload.get("source_phone_snapshot",payload.get("phone","")))

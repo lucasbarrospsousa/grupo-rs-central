@@ -118,6 +118,9 @@ func render_jobs(values:Array) -> void:
   var row:=table.create_item(root_item);row.set_metadata(0,job.get("id",""))
   row.set_text(0,str(payload.get("serial",""))+"\n"+host._format_grupo_rs_sms_phone(str(payload.get("phone",""))))
   row.set_text(1,TITLES.get(state,state));row.set_custom_color(1,Color(COLORS.get(state,"#64768a")))
+  if job.has("batch"):
+   row.set_text(0,row.get_text(0)+" • Grupo %d" % int(job.batch.group_no))
+   if state=="waiting_gateway" and not str(job.get("detail","")).is_empty():row.set_text(1,str(job.detail))
   row.set_text(2,clock_text(payload.get("created_at",0)))
   var observed:Variant=0
   for ack in job.get("acknowledgements",[]):
