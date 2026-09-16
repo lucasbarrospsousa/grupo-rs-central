@@ -195,9 +195,9 @@ func show_composer(context: Dictionary, gateway_url: String) -> AcceptDialog:
  var layout_host:=Control.new();layout_host.custom_minimum_size=Vector2(1040,620);card.add_child(layout_host)
  var root_box:=VBoxContainer.new();root_box.add_theme_constant_override("separation",0);layout_host.add_child(root_box);root_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
  var banner:=PanelContainer.new()
- var gradient:=Gradient.new();gradient.set_color(0,Color("#123f70"));gradient.set_color(1,Color("#137bd7"))
- var texture:=GradientTexture2D.new();texture.gradient=gradient;texture.width=1024;texture.height=100;texture.fill_from=Vector2.ZERO;texture.fill_to=Vector2(1,0)
- var banner_style:=StyleBoxTexture.new();banner_style.texture=texture
+ var banner_style:=StyleBoxTexture.new();banner_style.texture=preload("res://assets/ui/sms_header.svg")
+ # Nine-patch margins retain the same 18 px top corners as the outer card.
+ for side in [SIDE_LEFT,SIDE_RIGHT,SIDE_TOP]:banner_style.set_texture_margin(side,18)
  for side in [SIDE_LEFT,SIDE_RIGHT]:banner_style.set_content_margin(side,24)
  for side in [SIDE_TOP,SIDE_BOTTOM]:banner_style.set_content_margin(side,20)
  banner.add_theme_stylebox_override("panel",banner_style);root_box.add_child(banner)
