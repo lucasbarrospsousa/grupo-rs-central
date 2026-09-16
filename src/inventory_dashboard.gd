@@ -29523,16 +29523,11 @@ func _ensure_phone_sms_gateway() -> Node:
 	return gateway
 
 
-func _show_arya_sms_dialog(product: Dictionary) -> void:
-	if selected_branch_id == "imperatriz":
+func _show_arya_sms_dialog(product: Dictionary, skip_gateway: bool = false) -> void:
+	if selected_branch_id == "imperatriz" and not skip_gateway:
 		var gateway := _ensure_phone_sms_gateway()
-		var gateway_config: Dictionary = await gateway.call_service("config")
-		if not bool(gateway_config.get("ok", false)):
-			_show_warning("Gateway SMS", "Nao foi possivel verificar o gateway. Envio bloqueado; nenhum provedor alternativo sera usado.")
-			return
-		if not gateway_config.get("config", {}).is_empty():
-			await gateway.confirm_send(product)
-			return
+		gateway.confirm_send(product)
+		return
 	if not _branch_supports_sms():
 		_show_warning("SMS", "O envio de SMS esta desativado nas bases regionais.")
 		return

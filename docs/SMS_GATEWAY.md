@@ -6,6 +6,12 @@ Escopo: somente Imperatriz. Projeto do telefone separado em `Sidera Code/RS SMS 
 
 ### Card de mensagem livre — protocolo 2
 
+Revisão de abertura e aparência: o card é mostrado antes de qualquer espera por configuração ou consulta. O telefone local `chip_phone` aparece imediatamente, sem +55, com DDD; a consulta exata continua obrigatória para liberar envio e pode atualizar o campo se o usuário não o editou. Texto e destinatário editados durante a espera são preservados. Erros mantêm os botões bloqueados, sem fallback silencioso. O formato internacional é mantido apenas no protocolo interno, sem alterar o cadastro. Fechar durante a consulta é seguro. A confirmação usa tema claro e textos em português.
+
+Teste sintético de latência: atrasos de 300 ms em cada etapa, card visível antes das respostas, abertura síncrona inferior a 250 ms no ambiente de teste; não representa medição da API real. Testados também falha de consulta, fechamento pendente e preservação de rascunho. Capturas renderizadas revisadas para formulário e confirmação; sem SMS real nesta revisão.
+
+Cards de aparelho, gateway e prévia usam `card_hover_motion.gd`, compartilhado com o sistema: elevação suave com retorno, sem deslocar o layout, respeitando a opção de movimento reduzido. O teste verifica ampliação e retorno dos três cards. O contêiner do formulário impede que o cálculo transitório de quebra de texto amplie a janela para além da tela ao abrir ou voltar da confirmação. Validação visual com o tema real herdado e resolução 1917 × 1022.
+
 Ao clicar em SMS, o card consulta o aparelho e preenche o telefone. O campo de mensagem começa vazio. A prévia lateral acompanha o telefone e o texto. O botão azul com avião abre a revisão do comando personalizado; o atalho **SMS padrão** ignora alterações nesses campos e usa o telefone consultado e o comando de configuração. Ambos exigem confirmação antes da fila.
 
 Editar o telefone altera apenas o destinatário daquele pedido, não o cadastro. Pedidos v2 registram `command_mode`, `source_phone_snapshot`, `apn_snapshot` e `standard_command_snapshot`. A revalidação compara esses dados de origem, sem substituir o texto personalizado nem o destinatário confirmado. Pedidos v1 existentes continuam compatíveis. Atualizar o Android para 0.2.0 antes de usar mensagens personalizadas.
