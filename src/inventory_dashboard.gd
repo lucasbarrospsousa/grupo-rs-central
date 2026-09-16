@@ -9593,6 +9593,8 @@ func _build_list_view() -> Control:
 	side_actions.add_theme_constant_override("separation", 8)
 	title_row.add_child(side_actions)
 	side_actions.add_child(_make_action_button("Gerar relatório", Color.WHITE, BORDER, AppDesignSystem.TEXT, Vector2(142, 46), _show_inventory_report_builder))
+	if selected_branch_id == "imperatriz":
+		side_actions.add_child(_make_action_button("Acompanhar SMS", Color.WHITE, BORDER, AppDesignSystem.TEXT, Vector2(160, 46), func(): _ensure_phone_sms_gateway().show_delivery_panel()))
 	if not _is_regional_branch():
 		side_actions.add_child(_make_new_equipment_button())
 		inventory_reset_button = _make_action_button(
@@ -24809,6 +24811,8 @@ func _build_config_linksolutions_section(stack: VBoxContainer, settings: Diction
 
 
 func _build_config_experttexting_section(stack: VBoxContainer, settings: Dictionary) -> void:
+	if selected_branch_id == "imperatriz":
+		stack.add_child(_make_action_button("Acompanhar SMS • retorno do celular", BLUE, BLUE, Color.WHITE, Vector2(340, 44), func(): _ensure_phone_sms_gateway().show_delivery_panel()))
 	stack.add_child(_make_action_button("Gateway SMS Android • parear / fila", BLUE, BLUE, Color.WHITE, Vector2(340, 44), func(): _ensure_phone_sms_gateway().configure_dialog()))
 	_add_config_section_heading(stack, "ExpertTexting", "Canal oficial para envio, saldo, status e SMS recebidos pelo monitor.")
 

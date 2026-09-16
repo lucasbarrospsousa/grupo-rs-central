@@ -10,6 +10,13 @@ var runtime := ""
 var python := ""
 var timer: Timer
 var active_composer: AcceptDialog
+var delivery_panel:AcceptDialog
+
+func show_delivery_panel() -> void:
+ if str(host.selected_branch_id)!="imperatriz":return
+ if is_instance_valid(delivery_panel):delivery_panel.grab_focus();return
+ delivery_panel=preload("res://src/ui/sms_delivery_panel.gd").new()
+ host.add_child(delivery_panel);delivery_panel.setup(self);delivery_panel.open()
 const REGULAR = preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf")
 const CARD_MOTION = preload("res://src/ui/card_hover_motion.gd")
 const COMPOSER_SIZE = Vector2i(1000,660)
@@ -378,7 +385,7 @@ func _confirm_message(context: Dictionary, recipient: String, message: String, m
   var saved := await call_service("enqueue",payload)
   if saved.get("ok",false) and is_instance_valid(card):card.queue_free()
   elif is_instance_valid(card):_open_composer(card)
-  if saved.get("ok",false):host._show_success("Gateway SMS","Pedido registrado. Validade de 2 horas; acompanhe em Configurações SMS → Gateway.")
+  if saved.get("ok",false):show_delivery_panel()
   elif is_instance_valid(card):card.find_child("ValidationError",true,false).text=str(saved.get("error","Não gravado"))
  )
 
@@ -386,6 +393,9 @@ func _tick() -> void:
  if ticking:return
  ticking=true
  await _sync_one()
+ if is_instance_valid(host) and str(host.selected_branch_id)=="imperatriz":
+  await call_service("refresh_delivery",{"cursor":delivery_cursor})
+  delivery_cursor+=1
  ticking=false
 
 func _sync_one() -> void:

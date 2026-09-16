@@ -55,6 +55,7 @@ def connect(path):
     db.executescript("""
     CREATE TABLE IF NOT EXISTS config(id INTEGER PRIMARY KEY CHECK(id=1),value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,payload TEXT NOT NULL,state TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',remote_seen INTEGER NOT NULL DEFAULT 0,cancel_requested INTEGER NOT NULL DEFAULT 0,attempted INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS acknowledgements(job_id TEXT NOT NULL,state TEXT NOT NULL,observed_at INTEGER NOT NULL,remote_at INTEGER,PRIMARY KEY(job_id,state));
     """)
     return db
 
@@ -69,7 +70,17 @@ def config_get(db, secret=False):
 def row_get(db,id):
     row=db.execute("SELECT * FROM jobs WHERE id=?",(id,)).fetchone()
     if not row:return None
-    value=dict(row);value["payload"]=json.loads(value["payload"]);return value
+    value=dict(row);value["payload"]=json.loads(value["payload"])
+    value['acknowledgements']=[dict(r) for r in db.execute('SELECT state,observed_at,remote_at FROM acknowledgements WHERE job_id=? ORDER BY observed_at,state',(id,))]
+    return value
+
+def acknowledge(db, job, remote):
+    assert remote.get('id')==job['id'] and remote.get('state') in REMOTE,'Resposta inválida'
+    assert all(remote.get(k)==v for k,v in job['payload'].items()),'Conteúdo remoto divergente'
+    now=int(time.time());stamp=remote.get('updated_at')
+    stamp=stamp if isinstance(stamp,int) and not isinstance(stamp,bool) and job['payload']['created_at']<=stamp<=now+60 else None
+    db.execute('INSERT OR IGNORE INTO acknowledgements VALUES(?,?,?,?)',(job['id'],remote['state'],now,stamp))
+    return state(db,job['id'],remote['state'],remote.get('detail',''))
 
 def state(db,id,status,detail=""):
     db.execute("UPDATE jobs SET state=?,detail=? WHERE id=?",(status,detail,id));db.commit()
@@ -97,6 +108,12 @@ def validate(p,now):
 def operate(db,op,p):
     now=int(time.time())
     if op=="config":return {"ok":True,"config":config_get(db)}
+    if op=='health':
+        cfg=config_get(db,True)
+        if not cfg:return {'ok':False,'error':'Gateway não pareado'}
+        code,health=request_remote(cfg,'GET','/health')
+        assert code==200 and health.get('version')==1,'Resposta de saúde inválida'
+        return {'ok':True,'checked_at':now,'health':{k:health.get(k) for k in ('send_enabled','app_version','background_exempt','screen_interactive','cpu_protected')}}
     if op=="pair":
         endpoint(p["url"])
         current=config_get(db)
@@ -124,7 +141,7 @@ def operate(db,op,p):
         return {"ok":True,"jobs":rows}
     if op=="refresh_delivery":
         # One read-only refresh per call, without holding up unsent jobs.
-        candidates=db.execute("SELECT id FROM jobs WHERE state='sent' ORDER BY rowid DESC LIMIT 30").fetchall()
+        candidates=db.execute("SELECT id FROM jobs WHERE state IN ('sent','indeterminate') ORDER BY rowid").fetchall()
         if not candidates:return {"ok":True}
         cfg=config_get(db,True)
         for candidate in [candidates[int(p.get("cursor",0)) % len(candidates)]]:
@@ -132,7 +149,8 @@ def operate(db,op,p):
             code,remote=request_remote(cfg,"GET","/jobs/"+job["id"])
             if code!=200 or remote.get("id")!=job["id"]:continue
             if any(remote.get(k)!=v for k,v in job["payload"].items()):continue
-            if remote.get("state")=="delivered":state(db,job["id"],"delivered",remote.get("detail",""))
+            allowed={'delivered'} if job['state']=='sent' else {'sent','delivered','failed'}
+            if remote.get('state') in allowed:acknowledge(db,job,remote)
         return {"ok":True}
     if op=="pending":
         # An attempted PUT must be reconciled even when expired; it could have sent.
@@ -164,7 +182,7 @@ def operate(db,op,p):
                     ack,remote=request_remote(cfg,"POST",path+"/cancel",{})
                     assert ack==200 and remote.get("id")==job["id"] and remote.get("state") in REMOTE,"Cancelamento não confirmado"
                     for k,v in payload.items():assert remote.get(k)==v,"Conteúdo remoto divergente"
-                return {"ok":True,"job":state(db,job["id"],remote["state"],remote.get("detail",""))}
+                return {"ok":True,"job":acknowledge(db,job,remote)}
             if job["remote_seen"]:return {"ok":True,"job":state(db,job["id"],"indeterminate","Pedido desapareceu do telefone; não reenviado")}
             if job["cancel_requested"]:return {"ok":True,"job":state(db,job["id"],"cancelled")}
             if payload["expires_at"]<=now:return {"ok":True,"job":state(db,job["id"],"expired")}
@@ -175,7 +193,7 @@ def operate(db,op,p):
             assert remote.get("id")==job["id"] and remote.get("state") in REMOTE,"Resposta inválida"
             for k,v in payload.items():assert remote.get(k)==v,"Conteúdo remoto divergente"
             db.execute("UPDATE jobs SET remote_seen=1 WHERE id=?",(job["id"],));db.commit()
-            return {"ok":True,"job":state(db,job["id"],remote["state"],remote.get("detail",""))}
+            return {"ok":True,"job":acknowledge(db,job,remote)}
         except (OSError,ValueError,AssertionError) as exc:
             db.execute("UPDATE jobs SET detail=? WHERE id=?",("Gateway indisponível ou resposta não confirmada",job["id"]));db.commit()
             return {"ok":False,"error":"Gateway indisponível ou resposta não confirmada","job":row_get(db,job["id"])}

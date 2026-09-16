@@ -4,6 +4,16 @@ Escopo: somente Imperatriz. Projeto do telefone separado em `Sidera Code/RS SMS 
 
 ## Operação
 
+### Painel de retorno do celular
+
+Abrir **Acompanhar SMS** no estoque de Imperatriz ou em Configurações SMS. O painel também abre após confirmar um novo pedido. Exibe os últimos 100 pedidos, cards animados de andamento, enviados (incluindo entregues), entregas e atenção, além do estado da conexão e do modo diagnóstico. A tabela distingue cada etapa; selecionar a linha mostra o comando e a orientação adequada. O detalhe técnico e a validade estão na dica do quadro de detalhes.
+
+O ciclo do gateway consulta automaticamente um recibo por vez, em rodízio, a cada ciclo de aproximadamente dez segundos, além de reconciliar a fila. Com vários pedidos ou rede lenta, a atualização individual pode levar mais tempo. Pedidos enviados podem evoluir para entregues; indeterminados podem receber confirmação tardia de envio, entrega ou falha. Esse acompanhamento só executa GET: não recria UUID nem reenvia SMS. A API existente do Android 0.3.0 já fornece esses estados; não é necessária nova instalação no telefone.
+
+A tabela SQLite `acknowledgements`, no banco separado da fila, preserva quando o Central observou cada retorno e o horário informado pelo telefone quando válido. O horário exibido na lista é o recebimento do estado pelo Central, não uma estimativa do envio. Histórico anterior sem evidência temporal aparece com travessão. Conexão indisponível não apaga confirmações já salvas nem transforma automaticamente um envio em falha. O painel não permite enviar, reenviar ou cancelar; essas operações permanecem nos fluxos de confirmação existentes.
+
+Validação desta revisão: 13 cenários distintos de fila, incluindo persistência dos retornos, consulta tardia sem retransmissão, rejeição de conteúdo divergente, ausência de regressão de estado e saúde sem exposição de credencial. Testes renderizados em 1917 × 1022 revisados; formulário e confirmação de SMS existentes também passaram. Pacote exportado validado com teste de contrato e painel renderizado; consulta de recibos continua mesmo sem pedido aguardando envio. Consulta HTTPS somente GET ao Galaxy confirmou retornos reais anteriores como delivered e registrou as evidências em banco temporário isolado; fila operacional inalterada e nenhum SMS novo. Teste de novo SMS real e atualização do executável operacional ainda pendentes de confirmação específica.
+
 ### Card de mensagem livre — protocolo 2
 
 Revisão de abertura e aparência: o card é mostrado antes de qualquer espera por configuração ou consulta. O telefone local `chip_phone` aparece imediatamente, sem +55, com DDD; a consulta exata continua obrigatória para liberar envio e pode atualizar o campo se o usuário não o editou. Texto e destinatário editados durante a espera são preservados. Erros mantêm os botões bloqueados, sem fallback silencioso. O formato internacional é mantido apenas no protocolo interno, sem alterar o cadastro. Fechar durante a consulta é seguro. A confirmação usa tema claro e textos em português.
@@ -51,4 +61,4 @@ No Android, o modo diagnóstico começa com envio desligado. O usuário selecion
 
 Executar `tests/sms_gateway_queue_test.py` com Python 3.12. Executar os scripts `tests/sms_gateway_target_test.gd` e `tests/sms_gateway_dialog_test.gd` pelo executor `tools/test_offline.ps1`; usar `-Rendered` para inspeção visual. Para pacote exportado, usar `-Package` e `tests/package_contract_test.gd`.
 
-Não publicar filas, APKs de teste, chaves, credenciais ou relatórios operacionais. Repositório novo do Android será criado depois, conforme decisão do usuário. Antes de substituir o executável principal, perguntar **posso atualizar agora?** e aguardar. Preservar a versão anterior e atualizar o mesmo caminho.
+Não publicar filas, APKs de teste, chaves, credenciais ou relatórios operacionais. Android publicado separadamente em https://github.com/rayrangrupors-sudo/rs-sms-gateway (privado). Antes de substituir o executável principal, perguntar **posso atualizar agora?** e aguardar. Preservar a versão anterior e atualizar o mesmo caminho.
