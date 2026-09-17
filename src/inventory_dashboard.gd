@@ -59,7 +59,7 @@ const CODEX_ESCALATION_TIMEOUT_SECONDS := 75.0
 const DEFAULT_AUTH_USER := "lucasabm"
 const DEFAULT_AUTH_SALT := "grupo-rs-central-v1"
 const DEFAULT_AUTH_PASSWORD_HASH := "8b8be979780a3d27da85579c5398e07b6acd78b73e0e6ac0c4ea8adebc78e6fc"
-const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "consult", "records", "bulk", "settings", "sms_panel"]
+const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "consult", "records", "route", "bulk", "settings", "sms_panel"]
 const TABLE_PAGE_SIZE := 10
 const SYSTEM_LOG_PAGE_SIZE := 20
 # A referencia visual do log usa uma lista curta de eventos recentes. Mantemos
@@ -3241,6 +3241,9 @@ func _make_sidebar_equipment_group() -> Control:
 		_make_sidebar_button("Registros", "arquivo", "records", _show_records, true)
 	)
 	sidebar_equipment_children.add_child(
+		_make_sidebar_button("Trajeto", "localizacao", "route", _show_route, true)
+	)
+	sidebar_equipment_children.add_child(
 		_make_sidebar_button("Cadastro em massa", "arquivo", "bulk", _show_bulk_registration, true)
 	)
 	children_margin.add_child(children_wrap)
@@ -3495,7 +3498,7 @@ func _apply_sidebar_button_state(button: Button, active: bool) -> void:
 
 
 func _is_sidebar_equipment_section(section: String) -> bool:
-	return section in ["inventory", "consult", "records", "bulk"]
+	return section in ["inventory", "consult", "records", "route", "bulk"]
 
 
 func _toggle_sidebar_equipment_group() -> void:
@@ -8202,6 +8205,8 @@ func _restore_current_content_after_connection() -> void:
 			_show_consult()
 		"records":
 			_show_records()
+		"route":
+			_show_route()
 		"bulk":
 			_show_bulk_registration()
 		"logs":
@@ -8236,6 +8241,19 @@ func _show_records() -> void:
 	_set_page_context("records", "Registros de rastreamento", "Histórico de posições • somente leitura")
 	_set_content_margins(30, 24, 30, 22)
 	var view := preload("res://src/ui/tracking_records.gd").new()
+	view.setup(self)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(view)
+	_set_content(scroll)
+
+
+func _show_route() -> void:
+	_set_page_context("route", "Trajeto de veículos", "Percurso e posições • somente leitura")
+	_set_content_margins(28, 22, 28, 20)
+	var view := preload("res://src/ui/tracking_route.gd").new()
 	view.setup(self)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL

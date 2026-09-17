@@ -18,6 +18,10 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ## Testes proporcionais
 
+Trajeto: `docs/trajeto.md`. Aba de consulta somente leitura em Imperatriz, mapa
+nativo, reprodução ponto a ponto e exportação KML. Teste isolado
+`tests/tracking_route_test.gd`, com `-Rendered` para validação visual.
+
 Registros de rastreamento: `docs/registros.md`. Histórico somente leitura em Imperatriz; testes `tracking_records_service_test.gd` e `tracking_records_test.gd` pelo executor isolado. Mapa e PDF sob demanda; não persistir dados operacionais no Git/backup.
 
 Nova aba Consultar: `docs/consulta_equipamentos.md`. Consulta por nome cruza vínculos remotos com registros locais, sem alterações automáticas. Teste isolado: `tests/equipment_consultation_test.gd` (suporta `-Rendered`).
