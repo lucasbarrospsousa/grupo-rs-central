@@ -989,6 +989,9 @@ var remember_user_check: CheckBox
 var login_attempt_running := false
 
 var search_input: LineEdit
+var batch_search_summary: Label
+var batch_search_all_status: Button
+const InventoryBatchSearch = preload("res://src/ui/inventory_batch_search.gd")
 var status_quick_filters: HBoxContainer
 var selected_status_filter_key := "all"
 var search_busy_label: Label
@@ -9548,7 +9551,13 @@ func _build_list_view() -> Control:
 
 
 	search_input = LineEdit.new()
-	search_input.placeholder_text = "Buscar por placa, série, telefone, chip ou operadora"
+	search_input.placeholder_text = "Buscar por placa, série, telefone, chip ou operadora · várias séries com ;"
+	search_input.tooltip_text = "Busca em massa: 024553699;024558974;024563387. Também aceita colar uma série por linha."
+	search_input.gui_input.connect(func(event: InputEvent):
+		if event.is_action_pressed("ui_paste") and (DisplayServer.clipboard_get().contains("\n") or DisplayServer.clipboard_get().contains("\r")):
+			search_input.accept_event()
+			_paste_inventory_serials()
+	)
 	search_input.custom_minimum_size = Vector2(280, 36)
 	search_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	search_input.right_icon = load(ICON_DIR + "pesquisar.svg")
@@ -9570,7 +9579,18 @@ func _build_list_view() -> Control:
 	)
 
 	toolbar.add_child(search_input)
+	toolbar.add_child(_make_action_button("Colar séries", Color.WHITE, BORDER, BLUE_DARK, Vector2(110, 36), _paste_inventory_serials))
 	toolbar.add_child(_make_action_button("Limpar", Color.WHITE, BORDER, BLUE_DARK, Vector2(78, 36), _clear_search))
+	batch_search_summary = Label.new()
+	batch_search_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	batch_search_summary.add_theme_font_size_override("font_size", 14)
+	batch_search_summary.add_theme_color_override("font_color", BLUE_DARK)
+	batch_search_summary.hide()
+	controls_stack.add_child(batch_search_summary)
+	batch_search_all_status = _make_action_button("Buscar em todos os status", Color.WHITE, BORDER, BLUE_DARK, Vector2(230, 34), func(): _select_status_filter("all"))
+	batch_search_all_status.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	batch_search_all_status.hide()
+	controls_stack.add_child(batch_search_all_status)
 
 	search_busy_label = Label.new()
 	search_busy_label.text = ""
@@ -27436,6 +27456,15 @@ func _clear_search() -> void:
 	_refresh_table()
 
 
+func _paste_inventory_serials() -> void:
+	var pasted := DisplayServer.clipboard_get().strip_edges()
+	if pasted.is_empty(): return
+	search_input.text = pasted.replace("\r\n", ";").replace("\r", ";").replace("\n", ";")
+	# A single line pasted as a list still uses the exact serial lookup.
+	if not search_input.text.contains(";"): search_input.text += ";"
+	_submit_search()
+
+
 func _show_search_busy() -> void:
 	search_busy_step = 0
 	if search_busy_label:
@@ -27724,22 +27753,44 @@ func _style_status_filter_button(button: Button, active: bool) -> void:
 
 func _filtered_products() -> Array[Dictionary]:
 	var query := str(search_input.text if search_input else "").strip_edges()
+	var batch := InventoryBatchSearch.parse(query)
+	var wanted: Dictionary = batch.serials
+	var found: Dictionary = {}
+	var shown: Dictionary = {}
+	var hidden_status: Dictionary = {}
+	var hidden_date: Dictionary = {}
 	var filter := selected_status_filter_key
 	# Esta lista sera ordenada pelo criterio visual logo abaixo. Evita a
 	# ordenacao alfabetica intermediaria feita pelo armazenamento.
-	var all_products := store.get_products(query, "all", false, false)
+	var all_products := store.get_products("" if batch.active else query, "all", false, false)
 
 	var result: Array[Dictionary] = []
 
 	for product in all_products:
+		var matched: Array = InventoryBatchSearch.matches(product, wanted) if batch.active else []
+		if batch.active and matched.is_empty(): continue
+		for serial in matched: found[serial] = true
 		if filter != "all" and _status_key_for_selected_branch(product) != filter:
+			for serial in matched: hidden_status[serial] = true
 			continue
 		if inventory_start_date != "" or inventory_end_date != "":
 			if not _date_value_in_range(_inventory_product_date(product), inventory_start_date, inventory_end_date):
+				for serial in matched: hidden_date[serial] = true
 				continue
+		for serial in matched: shown[serial] = true
 		result.append(product)
 
-	_sort_inventory_products(result, query)
+	_sort_inventory_products(result, "" if batch.active else query)
+	if is_instance_valid(batch_search_summary):
+		batch_search_summary.visible = batch.active
+		batch_search_all_status.visible = batch.active and not hidden_status.is_empty()
+		var missing: Array[String] = []
+		for serial in wanted:
+			if not found.has(serial): missing.append(serial)
+		batch_search_summary.text = "%d pesquisados · %d encontrados na base · %d exibidos · %d não encontrados" % [wanted.size(), found.size(), shown.size(), missing.size()]
+		if not missing.is_empty(): batch_search_summary.text += "\nNão encontrados: " + "; ".join(missing)
+		if not hidden_status.is_empty(): batch_search_summary.text += "\nOcultos pelo status: " + "; ".join(hidden_status.keys())
+		if not hidden_date.is_empty(): batch_search_summary.text += "\nOcultos pelo período: " + "; ".join(hidden_date.keys())
 
 	return result
 

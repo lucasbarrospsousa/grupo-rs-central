@@ -18,6 +18,9 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ## Testes proporcionais
 
+Busca por várias séries: `docs/busca_massiva_2026_09_17.md`.
+Teste isolado `tests/inventory_batch_search_test.gd`; aceita `-Rendered` no executor offline.
+
 ### Versão 4.2.2
 
 Mapa Grande e o painel Grupo RS online foram retirados. A consulta individual,
