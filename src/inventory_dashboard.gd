@@ -59,7 +59,7 @@ const CODEX_ESCALATION_TIMEOUT_SECONDS := 75.0
 const DEFAULT_AUTH_USER := "lucasabm"
 const DEFAULT_AUTH_SALT := "grupo-rs-central-v1"
 const DEFAULT_AUTH_PASSWORD_HASH := "8b8be979780a3d27da85579c5398e07b6acd78b73e0e6ac0c4ea8adebc78e6fc"
-const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "bulk", "settings", "sms_panel"]
+const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "consult", "bulk", "settings", "sms_panel"]
 const TABLE_PAGE_SIZE := 10
 const SYSTEM_LOG_PAGE_SIZE := 20
 # A referencia visual do log usa uma lista curta de eventos recentes. Mantemos
@@ -3235,6 +3235,9 @@ func _make_sidebar_equipment_group() -> Control:
 		_make_sidebar_button("Estoque", "cadastros", "inventory", _show_list, true)
 	)
 	sidebar_equipment_children.add_child(
+		_make_sidebar_button("Consultar", "consulta", "consult", _show_consult, true)
+	)
+	sidebar_equipment_children.add_child(
 		_make_sidebar_button("Cadastro em massa", "arquivo", "bulk", _show_bulk_registration, true)
 	)
 	children_margin.add_child(children_wrap)
@@ -3489,7 +3492,7 @@ func _apply_sidebar_button_state(button: Button, active: bool) -> void:
 
 
 func _is_sidebar_equipment_section(section: String) -> bool:
-	return section in ["inventory", "bulk"]
+	return section in ["inventory", "consult", "bulk"]
 
 
 func _toggle_sidebar_equipment_group() -> void:
@@ -3590,6 +3593,8 @@ func _make_sidebar_icon(icon_kind: String, color: Color) -> Control:
 
 func _sidebar_icon_path(icon_kind: String) -> String:
 	match icon_kind:
+		"consulta":
+			return "res://assets/icons/consultation_search.svg"
 		"sms":
 			return ICON_DIR + "mensagem.svg"
 		"dashboard":
@@ -8082,7 +8087,7 @@ func _section_requires_local_database(section: String = "") -> bool:
 		active_section = current_section.strip_edges().to_lower()
 	# Estoque, cadastro em massa, manutencoes, logs e o dashboard exibem ou
 	# alteram dados operacionais cuja unica fonte autorizada e o Banco local SQL.
-	return active_section in ["dashboard", "inventory", "bulk", "maintenance", "logs"]
+	return active_section in ["dashboard", "inventory", "consult", "bulk", "maintenance", "logs"]
 
 
 func _local_database_topbar_text(state: String, pending_count: int = 0) -> String:
@@ -8190,6 +8195,8 @@ func _restore_current_content_after_connection() -> void:
 	match current_section:
 		"inventory":
 			_show_list()
+		"consult":
+			_show_consult()
 		"bulk":
 			_show_bulk_registration()
 		"logs":
@@ -8210,6 +8217,14 @@ func _restore_current_content_after_connection() -> void:
 			_show_arya_config()
 		_:
 			_show_dashboard()
+
+
+func _show_consult() -> void:
+	_set_page_context("consult", "Consulta de equipamentos", "Clientes e aparelhos do banco local")
+	_set_content_margins(44, 30, 44, 26)
+	var view := preload("res://src/ui/equipment_consultation.gd").new()
+	view.setup(self)
+	_set_content(view)
 
 
 func _show_list() -> void:
