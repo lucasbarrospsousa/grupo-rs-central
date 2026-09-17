@@ -5,6 +5,7 @@ func run() -> void:
 	var host := Control.new()
 	root.add_child(host)
 	Motion.install(host)
+	var transient:=Button.new();host.add_child(transient);transient.free()
 	var button := Button.new()
 	button.size = Vector2(180,48)
 	host.add_child(button)

@@ -23,6 +23,9 @@ var pagination: Label
 var previous: Button
 var next: Button
 var missing_notice: Label
+var details_by_serial: Dictionary = {}
+var submitted_query := ""
+var query_generation := 0
 
 func label(value: String, font_size: int = 16, color: String = "#173b5d") -> Label:
 	var node := Label.new()
@@ -54,6 +57,7 @@ func setup(controller: Node) -> void:
 	add_theme_constant_override("separation", 12)
 	products = host.store.get_products()
 	service = Service.new()
+	service.decode_body=host._decode_http_body_bytes
 	add_child(service)
 	# Merge only; consultation never extracts/migrates settings or writes a vault.
 	var vault: Node = host._secret_vault()
@@ -63,7 +67,7 @@ func setup(controller: Node) -> void:
 	add_child(label("GRUPO RS CENTRAL  /  " + str(host.selected_branch_name).to_upper(), 12, "#65819e"))
 	var title_row := HBoxContainer.new(); add_child(title_row)
 	var title := label("Consultar",32); title.size_flags_horizontal=Control.SIZE_EXPAND_FILL; title_row.add_child(title)
-	title_row.add_child(button("Atualizar vínculos",run_search))
+	title_row.add_child(button("Atualizar consulta",run_search))
 	add_child(label("Encontre clientes e seus aparelhos. Confira somente os registros do banco local.", 15, "#65819e"))
 	var search_card := card(); add_child(search_card)
 	var filters := VBoxContainer.new(); search_card.add_child(filters); filters.add_theme_constant_override("separation", 14)
@@ -78,8 +82,8 @@ func setup(controller: Node) -> void:
 	search_button = button("Buscar", run_search, true); line.add_child(search_button)
 	line.add_child(button("Limpar", clear_search))
 	search.text_submitted.connect(func(_text): run_search())
-	status.item_selected.connect(func(_index): page = 0; render())
-	filters.add_child(label("Por nome: a API identifica os vínculos. Os equipamentos exibidos vêm do banco desta base.", 13, "#65819e"))
+	status.item_selected.connect(func(_index): page = 0; render(); if submitted_query!="": enrich_visible())
+	filters.add_child(label("Resultados do banco local • associado e comunicação conferidos na plataforma • sem gravação automática.", 13, "#65819e"))
 	var customer_card := card(); add_child(customer_card)
 	var selected_line := HBoxContainer.new(); customer_card.add_child(selected_line)
 	var avatar := label("●",30,"#1784df"); avatar.custom_minimum_size.x=44; selected_line.add_child(avatar)
@@ -112,11 +116,12 @@ func setup(controller: Node) -> void:
 	missing_notice=label("",13,"#b77415"); table.add_child(missing_notice)
 	var bottom := HBoxContainer.new(); table.add_child(bottom)
 	pagination = label("", 13, "#65819e"); pagination.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bottom.add_child(pagination)
-	previous = button("Anterior", func(): page -= 1; render()); bottom.add_child(previous)
-	next = button("Próxima", func(): page += 1; render()); bottom.add_child(next)
+	previous = button("Anterior", func(): if not busy: page -= 1; render(); enrich_visible()); bottom.add_child(previous)
+	next = button("Próxima", func(): if not busy: page += 1; render(); enrich_visible()); bottom.add_child(next)
 	notice = label("Escolha um filtro e clique em Buscar. Nenhuma consulta é feita enquanto você digita.", 14, "#65819e")
 	notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; add_child(notice)
 	call_deferred("animate_open")
+	var aging:=Timer.new(); aging.wait_time=30;aging.autostart=true;aging.timeout.connect(func(): if not busy and not details_by_serial.is_empty(): render());add_child(aging)
 	render()
 
 func animate_open() -> void:
@@ -134,16 +139,20 @@ func animate_open() -> void:
 
 func clear_search() -> void:
 	if busy: return
+	query_generation+=1; details_by_serial.clear(); submitted_query=""
 	search.clear(); status.select(0); linked = null; customer = ""; page = 0
 	selected.text = "Nenhum cliente selecionado"
 	for child in picker.get_children(): child.queue_free()
 	picker.hide(); render(); notice.text = "Filtros limpos. Nenhum cadastro foi alterado."
 
 func set_busy(value: bool) -> void:
-	busy = value; search_button.disabled = value; search.editable = not value; mode.disabled = value
+	busy = value; search_button.disabled = value; search.editable = not value; mode.disabled = value; status.disabled=value
+	previous.disabled=value or page==0; next.disabled=value or (page+1)*20>=result_rows.size()
 
 func run_search() -> void:
 	if busy: return
+	query_generation+=1; details_by_serial.clear(); submitted_query=search.text.strip_edges()
+	products=host.store.get_products()
 	var clean := search.text.strip_edges().replace(" ", "").replace("-", "")
 	var plate := RegEx.new(); plate.compile("^[A-Za-z]{3}[0-9][A-Za-z0-9][0-9]{2}$")
 	mode.select(1 if clean.is_valid_int() or plate.search(clean) != null else 0)
@@ -152,7 +161,9 @@ func run_search() -> void:
 	for child in picker.get_children(): picker.remove_child(child); child.queue_free()
 	picker.hide()
 	if mode.selected == 1 or search.text.strip_edges() == "":
-		render(); notice.text = "Consulta local concluída. Nenhum dado foi alterado."; return
+		render(); notice.text = "Consulta local concluída. Conferindo associado e comunicação…"
+		await enrich_visible()
+		return
 	if search.text.strip_edges().length() < 3:
 		linked=[]; render(); notice.text = "Digite pelo menos 3 letras do nome."; return
 	set_busy(true); notice.text = "Buscando clientes na API de Imperatriz…"
@@ -179,14 +190,60 @@ func choose_client(client: Dictionary) -> void:
 	set_busy(false)
 	if not response.ok: notice.text = response.message; return
 	customer = str(client.name); linked = response.serials; page = 0
+	for product in Service.local_results(products,"","Todos os status",linked):
+		var record:Dictionary=Service.matched_record(response.get("records",[]),product)
+		if not record.is_empty(): details_by_serial[Service.serial(product)]={"ok":true,"client":customer,"communication":service.observe(record),"message":"Vínculo e comunicação conferidos pela API."}
 	selected.text = "Cliente selecionado: " + customer
 	render()
 	notice.text = "Vínculos conferidos pela API • detalhes dos equipamentos: banco local • nenhum cadastro alterado."
 	if int(response.get("unresolved", 0)) > 0: notice.text += " %d vínculo(s) sem série verificável; consulta parcial." % int(response.unresolved)
+	await enrich_visible()
+
+func enrich_visible() -> void:
+	if busy: return
+	if submitted_query=="": notice.text="Lista local. Busque uma placa, série ou cliente para conferir a comunicação."; return
+	var generation:=query_generation
+	set_busy(true)
+	var failures:=0
+	for product in result_rows.slice(page*20,page*20+20):
+		var key:=Service.serial(product)
+		if details_by_serial.has(key): continue
+		notice.text="Conferindo associado e comunicação de " + str(product.get("plate",key)) + "…"
+		var result:Dictionary=await service.details(product,branch,host._parse_modern_grupo_rs_vehicle_rows)
+		if not is_inside_tree() or generation!=query_generation or str(host.selected_branch_id)!=branch: return
+		details_by_serial[key]=result
+		if not result.get("ok",false) or result.get("communication",{}).is_empty(): failures+=1
+		render()
+	set_busy(false); render()
+	if result_rows.size()==1:
+		var found:Dictionary=details_by_serial.get(Service.serial(result_rows[0]),{})
+		if str(found.get("client",""))!="": selected.text="Associado confirmado: "+str(found.client)
+	notice.text="Consulta concluída • dados remotos apenas nesta tela • nenhum cadastro alterado."
+	if failures>0: notice.text+=" %d linha(s) sem comunicação confirmada; veja o detalhe da placa." % failures
+
+func plate_card(product: Dictionary) -> Control:
+	var detail:Dictionary=details_by_serial.get(Service.serial(product),{})
+	var state:Dictionary=Service.display_state(detail.get("communication",{}))
+	var key:=str(state.get("color_key","cinza"))
+	var text:=str(state.get("label","Sem informação"))
+	var palette:Dictionary={"verde":["#e4f7ef","#11815d"],"vermelho":["#fff0f0","#c2414b"],"amarelo":["#fff7dd","#956800"],"roxo":["#f2eafd","#7740b7"],"cinza":["#eff3f8","#62768c"]}
+	var colors:Array=palette.get(key,palette.cinza)
+	var panel:=PanelContainer.new(); panel.name="PlateStatus"; panel.set_meta("color_key",key)
+	panel.size_flags_horizontal=Control.SIZE_EXPAND_FILL; panel.size_flags_stretch_ratio=1.0; panel.size_flags_vertical=Control.SIZE_SHRINK_CENTER
+	var style:StyleBox=host._style_box(Color(colors[0]),Color(colors[1]).lightened(.65),1,10)
+	style.content_margin_left=9;style.content_margin_right=9;style.content_margin_top=6;style.content_margin_bottom=6;panel.add_theme_stylebox_override("panel",style)
+	var box:=VBoxContainer.new(); box.add_theme_constant_override("separation",2);panel.add_child(box)
+	var plate:=label(str(product.get("plate","Sem placa")),14,colors[1]);plate.clip_text=true;box.add_child(plate)
+	var caption:=label("● "+text,11,colors[1]);caption.clip_text=true;box.add_child(caption)
+	var ignition:=int(state.get("ignition_state",-1))
+	panel.tooltip_text="%s\nIgnição informada: %s\nÚltima comunicação: %s\nGPS: %s\n%s\n%s" % [text,"Ligada" if ignition==1 else ("Desligada" if ignition==0 else "Não informada"),state.get("server_at","Não informada"),state.get("gps_at","Não informado"),state.get("reason",""),detail.get("message","Ainda não consultado. Clique em Buscar.")]
+	for node in [box,plate,caption]: node.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	Motion.attach(panel)
+	return panel
 
 func render() -> void:
 	for child in rows_box.get_children(): rows_box.remove_child(child); child.queue_free()
-	var query := search.text if mode.selected == 1 else ""
+	var query := submitted_query if mode.selected == 1 else ""
 	result_rows = Service.local_results(products, query, status.get_item_text(status.selected), linked)
 	var all_found := Service.local_results(products, query, "Todos os status", linked)
 	counts[0].text = str(linked.size()) if linked != null else "—"
@@ -199,8 +256,11 @@ func render() -> void:
 	page = clampi(page, 0, maxi(0, (result_rows.size() - 1) / 20))
 	for product in result_rows.slice(page * 20, page * 20 + 20):
 		var row := HBoxContainer.new(); row.custom_minimum_size.y = 48; rows_box.add_child(row)
-		var values := [customer if customer != "" else str(product.get("client", "")), str(product.get("plate", "")), Service.serial(product), str(product.get("operator", "")), str(product.get("chip_phone", "")), str(product.get("tracker_status", ""))]
+		var detail:Dictionary=details_by_serial.get(Service.serial(product),{})
+		var client_name:=str(detail.get("client",customer if customer!="" else product.get("client","")))
+		var values := [client_name, str(product.get("plate", "")), Service.serial(product), str(product.get("operator", "")), str(product.get("chip_phone", "")), str(product.get("tracker_status", ""))]
 		for i in range(6):
+			if i==1: row.add_child(plate_card(product)); continue
 			var cell := label(values[i] if values[i] != "" else "Não informado", 14, "#168267" if i == 5 else "#173b5d")
 			cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cell.size_flags_stretch_ratio = [2.0, 1.0, 1.15, 1.3, 1.5, 1.1][i]
 			cell.clip_text = true; cell.tooltip_text = values[i]
@@ -216,7 +276,7 @@ func render() -> void:
 		var divider := HSeparator.new(); divider.add_theme_stylebox_override("separator",host._style_box(Color("#e5edf5"),Color.TRANSPARENT,0,0)); divider.custom_minimum_size.y=1; rows_box.add_child(divider)
 	if result_rows.is_empty(): rows_box.add_child(label("Nenhum equipamento local corresponde a esta consulta.", 15, "#65819e"))
 	pagination.text = "%d resultado(s) • página %d de %d" % [result_rows.size(), page + 1, maxi(1, ceili(result_rows.size() / 20.0))]
-	previous.disabled = page == 0; next.disabled = (page + 1) * 20 >= result_rows.size()
+	previous.disabled = busy or page == 0; next.disabled = busy or (page + 1) * 20 >= result_rows.size()
 	for control in [previous,next]:
 		control.add_theme_stylebox_override("disabled",host._style_box(Color("#f0f5fa"),Color("#dce6ef"),1,8))
 		control.add_theme_color_override("font_disabled_color",Color("#879bb0"))

@@ -12,7 +12,11 @@ static func install(host: Node) -> void:
 	var tree := host.get_tree()
 	var on_added := func(node: Node):
 		if node is BaseButton and host.is_ancestor_of(node):
-			attach.call_deferred(node)
+			var reference: WeakRef = weakref(node)
+			(func():
+				var button = reference.get_ref()
+				if is_instance_valid(button): attach(button)
+			).call_deferred()
 	tree.node_added.connect(on_added)
 	watch.tree_exiting.connect(func():
 		if tree.node_added.is_connected(on_added): tree.node_added.disconnect(on_added)

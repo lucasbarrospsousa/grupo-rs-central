@@ -1,9 +1,12 @@
 extends Node
 ## Read-only portal lookup. Credentials/session stay in memory; no inventory writes.
 const ROOT := "https://imp.ogrupors.com.br"
+const Communication = preload("res://src/inventory_communication_status.gd")
 var credentials: Dictionary = {}
 var cookies: Dictionary = {}
 var authenticated := false
+var decode_body: Callable
+var last_communication: Dictionary = {}
 
 func request(path: String, fields: Dictionary = {}) -> Dictionary:
 	var http := HTTPRequest.new()
@@ -31,7 +34,15 @@ func request(path: String, fields: Dictionary = {}) -> Dictionary:
 			var cookie: String = str(header).substr(11).strip_edges().split(";")[0]
 			var separator := cookie.find("=")
 			if separator > 0: cookies[cookie.left(separator)] = cookie.substr(separator + 1)
-	return {"ok":result[0] == HTTPRequest.RESULT_SUCCESS or (result[0] == HTTPRequest.RESULT_REDIRECT_LIMIT_REACHED and int(result[1]) in [302, 303]), "code":int(result[1]), "body":result[3].get_string_from_utf8()}
+	var text: String=decode_body.call(result[3]) if decode_body.is_valid() else result[3].get_string_from_utf8()
+	return {"ok":result[0] == HTTPRequest.RESULT_SUCCESS or (result[0] == HTTPRequest.RESULT_REDIRECT_LIMIT_REACHED and int(result[1]) in [302, 303]), "code":int(result[1]), "body":text}
+
+static func display_state(state: Dictionary, now_unix: int = 0) -> Dictionary:
+	var result:=state.duplicate(true)
+	var now:=now_unix if now_unix>0 else Communication._now_unix()
+	if int(result.get("server_unix",0))>0 and now-int(result.server_unix)>int(result.get("communication_limit_seconds",600)):
+		result.color_key="amarelo";result.label="Desatualizado";result.reason="Última comunicação acima do limite. Clique em Atualizar consulta para obter nova leitura."
+	return result
 
 func login() -> Dictionary:
 	if str(credentials.get("username", "")).is_empty() or str(credentials.get("password", "")).is_empty():
@@ -85,6 +96,7 @@ func links(client_id: String, branch: String) -> Dictionary:
 	if not result.ok: return result
 	if not result.data is Array: return {"ok":false, "message":"Formato de vínculos não reconhecido."}
 	var serials: Array[String] = []
+	var records: Array = []
 	var unresolved := 0
 	for row in result.data:
 		if not row is Dictionary: return {"ok":false, "message":"Vínculo inválido na resposta."}
@@ -92,8 +104,81 @@ func links(client_id: String, branch: String) -> Dictionary:
 		# Keep leading zeros. Numeric JSON serials cannot be safely reconstructed.
 		if not row.get("equipamento") is String or serial == "":
 			unresolved += 1
-		elif not serials.has(serial): serials.append(serial)
-	return {"ok":true, "serials":serials, "unresolved":unresolved}
+		else:
+			if not serials.has(serial): serials.append(serial)
+			records.append(row)
+	return {"ok":true, "serials":serials, "records":records, "unresolved":unresolved}
+
+static func plate_key(value: String) -> String:
+	return value.strip_edges().to_upper().replace(" ", "").replace("-", "")
+
+static func communication(row: Dictionary, now_unix: int = 0, previous: Dictionary = {}) -> Dictionary:
+	var unknown := {"color_key":"cinza", "label":"Sem informação", "reason":"Comunicação não confirmada.", "server_at":"", "gps_at":"", "ignition_state":-1}
+	var sample := {"server_at":row.get("DataComunicacaoServidor",row.get("UltimaComunicacao",row.get("DataComunicacao",""))), "gps_at":row.get("DataGPS",""), "ignition":row.get("ignicao"), "lat":row.get("lat"), "lng":row.get("lng")}
+	if Communication.parse_datetime(sample.server_at) <= 0:
+		unknown.reason="Data de comunicação ausente ou inválida."; return unknown
+	var result := Communication.classify(sample, previous, now_unix)
+	if result.communication_age_seconds < -60:
+		unknown.reason="Data de comunicação no futuro; confira os horários."; return unknown
+	if result.communication_age_seconds > result.communication_limit_seconds: result.label="Desatualizado"; return result
+	if not row.has("DataGPS") or not row.has("lat") or not row.has("lng"):
+		unknown.reason="Resposta incompleta: não é possível avaliar o GPS."; return unknown
+	if result.color_key == "roxo": result.label="Possível falha GPS"
+	elif result.ignition_state < 0:
+		unknown.reason="Estado da ignição não informado."; return unknown
+	elif result.color_key == "verde": result.label="Ligado"
+	return result
+
+func observe(row: Dictionary) -> Dictionary:
+	var key:=str(row.get("equipamento",""))
+	var result:=communication(row,0,last_communication.get(key,{}))
+	if key!="": last_communication[key]=result
+	return result
+
+static func matched_record(records: Array, product: Dictionary) -> Dictionary:
+	var matches: Array = []
+	var plate := plate_key(str(product.get("plate", "")))
+	for row in records:
+		if row is Dictionary and row.get("equipamento") is String and str(row.equipamento).strip_edges()==serial(product) and plate_key(str(row.get("placa","")))==plate:
+			matches.append(row)
+	return matches[0] if matches.size()==1 else {}
+
+func details(product: Dictionary, branch: String, parser: Callable) -> Dictionary:
+	if branch != "imperatriz": return {"ok":false,"message":"Comunicação e associado remotos disponíveis apenas em Imperatriz."}
+	if not parser.is_valid(): return {"ok":false,"message":"Leitor do portal indisponível."}
+	if not authenticated:
+		var auth := await login()
+		if not auth.ok: return auth
+	# GET only. Read the existing portal table and require BOTH exact identities.
+	var response := await request("/cadastro/veiculos_listar.php?busca=%s&status=Todos" % serial(product).uri_encode())
+	if not response.ok or int(response.get("code",0)) != 200:
+		return {"ok":false,"message":"Não foi possível conferir o associado no portal."}
+	var html := str(response.get("body",""))
+	if not html.contains('id="tabelaVeiculos"'):
+		authenticated=false
+		return {"ok":false,"message":"Sessão expirada ou formato do portal indisponível. Busque novamente."}
+	var matches: Array = []
+	for row in parser.call(html):
+		if str(row.get("serial",""))==serial(product) and plate_key(str(row.get("plate","")))==plate_key(str(product.get("plate",""))): matches.append(row)
+	if matches.size()!=1: return {"ok":false,"message":"Vínculo não confirmado: placa e série devem corresponder exatamente e sem ambiguidade."}
+	var vehicle: Dictionary=matches[0]
+	var client := str(vehicle.get("client","")).strip_edges()
+	var result := {"ok":true,"client":client,"communication":{},"message":"Associado confirmado no portal; comunicação indisponível."}
+	if client=="": result.message="Associado não informado no portal."; return result
+	var candidates := await clients(client, branch)
+	if not candidates.ok: return result
+	var exact: Array=candidates.clients.filter(func(item): return str(item.name).strip_edges().to_lower()==client.to_lower())
+	if exact.size()>5: result.message="Homônimos demais para validar automaticamente a comunicação."; return result
+	var matched: Array=[]
+	for candidate in exact:
+		var related := await links(str(candidate.id),branch)
+		if not related.ok: return result
+		var record := matched_record(related.get("records",[]),product)
+		if not record.is_empty() and str(int(record.get("CodVeiculo",record.get("id",0))))==str(vehicle.get("edit_id","")):
+			matched.append(record)
+	if matched.size()==1:
+		result.communication=observe(matched[0]); result.message="Associado: portal • comunicação: API • cadastro local preservado."
+	return result
 
 static func serial(product: Dictionary) -> String:
 	var value := str(product.get("imei", "")).strip_edges()
