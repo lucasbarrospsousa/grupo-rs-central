@@ -18,6 +18,8 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ## Testes proporcionais
 
+Registros de rastreamento: `docs/registros.md`. Histórico somente leitura em Imperatriz; testes `tracking_records_service_test.gd` e `tracking_records_test.gd` pelo executor isolado. Mapa e PDF sob demanda; não persistir dados operacionais no Git/backup.
+
 Nova aba Consultar: `docs/consulta_equipamentos.md`. Consulta por nome cruza vínculos remotos com registros locais, sem alterações automáticas. Teste isolado: `tests/equipment_consultation_test.gd` (suporta `-Rendered`).
 
 Busca por várias séries: `docs/busca_massiva_2026_09_17.md`.

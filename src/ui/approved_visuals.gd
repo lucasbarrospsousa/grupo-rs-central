@@ -3,7 +3,7 @@ extends RefCounted
 
 static func apply(root: Control, inside_card: bool = false) -> void:
 	var is_card := root is PanelContainer
-	if is_card and not inside_card:
+	if is_card and not inside_card and not root.get_meta("static_card", false):
 		preload("res://src/ui/card_hover_motion.gd").attach(root)
 	if root is Button and root.icon != null:
 		root.expand_icon = true
