@@ -1,4 +1,4 @@
-## Garante que a subclasse ativa do Mapa Grande não quebrou Estoque nem Sair.
+## Garante que a retirada do mapa preserva Estoque e a confirmação de Sair.
 extends SceneTree
 
 const AlertDialog := preload("res://src/ErrorDialog.gd")
@@ -17,7 +17,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var sidebar_buttons: Dictionary = instance.get("sidebar_buttons")
-	_check(sidebar_buttons.has("monitor_4g"), "Barra lateral de Imperatriz não exibiu o botão Mapa Grande.")
+	_check(not sidebar_buttons.has("monitor_4g"), "Barra lateral ainda exibiu a função retirada.")
 	instance.call("_show_list")
 	await process_frame
 	_check(str(instance.get("current_section")) == "inventory", "Botão/rota Estoque não selecionou a seção inventory.")

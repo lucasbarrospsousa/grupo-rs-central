@@ -1,7 +1,7 @@
 ## Confirma offline que a cena principal instancia e aponta para o controller.
 extends SceneTree
 
-const ActiveController := preload("res://src/features/big_map/big_map_tracking_layout.gd")
+const ActiveController := preload("res://src/inventory_dashboard.gd")
 
 
 func _init() -> void:
@@ -16,7 +16,7 @@ func _init() -> void:
 		quit(1)
 		return
 	if instance.get_script() != ActiveController:
-		push_error("MAIN_SCENE_SMOKE_TEST: cena principal não usa o controller do Mapa Grande.")
+		push_error("MAIN_SCENE_SMOKE_TEST: cena principal não usa o dashboard do estoque.")
 		instance.free()
 		quit(1)
 		return

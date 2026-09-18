@@ -90,7 +90,7 @@ func get_system_help(page_name: String) -> String:
 		"dashboard": "A pagina inicial resume estoque, comunicacoes, manutencoes e integracoes. Use os indicadores para abrir o detalhe correspondente.",
 		"inventory": "Em Estoque voce pesquisa, filtra, cadastra, edita e da baixa em rastreadores. Alteracoes sempre exigem uma acao explicita do usuario.",
 		"maintenance": "A area de Manutencao reune equipamentos que precisam de atendimento. Use OK quando o servico for concluido ou Excluir para retirar apenas o agendamento.",
-		"monitor_4g": "O Monitor 4G analisa rastreadores ligados e compara o horario do GPS com o servidor para estimar a qualidade regional da comunicacao.",
+		"monitor_4g": "Funcionalidade retirada. Use Estoque para consultar a localização individual de um equipamento.",
 		"logs": "A Central de eventos mostra sincronizacoes, comandos, recuperacoes e falhas tecnicas. Os filtros nao alteram os registros.",
 		"settings": "Configuracoes centraliza credenciais, conexoes, seguranca, atualizacoes e a Luna. Senhas ficam no armazenamento local do computador.",
 		"guardian": "A Assistente Luna responde localmente sobre o sistema e pode usar o Gemini, quando autorizado, para analises textuais mais avancadas.",

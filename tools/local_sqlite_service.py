@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,applied
 """
 def now(): return datetime.now(timezone.utc).isoformat(timespec="seconds")
 def connect(path):
+
+    # Fail before connect can silently recreate an empty operational database.
+    operational = Path('C:/GRUPO RS CENTRAL/database/grupo_rs_central.sqlite')
+    if Path(path).resolve() == operational.resolve() and not Path(path).is_file():
+        raise RuntimeError('Banco operacional ausente; recriacao automatica bloqueada. Recuperacao explicita necessaria.')
     path.parent.mkdir(parents=True,exist_ok=True); con=sqlite3.connect(path,timeout=30); con.row_factory=sqlite3.Row; con.executescript(SCHEMA)
     con.execute("INSERT OR IGNORE INTO schema_migrations VALUES(?,?,?)",(VERSION,now(),"initial offline schema")); con.commit(); return con
 def pick(row,*keys):
@@ -118,6 +123,24 @@ def append_audit(con,branch,row):
         con.execute("INSERT OR REPLACE INTO audit_log VALUES(?,?,?,?,?,?,?,?,?)",values)
     return {"ok":True,"id":values[0]}
 
+def update_chip_contact(con, branch, sku, serial, phone, iccid):
+    import re
+    if not re.fullmatch(r"[0-9]{10,11}", phone) or not re.fullmatch(r"[0-9]{18,22}", iccid):
+        return {"ok": False, "error": "Telefone ou ICCID invalido"}
+    with con:
+        con.execute("BEGIN IMMEDIATE")
+        rows = con.execute("SELECT id,imei,raw_json FROM devices WHERE branch_id=? AND sku=?", (branch,sku)).fetchall()
+        if len(rows)!=1 or str(rows[0][1])!=serial:
+            return {"ok":False,"error":"Serie local nao confirmada"}
+        row=json.loads(rows[0][2])
+        changed=row.get("chip_phone")!=phone or row.get("chip_number")!=iccid
+        if changed:
+            row["chip_phone"]=phone; row["chip_number"]=iccid
+            if "iccid" in row: row["iccid"]=iccid
+            stamp=now();row["updated_at"]=stamp
+            con.execute("UPDATE devices SET iccid=?,updated_at=?,raw_json=? WHERE id=?",(iccid,stamp,json.dumps(row,ensure_ascii=False),rows[0][0]))
+    return {"ok":True,"changed":changed,**get_device(con,branch,sku)}
+
 def get_device(con,branch,sku):
     row=con.execute("SELECT raw_json FROM devices WHERE branch_id=? AND (sku=? OR imei=?) LIMIT 2",(branch,sku,sku)).fetchall()
     if len(row)!=1: return {"ok":False,"found":False,"ambiguous":len(row)>1}
@@ -171,6 +194,7 @@ def main():
             elif operation=="upsert_device_with_movement": result={"ok":True,**upsert_device_with_movement(con,str(request["branch"]),request["product"],request["movement"])}
             elif operation=="append_audit": result=append_audit(con,str(request["branch"]),request["event"])
             elif operation=="get_device": result=get_device(con,str(request["branch"]),str(request["sku"]))
+            elif operation=="update_chip_contact": result=update_chip_contact(con,str(request["branch"]),str(request["sku"]),str(request["serial"]),str(request["phone"]),str(request["iccid"]))
             elif operation=="delete_device": result=delete_device(con,str(request["branch"]),str(request["sku"]))
             elif operation=="health": result={"ok":valid(con),"integrity":"ok" if valid(con) else "failed"}
             else: raise RuntimeError(f"operacao desconhecida: {operation}")

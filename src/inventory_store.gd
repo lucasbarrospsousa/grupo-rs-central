@@ -85,6 +85,13 @@ func load_db() -> Dictionary:
 	return _db
 
 
+func reload_db_from_disk() -> Dictionary:
+	## Descarta somente o snapshot em memória. O SQLite permanece como fonte
+	## autoritativa e é relido quando outro processo publica uma nova revisão.
+	_loaded = false
+	return load_db()
+
+
 func save_db(notify_remote_sync: bool = true) -> bool:
 	if not _loaded and _db.is_empty():
 		load_db()
@@ -125,6 +132,15 @@ func verify_product_persisted(serial: String, expected_product: Dictionary = {})
 			"message": "O SQLite foi relido, mas os campos nao conferem: %s." % ", ".join(mismatches),
 		}
 	return {"ok": true, "found": true, "matches": true, "product": persisted, "source": "sqlite_disk"}
+
+
+func update_confirmed_chip_contact(sku: String, serial: String, phone: String, iccid: String) -> Dictionary:
+	if not _can_mutate(): return {"ok":false}
+	var result := _sqlite.execute("update_chip_contact",_db_path,{"branch":_branch_id,"sku":sku,"serial":serial,"phone":phone,"iccid":iccid})
+	if bool(result.get("ok",false)) and bool(result.get("found",false)):
+		var index := _find_product_index(sku)
+		if index >= 0: _db["products"][index] = _normalize_product(result.product)
+	return result
 
 
 func _persist_product_incremental(product: Dictionary, old_sku: String = "") -> bool:
@@ -852,7 +868,10 @@ func get_tracker_stats() -> Dictionary:
 		else:
 			stats["updated"] = int(stats.get("updated", 0)) + 1
 
-		var operator_name := str(item.get("operator", "")).strip_edges()
+		# O painel pode permanecer aberto enquanto o Banco local SQL e atualizado.
+		# Agrupe de forma canonica tambem em memoria para evitar CLARO/Claro,
+		# TIM/Tim e VIVO/Vivo como operadoras diferentes no Dashboard.
+		var operator_name := str(item.get("operator", "")).strip_edges().to_upper()
 		if operator_name == "":
 			operator_name = "Sem operadora"
 		var operators: Dictionary = stats.get("operators", {})
@@ -920,66 +939,6 @@ func upsert_product_replacing_sku(old_sku: String, product_data: Dictionary) -> 
 		_db["products"] = previous_products
 		return {}
 	return item
-
-
-func commit_appliance_replacement_local(source_sku: String, target_sku: String, target_patch: Dictionary, source_patch: Dictionary, maintenance_row: Dictionary) -> Dictionary:
-	# Aplica as duas mudancas locais e a manutencao em uma unica gravacao.
-	# A troca remota pode ser confirmada antes do Banco local SQL. Por isso a parte
-	# local precisa ser atomica: nenhum aparelho fica parcialmente atualizado.
-	if not _can_mutate():
-		return {"ok": false, "message": "Servidor online indisponivel para confirmar a troca local."}
-	if not _loaded:
-		load_db()
-
-	var clean_source := _normalize_sku(source_sku)
-	var clean_target := _normalize_sku(target_sku)
-	if clean_source == "" or clean_target == "" or clean_source == clean_target:
-		return {"ok": false, "message": "Os aparelhos de origem e destino precisam ser diferentes."}
-
-	var products: Array = _db.get("products", [])
-	var source_index := _find_product_index(clean_source)
-	var target_index := _find_product_index(clean_target)
-	if source_index < 0 or target_index < 0:
-		return {"ok": false, "message": "Os dois aparelhos precisam existir no estoque local para confirmar a troca."}
-
-	var previous_products := products.duplicate(true)
-	var previous_maintenances: Array = (_db.get("maintenances", []) as Array).duplicate(true)
-	var source := _normalize_product(products[source_index])
-	var target := _normalize_product(products[target_index])
-	for key in target_patch.keys():
-		target[str(key)] = target_patch.get(key)
-	for key in source_patch.keys():
-		source[str(key)] = source_patch.get(key)
-	target["updated_at"] = _now_string()
-	source["updated_at"] = _now_string()
-	products[target_index] = target
-	products[source_index] = source
-
-	var maintenance := _normalize_maintenance(maintenance_row)
-	if maintenance.is_empty():
-		return {"ok": false, "message": "O registro de manutencao da troca esta incompleto."}
-	var maintenances: Array = previous_maintenances.duplicate(true)
-	var maintenance_index := _find_maintenance_index(str(maintenance.get("serial", "")), str(maintenance.get("plate", "")))
-	if maintenance_index >= 0:
-		var current_maintenance := _normalize_maintenance(maintenances[maintenance_index])
-		maintenance["id"] = current_maintenance.get("id", maintenance.get("id", ""))
-		maintenance["created_at"] = current_maintenance.get("created_at", _now_string())
-		maintenance["updated_at"] = _now_string()
-		maintenances[maintenance_index] = maintenance
-	else:
-		maintenance["id"] = _new_maintenance_id(maintenances.size())
-		maintenance["created_at"] = _now_string()
-		maintenance["updated_at"] = _now_string()
-		maintenances.append(maintenance)
-
-	_db["products"] = products
-	_db["maintenances"] = maintenances
-	if save_db():
-		return {"ok": true, "source": source, "target": target, "maintenance": maintenance}
-
-	_db["products"] = previous_products
-	_db["maintenances"] = previous_maintenances
-	return {"ok": false, "message": "O Banco local SQL recusou a gravacao atomica da troca local; os dois aparelhos foram preservados."}
 
 
 func find_duplicate_product(product_data: Dictionary, ignore_sku: String = "") -> Dictionary:
@@ -1734,7 +1693,7 @@ func _infer_system_log_metadata(action: String, details: String, sku: String, pr
 		"error_count", "checked", "stock_like", "installed", "updated", "risk_level", "risk_reasons",
 		# Evento completo e mascarado do Painel SMS, usado para reconstruir o
 		# historico apos reiniciar o aplicativo.
-		"sms_event"
+		"sms_event", "maintenance_contact_event"
 	]:
 		if provided.has(key):
 			metadata[str(key)] = provided.get(key)
@@ -1951,11 +1910,9 @@ func _normalize_product(value: Dictionary) -> Dictionary:
 	var apn := _first_text(value, ["apn", "APN"])
 	var chip_number := _first_text(value, ["chip_number", "numero_chip", "chip", "iccid"])
 	var chip_phone := _first_text(value, ["chip_phone", "telefone_chip", "phone", "telefone"])
-	var model := _first_text(value, ["model", "modelo", "tipo"])
+	var model := preload("res://src/tracker_versions.gd").normalize(_first_text(value, ["model", "modelo", "tipo"]))
 	var operator_name := _first_text(value, ["operator", "operadora"])
 	var plate := _first_text(value, ["plate", "placa", "placa_instalacao"])
-	if model == "" and _plate_is_special_v735(plate):
-		model = "V7.3.5"
 	var client := _first_text(value, ["client", "cliente"])
 	var tracker_status := _first_text(value, ["tracker_status", "status", "location"])
 	if tracker_status == "":
@@ -1974,6 +1931,10 @@ func _normalize_product(value: Dictionary) -> Dictionary:
 		plate = vehicle_plate
 	elif identification_plate != "":
 		plate = identification_plate
+	if model == "" or model == "RS300":
+		var inferred_version: String = preload("res://src/tracker_versions.gd").from_plate(identification_plate)
+		if inferred_version != "":
+			model = inferred_version
 	var remote_registration_status := str(value.get("remote_registration_status", "")).strip_edges()
 	# Pacotes ST310 podem ser recebidos por uma ponte local/Banco local SQL. Eles são
 	# mantidos no cadastro para que o mapa possa decodificar a telemetria sem
@@ -1995,7 +1956,7 @@ func _normalize_product(value: Dictionary) -> Dictionary:
 	if equipment_number == "" and name != "" and not name.begins_with("Rastreador "):
 		equipment_number = name
 
-	var category := str(value.get("category", "")).strip_edges()
+	var category := preload("res://src/tracker_versions.gd").normalize(str(value.get("category", "")))
 	if category == "" and model != "":
 		category = model
 	if category == "" and operator_name != "":
@@ -2004,9 +1965,7 @@ func _normalize_product(value: Dictionary) -> Dictionary:
 		category = "Geral"
 	if model == "" and category != "Geral":
 		model = category
-	if model == "" and _plate_is_special_v735(plate):
-		model = "V7.3.5"
-	if category == "Geral" and model == "V7.3.5":
+	if category == "Geral" and model.begins_with("V7."):
 		category = model
 
 	var location := str(value.get("location", "")).strip_edges()

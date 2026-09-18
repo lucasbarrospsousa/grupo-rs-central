@@ -199,8 +199,8 @@ func _answer_monitor_help() -> Dictionary:
 	return _result(
 		true,
 		"ajuda_monitor_4g",
-		_context.get_system_help("monitor_4g"),
-		[{"id": "open_monitor_4g", "label": "Abrir Monitor 4G"}]
+		"O Mapa Grande foi retirado. Para consultar um equipamento, abra Estoque e use a localização individual.",
+		[{"id": "open_inventory", "label": "Abrir estoque"}]
 	)
 
 
@@ -246,7 +246,7 @@ func _safe_actions(actions: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if typeof(actions) != TYPE_ARRAY:
 		return result
-	var allowed := ["open_inventory", "open_maintenance", "open_logs", "open_settings", "open_monitor_4g"]
+	var allowed := ["open_inventory", "open_maintenance", "open_logs", "open_settings"]
 	for item in actions as Array:
 		if typeof(item) != TYPE_DICTIONARY:
 			continue
