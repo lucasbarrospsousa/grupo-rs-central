@@ -18,6 +18,10 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ## Testes proporcionais
 
+### Retorno de manutencao ao estoque (18/09/2026)
+
+Botao Estoque nas linhas em Manutencao e Reserva, com confirmacao. Reutiliza consulta oficial por serie exata; atualiza identificacao e status local, limpa o vinculo de veiculo atual e registra a placa anterior no historico. Nao modifica a plataforma remota. Falha, resposta ambigua ou troca de filial/cadastro durante a consulta preservam o registro. Exige API disponivel na filial. Versao exata conhecida e preservada; modelo ausente depende de identificacao reconhecida. Sucesso somente apos confirmacao do banco local. Teste sintetico: tests/reserve_stock_api_test.gd (inclui manutencao com/sem acento, falha, sucesso e botao renderizado).
+
 ### Classificacao por identificacao (18/09/2026)
 
 Regra centralizada em `src/tracker_versions.gd`: GRS = V7.3.2; AAA = V7.2.2/7.1.6; XRS = V7.3.5. NOV continua reconhecido como identificacao interna legada para nao virar vinculo de veiculo, mas nao infere versao e Novo nao aparece nas novas opcoes. AAA nao determina qual das duas versoes fisicas esta instalada.

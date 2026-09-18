@@ -64,5 +64,29 @@ func run()->void:
 	v.change_branch=false;v.reserve_stock_lookup_busy=true
 	r=await v._send_to_stock_confirmed("024999991")
 	check(r.get("stage")=="busy" and s.writes==writes,"Prevent concurrent action")
+	v.reserve_stock_lookup_busy=false
+	for maintenance_status in ["Manutencao", "Manutenção"]:
+		var maintenance=original.duplicate(true)
+		maintenance.tracker_status=maintenance_status
+		maintenance.status=maintenance_status
+		maintenance.plate="ABC-1D23"
+		maintenance.vehicle_plate="ABC-1D23"
+		maintenance.model="V7.1.6"
+		s.item=maintenance.duplicate(true)
+		v.reply={"ok":false,"message":"API indisponivel"}
+		writes=s.writes
+		r=await v._send_to_stock_confirmed("024999991")
+		check(not r.get("ok",false) and s.item==maintenance and s.writes==writes,"Maintenance failure preserves old vehicle and status")
+		v.reply={"ok":true,"plate":"AAA - 099"}
+		r=await v._send_to_stock_confirmed("024999991")
+		check(r.get("ok",false) and s.item.identification_plate=="AAA - 099" and s.item.vehicle_plate=="" and s.item.tracker_status=="Estoque" and s.item.model=="V7.1.6","Maintenance uses current API identification and preserves exact firmware")
+	var button=v._make_stock_return_button("024999991")
+	v.add_child(button)
+	button.position=Vector2(30,30)
+	check(button.text=="Estoque" and button.icon!=null and button.pressed.get_connections().size()>0,"Stock button has label, icon and action")
+	await process_frame
+	if DisplayServer.get_name()!="headless":
+		RenderingServer.force_draw()
+		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("maintenance-stock-button.png"))
 	print("RESERVE_STOCK_API_TEST ",failures," failures; memory-only store, no real API")
 	quit(0 if failures==0 else 1)

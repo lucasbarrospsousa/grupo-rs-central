@@ -28275,6 +28275,8 @@ func _make_table_row(product: Dictionary) -> Control:
 		)
 		regional_delete.tooltip_text = "Excluir registro local"
 		regional_actions.add_child(regional_delete)
+		if status in ["reserva", "manutencao"]:
+			regional_actions.add_child(_make_stock_return_button(sku))
 		return row_panel
 
 	row.add_child(_make_serial_location_cell(product, sku))
@@ -28423,21 +28425,9 @@ func _make_table_row(product: Dictionary) -> Control:
 
 		actions.add_child(btn_dar_baixa)
 
-	# Estoque apenas se estiver em reserva
-	if status == "reserva":
-		var btn_estoque := _make_action_button(
-			"Estoque",
-			Color("#2d8f6d"),
-			Color("#2d8f6d"),
-			Color.WHITE,
-			Vector2(72, 34),
-			_send_to_stock.bind(sku)
-		)
-
-		btn_estoque.icon = load(ICON_DIR + "estoque.svg")
-		btn_estoque.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-
-		actions.add_child(btn_estoque)
+	# Reserva e manutencao retornam com a identificacao atual consultada pela serie.
+	if status in ["reserva", "manutencao"]:
+		actions.add_child(_make_stock_return_button(sku))
 
 	if SGA_ENABLED and _sga_search_is_active():
 		row_stack.add_child(_make_sga_status_strip(product))
@@ -30101,10 +30091,19 @@ func _install_equipment_confirmed(sku: String, plate: String) -> Dictionary:
 	return {"ok": true, "stage": "confirmed", "local_database": local_database_result}
 
 
+func _make_stock_return_button(sku: String) -> Button:
+	var button := _make_action_button("Estoque", Color("#2d8f6d"), Color("#2d8f6d"), Color.WHITE, Vector2(100, 34), _send_to_stock.bind(sku))
+	button.name = "ReturnToStock"
+	button.icon = load(ICON_DIR + "estoque.svg")
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.tooltip_text = "Consultar a identificacao atual pela serie e devolver ao estoque"
+	return button
+
+
 func _send_to_stock(sku: String) -> void:
 	_confirm_action(
 		"Voltar para estoque",
-		"Deseja realmente devolver este equipamento para o estoque?",
+		"Consultar a identificacao atual deste aparelho pela serie e devolver ao estoque? A placa anterior sera registrada no historico. Nenhum cadastro da plataforma sera alterado.",
 		func():
 			await _send_to_stock_confirmed(sku)
 	)
@@ -30115,20 +30114,20 @@ var reserve_stock_lookup_busy := false
 
 func _lookup_reserve_stock_plate(serial: String) -> Dictionary:
 	if not _grupo_rs_supports_modern_api() or not _grupo_rs_api_reads_enabled():
-		return {"ok": false, "message": "A API oficial desta filial nao esta disponivel. O aparelho continua em Reserva."}
+		return {"ok": false, "message": "A API oficial desta filial nao esta disponivel. O status atual foi preservado."}
 	var response := await _grupo_rs_api_get("/endpoints/veiculos.php?q=%s&skip=0&take=50" % serial.uri_encode(), true, true)
 	if not bool(response.get("ok", false)):
 		return {"ok": false, "message": "Falha ao consultar a API; nenhuma alteracao foi gravada."}
 	var rows := _grupo_rs_api_extract_rows(JSON.parse_string(str(response.get("body", ""))))
 	if rows.size() >= 50:
-		return {"ok": false, "message": "Consulta ampla demais para confirmar um vinculo unico. Reserva preservada."}
+		return {"ok": false, "message": "Consulta ampla demais para confirmar um vinculo unico. Cadastro preservado."}
 	var matches: Array[Dictionary] = []
 	for row in rows:
 		var normalized := _grupo_rs_api_normalize_location(row)
 		if _digits_only(str(normalized.get("serial", ""))) == serial:
 			matches.append(normalized)
 	if matches.size() != 1 or str(matches[0].get("plate", "")).strip_edges() == "":
-		return {"ok": false, "message": "A API nao retornou uma unica placa para esta serie. Reserva preservada."}
+		return {"ok": false, "message": "A API nao retornou uma unica placa para esta serie. Cadastro preservado."}
 	return {"ok": true, "plate": str(matches[0].plate).strip_edges().to_upper()}
 
 
@@ -30149,7 +30148,7 @@ func _reserve_to_stock_from_api(sku: String) -> Dictionary:
 	if store != original_store or selected_branch_id != original_branch or store.get_product(sku) != before:
 		return {"ok": false, "stage": "stale", "message": "Filial ou cadastro mudou durante a consulta; resposta descartada."}
 	if not bool(lookup.get("ok", false)):
-		_show_error("Reserva preservada", str(lookup.get("message", "Consulta nao confirmada.")))
+		_show_error("Cadastro preservado", str(lookup.get("message", "Consulta nao confirmada.")))
 		return lookup
 	var product := before.duplicate(true)
 	var model := str(product.get("model", "")).strip_edges()
@@ -30176,14 +30175,14 @@ func _reserve_to_stock_from_api(sku: String) -> Dictionary:
 	if not bool(persisted.get("ok", false)):
 		_show_error("Confirmacao pendente", "A gravacao foi solicitada, mas a releitura do banco nao confirmou o resultado.")
 		return {"ok": false, "stage": "local_database"}
-	_log_system_action("Reserva enviada para estoque", "Placa consultada pela serie na API: %s | Tipo: %s" % [lookup.plate, model], sku)
+	_log_system_action("Retorno ao estoque", "Status anterior: %s | Placa anterior: %s | Placa consultada pela serie na API: %s | Tipo: %s" % [str(before.get("tracker_status", "")), str(before.get("vehicle_plate", "")) if str(before.get("vehicle_plate", "")) != "" else str(before.get("plate", "")), lookup.plate, model], sku)
 	_refresh_table()
 	_show_success("Estoque atualizado", "Placa %s e tipo %s salvos. Aparelho em Estoque." % [lookup.plate, model])
 	return {"ok": true, "stage": "confirmed", "product": saved}
 
 
 func _send_to_stock_confirmed(sku: String) -> Dictionary:
-	if store != null and _status_key(store.get_product(sku)) == "reserva":
+	if store != null and _status_key(store.get_product(sku)) in ["reserva", "manutencao"]:
 		return await _reserve_to_stock_from_api(sku)
 	if store == null or not store.set_tracker_status(sku, "Estoque"):
 		_show_error("Erro", "Nao foi possivel enviar o aparelho para estoque.")
