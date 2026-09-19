@@ -59,7 +59,7 @@ const CODEX_ESCALATION_TIMEOUT_SECONDS := 75.0
 const DEFAULT_AUTH_USER := "lucasabm"
 const DEFAULT_AUTH_SALT := "grupo-rs-central-v1"
 const DEFAULT_AUTH_PASSWORD_HASH := "8b8be979780a3d27da85579c5398e07b6acd78b73e0e6ac0c4ea8adebc78e6fc"
-const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "consult", "records", "route", "bulk", "settings", "sms_panel"]
+const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "stock_link", "consult", "records", "route", "bulk", "settings", "sms_panel"]
 const TABLE_PAGE_SIZE := 10
 const SYSTEM_LOG_PAGE_SIZE := 20
 # A referencia visual do log usa uma lista curta de eventos recentes. Mantemos
@@ -891,6 +891,7 @@ var sidebar_equipment_children: VBoxContainer
 var sidebar_equipment_expanded := true
 var sidebar_collapsed := false
 var current_section := "dashboard"
+var stock_link_service: Node
 var cloud_status_dot: CloudStatusDot
 var cloud_status_pulse: BancoLocalSQLTopbarPulse
 var cloud_status_label: Label
@@ -1987,6 +1988,9 @@ func _make_branch_button(text_value: String, fill: Color, enabled: bool, branch_
 
 
 func _select_branch(branch_id: String, from_auto_preview: bool = false) -> void:
+	if is_instance_valid(stock_link_service) and stock_link_service.busy:
+		_show_warning("Vinculação em andamento", "Aguarde a confirmação antes de trocar de filial.")
+		return
 	var config := _branch_config(branch_id)
 	if config.is_empty():
 		_show_warning("Aviso", "Base nao encontrada.")
@@ -3236,6 +3240,9 @@ func _make_sidebar_equipment_group() -> Control:
 		_make_sidebar_button("Estoque", "cadastros", "inventory", _show_list, true)
 	)
 	sidebar_equipment_children.add_child(
+		_make_sidebar_button("Vinculação", "cadastros", "stock_link", _show_stock_link, true)
+	)
+	sidebar_equipment_children.add_child(
 		_make_sidebar_button("Consultar", "consulta", "consult", _show_consult, true)
 	)
 	sidebar_equipment_children.add_child(
@@ -3351,7 +3358,7 @@ func _make_sidebar_branch_card() -> Control:
 
 
 func _sidebar_branch_switch_busy() -> bool:
-	return equipment_registration_running or equipment_api_edit_running or vehicle_reassignment_running \
+	return (is_instance_valid(stock_link_service) and stock_link_service.busy) or equipment_registration_running or equipment_api_edit_running or vehicle_reassignment_running \
 		or inventory_reset_running or registration_probe_running or bulk_client_lookup_running \
 		or not remote_queue_active_jobs.is_empty() or not remote_operation_queue.is_empty()
 
@@ -3499,7 +3506,7 @@ func _apply_sidebar_button_state(button: Button, active: bool) -> void:
 
 
 func _is_sidebar_equipment_section(section: String) -> bool:
-	return section in ["inventory", "consult", "records", "route", "bulk"]
+	return section in ["inventory", "stock_link", "consult", "records", "route", "bulk"]
 
 
 func _toggle_sidebar_equipment_group() -> void:
@@ -8094,7 +8101,7 @@ func _section_requires_local_database(section: String = "") -> bool:
 		active_section = current_section.strip_edges().to_lower()
 	# Estoque, cadastro em massa, manutencoes, logs e o dashboard exibem ou
 	# alteram dados operacionais cuja unica fonte autorizada e o Banco local SQL.
-	return active_section in ["dashboard", "inventory", "consult", "bulk", "maintenance", "logs"]
+	return active_section in ["dashboard", "inventory", "stock_link", "consult", "bulk", "maintenance", "logs"]
 
 
 func _local_database_topbar_text(state: String, pending_count: int = 0) -> String:
@@ -8202,6 +8209,8 @@ func _restore_current_content_after_connection() -> void:
 	match current_section:
 		"inventory":
 			_show_list()
+		"stock_link":
+			_show_stock_link()
 		"consult":
 			_show_consult()
 		"records":
@@ -8228,6 +8237,27 @@ func _restore_current_content_after_connection() -> void:
 			_show_arya_config()
 		_:
 			_show_dashboard()
+
+
+func _stock_link_service() -> Node:
+	if not is_instance_valid(stock_link_service):
+		stock_link_service = preload("res://src/services/stock_link.gd").new()
+		stock_link_service.host = self
+		add_child(stock_link_service)
+	return stock_link_service
+
+
+func _show_stock_link() -> void:
+	_set_page_context("stock_link", "Vinculação de aparelhos", "Reserva e Manutenção para Estoque")
+	_set_content_margins(44, 30, 44, 26)
+	if store == null:
+		_set_content(_build_online_unavailable_view())
+		return
+	if not _stock_link_service().busy:
+		store.reload_db_from_disk()
+	var view := preload("res://src/ui/stock_link.gd").new()
+	view.setup(self)
+	_set_content(view)
 
 
 func _show_consult() -> void:
@@ -39566,6 +39596,9 @@ func _confirm_action(
 
 
 func _request_exit() -> void:
+	if is_instance_valid(stock_link_service) and stock_link_service.busy:
+		_show_warning("Vinculação em andamento", "Aguarde a confirmação antes de sair.")
+		return
 	_confirm_action(
 		"Sair do sistema?",
 		"Sua sessao atual sera encerrada com seguranca.",
