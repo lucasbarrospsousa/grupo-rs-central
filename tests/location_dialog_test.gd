@@ -6,6 +6,14 @@ class FakeHost extends Control:
 	var next: Dictionary = {}
 	var calls := 0
 	var delay := 0.0
+	var client_calls := 0
+	var client_name := "Cliente web"
+	func _complete_location_client(data: Dictionary, web_only: bool = false) -> Dictionary:
+		assert(web_only)
+		client_calls += 1
+		await get_tree().create_timer(0.1).timeout
+		data.client = client_name
+		return data
 	func _location_ignition_state(value: Variant) -> int:
 		if value == null or str(value) == "": return -1
 		return 1 if str(value).to_lower() in ["1", "true", "ligada"] else 0
@@ -88,6 +96,24 @@ func run() -> void:
 	assert(dialog.feedback.text.contains("descartado"))
 	host.selected_branch_id = "imperatriz"
 	host.delay = 0.0
+	var pending := data.duplicate(true)
+	pending.client = ""
+	dialog.apply_location(pending)
+	assert(dialog.values.client.text == "Consultando…" and not dialog.refresh_button.disabled)
+	await create_timer(0.15).timeout
+	assert(dialog.values.client.text == "Cliente web" and dialog.location.client == "Cliente web")
+	var client_calls := host.client_calls
+	dialog.apply_location(data)
+	assert(host.client_calls == client_calls)
+	dialog.apply_location(pending)
+	dialog.apply_location(data)
+	await create_timer(0.15).timeout
+	assert(dialog.values.client.text == data.client)
+	dialog.apply_location(pending)
+	host.selected_branch_id = "maraba"
+	await create_timer(0.15).timeout
+	assert(dialog.values.client.text == "Consulta indisponível")
+	host.selected_branch_id = "imperatriz"
 	dialog.apply_location(data)
 	dialog.feedback.text = "Arraste o mapa para mover • Use a roda do mouse para zoom"
 	await process_frame
@@ -105,6 +131,7 @@ func run() -> void:
 		RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("location-dialog.png"))
 	host.delay = 0.15
+	dialog.apply_location(pending)
 	dialog.refresh()
 	dialog.queue_free()
 	await create_timer(0.25).timeout

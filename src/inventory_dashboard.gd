@@ -11825,7 +11825,7 @@ func _lookup_grupo_rs_location(
 				api_location
 			)
 			if bool(api_result.get("ok", false)):
-				return await _complete_location_client(api_result)
+				return api_result
 			api_message = str(api_result.get("message", "API sem coordenadas validas."))
 		else:
 			api_message = str(api_lookup.get("message", "API nao localizou a placa vinculada."))
@@ -11876,7 +11876,7 @@ func _lookup_grupo_rs_location(
 				platform_api_location
 			)
 			if bool(platform_api_result.get("ok", false)):
-				return await _complete_location_client(platform_api_result)
+				return platform_api_result
 
 	_location_progress(progress_callback, 1, "Localizando cliente", "%s | %s" % [_blank(client_name), _blank(plate)])
 	var client_id := await _fetch_grupo_rs_client_id(client_name)
@@ -11917,7 +11917,7 @@ func _lookup_grupo_rs_location(
 	}
 
 
-func _complete_location_client(location: Dictionary) -> Dictionary:
+func _complete_location_client(location: Dictionary, web_only: bool = false) -> Dictionary:
 	# Location endpoints may omit the holder even when position/ignition are valid.
 	# Resolve only the requested association; never take the first search result.
 	if str(location.get("client", "")).strip_edges() != "":
@@ -11927,7 +11927,7 @@ func _complete_location_client(location: Dictionary) -> Dictionary:
 	var serial := str(result.get("serial", "")).strip_edges()
 	var plate := str(result.get("plate", "")).strip_edges()
 	var unavailable := false
-	if _grupo_rs_api_reads_enabled():
+	if not web_only and _grupo_rs_api_reads_enabled():
 		var vehicle := await _grupo_rs_api_find_vehicle(plate, serial, true, false)
 		if branch != selected_branch_id:
 			return {"ok": false, "message": "A filial mudou durante a consulta. Consulte novamente."}
@@ -11944,7 +11944,7 @@ func _complete_location_client(location: Dictionary) -> Dictionary:
 		var portal := await _modern_grupo_rs_read_get("equipamentos_listar.php?busca=%s&status=todos" % serial.uri_encode())
 		if branch != selected_branch_id:
 			return {"ok": false, "message": "A filial mudou durante a consulta. Consulte novamente."}
-		if bool(portal.get("ok", false)):
+		if bool(portal.get("ok", false)) and not _modern_grupo_rs_page_is_login(str(portal.get("body", ""))):
 			var matches: Array[Dictionary] = []
 			for row in _parse_grupo_rs_equipment_rows(str(portal.get("body", ""))):
 				if _search_key(str(row.get("serial", ""))) != _search_key(serial): continue

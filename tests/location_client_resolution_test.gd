@@ -41,6 +41,9 @@ func run() -> void:
 	h.vehicle_result = {"ok": true, "row": {"client": ""}}
 	h.portal_rows = [{"serial": "999999999", "plate": "ABC1D23", "client": "Outro"}, {"serial": "000000001", "plate": "ABC-1D23", "client": "Cliente do portal"}]
 	assert((await h._complete_location_client(data)).client == "Cliente do portal")
+	var before_api := h.vehicle_calls
+	assert((await h._complete_location_client(data, true)).client == "Cliente do portal")
+	assert(h.vehicle_calls == before_api)
 	h.portal_rows.append(h.portal_rows[1].duplicate())
 	assert((await h._complete_location_client(data)).client == "")
 	h.portal_rows = [{"serial": "000000001", "plate": "XYZ9Z99", "client": "Vínculo diferente"}]

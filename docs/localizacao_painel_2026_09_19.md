@@ -23,3 +23,7 @@ Regressões: `tracking_route_test.gd`, `imperatriz_api_migration_test.gd` e `pac
 O clique da linha repassa placa e cliente à consulta. Se a posição da API vier sem titular e sem contexto disponível, consulta o vínculo exato no endpoint de veículos; persistindo a ausência, consulta o portal por série, respeitando as opções de leitura. Só aceita uma linha com série correspondente e placa compatível. Não escolhe o primeiro resultado nem inventa titular. Falha de consulta aparece como Consulta indisponível; ausência de um vínculo único aparece como Não retornado pela origem, preservando a posição. Troca de filial invalida o resultado.
 
 Teste adicional: tests/location_client_resolution_test.gd, com respostas sintéticas, sem acesso operacional: contexto do clique, titular pela API, portal, séries/placas divergentes, duplicidade, falha, flags e troca de filial.
+
+## Complemento web sem bloquear o mapa
+
+A posição da API abre a janela imediatamente. Se o nome estiver vazio, o painel mostra Consultando… e consulta diretamente o portal em segundo plano, por série e identificação. O mapa e seus controles continuam disponíveis. Quando o nome já existe, não há consulta complementar. Apenas o campo Cliente e a indicação de sua fonte são atualizados, sem reiniciar ou recentralizar o mapa. A opção de leitura web é respeitada. Falhas preservam a posição; respostas obsoletas por nova consulta, troca de filial ou fechamento são descartadas. Testes sintéticos cobrem atraso do portal, ausência de chamada redundante e descarte de resposta antiga.

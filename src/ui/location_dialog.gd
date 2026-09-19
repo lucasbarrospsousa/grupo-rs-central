@@ -10,6 +10,7 @@ var refresh_button: Button
 var feedback: Label
 var refreshing := false
 var network_enabled := true
+var client_generation := 0
 
 static func voltage(value: Variant) -> String:
 	var text := str(value).strip_edges()
@@ -173,6 +174,7 @@ func open(owner_node: Node, data: Dictionary) -> void:
 	popup_centered(Vector2i(minf(1140, available.x - 40), minf(700, available.y - 40)))
 
 func apply_location(data: Dictionary) -> void:
+	client_generation += 1
 	location = data.duplicate(true)
 	for key in ["client", "plate"]:
 		values[key].text = present(data.get(key, ""))
@@ -198,6 +200,31 @@ func apply_location(data: Dictionary) -> void:
 	var source := "API oficial" if data.get("source", "") == "grupo_rs_api" else "Portal web"
 	values.source.text = "Aparelho %s\n%s • %s" % [present(data.get("serial", "")), branch.capitalize(), source]
 	map.set_location(data)
+	if str(location.get("client", "")).strip_edges() == "" and not location.has("client_lookup_status"):
+		_complete_client(client_generation)
+
+func _complete_client(ticket: int) -> void:
+	values.client.text = "Consultando…"
+	values.client.tooltip_text = "Consultando o vínculo exato na plataforma web."
+	var result: Dictionary = await host._complete_location_client(location.duplicate(true), true)
+	if not is_inside_tree() or ticket != client_generation: return
+	if str(host.selected_branch_id) != branch or not result.get("ok", false):
+		values.client.text = "Consulta indisponível"
+		values.client.tooltip_text = "A consulta foi interrompida ou a filial mudou. Atualize a localização."
+		return
+	var client := str(result.get("client", "")).strip_edges()
+	location["client"] = client
+	if client != "":
+		values.client.text = client
+		values.client.tooltip_text = "Cliente confirmado no portal web pela série e identificação."
+		location["client_lookup_source"] = "equipment_portal"
+		values.source.text += "\nCliente: portal web"
+	else:
+		values.client.text = "Consulta indisponível" if result.get("client_lookup_status", "") == "unavailable" else "Não retornado pela origem"
+		values.client.tooltip_text = str(result.get("client_lookup_message", "O portal não forneceu o nome para este vínculo."))
+
+func _exit_tree() -> void:
+	client_generation += 1
 
 func refresh() -> void:
 	if refreshing: return
@@ -205,6 +232,7 @@ func refresh() -> void:
 		feedback.text = "A filial mudou. Feche esta janela e consulte novamente."
 		return
 	refreshing = true
+	client_generation += 1
 	refresh_button.disabled = true
 	feedback.text = "Consultando última posição…"
 	var result: Dictionary = await host._lookup_grupo_rs_location(str(location.get("serial", "")), Callable(), "", str(location.get("plate", "")), str(location.get("client", "")))
@@ -217,6 +245,7 @@ func refresh() -> void:
 	if not result.get("ok", false) or not valid_coordinates(result):
 		feedback.text = "Falha ao atualizar. A posição anterior foi mantida."
 		feedback.tooltip_text = str(result.get("message", "Coordenadas indisponíveis"))
+		if str(location.get("client", "")).strip_edges() == "": _complete_client(client_generation)
 		return
 	apply_location(result)
 	feedback.text = "Consulta atualizada. Dados conforme a última comunicação recebida."
