@@ -20,7 +20,7 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ### Localização individual — painel aprovado em 19/09/2026
 
-Janela nativa no padrão do SMS: cabeçalho azul, cliente/placa acima do mapa e última comunicação, ignição e tensão da bateria na lateral. O nome do cliente ausente na posição é complementado pelo vínculo exato no portal em segundo plano, sem bloquear o mapa; falha de consulta é diferenciada de nome não retornado. Mapa OpenStreetMap com arraste, zoom, centralização e marcador PNG. Sem indicadores ou cálculo de sinal/cobertura nesta abertura. Atualização manual preserva a posição anterior em falha; sem monitoramento automático. Campos ausentes aparecem como não informados. Detalhes e validação: `docs/localizacao_painel_2026_09_19.md`.
+Janela nativa no padrão do SMS: cabeçalho azul, cliente/placa acima do mapa e última comunicação, ignição e tensão da bateria na lateral. O titular de posições da API é confirmado pelo vínculo exato no portal em segundo plano, inclusive quando o contexto local já contém um nome, sem bloquear o mapa; falha de consulta é diferenciada de nome não retornado. Mapa OpenStreetMap com arraste, zoom, centralização e marcador PNG. Sem indicadores ou cálculo de sinal/cobertura nesta abertura. Atualização manual preserva a posição anterior em falha; sem monitoramento automático. Campos ausentes aparecem como não informados. Detalhes e validação: `docs/localizacao_painel_2026_09_19.md`.
 
 ### API de Imperatriz — 19/09/2026
 

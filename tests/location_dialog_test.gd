@@ -104,9 +104,14 @@ func run() -> void:
 	assert(dialog.values.client.text == "Cliente web" and dialog.location.client == "Cliente web")
 	var client_calls := host.client_calls
 	dialog.apply_location(data)
-	assert(host.client_calls == client_calls)
+	assert(host.client_calls == client_calls + 1)
+	assert(dialog.values.client.text == "Consultando…" and dialog.location.client == "")
+	await create_timer(0.15).timeout
+	assert(dialog.values.client.text == "Cliente web")
+	var confirmed_portal := data.duplicate(true)
+	confirmed_portal.source = "grupo_rs_platform"
 	dialog.apply_location(pending)
-	dialog.apply_location(data)
+	dialog.apply_location(confirmed_portal)
 	await create_timer(0.15).timeout
 	assert(dialog.values.client.text == data.client)
 	dialog.apply_location(pending)

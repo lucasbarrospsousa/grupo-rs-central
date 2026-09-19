@@ -200,12 +200,14 @@ func apply_location(data: Dictionary) -> void:
 	var source := "API oficial" if data.get("source", "") == "grupo_rs_api" else "Portal web"
 	values.source.text = "Aparelho %s\n%s • %s" % [present(data.get("serial", "")), branch.capitalize(), source]
 	map.set_location(data)
-	if str(location.get("client", "")).strip_edges() == "" and not location.has("client_lookup_status"):
+	if data.get("source", "") == "grupo_rs_api" and not location.has("client_lookup_status"):
 		_complete_client(client_generation)
 
 func _complete_client(ticket: int) -> void:
 	values.client.text = "Consultando…"
 	values.client.tooltip_text = "Consultando o vínculo exato na plataforma web."
+	location["client"] = ""
+	location.erase("client_lookup_source")
 	var result: Dictionary = await host._complete_location_client(location.duplicate(true), true)
 	if not is_inside_tree() or ticket != client_generation: return
 	if str(host.selected_branch_id) != branch or not result.get("ok", false):

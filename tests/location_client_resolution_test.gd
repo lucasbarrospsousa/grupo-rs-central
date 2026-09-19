@@ -44,12 +44,16 @@ func run() -> void:
 	var before_api := h.vehicle_calls
 	assert((await h._complete_location_client(data, true)).client == "Cliente do portal")
 	assert(h.vehicle_calls == before_api)
+	# An existing name may be stale; web verification must replace it.
+	assert((await h._complete_location_client(known, true)).client == "Cliente do portal")
 	h.portal_rows.append(h.portal_rows[1].duplicate())
 	assert((await h._complete_location_client(data)).client == "")
 	h.portal_rows = [{"serial": "000000001", "plate": "XYZ9Z99", "client": "Vínculo diferente"}]
 	assert((await h._complete_location_client(data)).client == "")
 	h.portal_result = {"ok": false}
 	assert((await h._complete_location_client(data)).client_lookup_status == "unavailable")
+	var failed: Dictionary = await h._complete_location_client(known, true)
+	assert(failed.client == "" and failed.client_lookup_status == "unavailable")
 	h.api_enabled = false
 	h.portal_enabled = false
 	var calls := h.vehicle_calls + h.portal_calls

@@ -11920,9 +11920,15 @@ func _lookup_grupo_rs_location(
 func _complete_location_client(location: Dictionary, web_only: bool = false) -> Dictionary:
 	# Location endpoints may omit the holder even when position/ignition are valid.
 	# Resolve only the requested association; never take the first search result.
-	if str(location.get("client", "")).strip_edges() != "":
+	if not web_only and str(location.get("client", "")).strip_edges() != "":
 		return location
 	var result := location.duplicate(true)
+	if web_only:
+		# Local/API fallback names may describe an old holder or an internal label.
+		# A web verification must not return that name as if it were confirmed.
+		result["client"] = ""
+		result.erase("client_lookup_source")
+		result.erase("client_lookup_status")
 	var branch := selected_branch_id
 	var serial := str(result.get("serial", "")).strip_edges()
 	var plate := str(result.get("plate", "")).strip_edges()
