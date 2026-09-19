@@ -109,7 +109,7 @@ func load_visible()->void:
 			var url:="https://tile.openstreetmap.org/%d/%d/%d.png" % [z,x,y]
 			if provider=="satellite":url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/%d/%d/%d" % [z,y,x]
 			var http:=HTTPRequest.new();http.timeout=10;http.max_redirects=0;http.body_size_limit=2*1024*1024;add_child(http)
-			var err:=http.request(url,PackedStringArray(["User-Agent: GrupoRSCentral/4.3 (desktop route viewer; https://github.com/rayrangrupors-sudo/grupo-rs-central)"]))
+			var err:=http.request(url,PackedStringArray(["User-Agent: GrupoRSCentral/4.3 (desktop route viewer; https://github.com/lucasbarrospsousa/grupo-rs-central)"]))
 			if err!=OK:http.queue_free();failed+=1;continue
 			var response:Array=await http.request_completed;http.queue_free()
 			if ticket!=generation:break

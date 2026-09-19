@@ -67,7 +67,7 @@ No Android, o modo diagnóstico começa com envio desligado. O usuário selecion
 
 Executar `tests/sms_gateway_queue_test.py` com Python 3.12. Executar os scripts `tests/sms_gateway_target_test.gd` e `tests/sms_gateway_dialog_test.gd` pelo executor `tools/test_offline.ps1`; usar `-Rendered` para inspeção visual. Para pacote exportado, usar `-Package` e `tests/package_contract_test.gd`.
 
-Não publicar filas, APKs de teste, chaves, credenciais ou relatórios operacionais. Android publicado separadamente em https://github.com/rayrangrupors-sudo/rs-sms-gateway (privado). Antes de substituir o executável principal, perguntar **posso atualizar agora?** e aguardar. Preservar a versão anterior e atualizar o mesmo caminho.
+Não publicar filas, APKs de teste, chaves, credenciais ou relatórios operacionais. Android publicado separadamente em https://github.com/lucasbarrospsousa/rs-sms-gateway (privado). Antes de substituir o executável principal, perguntar **posso atualizar agora?** e aguardar. Preservar a versão anterior e atualizar o mesmo caminho.
 # Consulta de telefone — correção de 16/09/2026
 
 O compositor diferencia consulta do aparelho de conectividade do gateway. Falhas

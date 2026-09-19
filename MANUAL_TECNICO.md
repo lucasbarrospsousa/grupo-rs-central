@@ -58,6 +58,8 @@ no diretório temporário informado pelo executor, fora dos dados operacionais.
 
 ## Revisão com GitHub Desktop
 
+Configuração vigente em 19/09/2026: `https://github.com/lucasbarrospsousa/grupo-rs-central.git`, branch local `main` acompanhando `origin/main`. A antiga branch local `master` foi renomeada sem alterar o histórico ou os arquivos operacionais.
+
 O comando compartilhado também aceita `-Acao GitStatus` (consulta) e `-Acao Desktop` (abre a raiz Git correta). Utilizar o mesmo identificador deste manual. Se não existir repositório, o comando interrompe sem criar nem publicar. Política e pendências: `C:/Users/lugan/OneDrive/Documentos/Sidera Code/GITHUB_DESKTOP.md`.
 
 ### Seleção dos testes
