@@ -148,7 +148,8 @@ const BULK_CLIENT_LOOKUP_PAGE_SIZE := 10
 const BULK_DELETE_CONFIRM_PASSWORD := "2103"
 const INTERNAL_STOCK_PLATE_PREFIXES := ["GRS", "XRS", "AAA", "NOV"]
 const GRUPO_RS_BASE_URL := "https://novogrupors.ddns.net/cadastro/"
-const GRUPO_RS_API_BASE_URL := "https://novogrupors.ddns.net/api_rest_app"
+const GRUPO_RS_API_BASE_URL := "https://imp.ogrupors.com.br/api_rest_app"
+const GRUPO_RS_API_PREVIOUS_BASE_URL := "https://novogrupors.ddns.net/api_rest_app"
 const GRUPO_RS_API_LEGACY_BASE_URL := "https://fullprotect.newplataforma.com.br/api_rest_app"
 const GRUPO_RS_API_PAGE_SIZE := 40
 const GRUPO_RS_API_MAX_PAGES := 200
@@ -14702,7 +14703,9 @@ func _normalize_grupo_rs_api_base_url(value: String) -> String:
 	var api_root := configured.find("/api_rest_app")
 	if api_root >= 0:
 		configured = configured.substr(0, api_root + "/api_rest_app".length())
-	if configured == GRUPO_RS_API_LEGACY_BASE_URL:
+	if configured in [GRUPO_RS_API_PREVIOUS_BASE_URL, GRUPO_RS_API_LEGACY_BASE_URL,
+		GRUPO_RS_API_PREVIOUS_BASE_URL.replace("https://", "http://"),
+		GRUPO_RS_API_LEGACY_BASE_URL.replace("https://", "http://")]:
 		return GRUPO_RS_API_BASE_URL
 	if not configured.begins_with("http://") and not configured.begins_with("https://"):
 		return GRUPO_RS_API_BASE_URL

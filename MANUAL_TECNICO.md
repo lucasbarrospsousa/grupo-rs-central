@@ -18,6 +18,10 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ## Testes proporcionais
 
+### API de Imperatriz — 19/09/2026
+
+A API principal usa `https://imp.ogrupors.com.br/api_rest_app`, inclusive quando a configuração ainda contém uma URL antiga conhecida. A compatibilidade é aplicada em memória, sem regravar credenciais/configurações. Fluxos web, paginação, outras filiais e restrições operacionais permanecem separados. Leia `docs/IMPERATRIZ_API_2026_09_19.md` antes de atualizar a instalação.
+
 ### Retorno de manutencao ao estoque (18/09/2026)
 
 Botao Estoque nas linhas em Manutencao e Reserva, com confirmacao. Reutiliza consulta oficial por serie exata; atualiza identificacao e status local, limpa o vinculo de veiculo atual e registra a placa anterior no historico. Nao modifica a plataforma remota. Falha, resposta ambigua ou troca de filial/cadastro durante a consulta preservam o registro. Exige API disponivel na filial. Versao exata conhecida e preservada; modelo ausente depende de identificacao reconhecida. Sucesso somente apos confirmacao do banco local. Teste sintetico: tests/reserve_stock_api_test.gd (inclui manutencao com/sem acento, falha, sucesso e botao renderizado).
