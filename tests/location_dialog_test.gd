@@ -43,7 +43,7 @@ func run() -> void:
 	dialog.open(host, data)
 	await process_frame
 	assert(dialog.values.ignition.text == "Ligada")
-	assert(dialog.values.external_battery.text == "4.1 V")
+	assert(not dialog.values.has("external_battery"))
 	assert(dialog.map.pixel(dialog.map.world(data)).distance_to(dialog.map.size / 2) < 1)
 	var initial_zoom: int = dialog.map.zoom
 	dialog.map.change_zoom(1)
@@ -68,7 +68,15 @@ func run() -> void:
 	host.next.ignition = 0
 	host.next.erase("external_battery")
 	await dialog.refresh()
-	assert(dialog.values.ignition.text == "Desligada" and dialog.values.external_battery.text == "Não informado")
+	assert(dialog.values.ignition.text == "Desligada" and not dialog.values.has("external_battery"))
+	var missing_client := data.duplicate(true)
+	missing_client.client = ""
+	missing_client.client_lookup_status = "unavailable"
+	dialog.apply_location(missing_client)
+	assert(dialog.values.client.text == "Consulta indisponível")
+	missing_client.client_lookup_status = "not_returned"
+	dialog.apply_location(missing_client)
+	assert(dialog.values.client.text == "Não retornado pela origem")
 	host.selected_branch_id = "maraba"
 	var calls := host.calls
 	await dialog.refresh()
@@ -94,7 +102,7 @@ func run() -> void:
 		print("LOCATION_PUBLIC_TILES: PASS | OpenStreetMap viewport loaded at fictitious position")
 	if DisplayServer.get_name() != "headless":
 		await process_frame
-		await RenderingServer.frame_post_draw
+		RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("location-dialog.png"))
 	host.delay = 0.15
 	dialog.refresh()

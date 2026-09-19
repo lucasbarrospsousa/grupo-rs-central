@@ -147,7 +147,7 @@ func open(owner_node: Node, data: Dictionary) -> void:
 	var details := VBoxContainer.new()
 	details.add_theme_constant_override("separation", 12)
 	white.add_child(padded(details, 18))
-	for pair in [["updated_at", "Recebida em"], ["ignition", "Status da ignição"], ["battery_voltage", "Tensão da bateria"], ["external_battery", "Bateria externa"]]:
+	for pair in [["updated_at", "Recebida em"], ["ignition", "Status da ignição"], ["battery_voltage", "Tensão da bateria"]]:
 		if details.get_child_count() > 0:
 			var separator := HSeparator.new()
 			var line := StyleBoxLine.new()
@@ -177,6 +177,9 @@ func apply_location(data: Dictionary) -> void:
 	for key in ["client", "plate"]:
 		values[key].text = present(data.get(key, ""))
 		values[key].tooltip_text = values[key].text
+	if str(data.get("client", "")).strip_edges() == "":
+		values.client.text = "Consulta indisponível" if data.get("client_lookup_status", "") == "unavailable" else "Não retornado pela origem"
+		values.client.tooltip_text = str(data.get("client_lookup_message", "A origem não forneceu o nome do cliente para este equipamento."))
 	values.updated_at.text = present(data.get("updated_at", "")).replace("T", " ")
 	var state := int(host._location_ignition_state(data.get("ignition", null)))
 	values.ignition.text = "Ligada" if state == 1 else ("Desligada" if state == 0 else "Não informada")
@@ -189,7 +192,6 @@ func apply_location(data: Dictionary) -> void:
 	var battery: Variant = data.get("battery_voltage", "")
 	if str(battery).strip_edges() == "": battery = data.get("battery", "")
 	values.battery_voltage.text = voltage(battery)
-	values.external_battery.text = voltage(data.get("external_battery", ""))
 	values.address.text = str(data.get("address", "")).strip_edges()
 	if values.address.text == "": values.address.text = "Endereço não informado pela origem"
 	values.address.tooltip_text = values.address.text

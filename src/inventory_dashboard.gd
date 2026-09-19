@@ -11825,7 +11825,7 @@ func _lookup_grupo_rs_location(
 				api_location
 			)
 			if bool(api_result.get("ok", false)):
-				return api_result
+				return await _complete_location_client(api_result)
 			api_message = str(api_result.get("message", "API sem coordenadas validas."))
 		else:
 			api_message = str(api_lookup.get("message", "API nao localizou a placa vinculada."))
@@ -11876,7 +11876,7 @@ func _lookup_grupo_rs_location(
 				platform_api_location
 			)
 			if bool(platform_api_result.get("ok", false)):
-				return platform_api_result
+				return await _complete_location_client(platform_api_result)
 
 	_location_progress(progress_callback, 1, "Localizando cliente", "%s | %s" % [_blank(client_name), _blank(plate)])
 	var client_id := await _fetch_grupo_rs_client_id(client_name)
@@ -11915,6 +11915,51 @@ func _lookup_grupo_rs_location(
 		"battery_voltage": _grupo_rs_api_string_value(vehicle, ["battery_voltage", "tensaoBateria", "tensao_bateria", "bateria", "Bateria"]),
 		"external_battery": _grupo_rs_api_string_value(vehicle, ["external_battery", "bateriaExterna", "BateriaExterna", "bateria_externa"]),
 	}
+
+
+func _complete_location_client(location: Dictionary) -> Dictionary:
+	# Location endpoints may omit the holder even when position/ignition are valid.
+	# Resolve only the requested association; never take the first search result.
+	if str(location.get("client", "")).strip_edges() != "":
+		return location
+	var result := location.duplicate(true)
+	var branch := selected_branch_id
+	var serial := str(result.get("serial", "")).strip_edges()
+	var plate := str(result.get("plate", "")).strip_edges()
+	var unavailable := false
+	if _grupo_rs_api_reads_enabled():
+		var vehicle := await _grupo_rs_api_find_vehicle(plate, serial, true, false)
+		if branch != selected_branch_id:
+			return {"ok": false, "message": "A filial mudou durante a consulta. Consulte novamente."}
+		if bool(vehicle.get("ok", false)):
+			var row: Dictionary = vehicle.get("row", {})
+			var name_value := str(row.get("client", "")).strip_edges()
+			if name_value != "":
+				result["client"] = name_value
+				result["client_lookup_source"] = "vehicle_api"
+				return result
+		else:
+			unavailable = not bool(vehicle.get("not_found", false))
+	if serial != "" and _grupo_rs_platform_reads_enabled():
+		var portal := await _modern_grupo_rs_read_get("equipamentos_listar.php?busca=%s&status=todos" % serial.uri_encode())
+		if branch != selected_branch_id:
+			return {"ok": false, "message": "A filial mudou durante a consulta. Consulte novamente."}
+		if bool(portal.get("ok", false)):
+			var matches: Array[Dictionary] = []
+			for row in _parse_grupo_rs_equipment_rows(str(portal.get("body", ""))):
+				if _search_key(str(row.get("serial", ""))) != _search_key(serial): continue
+				var row_plate := str(row.get("plate", "")).strip_edges()
+				if plate != "" and row_plate != "" and _normalize_location_plate(plate) != _normalize_location_plate(row_plate): continue
+				matches.append(row)
+			if matches.size() == 1 and str(matches[0].get("client", "")).strip_edges() != "":
+				result["client"] = str(matches[0].client).strip_edges()
+				result["client_lookup_source"] = "equipment_portal"
+				return result
+		else:
+			unavailable = true
+	result["client_lookup_status"] = "unavailable" if unavailable else "not_returned"
+	result["client_lookup_message"] = "Não foi possível confirmar o cliente nas fontes consultadas. A posição continua disponível." if unavailable else "O nome não foi retornado em um vínculo único para esta série/placa. Isso não significa que o cadastro esteja sem cliente."
+	return result
 
 
 func _fetch_grupo_rs_equipment_rows(serial: String) -> Array[Dictionary]:
@@ -27925,7 +27970,7 @@ func _make_serial_location_cell(product: Dictionary, sku: String) -> Control:
 		location_color,
 		Color.WHITE,
 		Vector2(42, 38),
-		func(): _show_location_lookup(serial)
+		func(): _show_location_lookup(serial, str(product.get("plate", "")), str(product.get("client", "")))
 	)
 	map_button.tooltip_text = "Grupo RS: %s" % location_label
 	if not communication_status.is_empty():
