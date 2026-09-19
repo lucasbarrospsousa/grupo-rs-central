@@ -18,6 +18,10 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ## Testes proporcionais
 
+### Localização individual — painel aprovado em 19/09/2026
+
+Janela nativa no padrão do SMS: cabeçalho azul, cliente/placa acima do mapa e última comunicação, ignição e baterias na lateral. Mapa OpenStreetMap com arraste, zoom, centralização e marcador PNG. Sem indicadores ou cálculo de sinal/cobertura nesta abertura. Atualização manual preserva a posição anterior em falha; sem monitoramento automático. Campos ausentes aparecem como não informados. Detalhes e validação: `docs/localizacao_painel_2026_09_19.md`.
+
 ### API de Imperatriz — 19/09/2026
 
 A API principal usa `https://imp.ogrupors.com.br/api_rest_app`, inclusive quando a configuração ainda contém uma URL antiga conhecida. A compatibilidade é aplicada em memória, sem regravar credenciais/configurações. Fluxos web, paginação, outras filiais e restrições operacionais permanecem separados. Leia `docs/IMPERATRIZ_API_2026_09_19.md` antes de atualizar a instalação.

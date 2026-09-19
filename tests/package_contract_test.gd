@@ -23,6 +23,9 @@ func _run() -> void:
 		_check(ResourceLoader.exists(required), "Records resource missing: " + required)
 	for required in ["res://src/services/tracking_route.gd","res://src/ui/tracking_route.gd","res://src/ui/route_map.gd","res://assets/icons/route/car.svg"]:
 		_check(ResourceLoader.exists(required), "Route resource missing: " + required)
+	for required in ["res://src/ui/location_dialog.gd", "res://src/ui/location_map.gd", "res://assets/icons/location/marker.png"]:
+		_check(ResourceLoader.exists(required), "Location resource missing: " + required)
+	_check(FileAccess.file_exists("res://assets/icons/location/LEAFLET-LICENSE.txt"), "Marker license missing")
 	if not OS.has_feature("editor") or "--audit-package" in OS.get_cmdline_user_args():
 		_audit_directory("res://")
 	if failures.is_empty():

@@ -10167,8 +10167,8 @@ func _show_location_lookup(serial: String, fallback_plate: String = "", fallback
 		_show_warning("Localizacao", str(result.get("message", "Nao foi possivel consultar a localizacao.")))
 		return
 
-	_set_location_progress(progress, 3, "Estimando cobertura", "Cobertura Anatel")
-	result["signal_forecast"] = _build_monitor_4g_signal_forecast(clean_serial, result)
+	_set_location_progress(progress, 3, "Preparando localização", "Última comunicação")
+
 	_cache_location_status(clean_serial, result)
 	var local_product := _local_product_for_serial(clean_serial)
 	if not local_product.is_empty():
@@ -10500,6 +10500,7 @@ func _cache_location_status(serial: String, location: Dictionary) -> void:
 		"monitoring_status": str(location.get("monitoring_status", "")),
 		"speed": str(location.get("speed", "")),
 		"battery": str(location.get("battery", "")),
+		"external_battery": str(location.get("external_battery", "")),
 		"battery_voltage": str(location.get("battery_voltage", location.get("battery", ""))),
 		"backup_battery": str(location.get("backup_battery", "")),
 		"client": str(location.get("client", "")),
@@ -11767,6 +11768,8 @@ func _grupo_rs_api_location_result(serial: String, fallback_plate: String, fallb
 		"monitoring_status": str(location.get("monitoring_status", "")),
 		"speed": str(location.get("speed", "0")),
 		"battery": str(location.get("battery", "")),
+		"battery_voltage": str(location.get("battery_voltage", location.get("battery", ""))),
+		"external_battery": str(location.get("external_battery", "")),
 		"gps_signal": str(location.get("gps_signal", "")),
 		"odometer": str(location.get("odometer", "")),
 		"heading": str(location.get("heading", "")),
@@ -11909,6 +11912,8 @@ func _lookup_grupo_rs_location(
 		"ignition": ignition_value,
 		"monitoring_status": str(monitoring_value),
 		"speed": str(vehicle.get("velocidade", vehicle.get("Velocidade", "0"))),
+		"battery_voltage": _grupo_rs_api_string_value(vehicle, ["battery_voltage", "tensaoBateria", "tensao_bateria", "bateria", "Bateria"]),
+		"external_battery": _grupo_rs_api_string_value(vehicle, ["external_battery", "bateriaExterna", "BateriaExterna", "bateria_externa"]),
 	}
 
 
@@ -15675,6 +15680,7 @@ func _grupo_rs_api_normalize_location(raw: Dictionary) -> Dictionary:
 		# separado em `bateriaInterna`. Nunca misturar os dois valores.
 		"battery": _grupo_rs_api_string_value(data, ["bateria", "battery", "Bateria", "tensao_bateria", "tensaoBateria", "voltagem", "voltage"]),
 		"battery_voltage": _grupo_rs_api_string_value(data, ["tensao_bateria", "tensaoBateria", "voltagem", "voltage", "bateria", "battery", "Bateria"]),
+		"external_battery": _grupo_rs_api_string_value(data, ["external_battery", "bateriaExterna", "BateriaExterna", "bateria_externa"]),
 		"gps_signal": _grupo_rs_api_string_value(data, ["sinal_gps", "SinalGPS", "gps_signal", "gpsSignal", "signal_gps"]),
 		"odometer": _grupo_rs_api_string_value(data, ["hodometro", "Hodometro", "odometro", "odometer", "Odometer"]),
 		"heading": _grupo_rs_api_string_value(data, ["direcao", "Direcao", "heading", "Heading"]),
@@ -17045,153 +17051,12 @@ func _http_result_message(result: int, response_code: int) -> String:
 
 
 func _show_location_dialog(location: Dictionary) -> void:
-	var layer := CanvasLayer.new()
-	layer.layer = 105
-	add_child(layer)
-
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.45)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.modulate.a = 0.0
-	layer.add_child(bg)
-
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(center)
-
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(900, 700)
-	panel.modulate.a = 0.0
-	panel.scale = Vector2(0.97, 0.97)
-	panel.pivot_offset = Vector2(450, 350)
-	panel.add_theme_stylebox_override("panel", _style_box(Color.WHITE, BORDER, 1, 12, true))
-	center.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 22)
-	margin.add_theme_constant_override("margin_right", 22)
-	margin.add_theme_constant_override("margin_top", 18)
-	margin.add_theme_constant_override("margin_bottom", 18)
-	panel.add_child(margin)
-
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 10)
-	margin.add_child(stack)
-
-	var title_row := HBoxContainer.new()
-	title_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stack.add_child(title_row)
-
-	var title := Label.new()
-	title.text = "Localizacao Grupo RS"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 25)
-	title.add_theme_color_override("font_color", TEXT)
-	title_row.add_child(title)
-
-	var close_hint := Label.new()
-	close_hint.text = "Detalhes da ultima comunicacao"
-	close_hint.add_theme_font_override("font", UI_FONT)
-	close_hint.add_theme_font_size_override("font_size", 12)
-	close_hint.add_theme_color_override("font_color", MUTED)
-	close_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_row.add_child(close_hint)
-
-	stack.add_child(_make_location_identity_strip(location))
-
-	var status_grid := GridContainer.new()
-	status_grid.columns = 2
-	status_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	status_grid.add_theme_constant_override("h_separation", 10)
-	status_grid.add_theme_constant_override("v_separation", 10)
-	stack.add_child(status_grid)
-
-	var monitor_status := _location_monitoring_status(location)
-	status_grid.add_child(_make_location_info_card("Status atual", [
-		{"label": "Monitoramento", "value": str(monitor_status.get("label", "Sem status")), "color": monitor_status.get("color", MUTED)},
-		{"label": "Velocidade", "value": _location_speed_display(location.get("speed", "0"))},
-	]))
-
-	var forecast: Dictionary = location.get("signal_forecast", {}) if typeof(location.get("signal_forecast", {})) == TYPE_DICTIONARY else {}
-	var network := str(forecast.get("network", "4G")).strip_edges()
-	if network == "":
-		network = "4G"
-	var confidence := str(forecast.get("confidence", "")).strip_edges()
-	if confidence.is_valid_int():
-		confidence = "%s%%" % confidence if int(confidence) > 0 else "Nao informado"
-	if confidence == "":
-		confidence = "Nao informado"
-	status_grid.add_child(_make_location_info_card("Comunicacao", [
-		{"label": "Ultima comunicacao", "value": _location_elapsed_display(str(location.get("updated_at", "")))},
-		{"label": "Rede", "value": network},
-		{"label": "Confianca", "value": confidence, "color": forecast.get("color", MUTED)},
-		{"label": "Numero serie", "value": str(location.get("serial", ""))},
-	]))
-
-	stack.add_child(_make_location_coverage_panel(forecast))
-
-	var address := _blank(str(location.get("address", "")))
-	var address_line := _make_health_line("Endereco", address)
-	address_line.custom_minimum_size = Vector2(0, 26)
-	stack.add_child(address_line)
-
-	var map_panel := PanelContainer.new()
-	map_panel.custom_minimum_size = Vector2(0, 285)
-	map_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	map_panel.add_theme_stylebox_override("panel", _style_box(Color("#eef3f8"), BORDER, 1, 8))
-	stack.add_child(map_panel)
-
-	var map_layer := Control.new()
-	map_layer.custom_minimum_size = Vector2(0, 285)
-	map_layer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	map_panel.add_child(map_layer)
-
-	var map_texture := TextureRect.new()
-	map_texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	map_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	map_texture.stretch_mode = TextureRect.STRETCH_SCALE
-	map_texture.modulate.a = 0.0
-	map_layer.add_child(map_texture)
-
-	var marker := MapPinMarker.new()
-	marker.modulate.a = 0.0
-	map_layer.add_child(marker)
-
-	var status_badge := _make_location_status_badge(location)
-	status_badge.position = Vector2(14, 14)
-	map_layer.add_child(status_badge)
-
-	var signal_badge := _make_monitor_4g_signal_badge(location.get("signal_forecast", {}))
-	signal_badge.position = Vector2(14, 52)
-	map_layer.add_child(signal_badge)
-
-	var links := HBoxContainer.new()
-	links.alignment = BoxContainer.ALIGNMENT_CENTER
-	links.add_theme_constant_override("separation", 10)
-	links.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stack.add_child(links)
-
-	var lat := float(location.get("lat", 0.0))
-	var lng := float(location.get("lng", 0.0))
-	links.add_child(_make_action_button("Abrir OpenStreetMap", BLUE, BLUE, Color.WHITE, Vector2(210, 42), func():
-		OS.shell_open(_openstreetmap_url(lat, lng))
-	))
-	links.add_child(_make_action_button("Abrir Google Maps", GREEN, GREEN, Color.WHITE, Vector2(190, 42), func():
-		OS.shell_open("https://www.google.com/maps/search/?api=1&query=%s,%s" % [str(lat), str(lng)])
-	))
-	links.add_child(_make_action_button("Fechar", Color("#6c757d"), Color("#6c757d"), Color.WHITE, Vector2(120, 42), func():
-		layer.queue_free()
-	))
-
-	var intro := panel.create_tween()
-	intro.set_parallel(true)
-	intro.tween_property(bg, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	intro.tween_property(panel, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	intro.tween_property(panel, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-
-	await _load_location_tile(map_texture, marker, lat, lng)
-
+	var dialog_script := preload("res://src/ui/location_dialog.gd")
+	if not dialog_script.valid_coordinates(location):
+		_show_warning("Localização", "A origem não retornou coordenadas válidas para o mapa.")
+		return
+	var dialog := dialog_script.new()
+	dialog.open(self, location)
 
 func _make_location_identity_strip(location: Dictionary) -> Control:
 	var panel := PanelContainer.new()
