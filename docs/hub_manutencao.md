@@ -19,13 +19,13 @@ O parser exige título com total e tabela completa. Diferença entre total decla
 
 Verde = menor quantidade confirmada; vermelho = maior; intermediárias amarelo/laranja com quatro valores distintos. Empates recebem a mesma cor. Com menos valores distintos, distribui a paleta entre os extremos; um único valor distinto é verde. Pendências são cinza e ficam fora da comparação.
 
-Tooltip informa base, quantidade, origem e horário. Clique abre uma lista central com cliente, placa, equipamento, APN, telefone do chip e última comunicação. Busca por cliente/placa/série e filtro de APN operam sobre a lista consultada, sem novas requisições. Campos truncados têm tooltip. A lista é somente leitura.
+Tooltip informa base, quantidade, origem e horário. Clique abre a janela compacta Manutenção na plataforma, filtrada na base clicada. Seleção Todas as bases reúne os registros sem deduplicar veículos de filiais diferentes. Busca por cliente/placa/aparelho e filtros de base/APN operam em memória. A tabela mostra base, cliente, placa, aparelho, última comunicação e botão Ver detalhes, com seis linhas por página. Detalhes incluem APN, telefone do chip, origem e horário da consulta; campos ausentes ficam explícitos. Aviso distingue consulta completa, parcial e atualização; Atualizar listas relê as quatro bases. Nenhuma ação altera os veículos.
 
 ## Validação
 
 `tools/test_offline.ps1 -Tests @('tests/hub_maintenance_test.gd') -Rendered`
 
-Verifica parser, total incompleto, login, zero, empates, indisponibilidade, abertura, busca e geometria em 1917x991. Capturas e registros são sintéticos e ficam no diretório temporário isolado.
+Verifica parser, total incompleto, login, zero, empates, indisponibilidade, abertura por base, busca conjunta, filtros, paginação, detalhes e geometria em 1917x991. Capturas e registros são sintéticos e ficam no diretório temporário isolado.
 
 `tools/test_offline.ps1 -Tests @('tests/main_scene_smoke_test.gd','tests/sidebar_branch_switch_test.gd')`
 

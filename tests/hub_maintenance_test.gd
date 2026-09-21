@@ -54,29 +54,55 @@ func run() -> void:
 	if DisplayServer.get_name() != "headless":
 		RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("hub-maintenance.png"))
+	view.credentials_for = func(_id): return {}
 	view.bars.imperatriz.bar.pressed.emit()
 	assert(view.active_branch == "imperatriz")
 	view.list_search.text = "DEM-0001"
 	view.populate_list()
-	assert(view.list_tree.get_root().get_child_count() == 1)
+	assert(view.filtered_rows.size() == 1)
+	assert(view.list_rows.get_child_count() == 1)
 	view.list_search.text = ""
 	view.populate_list()
-	assert(view.list_tree.get_root().get_child_count() == 480)
+	assert(view.filtered_rows.size() == 480)
+	assert(view.list_rows.get_child_count() == View.PAGE_SIZE)
 	view.list_apn.select(1)
 	view.list_apn.item_selected.emit(1)
-	assert(view.list_tree.get_root().get_child_count() == 240)
+	assert(view.filtered_rows.size() == 240)
 	view.list_apn.select(0)
 	view.populate_list()
+	view.list_pages.get_child(view.list_pages.get_child_count()-1).pressed.emit()
+	assert(view.page == 1)
+	view.list_base.select(0)
+	view.list_base.item_selected.emit(0)
+	assert(view.active_branch == "" and view.page == 0)
+	assert(view.filtered_rows.size() == 1200)
+	view.list_search.text = "DEM-0001"
+	view.populate_list()
+	assert(view.filtered_rows.size() == 4)
+	view.show_details(view.filtered_rows[2])
+	assert(view.detail_dialog.title.contains("DEM-0001"))
+	view.detail_dialog.free()
+	view.list_search.text = ""
+	view.populate_list()
 	await process_frame
+	await process_frame
+	assert(view.list_pages.get_global_rect().end.y < view.list_dialog.size.y)
 	if DisplayServer.get_name() != "headless":
 		RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("hub-maintenance-list.png"))
-	view.list_dialog.free()
 	view.results.imperatriz = {"ok":false,"message":"Consulta pendente"}
 	view.render()
+	assert(view.list_status.text.contains("Consulta parcial"))
+	assert(view.filtered_rows.size() == 720)
+	# Empty fixture credentials exercise refresh failure without any HTTP request.
+	await view.load_all()
+	assert(not view.busy and view.filtered_rows.is_empty())
+	assert(view.list_status.text.contains("Pendentes:"))
+	assert(view.list_rows.get_child(0).text.contains("Lista indisponível"))
+	view.list_dialog.free()
 	assert(view.bars.imperatriz.number.text == "—")
 	assert(view.bars.imperatriz.bar.disabled)
-	assert(view.bars.maraba.bar.anchor_right == 1.0)
+	assert(view.bars.maraba.bar.disabled)
 	shell.queue_free()
 	await process_frame
 	await process_frame
