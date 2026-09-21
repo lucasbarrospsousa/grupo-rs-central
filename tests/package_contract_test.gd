@@ -14,7 +14,7 @@ func _run() -> void:
 		var dashboard = script.new()
 		for removed in ["_show_vehicle_location_monitor", "_show_smart_4g_monitor", "_build_online_lookup_panel", "_request_online_lookup_from_search", "_schedule_online_lookup_confirmed_api_reconcile", "_setup_st310_location_poll_timer"]:
 			_check(not dashboard.has_method(removed), "Retired method in package: " + removed)
-		for kept in ["_show_list", "_show_location_lookup", "_refresh_table", "_generate_inventory_report", "_show_consult", "_show_records", "_show_route", "_show_stock_link", "_show_maintenance_visits", "_show_scanner_inventory"]:
+		for kept in ["_show_list", "_show_location_lookup", "_refresh_table", "_generate_inventory_report", "_show_consult", "_show_records", "_show_route", "_show_stock_link", "_show_maintenance_visits", "_show_scanner_inventory", "_show_stock_discharge"]:
 			_check(dashboard.has_method(kept), "Required method missing: " + kept)
 		dashboard.free()
 	for required in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py", "res://tools/scanner_inventory_service.py", "res://assets/icons/navigation/forklift.svg", "res://assets/icons/report/pdf.svg"]:
@@ -25,7 +25,7 @@ func _run() -> void:
 		_check(ResourceLoader.exists(required), "Route resource missing: " + required)
 	for required in ["res://src/ui/location_dialog.gd", "res://src/ui/location_map.gd", "res://assets/icons/location/marker.png"]:
 		_check(ResourceLoader.exists(required), "Location resource missing: " + required)
-	for required in ["res://src/services/stock_link.gd", "res://src/ui/stock_link.gd"]:
+	for required in ["res://src/services/stock_link.gd", "res://src/ui/stock_link.gd", "res://src/services/stock_discharge.gd", "res://src/ui/stock_discharge.gd"]:
 		_check(ResourceLoader.exists(required), "Stock link resource missing: " + required)
 	_check(FileAccess.file_exists("res://assets/icons/location/LEAFLET-LICENSE.txt"), "Marker license missing")
 	for required in ["res://src/services/maintenance_visits.gd", "res://src/ui/maintenance_visits.gd"]:

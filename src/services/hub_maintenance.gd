@@ -4,6 +4,7 @@ const ORIGINS := {"imperatriz":"https://imp.ogrupors.com.br", "araguaina":"https
 var branch := ""
 var credentials: Dictionary = {}
 var cookies: Dictionary = {}
+var decode_body: Callable
 
 func request(path: String, fields: Dictionary = {}) -> Dictionary:
 	if not ORIGINS.has(branch): return {"ok":false, "message":"Base desconhecida."}
@@ -31,7 +32,7 @@ func request(path: String, fields: Dictionary = {}) -> Dictionary:
 			if split > 0: cookies[cookie.left(split)] = cookie.substr(split + 1)
 	var code := int(response[1])
 	var ok: bool = response[0] == HTTPRequest.RESULT_SUCCESS or (response[0] == HTTPRequest.RESULT_REDIRECT_LIMIT_REACHED and code in [302, 303])
-	return {"ok":ok, "code":code, "body":response[3].get_string_from_utf8(), "message":"Plataforma indisponível ou tempo esgotado."}
+	return {"ok":ok, "code":code, "body":decode_body.call(response[3]) if decode_body.is_valid() else response[3].get_string_from_utf8(), "message":"Plataforma indisponível ou tempo esgotado."}
 
 func fetch() -> Dictionary:
 	if str(credentials.get("username", "")).is_empty() or str(credentials.get("password", "")).is_empty():

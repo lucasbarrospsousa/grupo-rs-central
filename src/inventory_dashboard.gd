@@ -9698,6 +9698,7 @@ func _build_list_view() -> Control:
 	)
 
 	toolbar.add_child(search_input)
+	toolbar.add_child(_make_action_button("Analisar baixa", Color("#137ad2"), BORDER, Color.WHITE, Vector2(130, 36), _show_stock_discharge))
 	toolbar.add_child(_make_action_button("Colar séries", Color.WHITE, BORDER, BLUE_DARK, Vector2(110, 36), _paste_inventory_serials))
 	toolbar.add_child(_make_action_button("Limpar", Color.WHITE, BORDER, BLUE_DARK, Vector2(78, 36), _clear_search))
 	batch_search_summary = Label.new()
@@ -40118,3 +40119,10 @@ func _sga_result_color(_result: Dictionary) -> Color:
 	return MUTED
 func _sga_http_post_json(_url: String, _value: Variant, _headers: PackedStringArray, _timeout_seconds: float = 0.0) -> Dictionary:
 	return {"ok": false, "state": "disabled", "message": "SGA removido."}
+
+
+func _show_stock_discharge() -> void:
+	if has_node("StockDischargeDialog"):return
+	var dialog:=preload("res://src/ui/stock_discharge.gd").new()
+	dialog.host=self
+	add_child(dialog)

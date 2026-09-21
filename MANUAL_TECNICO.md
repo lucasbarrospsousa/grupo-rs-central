@@ -102,3 +102,7 @@ Integração Android opcional de SMS: consultar `docs/SMS_GATEWAY.md` para parea
 Não alterar estoque, vínculos, cofre, banco de dados ou serviços externos sem autorização específica. Testes de descarga/cadastro não são testes rápidos seguros.
 Preservar alterações existentes. Não excluir builds, caches ou dados para liberar RAM. Não publicar no GitHub nem substituir o EXE operacional sem pedido.
 Consultar a política em `C:/Users/lugan/OneDrive/Documentos/Sidera Code/AGENTS.md`. Reservar conversa e pasta para este projeto; se a tarefa estiver associada a outro projeto, sinalizar e usar sempre a raiz explícita. Não mover conversas/pastas automaticamente.
+
+## Análise de baixa por API — 21/09/2026
+
+Estoque > Analisar baixa nas quatro filiais. Consulta API por série, complementa cliente no portal da própria base e apresenta seleção explícita. Aplicar baixa altera somente estoque local após reconsulta e confirmação. Fluxo, limites e testes: `docs/analise_baixa_estoque.md`. Nenhuma baixa remota.
