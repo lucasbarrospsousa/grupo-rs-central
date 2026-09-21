@@ -525,8 +525,11 @@ func manual_dialog() -> void:
 			for field in fields:
 				var cell:=panel(details_grid,10);cell.add_theme_constant_override("separation",4)
 				cell.get_parent().get_parent().custom_minimum_size.x=280
-				var field_title:=label(str(field[0]),12);field_title.add_theme_color_override("font_color",Color("#607895"));cell.add_child(field_title)
-				var value:=label(str(field[1]) if str(field[1])!="" else "Não informado",16);value.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;value.custom_minimum_size.x=250;cell.add_child(value)
+				var tones:Dictionary={"TELEFONE":["#eaf3ff","#b8d7fb","#1762a8"],"OPERADORA":["#f2edff","#d6c8f5","#7052ad"],"APN":["#fff2e5","#f7d5ae","#a85d13"],"CONEXÃO":["#e7f7ee","#b7e4cb","#168354"] if str(field[1])=="Online" else ["#fff5dc","#eed596","#946414"],"ÚLTIMA CONEXÃO":["#e8f6f8","#b5dfe5","#217480"]}
+				var palette:Array=tones[str(field[0])]
+				cell.get_parent().get_parent().add_theme_stylebox_override("panel",host._style_box(Color(palette[0]),Color(palette[1]),1,14))
+				var field_title:=label(str(field[0]),12);field_title.add_theme_color_override("font_color",Color(palette[2]));cell.add_child(field_title)
+				var value:=label(str(field[1]) if str(field[1])!="" else "Não informado",16);value.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;value.custom_minimum_size.x=250;value.add_theme_color_override("font_color",Color(palette[2]));cell.add_child(value)
 				if field[0]=="CONEXÃO":value.add_theme_color_override("font_color",Color("#168354") if str(field[1])=="Online" else Color("#a46322"))
 		else:
 			validation.add_theme_color_override("font_color",Color("#a64312"));validation.text=str(result.get("message","Validação pendente."))+" O cadastro permanece bloqueado."
