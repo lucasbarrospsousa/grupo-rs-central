@@ -36,5 +36,37 @@ class ScannerInventoryTests(unittest.TestCase):
             self.assertEqual(s.operate(self.db,'sync',{})['added'],0)
     def test_invalid_number_does_not_enter(self):
         with self.assertRaises(ValueError):s.accept(self.db,'source',[dict(self.row,number='860001024000123')])
+    def shipment(self, **changes):
+        value={'id':str(uuid.uuid4()),'mode':'base','destination':'maraba','note':'Teste fictício',
+               'items':[{'kind':'equipment','number':self.row['number']}]}
+        return dict(value,**changes)
+    def test_dispatch_retry_preserves_one_movement_and_intake_retry_never_reopens_it(self):
+        s.accept(self.db,'source',[self.row]);request=self.shipment()
+        self.assertFalse(s.operate(self.db,'dispatch',request)['repeated'])
+        self.assertTrue(s.operate(self.db,'dispatch',request)['repeated'])
+        s.accept(self.db,'source',[self.row])
+        self.assertEqual(s.operate(self.db,'list',{})['total'],0)
+        history=s.operate(self.db,'list',{'kind':'movements'})
+        self.assertEqual(history['total'],1);self.assertEqual(history['rows'][0]['destination'],'Marabá')
+        self.assertEqual(history['counts']['sent_today'],1)
+        with self.assertRaises(ValueError):s.operate(self.db,'dispatch',dict(request,destination='imperatriz'))
+    def test_mixed_selection_rolls_back_if_one_item_was_already_sent(self):
+        chip=dict(self.row,id=str(uuid.uuid4()),kind='chip',number='89553000000000000123')
+        s.accept(self.db,'source',[self.row,chip]);s.operate(self.db,'dispatch',self.shipment())
+        with self.assertRaises(ValueError):s.operate(self.db,'dispatch',self.shipment(items=[{'kind':chip['kind'],'number':chip['number']},{'kind':'equipment','number':self.row['number']}]))
+        self.assertEqual(s.operate(self.db,'list',{'kind':'chip'})['total'],1)
+    def test_free_destination_validation_and_mixed_dispatch(self):
+        chip=dict(self.row,id=str(uuid.uuid4()),kind='chip',number='89553000000000000123')
+        s.accept(self.db,'source',[self.row,chip])
+        with self.assertRaises(ValueError):s.operate(self.db,'dispatch',self.shipment(mode='custom',destination='  '))
+        with self.assertRaises(ValueError):s.operate(self.db,'dispatch',self.shipment(destination='unknown'))
+        request=self.shipment(mode='custom',destination='Laboratório fictício',items=[{'kind':r['kind'],'number':r['number']} for r in [self.row,chip]])
+        self.assertEqual(s.operate(self.db,'dispatch',request)['sent'],2)
+        self.assertEqual(s.operate(self.db,'list',{'kind':'movements'})['total'],2)
+    def test_existing_schema_and_receipts_are_preserved(self):
+        s.accept(self.db,'source',[self.row]);self.db.close()
+        self.db=s.connect(str(Path(self.temp.name)/'scanner.sqlite'))
+        self.assertEqual(s.operate(self.db,'list',{})['total'],1)
+        self.assertEqual(s.accept(self.db,'source',[self.row]),0)
 
 if __name__=='__main__':unittest.main()

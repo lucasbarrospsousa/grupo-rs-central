@@ -3179,7 +3179,7 @@ func _build_sidebar() -> Control:
 	list.add_child(_make_sidebar_button("Manutenções", "arquivo", "maintenance_visits", _show_maintenance_visits))
 	list.add_child(_make_sidebar_tracking_group())
 	if selected_branch_id == "imperatriz":
-		list.add_child(_make_sidebar_button("Estoque Scanner", "cadastros", "scanner_inventory", _show_scanner_inventory))
+		list.add_child(_make_sidebar_button("Armazém", "armazem", "scanner_inventory", _show_scanner_inventory))
 	if _branch_supports_sms():
 		list.add_child(_make_sidebar_button("Painel SMS", "sms", "sms_panel", _show_sms_panel))
 	var section_divider := HSeparator.new()
@@ -3634,6 +3634,8 @@ func _sidebar_icon_path(icon_kind: String) -> String:
 			return ICON_DIR + "navigation/guardian.svg"
 		"manutencoes":
 			return ICON_DIR + "navigation/maintenance.svg"
+		"armazem":
+			return ICON_DIR + "navigation/forklift.svg"
 		"cadastros":
 			return ICON_DIR + "navigation/inventory.svg"
 		"arquivo":
@@ -8267,7 +8269,7 @@ func _show_scanner_inventory() -> void:
 	if not has_meta("scanner_bridge"):
 		var bridge := preload("res://src/services/scanner_bridge.gd").new()
 		add_child(bridge);bridge.setup();set_meta("scanner_bridge",bridge)
-	_set_page_context("scanner_inventory", "Estoque do Scanner", "Chips e aparelhos recebidos do celular")
+	_set_page_context("scanner_inventory", "Armazém", "Recebimento e distribuição de aparelhos e chips")
 	_set_content_margins(36,28,36,24)
 	var view := preload("res://src/ui/scanner_inventory.gd").new()
 	view.setup(self,get_meta("scanner_bridge"))

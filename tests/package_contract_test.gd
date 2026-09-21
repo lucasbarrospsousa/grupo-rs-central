@@ -17,7 +17,7 @@ func _run() -> void:
 		for kept in ["_show_list", "_show_location_lookup", "_refresh_table", "_generate_inventory_report", "_show_consult", "_show_records", "_show_route", "_show_stock_link", "_show_maintenance_visits", "_show_scanner_inventory"]:
 			_check(dashboard.has_method(kept), "Required method missing: " + kept)
 		dashboard.free()
-	for required in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py", "res://tools/scanner_inventory_service.py", "res://assets/icons/report/pdf.svg"]:
+	for required in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py", "res://tools/scanner_inventory_service.py", "res://assets/icons/navigation/forklift.svg", "res://assets/icons/report/pdf.svg"]:
 		_check(FileAccess.file_exists(required) or ResourceLoader.exists(required), "Required resource missing: " + required)
 	for required in ["res://src/services/tracking_records.gd","res://src/ui/tracking_records.gd","res://src/ui/records_map.gd","res://assets/icons/records/history.svg"]:
 		_check(ResourceLoader.exists(required), "Records resource missing: " + required)

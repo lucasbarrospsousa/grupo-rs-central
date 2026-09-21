@@ -14,6 +14,11 @@ def connect(path):
         received_at INTEGER NOT NULL,PRIMARY KEY(branch,kind,number));
       CREATE TABLE IF NOT EXISTS receipts(source TEXT NOT NULL,id TEXT NOT NULL,payload TEXT NOT NULL,
         PRIMARY KEY(source,id));
+      CREATE TABLE IF NOT EXISTS movements(id TEXT PRIMARY KEY,payload TEXT NOT NULL,
+        destination TEXT NOT NULL,mode TEXT NOT NULL,note TEXT NOT NULL,created_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS movement_items(movement_id TEXT NOT NULL,branch TEXT NOT NULL,
+        kind TEXT NOT NULL,number TEXT NOT NULL,PRIMARY KEY(branch,kind,number),
+        FOREIGN KEY(movement_id) REFERENCES movements(id));
     ''')
     return db
 
@@ -61,7 +66,47 @@ def accept(db, source, rows):
     return added
 
 
+BASES = {'imperatriz':'Imperatriz','araguaina':'Araguaína','acailandia':'Açailândia','maraba':'Marabá'}
+
+
+def dispatch(db, data):
+    request_id = data.get('id','')
+    if str(uuid.UUID(request_id)) != request_id:raise ValueError('Identificador inválido')
+    mode = data.get('mode')
+    destination = data.get('destination','')
+    note = data.get('note','')
+    if not isinstance(destination,str) or not isinstance(note,str):raise ValueError('Destino inválido')
+    destination=destination.strip();note=note.strip()
+    if mode not in ('base','custom') or (mode=='base' and destination not in BASES):raise ValueError('Selecione uma base válida')
+    if not 1<=len(destination)<=120 or len(note)>500:raise ValueError('Confira o destino e a observação')
+    rows=data.get('items')
+    if not isinstance(rows,list) or not 1<=len(rows)<=250:raise ValueError('Selecione entre 1 e 250 itens')
+    selected=[]
+    for row in rows:
+        if not isinstance(row,dict) or set(row)!={'kind','number'}:raise ValueError('Item inválido')
+        kind,number=row['kind'],row['number']
+        if kind not in ('equipment','chip') or not isinstance(number,str):raise ValueError('Item inválido')
+        if not re.fullmatch(r'[0-9]{9}' if kind=='equipment' else r'89[0-9]{17,18}',number):raise ValueError('Número inválido')
+        selected.append((kind,number))
+    if len(set(selected))!=len(selected):raise ValueError('Seleção repetida')
+    payload=json.dumps({'mode':mode,'destination':destination,'note':note,'items':sorted(selected)},sort_keys=True)
+    with db:
+        db.execute('BEGIN IMMEDIATE')
+        old=db.execute('SELECT payload FROM movements WHERE id=?',(request_id,)).fetchone()
+        if old:
+            if old[0]!=payload:raise ValueError('Envio repetido com conteúdo diferente')
+            return {'ok':True,'sent':len(selected),'id':request_id,'repeated':True}
+        for kind,number in selected:
+            exists=db.execute('SELECT 1 FROM items WHERE branch=? AND kind=? AND number=?',('imperatriz',kind,number)).fetchone()
+            sent=db.execute('SELECT 1 FROM movement_items WHERE branch=? AND kind=? AND number=?',('imperatriz',kind,number)).fetchone()
+            if not exists or sent:raise ValueError('Um item não está mais disponível. Atualize e revise a seleção.')
+        db.execute('INSERT INTO movements VALUES(?,?,?,?,?,?)',(request_id,payload,destination,mode,note,int(time.time())))
+        db.executemany('INSERT INTO movement_items VALUES(?,?,?,?)',[(request_id,'imperatriz',k,n) for k,n in selected])
+    return {'ok':True,'sent':len(selected),'id':request_id,'repeated':False}
+
+
 def operate(db, op, data):
+    if op == 'dispatch':return dispatch(db,data)
     if op == 'config':
         return {'ok':True, 'config':config(db)}
     if op == 'pair':
@@ -104,14 +149,28 @@ def operate(db, op, data):
         return {'ok':True,'added':added,'received':len(rows),'ack_pending':len(rows)-acknowledged}
     if op == 'list':
         kind=data.get('kind','equipment')
-        if kind not in ('equipment','chip'):raise ValueError('Tipo inválido')
+        if kind not in ('equipment','chip','movements'):raise ValueError('Tipo inválido')
         query=str(data.get('query','')).strip()
         if query and not re.fullmatch('[0-9]{1,20}',query):raise ValueError('Busque apenas por números')
         page=max(0,int(data.get('page',0)))
-        filters=('imperatriz',kind,'%'+query+'%')
-        total=db.execute('SELECT COUNT(*) FROM items WHERE branch=? AND kind=? AND number LIKE ?',filters).fetchone()[0]
-        counts={r['kind']:r['n'] for r in db.execute("SELECT kind,COUNT(*) n FROM items WHERE branch='imperatriz' GROUP BY kind")}
-        rows=[dict(r) for r in db.execute('SELECT * FROM items WHERE branch=? AND kind=? AND number LIKE ? ORDER BY received_at DESC,number LIMIT 25 OFFSET ?',(*filters,page*25))]
+        joins=' FROM items i LEFT JOIN movement_items mi ON mi.branch=i.branch AND mi.kind=i.kind AND mi.number=i.number LEFT JOIN movements m ON m.id=mi.movement_id '
+        state=data.get('state','available')
+        if state not in ('available','sent','all'):raise ValueError('Filtro inválido')
+        where="WHERE i.branch='imperatriz' AND i.number LIKE ?"
+        params=['%'+query+'%']
+        if kind=='movements':where+=' AND mi.movement_id IS NOT NULL'
+        else:
+            where+=' AND i.kind=?';params.append(kind)
+            if state!='all':where+=' AND mi.movement_id IS '+('NULL' if state=='available' else 'NOT NULL')
+        total=db.execute('SELECT COUNT(*)'+joins+where,params).fetchone()[0]
+        page=min(page,max(0,(total-1)//12))
+        counts={r['kind']:r['n'] for r in db.execute('SELECT i.kind,COUNT(*) n'+joins+"WHERE i.branch='imperatriz' AND mi.movement_id IS NULL GROUP BY i.kind")}
+        # Fortaleza is UTC-3; the count is independent from the Windows timezone.
+        today=int((time.time()-10800)//86400)*86400+10800
+        counts['sent_today']=db.execute('SELECT COUNT(*) FROM movement_items mi JOIN movements m ON m.id=mi.movement_id WHERE m.created_at>=?',(today,)).fetchone()[0]
+        rows=[dict(r) for r in db.execute("SELECT i.*,m.id movement_id,m.destination,m.mode,m.note,m.created_at sent_at,CASE WHEN mi.movement_id IS NULL THEN 'available' ELSE 'sent' END state"+joins+where+' ORDER BY COALESCE(m.created_at,i.received_at) DESC,i.number LIMIT 12 OFFSET ?',(*params,page*12))]
+        for row in rows:
+            if row['mode']=='base':row['destination']=BASES.get(row['destination'],row['destination'])
         return {'ok':True,'rows':rows,'total':total,'counts':counts,'page':page}
     raise ValueError('Operação inválida')
 
