@@ -141,6 +141,51 @@ def update_chip_contact(con, branch, sku, serial, phone, iccid):
             con.execute("UPDATE devices SET iccid=?,updated_at=?,raw_json=? WHERE id=?",(iccid,stamp,json.dumps(row,ensure_ascii=False),rows[0][0]))
     return {"ok":True,"changed":changed,**get_device(con,branch,sku)}
 
+def save_visit(con, branch, item):
+    """Report and optional local stock discharge share one locked transaction."""
+    import copy
+    item = copy.deepcopy(item)
+    with con:
+        con.execute("BEGIN IMMEDIATE")
+        key = f"{branch}:{item['id']}"
+        existing = con.execute("SELECT raw_json FROM maintenance WHERE id=? AND branch_id=?", (key, branch)).fetchone()
+        current = json.loads(existing[0]) if existing else {}
+        if current:
+            for field in ('client', 'client_id', 'plate', 'serial', 'vehicle_id', 'created_at', 'source_date'):
+                item[field] = current.get(field, item.get(field, ''))
+        if item.get('discovery_method') not in ('App de rastreamento', 'Suporte do rastreio', 'Consultor informou'):
+            return {'ok': False, 'message': 'Informe como o defeito foi identificado.'}
+        replacement = str(item.get('replacement_serial', '')).strip()
+        if current.get('stock_discharge_id'):
+            if replacement != current.get('replacement_serial') or item.get('reason') != current.get('reason'):
+                return {'ok': False, 'message': 'Este relatório já possui baixa. Aparelho e motivo devem ser preservados.'}
+            item['stock_discharge_id'] = current['stock_discharge_id']
+        else:
+            item['stock_discharge_id'] = ''
+            if item.get('reason') == 'Troca de aparelho':
+                if not replacement or replacement == item['serial']:
+                    return {'ok': False, 'message': 'Selecione outro aparelho disponível no estoque.'}
+                matches = con.execute("SELECT * FROM devices WHERE branch_id=? AND imei=?", (branch, replacement)).fetchall()
+                if len(matches) != 1:
+                    return {'ok': False, 'message': 'Aparelho não encontrado ou série duplicada. Atualize o estoque.'}
+                device = json.loads(matches[0]['raw_json'])
+                status = str(device.get('tracker_status', device.get('status', ''))).lower()
+                if status != 'estoque' or not device.get('active', True) or float(device.get('stock', 0)) < 1:
+                    return {'ok': False, 'message': 'O aparelho selecionado não está mais disponível no estoque.'}
+                stamp = now()
+                identification = device.get('identification_plate') or device.get('plate', '')
+                device.update(identification_plate=identification, vehicle_plate=item['plate'], plate=item['plate'], tracker_status='Instalado', status='Instalado', location='Instalado', stock=0, quantity=0, installed_at=stamp, discharged_at=stamp, updated_at=stamp, last_movement_at=stamp)
+                con.execute("UPDATE devices SET plate=?,status=?,quantity=0,updated_at=?,raw_json=? WHERE id=?", (item['plate'], 'Instalado', stamp, json.dumps(device, ensure_ascii=False), matches[0]['id']))
+                movement = {'id': item['id'] + '-baixa', 'sku': device['sku'], 'product_name': device.get('name', ''), 'type': 'baixa', 'quantity': 1, 'delta': -1, 'stock_after': 0, 'timestamp': stamp, 'vehicle_plate': item['plate'], 'identification_plate': identification, 'reason': 'Baixa pelo relatório de manutenção ' + item['id'], 'maintenance_visit_id': item['id']}
+                con.execute("INSERT INTO movements VALUES(?,?,?,?,?,?,?,?,?,?)", movement_values(branch, movement))
+                item['stock_discharge_id'] = movement['id']
+            else:
+                item['replacement_serial'] = ''
+        ensure_branch(con, branch, now())
+        con.execute("INSERT INTO maintenance VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET raw_json=excluded.raw_json,status=excluded.status,completed_at=excluded.completed_at", (key, branch, item['serial'], item['status'], item['created_at'], item.get('completed_at', ''), '', json.dumps(item, ensure_ascii=False)))
+    return {'ok': True, 'id': item['id'], 'message': 'Relatório salvo e baixa registrada no estoque.' if item.get('stock_discharge_id') else 'Relatório salvo.'}
+
+
 def get_device(con,branch,sku):
     row=con.execute("SELECT raw_json FROM devices WHERE branch_id=? AND (sku=? OR imei=?) LIMIT 2",(branch,sku,sku)).fetchall()
     if len(row)!=1: return {"ok":False,"found":False,"ambiguous":len(row)>1}
@@ -189,6 +234,7 @@ def main():
         try:
             if operation=="init": result={"ok":True,"integrity":valid(con),"counts":counts(con)}
             elif operation=="save": result={"ok":True,"counts":save(con,str(request["branch"]),request["snapshot"])}
+            elif operation=="save_visit": result=save_visit(con,str(request["branch"]),request['visit'])
             elif operation=="load": result={"ok":True,"snapshot":load(con,str(request["branch"])),"counts":counts(con,str(request["branch"]))}
             elif operation=="upsert_device": result={"ok":True,**upsert_device(con,str(request["branch"]),request["product"],str(request.get("old_sku","")))}
             elif operation=="upsert_device_with_movement": result={"ok":True,**upsert_device_with_movement(con,str(request["branch"]),request["product"],request["movement"])}

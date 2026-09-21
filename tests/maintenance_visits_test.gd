@@ -23,14 +23,15 @@ func run() -> void:
 	var store := Store.new()
 	store.configure_isolated_sqlite_for_testing(ProjectSettings.globalize_path("user://visits.sqlite"))
 	store.load_db()
-	var item := {"client": "Cliente fictício", "plate": "DEM1A23", "serial": "024000101", "reason": "Sem comunicação", "status": "pendente"}
+	assert(not store.upsert_product({"sku": "demo-stock", "imei": "024000102", "name": "RS300", "category": "Rastreador", "tracker_status": "Estoque", "status": "Estoque", "stock": 1, "active": true, "plate": "GRS - 001"}).is_empty())
+	var item := {"client": "Cliente fictício", "plate": "DEM1A23", "serial": "024000101", "reason": "Sem comunicação", "status": "pendente", "discovery_method": "App de rastreamento"}
 	assert(store.save_maintenance_visit(item).ok)
 	assert(store.save_maintenance_visit(item).ok)
 	assert(store.get_maintenances(true).size() == 2)
 	var saved: Dictionary = store.get_maintenances(true)[0]
 	saved.client = "Não substituir"
 	saved.status = "concluido"
-	assert(not store.save_maintenance_visit(saved).ok)
+	assert(store.save_maintenance_visit(saved).ok)
 	saved.solution = "Reparo confirmado"
 	assert(store.save_maintenance_visit(saved).ok)
 	store.reload_db_from_disk()
@@ -86,6 +87,7 @@ func run() -> void:
 	view.vehicle.select(1)
 	view.select_vehicle(1)
 	view.reason.select(1)
+	view.discovery.select(1)
 	view.save()
 	assert(store.get_maintenances(true).size() == 3)
 	await process_frame
@@ -103,16 +105,25 @@ func run() -> void:
 		await view.choose_client({"id": "1", "name": "Cliente fictício"})
 		view.vehicle.select(1)
 		view.select_vehicle(1)
+		view.discovery.select(1)
+		view.discovery.item_selected.emit(1)
 		view.reason.select(3)
 		view.reason.item_selected.emit(3)
+		assert(view.stock_rows.size() == 1)
+		view.stock_list.select(0)
+		view.stock_list.item_selected.emit(0)
 		await process_frame
 		await process_frame
 		assert(view.form_panel.get_global_rect().end.y < 991)
 		assert(view.form_panel.get_global_rect().position.y >= 0)
 		assert(view.form_panel.get_global_rect().encloses(view.save_button.get_global_rect()))
-		assert(view.form_panel.get_global_rect().encloses(view.departure.get_global_rect()))
+		assert(view.form_panel.get_global_rect().encloses(view.stock_list.get_global_rect()))
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("maintenance-form.png"))
+		view.save()
+		print("UI_REPORT_SAVE: ", view.notice.text)
+		assert(store.get_product("demo-stock").stock == 0)
+		assert(store.get_maintenances(true).size() == 4)
 		view.close_form()
 		await process_frame
 		assert(view.form_layer == null and is_instance_valid(view.cards))

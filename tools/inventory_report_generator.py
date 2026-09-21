@@ -272,10 +272,14 @@ def generate_maintenance_pdf(payload, output_path):
              Paragraph(escape(str(payload.get('branch', ''))) + f' · {len(rows)} atendimento(s)', styles['Normal']), Spacer(1, 16)]
     for row in rows:
         story.append(Paragraph(escape(str(row.get('plate', ''))) + ' · ' + escape(str(row.get('client', ''))), styles['Heading2']))
-        for label, key in [('Entrada', 'created_at'), ('Situação', 'status'), ('Aparelho de chegada', 'serial'),
-                           ('Aparelho de saída', 'departure_serial'), ('Motivo', 'reason'), ('Relato', 'note'),
-                           ('Diagnóstico', 'diagnosis'), ('Solução', 'solution'), ('Responsável', 'technician'),
-                           ('Conclusão', 'completed_at')]:
+        fields = [('Entrada', 'created_at'), ('Aparelho de chegada', 'serial'),
+                  ('Motivo', 'reason'), ('Meio', 'discovery_method'), ('Relato', 'note')]
+        if row.get('replacement_serial'):
+            fields += [('Aparelho para instalação', 'replacement_serial'), ('Registro da baixa', 'stock_discharge_id')]
+        if int(row.get('visit_version', 0)) < 2:
+            fields += [('Situação histórica', 'status'), ('Aparelho de saída (histórico)', 'departure_serial'),
+                       ('Diagnóstico (histórico)', 'diagnosis'), ('Solução (histórico)', 'solution'), ('Responsável (histórico)', 'technician')]
+        for label, key in fields:
             value = str(row.get(key, '') or 'Não informado')
             if key == 'status': value = states.get(value, value)
             story.append(Paragraph('<b>' + label + ':</b> ' + escape(value).replace('\n', '<br/>'), styles['Normal']))

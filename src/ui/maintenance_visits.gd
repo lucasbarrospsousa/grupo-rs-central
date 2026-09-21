@@ -13,13 +13,14 @@ var picker: VBoxContainer
 var vehicle: OptionButton
 var device: LineEdit
 var reason: OptionButton
-var state: OptionButton
-var technician: LineEdit
+var discovery: OptionButton
+var stock_search: LineEdit
+var stock_list: ItemList
+var stock_rows: Array = []
+var stock_selection := ""
+var stock_summary: Label
 var note: TextEdit
-var diagnosis: TextEdit
-var solution: TextEdit
-var departure: LineEdit
-var departure_box: VBoxContainer
+var replacement_panel: Control
 var save_button: Button
 var timer: Timer
 var selected_client: Dictionary = {}
@@ -184,8 +185,9 @@ func render_cards() -> void:
 		box.add_child(text(str(item.client), 15, "#607d96"))
 		box.add_child(text(str(STATES.get(state_key, state_key)), 14, color))
 		box.add_child(text("Entrada: " + str(item.get("created_at", "")), 13))
-		var out := str(item.get("departure_serial", ""))
-		box.add_child(text("Chegada: " + str(item.serial) + "    →    Saída: " + (out if out != "" else "A definir"), 14))
+		var out := str(item.get("replacement_serial", item.get("departure_serial", "")))
+		box.add_child(text("Aparelho: " + str(item.serial) + ("  →  Instalação: " + out if out != "" else ""), 14))
+		if str(item.get("discovery_method", "")) != "": box.add_child(text("Meio: " + str(item.discovery_method), 14))
 		box.add_child(text(str(item.get("reason", "")), 16))
 		box.add_child(text(str(item.get("note", "")), 14, "#607d96"))
 		var open_button := button("Ver relatório", func(): show_form(item))
@@ -274,7 +276,7 @@ func show_form(item: Dictionary = {}) -> void:
 	shell.add_child(banner)
 	var header := HBoxContainer.new()
 	banner.add_child(header)
-	var title := text("Cadastro de manutenção" if item.is_empty() else "Relatório de manutenção", 23, "#ffffff")
+	var title := text("Relatório de manutenção", 23, "#ffffff")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	header.add_child(button("Fechar ×", close_form))
@@ -293,6 +295,7 @@ func show_form(item: Dictionary = {}) -> void:
 	left.add_theme_constant_override("separation", 12)
 	columns.add_child(left)
 	var identity := panel(left)
+	identity.add_child(text("Cliente e veículo", 18))
 	identity.add_theme_constant_override("separation", 8)
 	search = LineEdit.new()
 	search.placeholder_text = "Digite o nome do cliente"
@@ -309,49 +312,68 @@ func show_form(item: Dictionary = {}) -> void:
 	device = LineEdit.new()
 	device.editable = false
 	device.placeholder_text = "Aparelho vinculado"
-	field(row, "Aparelho de chegada", device)
+	field(row, "Aparelho atual", device)
 	var report := panel(left)
+	report.add_child(text("Motivo e origem", 18))
 	report.add_theme_constant_override("separation", 8)
 	reason = OptionButton.new()
 	for value in ["Selecione o motivo", "Sem comunicação", "Localização errada", "Troca de aparelho"]: reason.add_item(value)
-	field(report, "Motivo da manutenção", reason)
+	choices(report, "Motivo da manutenção", reason)
+	discovery = OptionButton.new()
+	for value in ["Selecione o meio", "App de rastreamento", "Suporte do rastreio", "Consultor informou"]: discovery.add_item(value)
+	choices(report, "Como soube do defeito?", discovery)
 	note = TextEdit.new()
+	note.placeholder_text = "Descreva o que foi informado pelo cliente…"
 	note.custom_minimum_size.y = 64
 	field(report, "Relato do cliente / observações", note)
-	var technical := HBoxContainer.new()
-	technical.add_theme_constant_override("separation", 16)
-	report.add_child(technical)
-	diagnosis = TextEdit.new()
-	solution = TextEdit.new()
-	for entry in [diagnosis, solution]: entry.custom_minimum_size.y = 84
-	field(technical, "Diagnóstico técnico", diagnosis)
-	field(technical, "Solução / serviço realizado", solution)
 	var details := panel(columns)
 	details.custom_minimum_size.x = 310
 	details.add_theme_constant_override("separation", 14)
 	var side_style: StyleBoxFlat = details.get_parent().get_theme_stylebox("panel").duplicate()
 	side_style.bg_color = Color("#e4eef7")
 	details.get_parent().add_theme_stylebox_override("panel", side_style)
-	details.add_child(text("ATENDIMENTO", 15))
-	state = OptionButton.new()
-	for key in STATES: state.add_item(STATES[key])
-	field(details, "Situação", state)
-	technician = LineEdit.new()
-	field(details, "Responsável", technician)
-	departure = LineEdit.new()
-	departure_box = field(details, "Aparelho de saída após a troca", departure)
-	departure_box.visible = false
-	details.add_child(text("O vínculo de chegada fica preservado. A troca na plataforma deve ser confirmada separadamente.", 13, "#52738e"))
+	details.add_child(text("Aparelho para instalação", 18))
+	details.add_child(text("Disponível quando o motivo for troca de aparelho.", 13, "#52738e"))
+	var replacement := VBoxContainer.new()
+	details.add_child(replacement)
+	replacement_panel = replacement
+	stock_selection = ""
+	stock_search = LineEdit.new()
+	stock_search.placeholder_text = "Buscar número de série…"
+	field(replacement, "Selecionar aparelho do estoque", stock_search)
+	stock_list = ItemList.new()
+	stock_list.custom_minimum_size = Vector2(310, 150)
+	stock_list.add_theme_color_override("font_color", Color("#173b5d"))
+	stock_list.add_theme_color_override("font_selected_color", Color("#173b5d"))
+	stock_list.add_theme_constant_override("v_separation", 12)
+	for style_name in ["selected", "selected_focus"]:
+		stock_list.add_theme_stylebox_override(style_name, host._style_box(Color("#dcefff"), Color("#147bd0"), 1, 6))
+	stock_list.add_theme_stylebox_override("panel", host._style_box(Color.WHITE, Color("#cbddeb"), 1, 9))
+	replacement.add_child(stock_list)
+	stock_summary = text("Selecione um aparelho disponível.", 14)
+	replacement.add_child(stock_summary)
+	replacement.add_child(text("Ao salvar, o aparelho será registrado no relatório e terá baixa no estoque.", 13, "#52738e"))
+	details.add_child(text("A troca de vínculo na plataforma não é executada aqui.", 13, "#52738e"))
 	notice = text("", 13, "#52738e")
 	details.add_child(notice)
-	save_button = button("Salvar atendimento", save, true)
+	stock_search.text_changed.connect(func(_value): render_stock())
+	stock_list.item_selected.connect(func(index):
+		stock_selection = str(stock_list.get_item_metadata(index))
+		stock_summary.text = "Aparelho selecionado: " + stock_selection)
+	stock_rows = host.store.get_maintenance_stock()
+	render_stock()
+	replacement_panel.visible = false
+	var footer := HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_END
+	content.add_child(footer)
+	footer.add_child(button("Cancelar", close_form))
+	save_button = button("Salvar relatório", save, true)
 	save_button.disabled = true
-	save_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	content.add_child(save_button)
+	footer.add_child(save_button)
 	search.text_changed.connect(func(_value): invalidate_selection(); timer.start())
 	search.text_submitted.connect(func(_value): timer.stop(); find_clients())
 	vehicle.item_selected.connect(select_vehicle)
-	reason.item_selected.connect(func(_index): departure_box.visible = reason.selected == 3)
+	reason.item_selected.connect(func(_index): replacement_panel.visible = reason.selected == 3)
 	if not item.is_empty():
 		search.text = str(item.client)
 		search.editable = false
@@ -360,14 +382,21 @@ func show_form(item: Dictionary = {}) -> void:
 		vehicle.add_item(str(item.plate))
 		device.text = str(item.serial)
 		note.text = str(item.get("note", ""))
-		diagnosis.text = str(item.get("diagnosis", ""))
-		solution.text = str(item.get("solution", ""))
-		technician.text = str(item.get("technician", ""))
-		departure.text = str(item.get("departure_serial", ""))
+		stock_selection = str(item.get("replacement_serial", ""))
+		for i in range(discovery.item_count):
+			if discovery.get_item_text(i) == str(item.get("discovery_method", "")): discovery.select(i)
+		render_stock()
 		for i in range(reason.item_count):
 			if reason.get_item_text(i) == str(item.get("reason", "")): reason.select(i)
-		state.select(maxi(0, STATES.keys().find(str(item.status))))
-		departure_box.visible = reason.selected == 3
+		replacement_panel.visible = reason.selected == 3
+		if str(item.get("stock_discharge_id", "")) != "":
+			reason.disabled = true
+			for choice in reason.get_parent().get_child(2).get_children(): choice.disabled = true
+			stock_search.editable = false
+			stock_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			stock_list.focus_mode = Control.FOCUS_NONE
+		reason.item_selected.emit(reason.selected)
+		discovery.item_selected.emit(discovery.selected)
 		save_button.disabled = false
 		notice.text = "Dados de identificação preservados do atendimento original."
 	else: notice.text = "Digite ao menos 2 letras. Consulta de clientes e vínculos pelo portal autenticado."
@@ -454,14 +483,60 @@ func save() -> void:
 		values.client = selected_client.name
 		values.client_id = selected_client.id
 	values.reason = reason.get_item_text(reason.selected)
-	values.status = STATES.keys()[state.selected]
+	if discovery.selected == 0: notice.text = "Informe como o defeito foi identificado."; return
+	if reason.selected == 3 and stock_selection == "": notice.text = "Selecione um aparelho do estoque."; return
+	values.discovery_method = discovery.get_item_text(discovery.selected)
 	values.note = note.text
-	values.diagnosis = diagnosis.text
-	values.solution = solution.text
-	values.technician = technician.text
-	values.departure_serial = departure.text
+	values.replacement_serial = stock_selection if reason.selected == 3 else ""
+	save_button.disabled = true
 	var result: Dictionary = host.store.save_maintenance_visit(values)
+	save_button.disabled = false
 	notice.text = str(result.get("message", "Falha ao salvar."))
 	if result.get("ok", false):
 		show_list()
 		notice.text = str(result.get("message", "Atendimento salvo."))
+
+func render_stock() -> void:
+	stock_list.clear()
+	stock_summary.text = "Aparelho selecionado: " + stock_selection if stock_selection != "" else "Selecione um aparelho disponível."
+	if str(editing.get("stock_discharge_id", "")) != "":
+		stock_list.add_item(stock_selection + " · Baixa já registrada")
+		stock_list.set_item_metadata(0, stock_selection)
+		stock_list.select(0)
+		return
+	for product in stock_rows:
+		var serial := str(product.get("imei", product.get("sku", "")))
+		if stock_search.text.strip_edges() != "" and not serial.contains(stock_search.text.strip_edges()): continue
+		var index := stock_list.add_item(serial + " · Em estoque")
+		stock_list.set_item_metadata(index, serial)
+		if serial == stock_selection: stock_list.select(index)
+
+	if stock_list.item_count == 0:
+		stock_list.add_item("Nenhum aparelho disponível")
+		stock_list.set_item_disabled(0, true)
+
+func choices(parent: Node, label: String, selector: OptionButton) -> void:
+	var box := VBoxContainer.new()
+	parent.add_child(box)
+	box.add_child(text(label, 14))
+	box.add_child(selector)
+	selector.hide()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	box.add_child(row)
+	var group := ButtonGroup.new()
+	for i in range(1, selector.item_count):
+		var choice := Button.new()
+		choice.text = selector.get_item_text(i)
+		choice.toggle_mode = true
+		choice.button_group = group
+		choice.custom_minimum_size.y = 42
+		choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		choice.add_theme_font_size_override("font_size", 14)
+		choice.add_theme_color_override("font_color", Color("#173b5d"))
+		choice.add_theme_color_override("font_pressed_color", Color.WHITE)
+		choice.add_theme_stylebox_override("normal", host._style_box(Color.WHITE, Color("#cbddeb"), 1, 9))
+		choice.add_theme_stylebox_override("pressed", host._style_box(Color("#147bd0"), Color("#147bd0"), 1, 9))
+		choice.pressed.connect(func(): selector.select(i); selector.item_selected.emit(i))
+		selector.item_selected.connect(func(index): choice.set_pressed_no_signal(index == i))
+		row.add_child(choice)

@@ -20,7 +20,7 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ### Manutenções por atendimento — 21/09/2026
 
-Aba Equipamentos > Manutenções: cliente → veículo único → aparelho de chegada via consultas JSON autenticadas do portal de Imperatriz, histórico por visita, relatório técnico e PDF dos filtros. Não movimenta estoque nem vínculos. Fluxo e testes: `docs/manutencoes_atendimentos.md`.
+Aba Equipamentos > Manutenções: cliente → veículo único → aparelho de chegada via consultas JSON autenticadas do portal de Imperatriz, histórico por visita, relatório com motivo/meio e PDF dos filtros. Em troca, salva relatório e baixa local do aparelho selecionado em transação única; não troca vínculo remoto. Fluxo e testes: `docs/manutencoes_atendimentos.md`.
 
 ### Vinculação para estoque — 19/09/2026
 

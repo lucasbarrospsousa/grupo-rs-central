@@ -665,11 +665,6 @@ func save_maintenance_visit(values: Dictionary) -> Dictionary:
 	if item.is_empty(): return {"ok": false, "message": "Selecione cliente, veículo e aparelho vinculados."}
 	if str(item.reason) not in ["Sem comunicação", "Localização errada", "Troca de aparelho"]:
 		return {"ok": false, "message": "Selecione o motivo da manutenção."}
-	if str(item.status) not in ["pendente", "aguardando_peca", "aguardando_cliente", "concluido", "cancelado"]:
-		return {"ok": false, "message": "Situação inválida."}
-	if item.status == "concluido" and (str(item.solution).is_empty() or (item.reason == "Troca de aparelho" and str(item.departure_serial).is_empty())):
-		return {"ok": false, "message": "Informe a solução e o aparelho de saída antes de concluir."}
-	var before := _db.duplicate(true)
 	var rows: Array = _db.get("maintenances", [])
 	var index := _find_maintenance_index_by_id(str(item.id)) if str(item.id) != "" else -1
 	if str(item.id) != "" and index < 0: return {"ok": false, "message": "Atendimento não encontrado. Atualize a lista."}
@@ -683,16 +678,22 @@ func save_maintenance_visit(values: Dictionary) -> Dictionary:
 		item.created_at = _now_string()
 		item.source_date = item.created_at
 	item.updated_at = _now_string()
-	item.completed_at = (str(item.completed_at) if str(item.completed_at) != "" else _now_string()) if item.status == "concluido" else ""
-	item.visit_version = 1
-	if item.reason != "Troca de aparelho": item.departure_serial = item.serial if item.status == "concluido" else ""
-	if index >= 0: rows[index] = item
-	else: rows.append(item)
-	_db.maintenances = rows
-	if not save_db():
-		_db = before
-		return {"ok": false, "message": "Falha ao salvar o atendimento. Tente novamente."}
-	return {"ok": true, "id": item.id, "message": "Atendimento salvo."}
+	item.status = "concluido"
+	item.completed_at = str(item.completed_at) if str(item.completed_at) != "" else item.updated_at
+	item.visit_version = 2
+	var result := _sqlite.execute("save_visit", _db_path, {"branch": _branch_id, "visit": item})
+	if not result.get("ok", false):
+		return {"ok": false, "message": str(result.get("message", "Falha ao salvar o relatório. Nenhuma baixa foi aplicada."))}
+	reload_db_from_disk()
+	database_saved.emit(_ensure_db_shape(_db.duplicate(true)), _db_path)
+	return result
+
+func get_maintenance_stock() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for product in get_products():
+		if _status_key(product) == "estoque" and bool(product.get("active", true)) and float(product.get("stock", 0)) >= 1:
+			result.append(product)
+	return result
 
 
 func get_scheduled_maintenances(query: String = "") -> Array[Dictionary]:
@@ -1643,6 +1644,9 @@ func _normalize_maintenance(value: Dictionary) -> Dictionary:
 		"solution": str(value.get("solution", "")).strip_edges(),
 		"technician": str(value.get("technician", "")).strip_edges(),
 		"departure_serial": str(value.get("departure_serial", "")).strip_edges(),
+		"discovery_method": str(value.get("discovery_method", "")).strip_edges(),
+		"replacement_serial": str(value.get("replacement_serial", "")).strip_edges(),
+		"stock_discharge_id": str(value.get("stock_discharge_id", "")).strip_edges(),
 		"plate": plate,
 		"serial": serial,
 		"provider": str(value.get("provider", "")).strip_edges(),
