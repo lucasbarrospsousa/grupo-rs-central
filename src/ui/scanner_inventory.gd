@@ -66,6 +66,21 @@ func style_input(input: Control) -> void:
 	input.add_theme_color_override("font_placeholder_color",Color("#6c8297"))
 	input.add_theme_color_override("caret_color",Color("#137ad2"))
 	input.custom_minimum_size.y=44
+	if input is OptionButton:
+		for state in ["hover","pressed","disabled"]:
+			var surface:StyleBoxFlat=host._style_box(Color("#eef6ff") if state=="hover" else Color.WHITE,Color("#91bee9") if state=="pressed" else Color("#cbdff0"),1,10)
+			surface.content_margin_left=12;surface.content_margin_right=12;input.add_theme_stylebox_override(state,surface)
+		for state in ["font_hover_color","font_pressed_color","font_focus_color","font_disabled_color"]:input.add_theme_color_override(state,Color("#173a59"))
+		input.add_theme_color_override("arrow",Color("#53789c"))
+		var popup:PopupMenu=input.get_popup()
+		var surface:StyleBoxFlat=host._style_box(Color.WHITE,Color("#cbdff0"),1,10)
+		for edge in ["left","right","top","bottom"]:surface.set_content_margin({"left":SIDE_LEFT,"right":SIDE_RIGHT,"top":SIDE_TOP,"bottom":SIDE_BOTTOM}[edge],8)
+		popup.add_theme_stylebox_override("panel",surface)
+		popup.add_theme_stylebox_override("hover",host._style_box(Color("#e5f1ff"),Color.TRANSPARENT,0,6))
+		popup.add_theme_color_override("font_color",Color("#173a59"));popup.add_theme_color_override("font_hover_color",Color("#0767c6"))
+		popup.add_theme_color_override("font_disabled_color",Color("#607895"))
+		popup.add_theme_constant_override("v_separation",16);popup.add_theme_constant_override("h_separation",12)
+		popup.add_theme_icon_override("radio_checked",checkbox_texture(true));popup.add_theme_icon_override("radio_unchecked",checkbox_texture(false))
 
 func panel(parent: Node, padding: int=18) -> VBoxContainer:
 	var outer:=PanelContainer.new();outer.size_flags_horizontal=Control.SIZE_EXPAND_FILL;parent.add_child(outer)
@@ -76,7 +91,7 @@ func panel(parent: Node, padding: int=18) -> VBoxContainer:
 	return box
 
 func icon_texture(symbol: String, color: String) -> ImageTexture:
-	var paths:={"device":"M7 2h10v20H7z M10 18h4", "chip":"M7 2h8l4 4v16H5V2z M9 9h6v9H9z M9 13h6", "truck":"M2 5h12v12H2z M14 10h4l4 4v3h-8 M5 17a2 2 0 1 0 0.1 0 M18 17a2 2 0 1 0 0.1 0", "send":"M2 11L22 2l-6 20-5-8-9-3z M11 14L22 2", "search":"M17 17l5 5 M19 10a9 9 0 1 0-18 0 9 9 0 0 0 18 0", "trash":"M4 6h16 M9 3h6 M6 6l1 16h10l1-16 M10 10v8 M14 10v8"}
+	var paths:={"device":"M7 2h10v20H7z M10 18h4", "chip":"M7 2h8l4 4v16H5V2z M9 9h6v9H9z M9 13h6", "truck":"M2 5h12v12H2z M14 10h4l4 4v3h-8 M5 17a2 2 0 1 0 0.1 0 M18 17a2 2 0 1 0 0.1 0", "send":"M2 11L22 2l-6 20-5-8-9-3z M11 14L22 2", "remove":"M6 6l12 12M18 6L6 18", "search":"M17 17l5 5 M19 10a9 9 0 1 0-18 0 9 9 0 0 0 18 0", "trash":"M4 6h16 M9 3h6 M6 6l1 16h10l1-16 M10 10v8 M14 10v8"}
 	var image:=Image.new()
 	image.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="%s" fill="none" stroke="%s" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' % [paths[symbol],color])
 	return ImageTexture.create_from_image(image)
@@ -187,7 +202,7 @@ func setup(owner_node: Node, bridge: Node) -> void:
 	select_all=CheckBox.new();select_all.text="Selecionar esta página";select_all.add_theme_color_override("font_color",Color("#173a59"));select_all.text="";select_all.tooltip_text="Selecionar esta página"
 	for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]:select_all.add_theme_color_override(state,Color("#173a59"))
 	select_all.toggled.connect(check_page)
-	table=Tree.new();table.name="ScannerReadings";table.columns=4;table.hide_root=true;table.column_titles_visible=true
+	table=Tree.new();table.name="ScannerReadings";table.columns=5;table.hide_root=true;table.column_titles_visible=true
 	table.size_flags_vertical=Control.SIZE_EXPAND_FILL;table.custom_minimum_size.y=200
 	table.add_theme_stylebox_override("panel",host._style_box(Color.WHITE,Color("#d3e2ef"),1,10))
 	table.add_theme_color_override("font_hovered_color",Color("#173a59"));table.add_theme_color_override("font_color",Color("#173a59"));table.add_theme_color_override("font_selected_color",Color("#173a59"))
@@ -196,10 +211,11 @@ func setup(owner_node: Node, bridge: Node) -> void:
 	table.add_theme_color_override("title_button_color",Color("#536f8c"));table.add_theme_constant_override("v_separation",7)
 	table.set_column_expand(0,false);table.set_column_custom_minimum_width(0,38)
 	table.set_column_expand_ratio(1,2)
-	for i in range(4):table.set_column_title_alignment(i,HORIZONTAL_ALIGNMENT_LEFT)
+	table.set_column_expand(4,false);table.set_column_custom_minimum_width(4,65)
+	for i in range(5):table.set_column_title_alignment(i,HORIZONTAL_ALIGNMENT_LEFT)
 	table.add_theme_icon_override("checked",checkbox_texture(true));table.add_theme_icon_override("unchecked",checkbox_texture(false))
 	select_all.add_theme_icon_override("checked",checkbox_texture(true));select_all.add_theme_icon_override("unchecked",checkbox_texture(false))
-	table.item_edited.connect(check_item);left.add_child(table)
+	table.item_edited.connect(check_item);table.button_clicked.connect(func(item:TreeItem,_column:int,_id:int,_mouse:int):review_removal(item.get_metadata(0)));left.add_child(table)
 	table.add_child(select_all);select_all.position=Vector2(4,0);select_all.z_index=3
 	status_overlay=Control.new();status_overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE;status_overlay.clip_contents=true;status_overlay.z_index=1;table.add_child(status_overlay);status_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	status_overlay.draw.connect(draw_statuses);table.draw.connect(status_overlay.queue_redraw)
@@ -275,20 +291,23 @@ func refresh() -> void:
 	loading=false
 	if not result.get("ok",false):status.text=str(result.get("error","Falha ao carregar"));return
 	table.clear();var root_item:=table.create_item()
-	for i in range(4):table.set_column_title(i,["","Número" if kind!="movements" else "Número / tipo","Recebido em" if kind!="movements" else "Data do registro","Situação" if kind!="movements" else "Destino"][i])
+	for i in range(5):table.set_column_title(i,["","Número" if kind!="movements" else "Número / tipo","Recebido em" if kind!="movements" else "Data do registro","Situação" if kind!="movements" else "Destino","Ações"][i])
 	for row in result.get("rows",[]):
 		var item:=table.create_item(root_item);item.set_metadata(0,row)
 		var key:=str(row.kind)+":"+str(row.number)
 		item.set_cell_mode(0,TreeItem.CELL_MODE_CHECK);item.set_editable(0,row.state=="available" and not sending)
 		item.set_checked(0,selected.has(key));item.set_selectable(0,false)
+		item.add_button(4,icon_texture("remove","#d54646"),1,row.state!="available","Remover da lista" if row.state=="available" else "Somente itens disponíveis podem ser removidos")
 		item.set_text(1,str(row.number)+( (" • Chip" if row.kind=="chip" else " • Aparelho") if kind=="movements" else ""))
-		item.set_text(2,date_text((int(row.get("detected_at",0)) if row.state=="used" else int(row.sent_at)) if kind=="movements" else int(row.received_at)))
+		item.set_text(2,date_text((int(row.get("detected_at",0)) if row.state=="used" else (int(row.removed_at) if row.state=="removed" else int(row.sent_at))) if kind=="movements" else int(row.received_at)))
 		item.set_text(3,("Utilizado • "+str(row.used_branch)) if row.state=="used" else (str(row.destination) if kind=="movements" else ("Disponível" if row.state=="available" else "Enviado")))
-		if row.state=="used":selected.erase(key)
+		if row.state=="removed":item.set_text(3,"Removido da lista")
+		if row.state!="available":selected.erase(key)
 		if kind!="movements":
 			item.set_cell_mode(3,TreeItem.CELL_MODE_CUSTOM);item.set_text(3,"")
 		else:item.set_custom_color(3,Color("#236fa8"))
 		item.set_tooltip_text(3,"Destino: %s\n%s" % [row.get("destination",""),row.get("note","")] if row.state=="sent" else "Disponível para envio")
+		if row.state=="removed":item.set_tooltip_text(3,"Removido manualmente do Armazém. Cadastro e histórico preservados.")
 		if row.state=="used":
 			item.set_tooltip_text(3,"Utilizado no aparelho: %s\nBase: %s\nCadastro atualizado: %s\nDetectado: %s\nEnvio anterior: %s" % [row.device_serial,row.used_branch,row.registered_at,date_text(int(row.detected_at)),str(row.get("destination", "—"))])
 	total=int(result.get("total",0));page_index=int(result.get("page",0))
@@ -375,7 +394,7 @@ func update_selection() -> void:
 	if table.get_root()!=null:
 		var eligible:=0;var checked:=0
 		for item in table.get_root().get_children():
-			for column in range(4):item.set_custom_bg_color(column,Color("#edf6ff") if item.is_checked(0) else Color.WHITE)
+			for column in range(5):item.set_custom_bg_color(column,Color("#edf6ff") if item.is_checked(0) else Color.WHITE)
 			if item.get_metadata(0).state=="available":
 				eligible+=1
 				if item.is_checked(0):checked+=1
@@ -405,6 +424,35 @@ func submit_dispatch(payload: Dictionary) -> void:
 		clear_selection();note.clear();status.text="Envio registrado • %d item(ns). Histórico em Movimentações." % result.get("sent",0)
 	else:status.text=str(result.get("error","Não foi possível confirmar o envio. Consulte Movimentações antes de repetir."))
 	await refresh()
+func review_removal(row: Dictionary) -> void:
+	if sending or row.state!="available" or has_node("RemoveWarehouseDialog"):return
+	var dialog:=AcceptDialog.new();dialog.name="RemoveWarehouseDialog";dialog.theme=theme;dialog.borderless=true;dialog.transparent_bg=true;dialog.unresizable=true
+	dialog.add_theme_stylebox_override("panel",host._style_box(Color.WHITE,Color("#cbdff0"),1,16));dialog.get_ok_button().hide()
+	var margin:=MarginContainer.new();dialog.add_child(margin)
+	for edge in ["left","right","top","bottom"]:margin.add_theme_constant_override("margin_"+edge,24)
+	var box:=VBoxContainer.new();box.add_theme_constant_override("separation",18);margin.add_child(box)
+	box.add_child(label("Remover da lista?",24))
+	box.add_child(label(("Aparelho: " if row.kind=="equipment" else "Chip: ")+str(row.number),18))
+	var explanation:=label("O item sairá dos disponíveis. A remoção ficará registrada em Movimentações.",15);explanation.custom_minimum_size.x=490;explanation.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(explanation)
+	var buttons:=HBoxContainer.new();buttons.alignment=BoxContainer.ALIGNMENT_END;buttons.add_theme_constant_override("separation",12);box.add_child(buttons)
+	buttons.add_child(action("Cancelar",dialog.queue_free))
+	var confirm:=action("Remover da lista",func():dialog.queue_free();submit_removal(row),true);confirm.name="ConfirmRemoval"
+	confirm.add_theme_stylebox_override("normal",host._style_box(Color("#c63f43"),Color("#c63f43"),1,10));buttons.add_child(confirm)
+	dialog.close_requested.connect(dialog.queue_free);dialog.canceled.connect(dialog.queue_free)
+	var shade:=ColorRect.new();shade.color=Color(0.03,0.09,0.15,0.35);get_tree().root.add_child(shade);shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);dialog.tree_exiting.connect(shade.queue_free)
+	add_child(dialog);dialog.popup_centered(Vector2i(550,260))
+
+func submit_removal(row: Dictionary) -> void:
+	if sending:return
+	sending=true;update_selection()
+	var result:Dictionary=await service.call_service("remove",{"kind":row.kind,"number":row.number})
+	if not is_inside_tree():return
+	sending=false
+	if result.get("ok",false):
+		selected.erase(str(row.kind)+":"+str(row.number));status.text="Item removido da lista. Histórico preservado em Movimentações."
+	else:status.text=str(result.get("error","Não foi possível remover o item."))
+	await refresh()
+
 func manual_dialog() -> void:
 	if has_node("ManualWarehouseDialog"):return
 	var dialog:=AcceptDialog.new();dialog.title="Novo item • Armazém";dialog.theme=theme

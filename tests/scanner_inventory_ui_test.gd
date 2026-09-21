@@ -3,6 +3,7 @@ const Shell=preload("res://tests/fixtures/offline_main_dashboard.gd")
 class FakeBridge extends Node:
 	var offline:=false
 	var registers:=0
+	var removals:=0
 	var paginated:=false
 	var sent:=false
 	var usage_calls:=0
@@ -25,6 +26,7 @@ class FakeBridge extends Node:
 			registers+=1
 			if data.number=="invalid":return {"ok":false,"error":"Número inválido"}
 			return {"ok":true,"kind":data.kind,"number":data.number}
+		if op=="remove":removals+=1;return {"ok":true}
 		if op=="dispatch":sent=true;return {"ok":true,"sent":data.items.size()}
 		return {"ok":true}
 func _initialize() -> void:run.call_deferred()
@@ -51,6 +53,13 @@ func run() -> void:
 	if DisplayServer.get_name()!="headless":
 		await create_timer(0.4).timeout;RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("cadastro-armazem.png"))
+	var item_type:OptionButton=manual.find_child("ItemType",true,false)
+	item_type.show_popup();await process_frame
+	assert(item_type.get_popup().get_theme_color("font_color")==Color("#173a59"))
+	if DisplayServer.get_name()!="headless":
+		await create_timer(0.3).timeout;RenderingServer.force_draw()
+		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("tipo-item-armazem.png"))
+	item_type.get_popup().hide()
 	manual.find_child("ItemNumber",true,false).text="invalid"
 	manual.find_child("SaveManualItem",true,false).pressed.emit();await process_frame
 	assert(is_instance_valid(manual));assert(fake.registers==1)
@@ -92,6 +101,15 @@ func run() -> void:
 		root.content_scale_size=Vector2i(1920,1088);root.content_scale_mode=Window.CONTENT_SCALE_MODE_CANVAS_ITEMS;root.size=Vector2i(1310,742)
 		await create_timer(0.5).timeout;RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("armazem-referencia.png"))
+	var removable:Dictionary=view.table.get_root().get_child(0).get_metadata(0)
+	view.review_removal(removable);await process_frame
+	assert(fake.removals==0)
+	view.get_node("RemoveWarehouseDialog").canceled.emit();await process_frame
+	assert(fake.removals==0)
+	view.review_removal(removable);await process_frame
+	view.get_node("RemoveWarehouseDialog").find_child("ConfirmRemoval",true,false).pressed.emit();await process_frame
+	assert(fake.removals==1);assert(not view.selected.has("equipment:"+str(removable.number)))
+	view.review_removal({"state":"sent"});assert(not view.has_node("RemoveWarehouseDialog"))
 	var checks:=fake.usage_calls
 	shell._show_dashboard();await process_frame
 	await create_timer(6).timeout;assert(fake.usage_calls==checks)

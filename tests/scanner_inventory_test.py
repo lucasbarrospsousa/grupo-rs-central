@@ -23,6 +23,22 @@ class ScannerInventoryTests(unittest.TestCase):
         for op in ['sync','pair','address','config']:
             with self.assertRaises(ValueError):s.operate(self.db,op,{})
         self.assertEqual(s.operate(self.db,'list',{})['total'],0)
+    def test_removal_preserves_history_and_blocks_dispatch(self):
+        self.add([self.row]);item={'kind':'equipment','number':self.row['number']}
+        self.assertFalse(s.operate(self.db,'remove',item)['repeated'])
+        self.assertTrue(s.operate(self.db,'remove',item)['repeated'])
+        for state in ['available','all']:
+            self.assertEqual(s.operate(self.db,'list',{'state':state})['total'],0)
+        history=s.operate(self.db,'list',{'kind':'movements'})
+        self.assertEqual(history['rows'][0]['state'],'removed')
+        self.assertEqual(history['counts'].get('equipment',0),0)
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM items').fetchone()[0],1)
+        with self.assertRaises(ValueError):s.operate(self.db,'dispatch',self.shipment())
+        with self.assertRaises(ValueError):s.operate(self.db,'remove',dict(item,number='024999999'))
+    def test_sent_item_cannot_be_removed(self):
+        self.add([self.row]);s.operate(self.db,'dispatch',self.shipment())
+        with self.assertRaises(ValueError):s.operate(self.db,'remove',{'kind':'equipment','number':self.row['number']})
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM removals').fetchone()[0],0)
     def shipment(self, **changes):
         value={'id':str(uuid.uuid4()),'mode':'base','destination':'maraba','note':'Teste fictício',
                'items':[{'kind':'equipment','number':self.row['number']}]}
@@ -83,6 +99,13 @@ class ChipUsageTests(unittest.TestCase):
         self.assertEqual((row['device_serial'],row['used_branch']),('024000555','Araguaína'))
         self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(),before)
         with self.assertRaises(ValueError):s.operate(self.db,'dispatch',self.shipment(items=[{'kind':'chip','number':self.chip}]))
+    def test_used_chip_cannot_be_removed_and_removed_chip_is_not_reconciled(self):
+        self.registration();s.reconcile_usage(self.db,self.source)
+        with self.assertRaises(ValueError):s.operate(self.db,'remove',{'kind':'chip','number':self.chip})
+        self.db.execute('DELETE FROM chip_usage');self.db.commit()
+        s.operate(self.db,'remove',{'kind':'chip','number':self.chip})
+        self.assertEqual(s.reconcile_usage(self.db,self.source)['used'],0)
+        self.assertEqual(s.operate(self.db,'list',{'kind':'movements'})['rows'][0]['state'],'removed')
     def test_sent_chip_becomes_used_preserving_shipment(self):
         s.operate(self.db,'dispatch',self.shipment(items=[{'kind':'chip','number':self.chip}]))
         self.registration('backups_maraba');s.reconcile_usage(self.db,self.source)

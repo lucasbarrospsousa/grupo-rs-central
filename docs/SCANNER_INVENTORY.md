@@ -9,3 +9,7 @@ Chips cadastrados no banco compartilhado pelo Configurador são reconhecidos aut
 O banco privado `user://scanner_inventory.sqlite` e suas tabelas antigas são preservados para compatibilidade. Configurações de pareamento antigas ficam inertes. O serviço não importa o gateway SMS nem chama o celular. Os nomes internos dos arquivos foram preservados para compatibilidade de exportação.
 
 Validação: testes Python isolados de cadastro, duplicação, movimentação e uso de chips; teste Godot com serviço falso, cadastro, erro, cancelamento e seleção. Nenhum cadastro real é criado pelos testes.
+
+## Remoção manual e seletores
+
+O X na coluna Ações remove somente itens disponíveis, após confirmação. O registro original é preservado; a tabela removals registra a data. O item sai das listas de aparelhos/chips e fica em Movimentações como Removido da lista. Repetir a operação não duplica o evento. Itens enviados/utilizados não podem ser removidos; itens removidos não podem ser enviados, recadastrados como novos ou reconciliados automaticamente. Não há exclusão no banco operacional. Seletores de tipo, situação e base usam estilos claros em todos os estados.
