@@ -13,6 +13,8 @@ var list_search: LineEdit
 var list_apn: OptionButton
 var list_base: OptionButton
 var list_status: Label
+var list_title: Label
+var list_scroll: ScrollContainer
 var list_refresh: Button
 var list_pages: HBoxContainer
 var list_count: Label
@@ -20,7 +22,7 @@ var active_branch := ""
 var page := 0
 var filtered_rows: Array = []
 var detail_dialog: Window
-const PAGE_SIZE := 6
+const PAGE_SIZE := 25
 
 static func label(value: String, size: int = 14) -> Label:
 	var node := Label.new()
@@ -160,7 +162,7 @@ func open_list(id: String) -> void:
 	page = 0
 	list_dialog = Window.new()
 	list_dialog.title = "Manutenção na plataforma"
-	list_dialog.size = Vector2i(1280, 580)
+	list_dialog.size = Vector2i(1540, 810)
 	list_dialog.borderless = true
 	list_dialog.min_size = Vector2i(820, 420)
 	list_dialog.transient = true
@@ -186,23 +188,33 @@ func open_list(id: String) -> void:
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 12)
 	panel.add_child(stack)
+	var header_panel := PanelContainer.new()
+	header_panel.add_theme_stylebox_override("panel", box(Color("#1b5689"), 12))
+	stack.add_child(header_panel)
 	var header := HBoxContainer.new()
-	stack.add_child(header)
+	header_panel.add_child(header)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
-	titles.add_child(label("Manutenção na plataforma", 24))
-	titles.add_child(label("Lista das bases • independente dos relatórios de atendimento", 13))
+	list_title = label("Veículos em manutenção", 24)
+	list_title.add_theme_color_override("font_color", Color.WHITE)
+	titles.add_child(list_title)
+	var subtitle := label("Categoria da plataforma • agrupamento por APN", 13)
+	subtitle.add_theme_color_override("font_color", Color("#dceafa"))
+	titles.add_child(subtitle)
 	list_refresh = Button.new()
 	list_refresh.text = "↻  Atualizar listas"
 	style_button(list_refresh)
-	list_refresh.add_theme_stylebox_override("normal", box(Color("#ff870d"), 8))
-	list_refresh.add_theme_stylebox_override("hover", box(Color("#f89a36"), 8))
+	list_refresh.add_theme_stylebox_override("normal", box(Color("#ffcd08"), 10))
+	list_refresh.add_theme_stylebox_override("hover", box(Color("#ffdc54"), 10))
+	list_refresh.add_theme_color_override("font_color", Color("#152c40"))
+	list_refresh.add_theme_color_override("font_hover_color", Color("#152c40"))
 	list_refresh.pressed.connect(func(): page = 0; load_all())
 	header.add_child(list_refresh)
 	var close := Button.new()
 	close.text = "×"
 	style_button(close)
+	close.add_theme_stylebox_override("normal", box(Color("#d93432"), 10))
 	close.pressed.connect(func(): list_dialog.queue_free())
 	header.add_child(close)
 	var filters := HBoxContainer.new()
@@ -234,16 +246,26 @@ func open_list(id: String) -> void:
 	list_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notice.add_child(list_status)
 	var headings := PanelContainer.new()
-	headings.add_theme_stylebox_override("panel", box(Color("#edf2f7"), 4))
+	var heading_style := box(Color("#22292e"), 3)
+	heading_style.content_margin_right = 34
+	headings.add_theme_stylebox_override("panel", heading_style)
 	stack.add_child(headings)
 	var heading_row := HBoxContainer.new()
 	headings.add_child(heading_row)
-	var columns := ["Base", "Cliente", "Placa", "Aparelho", "Última comunicação", "Ações"]
-	for index in range(6): heading_row.add_child(cell(columns[index], index))
+	var columns := ["Cliente", "Placa", "Equipamento", "APN", "Telefone chip", "Última comunicação"]
+	for index in range(6):
+		var heading := cell(columns[index], index)
+		heading.add_theme_color_override("font_color", Color.WHITE)
+		heading_row.add_child(heading)
+	list_scroll = ScrollContainer.new()
+	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	list_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+	stack.add_child(list_scroll)
 	list_rows = VBoxContainer.new()
-	list_rows.add_theme_constant_override("separation", 2)
-	list_rows.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_child(list_rows)
+	list_rows.add_theme_constant_override("separation", 1)
+	list_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_scroll.add_child(list_rows)
 	var footer := HBoxContainer.new()
 	stack.add_child(footer)
 	list_count = label("", 12)
@@ -255,14 +277,44 @@ func open_list(id: String) -> void:
 	list_dialog.popup_centered()
 
 static func cell(value: String, index: int) -> Label:
-	var node := label(value, 13)
-	node.custom_minimum_size.x = [112, 180, 118, 126, 175, 118][index]
-	if index == 1: node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var node := label(value, 16)
+	node.custom_minimum_size.x = [280, 135, 155, 125, 180, 215][index]
+	if index == 0: node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	node.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	node.clip_text = true
 	node.tooltip_text = value
 	return node
+
+static func badge(value: String, width: float, color: Color) -> Control:
+	var holder := HBoxContainer.new()
+	holder.custom_minimum_size.x = width
+	holder.alignment = BoxContainer.ALIGNMENT_BEGIN
+	var panel := PanelContainer.new()
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var style := box(color, 7)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 3
+	style.content_margin_bottom = 3
+	panel.add_theme_stylebox_override("panel", style)
+	holder.add_child(panel)
+	var text := label(value, 14)
+	text.add_theme_color_override("font_color", Color.WHITE)
+	text.clip_text = true
+	text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	text.custom_minimum_size.x = minf(width - 20, maxf(44, value.length() * 8))
+	text.tooltip_text = value
+	panel.add_child(text)
+	return holder
+
+static func group_key(row: Dictionary) -> String:
+	return str(row.base) + "|" + str(row.apn).strip_edges().to_lower()
+
+static func ignore_mouse(node: Control) -> void:
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		if child is Control: ignore_mouse(child)
 
 static func empty_children(container: Node) -> void:
 	for child in container.get_children():
@@ -308,39 +360,69 @@ func populate_list() -> void:
 			row["base"] = id
 			row["source"] = result.get("source", "")
 			row["queried_at"] = result.get("queried_at", "")
+			row["order"] = filtered_rows.size()
 			filtered_rows.append(row)
+	filtered_rows.sort_custom(func(a, b): return int(a.order) < int(b.order) if group_key(a) == group_key(b) else group_key(a) < group_key(b))
+	var group_totals := {}
+	for row in filtered_rows:
+		var key := group_key(row)
+		group_totals[key] = int(group_totals.get(key, 0)) + 1
+	list_title.text = "Veículos em manutenção • %s (%d)" % [BASES.get(active_branch, "Todas as bases"), filtered_rows.size()]
+	if confirmed.is_empty() or (active_branch != "" and not results.get(active_branch, {}).get("ok", false)):
+		list_title.text = "Veículos em manutenção • %s • Consulta pendente" % BASES.get(active_branch, "Todas as bases")
 	var pages := maxi(1, ceili(float(filtered_rows.size()) / PAGE_SIZE))
 	page = clampi(page, 0, pages - 1)
+	var previous_group := ""
 	for index in range(page * PAGE_SIZE, mini((page + 1) * PAGE_SIZE, filtered_rows.size())):
 		var data: Dictionary = filtered_rows[index]
+		var key := group_key(data)
+		if key != previous_group:
+			var group := PanelContainer.new()
+			group.set_meta("apn_group", key)
+			group.set_meta("group_count", group_totals[key])
+			group.add_theme_stylebox_override("panel", box(Color("#f2bb08"), 0))
+			var group_row := HBoxContainer.new()
+			group_row.add_theme_constant_override("separation", 16)
+			group.add_child(group_row)
+			var group_text := label("%sAPN: %s" % [(str(BASES[data.base]) + "  •  ") if active_branch == "" else "", str(data.apn).to_upper() if str(data.apn) != "" else "NÃO INFORMADA"], 17)
+			group_text.add_theme_color_override("font_color", Color("#121212"))
+			group_row.add_child(group_text)
+			var counter := PanelContainer.new()
+			var counter_style := box(Color("#131313"), 7)
+			counter_style.content_margin_top = 3
+			counter_style.content_margin_bottom = 3
+			counter_style.content_margin_left = 10
+			counter_style.content_margin_right = 10
+			counter.add_theme_stylebox_override("panel", counter_style)
+			var counter_text := label(str(group_totals[key]), 17)
+			counter_text.add_theme_color_override("font_color", Color("#ffcd08"))
+			counter.add_child(counter_text)
+			counter.tooltip_text = "Total deste grupo nos filtros atuais, incluindo outras páginas"
+			group_row.add_child(counter)
+			list_rows.add_child(group)
+			previous_group = key
 		var panel := PanelContainer.new()
-		var style := box(Color.WHITE if index % 2 == 0 else Color("#f7faff"), 3)
+		panel.set_meta("vehicle_row", data)
+		var style := box(Color.WHITE if index % 2 == 0 else Color("#f0f1f3"), 0)
 		style.content_margin_top = 4
 		style.content_margin_bottom = 4
 		panel.add_theme_stylebox_override("panel", style)
 		list_rows.add_child(panel)
 		var row := HBoxContainer.new()
 		panel.add_child(row)
-		var values := [BASES[data.base], data.client, data.plate, data.serial, data.updated_at]
-		for column in range(5): row.add_child(cell(str(values[column]), column))
-		var details := Button.new()
-		details.text = "Ver detalhes"
-		style_button(details)
-		var button_style := box(Color("#123f64"), 5)
-		button_style.content_margin_top = 5
-		button_style.content_margin_bottom = 5
-		details.add_theme_stylebox_override("normal", button_style)
-		var hover_style := button_style.duplicate() as StyleBoxFlat
-		hover_style.bg_color = Color("#1b5887")
-		details.add_theme_stylebox_override("hover", hover_style)
-		details.add_theme_stylebox_override("pressed", button_style)
-		details.custom_minimum_size.x = 118
-		details.pressed.connect(show_details.bind(data))
-		row.add_child(details)
+		var values := [data.client, data.plate, data.serial]
+		for column in range(3): row.add_child(cell(str(values[column]), column))
+		row.add_child(badge(str(data.apn) if str(data.apn) != "" else "Não informada", 125, Color("#168955")))
+		row.add_child(badge(str(data.phone) if str(data.phone) != "" else "Não informado", 180, Color("#4686ba")))
+		row.add_child(cell(str(data.updated_at), 5))
+		ignore_mouse(row)
+		panel.tooltip_text = "Duplo clique para ver detalhes • " + str(BASES[data.base])
+		panel.gui_input.connect(func(event):
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.double_click: show_details(data))
 	if filtered_rows.is_empty():
 		var unavailable: bool = confirmed.is_empty() or (active_branch != "" and not results.get(active_branch, {}).get("ok", false))
 		list_rows.add_child(label("Lista indisponível. Confira as bases pendentes no aviso da consulta." if unavailable else "Nenhum veículo encontrado com estes filtros.", 14))
-	list_count.text = "Mostrando %d–%d de %d veículos • Lista paginada" % [0 if filtered_rows.is_empty() else page * PAGE_SIZE + 1, mini((page + 1) * PAGE_SIZE, filtered_rows.size()), filtered_rows.size()]
+	list_count.text = "%d–%d de %d veículos • Duplo clique na linha para detalhes" % [0 if filtered_rows.is_empty() else page * PAGE_SIZE + 1, mini((page + 1) * PAGE_SIZE, filtered_rows.size()), filtered_rows.size()]
 	page_button("Anterior", page - 1, page == 0)
 	var page_numbers: Array = [0]
 	for number in range(maxi(0, page - 1), mini(pages, page + 3)):
@@ -359,7 +441,7 @@ func page_button(value: String, target: int, disabled: bool) -> void:
 	style_button(button)
 	button.disabled = disabled
 	if target == page: button.add_theme_stylebox_override("normal", box(Color("#ff870d"), 6))
-	button.pressed.connect(func(): page = target; populate_list())
+	button.pressed.connect(func(): page = target; list_scroll.scroll_vertical = 0; populate_list())
 	list_pages.add_child(button)
 
 func show_details(data: Dictionary) -> void:
