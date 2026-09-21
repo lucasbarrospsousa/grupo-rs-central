@@ -18,6 +18,8 @@ class Shell extends "res://tests/fixtures/offline_main_dashboard.gd":
 	func _grupo_rs_api_credentials()->Dictionary:return {"username":"fixture","password":"fixture"}
 	func _hub_maintenance_credentials(_branch:String)->Dictionary:return {"username":"fixture","password":"fixture"}
 class Service extends "res://src/services/stock_discharge.gd":
+	var owner_reply:Dictionary={"ok":false,"message":"Cliente indisponível (teste)"}
+	var owner_calls:=0
 	var calls:=0
 	var response:Dictionary={}
 	var change_branch:=false
@@ -26,7 +28,7 @@ class Service extends "res://src/services/stock_discharge.gd":
 		if not fields.is_empty():return {"ok":true,"data":{"token":"fixture"}}
 		if change_branch:host.selected_branch_id="other"
 		return response
-	func lookup_client(_serial:String,_plate:String)->Dictionary:return {"ok":false,"message":"Cliente indisponível (teste)"}
+	func lookup_client(_serial:String,_plate:String)->Dictionary:owner_calls+=1;return owner_reply
 func _initialize():run.call_deferred()
 func run():
 	create_timer(45).timeout.connect(func():push_error("Discharge timeout");quit(1))
@@ -46,6 +48,13 @@ func run():
 	service.response={"ok":false,"message":"Sem acesso"};await service.analyze();assert(not service.rows[0].ok)
 	service.response={"ok":true,"data":{"veiculos":[{"numeroSerie":"024999991","placa":"GRS - 001","cliente":"RS300"}]}}
 	await service.analyze();assert(not service.rows[0].ok)
+	assert(service.rows[0].category=="stock" and service.rows[0].client=="RS300")
+	service.owner_reply={"ok":true,"client":"RS300"}
+	service.response={"ok":true,"data":{"veiculos":[{"numeroSerie":"024999991","placa":"AAA - 310"}]}}
+	await service.analyze();assert(service.rows[0].category=="stock" and service.rows[0].client=="RS300" and service.owner_calls==1)
+	service.owner_reply={"ok":false,"category":"error","message":"Portal indisponível"}
+	await service.analyze();assert(service.rows[0].category=="error" and not service.rows[0].ok)
+	service.owner_reply={"ok":false,"message":"Cliente indisponível (teste)"}
 	service.response={"ok":true,"data":{"veiculos":[raw]}};await service.analyze()
 	await service.apply_selected();assert(store.writes==0)
 	service.rows[0].selected=true
@@ -77,9 +86,15 @@ func run():
 	dialog.search.clear();dialog.result_filter.select(1);dialog.render();assert(dialog.filtered.size()==1)
 	dialog.result_filter.select(0);dialog.render()
 	assert(service.rows.filter(func(row):return row.selected).size()==1)
+	service.rows[1].category="stock";service.rows[1].plate="AAA - 310";service.rows[1].client="RS300";service.rows[1].message="Permanece em estoque • vínculo confirmado com RS300."
+	service.rows[2].category="error";service.rows[2].message="Consulta indisponível (HTTP 503)."
+	dialog.result_filter.select(3);dialog.render();assert(dialog.filtered.size()==1 and dialog.filtered[0]==1)
+	dialog.result_filter.select(4);dialog.render();assert(dialog.filtered.size()==1 and dialog.filtered[0]==2)
+	dialog.select_all(true);assert(not service.rows[2].selected)
+	dialog.result_filter.select(0);dialog.render()
 	if DisplayServer.get_name()!="headless":
 		await create_timer(0.4).timeout;assert(dialog.size.y<root.size.y);RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("analisar-baixa.png"))
 	service.rows[0].ok=false;service.rows[0].message="Baixa aplicada • Instalado"
-	dialog.result_filter.select(2);dialog.render();assert(dialog.filtered.size()==3)
+	dialog.result_filter.select(2);dialog.render();assert(dialog.filtered.size()==1)
 	shell.free();print("STOCK_DISCHARGE_OK");quit()

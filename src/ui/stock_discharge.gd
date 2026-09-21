@@ -44,7 +44,7 @@ func _ready() -> void:
 	var subtitle:=text("Conferência da API • atualização somente do estoque da Central",14);subtitle.add_theme_color_override("font_color",Color("#d6eaff"));titles.add_child(subtitle)
 	close_button=button("×",close);close_button.custom_minimum_size=Vector2(36,36);heading.add_child(close_button)
 	var metric_row:=HBoxContainer.new();metric_row.add_theme_constant_override("separation",12);stack.add_child(metric_row)
-	for metric in [["NA ANÁLISE","#246ba5"],["APTOS PARA BAIXA","#19965c"],["PARA REVISÃO","#ce253b"]]:
+	for metric in [["NA ANÁLISE","#246ba5"],["APTOS PARA BAIXA","#19965c"],["EM ESTOQUE","#246ba5"],["CONFERIR","#d77b13"],["FALHAS","#ce253b"]]:
 		var surface:=PanelContainer.new();surface.size_flags_horizontal=Control.SIZE_EXPAND_FILL;surface.add_theme_stylebox_override("panel",host._style_box(Color(metric[1]),Color.TRANSPARENT,0,18));metric_row.add_child(surface)
 		var spacing:=MarginContainer.new();surface.add_child(spacing)
 		for edge in ["left","right","top","bottom"]:spacing.add_theme_constant_override("margin_"+edge,12)
@@ -55,7 +55,7 @@ func _ready() -> void:
 	for edge in ["left","right","top","bottom"]:filter_margin.add_theme_constant_override("margin_"+edge,16)
 	var filters:=HBoxContainer.new();filters.add_theme_constant_override("separation",12);filter_margin.add_child(filters)
 	search=LineEdit.new();search.placeholder_text="Buscar série, placa ou cliente";search.size_flags_horizontal=Control.SIZE_EXPAND_FILL;search.custom_minimum_size.y=44;host._style_line_edit(search);filters.add_child(search)
-	result_filter=OptionButton.new();result_filter.add_item("Todos os resultados");result_filter.add_item("Aptos para baixa");result_filter.add_item("Revisão / pendências");filters.add_child(result_filter)
+	result_filter=OptionButton.new();result_filter.add_item("Todos os resultados");result_filter.add_item("Aptos para baixa");result_filter.add_item("Conferir vínculo");result_filter.add_item("Permanece em estoque");result_filter.add_item("Falha na consulta");filters.add_child(result_filter)
 	var controls:=preload("res://src/ui/scanner_inventory.gd").new();controls.host=host;controls.style_input(result_filter)
 	controls.free()
 	filters.add_child(button("Buscar",func():page=0;render(),true))
@@ -72,7 +72,7 @@ func _ready() -> void:
 	table.add_theme_color_override("title_button_color",Color.WHITE);table.add_theme_constant_override("v_separation",12)
 	table.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf"))
 	table.add_theme_font_size_override("font_size",15)
-	for i in range(5):table.set_column_title(i,["Selecionar / Série","Placa","Cliente","Resultado","Base"][i])
+	for i in range(5):table.set_column_title(i,["Selecionar / Série","Placa / identificação","Cliente","Resultado","Base"][i])
 	table.set_column_expand_ratio(2,3);table.set_column_expand_ratio(3,3);stack.add_child(table);table.item_edited.connect(edited)
 	badge_overlay=Control.new();badge_overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE;badge_overlay.clip_contents=true;table.add_child(badge_overlay);badge_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	badge_overlay.draw.connect(draw_badges);table.draw.connect(badge_overlay.queue_redraw)
@@ -106,7 +106,7 @@ func analyze() -> void:
 	refresh_button.disabled=false;render()
 	await get_tree().process_frame
 	reset_size();popup_centered(Vector2i(1240,710))
-	summary.text="%d aparelhos analisados • %d aptos • %d para revisão" % [service.rows.size(),eligible_count(),service.rows.size()-eligible_count()]
+	summary.text="%d analisados • %d aptos • %d em estoque • %d para conferir • %d falhas" % [service.rows.size(),eligible_count(),category_count("stock"),category_count("review"),category_count("error")]
 	if not service.context_ok():summary.text="A base mudou. Feche esta janela e analise novamente."
 
 func eligible_count() -> int:
@@ -115,12 +115,20 @@ func eligible_count() -> int:
 		if row.ok:count+=1
 	return count
 
+func category(row:Dictionary) -> String:
+	if str(row.message).begins_with("Baixa aplicada"):return "done"
+	if str(row.message)=="Aguardando consulta":return "waiting"
+	return "eligible" if row.ok else str(row.get("category","review"))
+
+func category_count(value:String) -> int:
+	return service.rows.filter(func(row):return category(row)==value).size()
+
 func render() -> void:
 	filtered.clear()
 	for index in range(service.rows.size()):
 		var row:Dictionary=service.rows[index]
 		if result_filter.selected==1 and not row.ok:continue
-		if result_filter.selected==2 and (row.ok or str(row.message).begins_with("Baixa aplicada")):continue
+		if result_filter.selected>=2 and category(row)!=["review","stock","error"][result_filter.selected-2]:continue
 		if search.text.strip_edges()!="" and not (str(row.serial)+" "+str(row.plate)+" "+str(row.client)).to_lower().contains(search.text.strip_edges().to_lower()):continue
 		filtered.append(index)
 	page=mini(page,maxi(0,ceili(filtered.size()/float(PAGE_SIZE))-1))
@@ -138,7 +146,9 @@ func render() -> void:
 	selection.text="%d selecionado(s)" % selected;apply_button.disabled=selected==0 or service.busy or not service.context_ok()
 	metrics[0].text="NA ANÁLISE  ·  %d" % service.rows.size()
 	metrics[1].text="APTOS PARA BAIXA  ·  %d" % eligible_count()
-	metrics[2].text="PARA REVISÃO  ·  %d" % service.rows.filter(func(row):return not row.ok and not str(row.message).begins_with("Baixa aplicada")).size()
+	metrics[2].text="EM ESTOQUE  ·  %d" % category_count("stock")
+	metrics[3].text="CONFERIR  ·  %d" % category_count("review")
+	metrics[4].text="FALHAS  ·  %d" % category_count("error")
 	badge_overlay.queue_redraw()
 	page_label.text="%d / %d" % [page+1,maxi(1,ceili(filtered.size()/float(PAGE_SIZE)))]
 
@@ -174,8 +184,10 @@ func draw_badges() -> void:
 		if rect.position.y<25 or rect.end.y>table.size.y:continue
 		var row:Dictionary=service.rows[int(item.get_metadata(0))]
 		var done:=str(row.message).begins_with("Baixa aplicada")
-		var caption:="Apto para baixa" if row.ok else ("Baixa aplicada" if done else "Revisão necessária")
-		var tint:=Color("#19965c") if row.ok or done else Color("#ce253b")
+		var caption:="Apto para baixa" if row.ok else ("Baixa aplicada" if done else "Conferir vínculo")
+		var tint:=Color("#19965c") if row.ok or done else Color("#d77b13")
+		if category(row)=="stock":caption="Permanece em estoque";tint=Color("#246ba5")
+		if category(row)=="error":caption="Falha na consulta";tint=Color("#ce253b")
 		if str(row.message)=="Aguardando consulta":caption="Aguardando consulta";tint=Color("#246ba5")
 		var width:=minf(rect.size.x-16,BOLD.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,14).x+26)
 		var badge:=Rect2(rect.position+Vector2(8,(rect.size.y-30)/2),Vector2(width,30))
