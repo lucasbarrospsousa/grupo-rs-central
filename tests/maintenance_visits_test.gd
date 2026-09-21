@@ -19,7 +19,7 @@ func _init() -> void:
 	create_timer(60).timeout.connect(func(): push_error("Maintenance timeout"); quit(1))
 	run.call_deferred()
 func run() -> void:
-	root.size = Vector2i(1917, 995)
+	root.size = Vector2i(1917, 991)
 	var store := Store.new()
 	store.configure_isolated_sqlite_for_testing(ProjectSettings.globalize_path("user://visits.sqlite"))
 	store.load_db()
@@ -90,6 +90,12 @@ func run() -> void:
 	assert(store.get_maintenances(true).size() == 3)
 	await process_frame
 	await process_frame
+	assert(view.list_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_SHOW_NEVER)
+	assert(not view.list_scroll.get_v_scroll_bar().visible)
+	view.list_scroll.scroll_vertical = 100
+	await process_frame
+	assert(view.list_scroll.scroll_vertical > 0)
+	view.list_scroll.scroll_vertical = 0
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("maintenance-cards.png"))
@@ -97,9 +103,19 @@ func run() -> void:
 		await view.choose_client({"id": "1", "name": "Cliente fictício"})
 		view.vehicle.select(1)
 		view.select_vehicle(1)
+		view.reason.select(3)
+		view.reason.item_selected.emit(3)
 		await process_frame
+		await process_frame
+		assert(view.form_panel.get_global_rect().end.y < 991)
+		assert(view.form_panel.get_global_rect().position.y >= 0)
+		assert(view.form_panel.get_global_rect().encloses(view.save_button.get_global_rect()))
+		assert(view.form_panel.get_global_rect().encloses(view.departure.get_global_rect()))
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("maintenance-form.png"))
+		view.close_form()
+		await process_frame
+		assert(view.form_layer == null and is_instance_valid(view.cards))
 	host.free()
 	print("MAINTENANCE_VISITS PASS: repeated visits, immutable identity, completion validation, persistence, linkage selection")
 	quit()

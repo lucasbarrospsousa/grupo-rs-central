@@ -2,6 +2,8 @@
 
 Equipamentos > Manutenções contém cards, contadores dos filtros, busca por nome/placa/série, situação, entrada desde AAAA-MM-DD e exportação PDF dos registros filtrados.
 
+Layout compacto: lista com barra vertical oculta, preservando rolagem pela roda/teclado; cadastro e relatório em painel central sobre a lista, com cabeçalho no padrão da localização. Campos de identificação e diagnóstico à esquerda, situação/responsável/aparelho de saída à direita. Todos os controles, inclusive Salvar e Troca de aparelho, cabem sem rolagem do formulário na referência 1917×991. Resultados de clientes usam um seletor, evitando expandir o painel para cada homônimo. Fechar retorna à mesma lista e preserva filtros.
+
 Novo atendimento consulta o nome após 500 ms sem digitação. Reutiliza autenticação do portal de Imperatriz e endpoints JSON `clientes_select2` e `veiculos` de `get_data.php`. Não confundir esses endpoints com a API REST de telemetria: a relação cliente/veículos vem do portal autenticado. Nenhuma senha fica no relatório. Outras filiais podem consultar o histórico local, mas a busca remota inicial está limitada a Imperatriz.
 
 O operador seleciona o cadastro e exatamente um veículo, inclusive quando só há um. Série textual é preservada com zeros à esquerda. Resposta inválida, placa duplicada ou equipamento ausente impede cadastro com vínculo presumido. Mudança de consulta/filial descarta respostas antigas. Requisições de identificação são serializadas.

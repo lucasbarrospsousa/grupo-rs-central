@@ -33,6 +33,10 @@ var lookup_busy := false
 var date_filter: LineEdit
 var filtered: Array = []
 var metrics: HBoxContainer
+var list_scroll: ScrollContainer
+var form_layer: CanvasLayer
+var form_panel: PanelContainer
+var list_notice: Label
 
 func text(value: String, font_size: int = 15, color: String = "#173b5d") -> Label:
 	var node := Label.new()
@@ -84,8 +88,13 @@ func setup(controller: Node, injected: Node = null) -> void:
 			var config: Dictionary = vault.merge_secrets("app", {}, host.SecretVaultScript.APP_SECRET_KEYS)
 			service.credentials = {"username": config.get("grupo_rs_modern_user", ""), "password": config.get("grupo_rs_modern_password", "")}
 	notice = text("", 14, "#55758e")
+	list_notice = notice
 	add_child(notice)
 	var scroll := ScrollContainer.new()
+	list_scroll = scroll
+	# Hide the bar without disabling wheel, touch or keyboard scrolling.
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(scroll)
 	body = VBoxContainer.new()
@@ -100,6 +109,7 @@ func setup(controller: Node, injected: Node = null) -> void:
 	show_list()
 
 func clear_body() -> void:
+	close_form()
 	generation += 1
 	timer.stop()
 	for node in body.get_children():
@@ -230,16 +240,60 @@ func field(parent: Node, title: String, control: Control) -> VBoxContainer:
 	return box
 
 func show_form(item: Dictionary = {}) -> void:
-	clear_body()
+	close_form()
+	generation += 1
+	timer.stop()
 	editing = item.duplicate(true)
 	selected_client = {}
 	vehicles = []
-	var back := button("← Histórico de atendimentos", show_list)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	body.add_child(back)
-	body.add_child(text("Cadastro de manutenção" if item.is_empty() else "Relatório de manutenção", 26))
-	var identity := panel(body)
-	identity.add_child(text("01 · Cliente, veículo e aparelho", 19))
+	form_layer = CanvasLayer.new()
+	form_layer.layer = 20
+	add_child(form_layer)
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.04, 0.1, 0.17, 0.25)
+	form_layer.add_child(backdrop)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var center := CenterContainer.new()
+	form_layer.add_child(center)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	form_panel = PanelContainer.new()
+	form_panel.theme = theme
+	form_panel.custom_minimum_size.x = 1140
+	form_panel.add_theme_stylebox_override("panel", host._style_box(Color("#f4f8fc"), Color("#cbddeb"), 1, 18))
+	center.add_child(form_panel)
+	var shell := VBoxContainer.new()
+	shell.add_theme_constant_override("separation", 0)
+	form_panel.add_child(shell)
+	var banner := PanelContainer.new()
+	var banner_style := StyleBoxTexture.new()
+	banner_style.texture = preload("res://assets/ui/sms_header.svg")
+	for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP]: banner_style.set_texture_margin(side, 18)
+	for side in [SIDE_LEFT, SIDE_RIGHT]: banner_style.set_content_margin(side, 22)
+	for side in [SIDE_TOP, SIDE_BOTTOM]: banner_style.set_content_margin(side, 14)
+	banner.add_theme_stylebox_override("panel", banner_style)
+	shell.add_child(banner)
+	var header := HBoxContainer.new()
+	banner.add_child(header)
+	var title := text("Cadastro de manutenção" if item.is_empty() else "Relatório de manutenção", 23, "#ffffff")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	header.add_child(button("Fechar ×", close_form))
+	var margin := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]: margin.add_theme_constant_override("margin_" + side, 18)
+	shell.add_child(margin)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 12)
+	margin.add_child(content)
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 18)
+	content.add_child(columns)
+	var left := VBoxContainer.new()
+	left.custom_minimum_size.x = 680
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 12)
+	columns.add_child(left)
+	var identity := panel(left)
+	identity.add_theme_constant_override("separation", 8)
 	search = LineEdit.new()
 	search.placeholder_text = "Digite o nome do cliente"
 	field(identity, "Nome do cliente", search)
@@ -256,38 +310,44 @@ func show_form(item: Dictionary = {}) -> void:
 	device.editable = false
 	device.placeholder_text = "Aparelho vinculado"
 	field(row, "Aparelho de chegada", device)
-	var report := panel(body)
-	report.add_child(text("02 · Motivo e relatório", 19))
+	var report := panel(left)
+	report.add_theme_constant_override("separation", 8)
 	reason = OptionButton.new()
 	for value in ["Selecione o motivo", "Sem comunicação", "Localização errada", "Troca de aparelho"]: reason.add_item(value)
 	field(report, "Motivo da manutenção", reason)
-	state = OptionButton.new()
-	for key in STATES: state.add_item(STATES[key])
-	var details := HBoxContainer.new()
-	details.add_theme_constant_override("separation", 16)
-	report.add_child(details)
-	field(details, "Situação", state)
-	technician = LineEdit.new()
-	field(details, "Responsável", technician)
 	note = TextEdit.new()
-	note.custom_minimum_size.y = 70
+	note.custom_minimum_size.y = 64
 	field(report, "Relato do cliente / observações", note)
 	var technical := HBoxContainer.new()
 	technical.add_theme_constant_override("separation", 16)
 	report.add_child(technical)
 	diagnosis = TextEdit.new()
 	solution = TextEdit.new()
-	for entry in [diagnosis, solution]: entry.custom_minimum_size.y = 75
+	for entry in [diagnosis, solution]: entry.custom_minimum_size.y = 84
 	field(technical, "Diagnóstico técnico", diagnosis)
 	field(technical, "Solução / serviço realizado", solution)
+	var details := panel(columns)
+	details.custom_minimum_size.x = 310
+	details.add_theme_constant_override("separation", 14)
+	var side_style: StyleBoxFlat = details.get_parent().get_theme_stylebox("panel").duplicate()
+	side_style.bg_color = Color("#e4eef7")
+	details.get_parent().add_theme_stylebox_override("panel", side_style)
+	details.add_child(text("ATENDIMENTO", 15))
+	state = OptionButton.new()
+	for key in STATES: state.add_item(STATES[key])
+	field(details, "Situação", state)
+	technician = LineEdit.new()
+	field(details, "Responsável", technician)
 	departure = LineEdit.new()
-	departure_box = field(report, "Aparelho de saída após a troca", departure)
+	departure_box = field(details, "Aparelho de saída após a troca", departure)
 	departure_box.visible = false
-	report.add_child(text("O relatório preserva o vínculo de chegada. Nenhuma troca é feita automaticamente na plataforma.", 13, "#607d96"))
+	details.add_child(text("O vínculo de chegada fica preservado. A troca na plataforma deve ser confirmada separadamente.", 13, "#52738e"))
+	notice = text("", 13, "#52738e")
+	details.add_child(notice)
 	save_button = button("Salvar atendimento", save, true)
 	save_button.disabled = true
 	save_button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	body.add_child(save_button)
+	content.add_child(save_button)
 	search.text_changed.connect(func(_value): invalidate_selection(); timer.start())
 	search.text_submitted.connect(func(_value): timer.stop(); find_clients())
 	vehicle.item_selected.connect(select_vehicle)
@@ -311,6 +371,15 @@ func show_form(item: Dictionary = {}) -> void:
 		save_button.disabled = false
 		notice.text = "Dados de identificação preservados do atendimento original."
 	else: notice.text = "Digite ao menos 2 letras. Consulta de clientes e vínculos pelo portal autenticado."
+
+func close_form() -> void:
+	generation += 1
+	if is_instance_valid(timer): timer.stop()
+	if is_instance_valid(form_layer):
+		remove_child(form_layer)
+		form_layer.queue_free()
+	form_layer = null
+	notice = list_notice
 
 func invalidate_selection() -> void:
 	generation += 1
@@ -340,13 +409,21 @@ func find_clients() -> void:
 	if not result.get("ok", false): notice.text = str(result.get("message", "Falha na consulta.")); return
 	var clients: Array = result.get("clients", [])
 	notice.text = "Selecione o cliente correto." if not clients.is_empty() else "Nenhum cliente encontrado."
-	for client in clients:
-		picker.add_child(button(str(client.name) + " · cadastro " + str(client.id), func(): choose_client(client)))
+	if not clients.is_empty():
+		var results := OptionButton.new()
+		results.custom_minimum_size.y = 38
+		results.add_item("Selecione o cliente encontrado (%d)" % clients.size())
+		results.fit_to_longest_item = false
+		for client in clients: results.add_item(str(client.name) + " · cadastro " + str(client.id))
+		results.item_selected.connect(func(index):
+			if index > 0: choose_client(clients[index - 1]))
+		picker.add_child(results)
 
 func choose_client(client: Dictionary) -> void:
 	if lookup_busy: return
 	invalidate_selection()
 	selected_client = client.duplicate(true)
+	search.text = str(client.name)
 	var ticket := generation
 	picker.add_child(text("Cliente selecionado: " + str(client.name)))
 	notice.text = "Consultando veículos…"
@@ -385,4 +462,6 @@ func save() -> void:
 	values.departure_serial = departure.text
 	var result: Dictionary = host.store.save_maintenance_visit(values)
 	notice.text = str(result.get("message", "Falha ao salvar."))
-	if result.get("ok", false): show_list()
+	if result.get("ok", false):
+		show_list()
+		notice.text = str(result.get("message", "Atendimento salvo."))
