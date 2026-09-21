@@ -26,6 +26,10 @@ Validação isolada renderizada em 1917×991: `tools/test_offline.ps1 -Tests @('
 
 ## Testes proporcionais
 
+### HUB — manutenção por base (21/09/2026)
+
+Gráfico único com quatro barras, cores relativas, tooltip e lista filtrável ao clicar. Consulta a categoria da plataforma, sem misturar relatórios locais de manutenção. Sessões isoladas por filial, atualização ao abrir/manual, sem monitoramento. Quatro portais validados, incluindo Açailândia em acl.ogrupors.com.br conforme endereço informado pelo usuário. Fontes, limites e testes em `docs/hub_manutencao.md`.
+
 ### Manutenções por atendimento — 21/09/2026
 
 Aba Equipamentos > Manutenções: cliente → veículo único → aparelho de chegada via consultas JSON autenticadas do portal de Imperatriz, histórico por visita, relatório com motivo/meio e PDF dos filtros. Em troca, salva relatório e baixa local do aparelho selecionado em transação única; não troca vínculo remoto. Fluxo e testes: `docs/manutencoes_atendimentos.md`.

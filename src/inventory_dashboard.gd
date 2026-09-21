@@ -1810,6 +1810,8 @@ func _show_branch_selector() -> void:
 	branch_selector_online_badge_label.add_theme_font_override("font", UI_FONT)
 	branch_selector_online_badge_label.add_theme_font_size_override("font_size", 13)
 	branch_selector_online_badge_label.add_theme_color_override("font_color", Color("#b9cceb"))
+	branch_selector_online_badge_label.visible = false
+	right_stack.add_child(branch_selector_online_badge_label)
 
 	var grid := GridContainer.new()
 	# Os cartoes seguem a referencia visual: quatro bases alinhadas em uma unica
@@ -1825,7 +1827,9 @@ func _show_branch_selector() -> void:
 		var color: Color = config.get("color", ORANGE)
 		grid.add_child(_make_branch_button(branch_name, color, enabled, branch_id))
 
-	# A area inferior fica limpa, somente com o fundo azul do painel.
+	var maintenance_chart := preload("res://src/ui/hub_maintenance.gd").new()
+	maintenance_chart.credentials_for = _hub_maintenance_credentials
+	right_stack.add_child(maintenance_chart)
 	branch_summary_count_label = null
 	branch_summary_last_sync_label = null
 
@@ -1849,13 +1853,17 @@ func _auto_start_branch_preview_sync() -> void:
 		return
 
 
+func _hub_maintenance_credentials(branch_id: String) -> Dictionary:
+	return _modern_grupo_rs_credentials() if branch_id == "imperatriz" else _legacy_grupo_rs_credentials_for_branch(branch_id)
+
+
 func _make_branch_button(text_value: String, fill: Color, enabled: bool, branch_id: String) -> Button:
 	var button := Button.new()
 	button.text = text_value
 	button.disabled = not enabled
 	# Cartao visual inspirado na referencia: icone destacado, nome centralizado
 	# e os dois pequenos tracados azul/laranja abaixo do nome.
-	button.custom_minimum_size = Vector2(220, 398)
+	button.custom_minimum_size = Vector2(220, 262)
 	button.add_theme_font_override("font", UI_FONT)
 	button.add_theme_color_override("font_color", Color(1, 1, 1, 0))
 	button.add_theme_color_override("font_hover_color", Color(1, 1, 1, 0))
@@ -1882,15 +1890,15 @@ func _make_branch_button(text_value: String, fill: Color, enabled: bool, branch_
 
 	var icon_card := PanelContainer.new()
 	icon_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_card.custom_minimum_size = Vector2(132, 132)
+	icon_card.custom_minimum_size = Vector2(76, 76)
 	icon_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	icon_card.add_theme_stylebox_override("panel", _style_box(Color("#eaf1fc"), Color("#eaf1fc"), 0, 47))
 	row.add_child(icon_card)
 	var icon_margin := MarginContainer.new()
-	icon_margin.add_theme_constant_override("margin_left", 23)
-	icon_margin.add_theme_constant_override("margin_right", 23)
-	icon_margin.add_theme_constant_override("margin_top", 23)
-	icon_margin.add_theme_constant_override("margin_bottom", 23)
+	icon_margin.add_theme_constant_override("margin_left", 12)
+	icon_margin.add_theme_constant_override("margin_right", 12)
+	icon_margin.add_theme_constant_override("margin_top", 12)
+	icon_margin.add_theme_constant_override("margin_bottom", 12)
 	icon_card.add_child(icon_margin)
 	var branch_icon := TextureRect.new()
 	branch_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
