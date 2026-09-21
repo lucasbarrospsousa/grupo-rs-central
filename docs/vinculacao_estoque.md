@@ -6,7 +6,7 @@ Lista apenas aparelhos em Reserva ou Manutenção do banco local, com busca por 
 
 ## Operação
 
-1. Confere série única e aparelho ativo na API; busca a identificação nos formatos exibido e normalizado. Resposta inválida, ampla demais ou ambígua bloqueia.
+1. Confere série única e aparelho ativo na API; busca a identificação nos formatos exibido e normalizado, usando também o índice da série se a busca por placa ainda não localizar o vínculo. A correspondência exata de placa e aparelho continua obrigatória. Resposta inválida, ampla demais ou ambígua bloqueia.
 2. Confere a série exata no portal. Vínculo diferente é bloqueado, sem substituir placa ou cliente de um veículo instalado.
 3. Resolve um único cliente de nome exatamente RS300 no catálogo web. Nunca usa o primeiro resultado aproximado.
 4. Registra a tentativa antes de um único POST de veículo pela API, com os códigos do aparelho, titular e tipo Carro. Não altera chip/APN, não envia SMS e não ativa equipamentos inativos.
@@ -21,13 +21,15 @@ O serviço pertence ao controller, não à página. Navegar não cancela uma esc
 
 O arquivo operacional `user://stock_link_pending.json` impede repetir POST após timeout, HTTP 500 ou fechamento do aplicativo. Nova tentativa consulta a plataforma primeiro e só conclui localmente quando há correspondência exata. Não há fallback de escrita web após resultado incerto. Rejeições definitivas de autenticação/validação permitem nova tentativa somente quando as leituras confirmam ausência de vínculo.
 
-Se a gravação local ocorreu mas sua conferência falhou, a aba apresenta uma ação de conferência pendente, separada da lista de Reserva/Manutenção. Essa ação confere o mesmo vínculo e a persistência, sem reenviar o POST. Arquivo de pendência ilegível bloqueia novas escritas. Não remover esse arquivo para forçar repetição de uma operação não esclarecida.
+Tentativas pendentes aparecem em uma ação de conferência tanto para Reserva/Manutenção quanto para Estoque com persistência ainda não conferida. Essa ação confere o mesmo vínculo e a persistência, sem reenviar o POST. Arquivo de pendência ilegível bloqueia novas escritas. Não remover esse arquivo para forçar repetição de uma operação não esclarecida.
+
+Após envio aceito, HTTP 409 ou falha de transporte potencialmente ambígua, são feitas até três rodadas de confirmação, com intervalo de 0,8 segundo entre rodadas. São somente leituras. Se a API confirmar o vínculo mas o portal não confirmar RS300, a mensagem identifica essa pendência. Um 409 não autoriza recriar, substituir vínculo ou apagar o registro de tentativa. A interface usa confirmação clara no padrão azul do sistema, campos bloqueados legíveis e aviso destacado de progresso/resultado.
 
 ## Validação
 
-- `stock_link_test.gd`: Reserva/Manutenção, conflito, titular ausente/incorreto, troca de filial, timeout sem repetição, reconciliação e falha de conferência local.
+- `stock_link_test.gd`: Reserva/Manutenção, conflito, titular ausente/incorreto, troca de filial, timeout sem repetição, reconciliação, falha de conferência local, HTTP 409 persistente/tardio e operação seguinte no mesmo serviço.
 - `stock_link_transport_test.gd`: parsing real com respostas sintéticas, série duplicada, placa sem identidade, identidade divergente, erro explícito, titular único e persistência da tentativa.
-- `stock_link_ui_test.gd`: shell renderizado em 1917×1018, lista elegível, busca, filtros, revisão sem gravação e bloqueio de troca de filial.
+- `stock_link_ui_test.gd`: shell renderizado em 1917×991, lista elegível, busca, filtros, confirmação e processamento renderizados, revisão sem gravação e bloqueio de troca de filial.
 - `stock_link_persistence_test.gd`: gravação e releitura em SQLite isolado, situação/identificação/titular corretos, preservação do chip e da versão específica do aparelho.
 - Regressão: cena principal, troca de filial e retorno ao estoque existente. Pacote exportado auditado pelo contrato de recursos.
 - Consulta real somente de leitura validou o adaptador de aparelho e catálogo de titular e detectou vínculo divergente. Nenhuma nova escrita operacional foi executada para validar esta implementação. O POST de criação já havia sido comprovado na operação pontual autorizada anterior; isso não equivale a testar o botão instalado com outro aparelho.

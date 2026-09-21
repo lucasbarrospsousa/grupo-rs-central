@@ -17,6 +17,8 @@ var submit: Button
 var refresh_button: Button
 var filters: Array[Button] = []
 var confirmation: ConfirmationDialog
+var confirmation_summary: Label
+var confirmation_action: Button
 
 func setup(owner_node: Node) -> void:
 	host = owner_node
@@ -37,6 +39,10 @@ func setup(owner_node: Node) -> void:
 	field_style.content_margin_left = 14
 	field_style.content_margin_right = 14
 	theme.set_stylebox("normal", "LineEdit", field_style)
+	var readonly_style := field_style.duplicate()
+	readonly_style.bg_color = Color("#f0f5fa")
+	theme.set_stylebox("read_only", "LineEdit", readonly_style)
+	theme.set_color("font_uneditable_color", "LineEdit", Color("#536e88"))
 	var focus_style := field_style.duplicate()
 	focus_style.border_color = Color("#0879d9")
 	theme.set_stylebox("focus", "LineEdit", focus_style)
@@ -45,13 +51,21 @@ func setup(owner_node: Node) -> void:
 	add_child(label("GRUPO RS CENTRAL / " + str(host.selected_branch_name).to_upper(), 12, "#627b9b"))
 	var heading := HBoxContainer.new()
 	add_child(heading)
-	var title := label("Preparar aparelhos para estoque", 30)
+	var title := label("Vinculação para estoque", 28)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_child(title)
 	refresh_button = button("Atualizar lista", refresh)
 	heading.add_child(refresh_button)
 	add_child(label("Selecione a série e informe a identificação para vincular ao cliente RS300.", 15, "#627b9b"))
 	feedback = label("", 15)
+	var notice := StyleBoxFlat.new()
+	notice.bg_color = Color("#eaf3fc")
+	notice.border_color = Color("#c8dff3")
+	notice.set_border_width_all(1)
+	notice.set_corner_radius_all(10)
+	for side in [SIDE_LEFT, SIDE_RIGHT]: notice.set_content_margin(side, 14)
+	for side in [SIDE_TOP, SIDE_BOTTOM]: notice.set_content_margin(side, 10)
+	feedback.add_theme_stylebox_override("normal", notice)
 	feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	feedback.hide()
 	add_child(feedback)
@@ -60,7 +74,7 @@ func setup(owner_node: Node) -> void:
 	add_child(columns)
 	var left := panel()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.size_flags_stretch_ratio = 1.4
+	left.size_flags_stretch_ratio = 1.25
 	columns.add_child(left)
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 14)
@@ -87,13 +101,16 @@ func setup(owner_node: Node) -> void:
 	header.add_child(serial_header)
 	header.add_child(label("Situação atual", 13, "#627b9b"))
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.y = 380
+	scroll.custom_minimum_size.y = 270
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list.add_child(scroll)
 	rows = VBoxContainer.new()
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows.add_theme_constant_override("separation", 8)
 	scroll.add_child(rows)
-	list.add_child(label("Reserva e Manutenção · banco local da filial", 12, "#627b9b"))
+	list.add_child(label("Reserva e Manutenção · role a lista para ver mais aparelhos", 12, "#627b9b"))
 	pending = VBoxContainer.new()
 	list.add_child(pending)
 	var right := panel()
@@ -101,7 +118,7 @@ func setup(owner_node: Node) -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(right)
 	editor = VBoxContainer.new()
-	editor.add_theme_constant_override("separation", 15)
+	editor.add_theme_constant_override("separation", 12)
 	right.add_child(editor)
 	var banner := PanelContainer.new()
 	var skin := StyleBoxTexture.new()
@@ -111,7 +128,7 @@ func setup(owner_node: Node) -> void:
 	editor.add_child(banner)
 	var banner_text := VBoxContainer.new()
 	banner.add_child(banner_text)
-	banner_text.add_child(label("Criar vínculo", 23, "#ffffff"))
+	banner_text.add_child(label("Preparar aparelho", 23, "#ffffff"))
 	banner_text.add_child(label("Identificação de teste · cliente RS300", 13, "#e0efff"))
 	editor.add_child(label("APARELHO SELECIONADO", 12, "#627b9b"))
 	selection = label("Selecione uma série", 25)
@@ -136,11 +153,52 @@ func setup(owner_node: Node) -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	editor.add_child(hint)
 	confirmation = ConfirmationDialog.new()
+	confirmation.borderless = true
+	confirmation.transparent_bg = true
+	confirmation.transparent = true
+	confirmation.unresizable = true
+	confirmation.theme = theme.duplicate()
+	var dialog_skin := StyleBoxFlat.new()
+	dialog_skin.bg_color = Color("#f5f8fc")
+	dialog_skin.border_color = Color("#ccdeef")
+	dialog_skin.set_border_width_all(1)
+	dialog_skin.set_corner_radius_all(18)
+	confirmation.theme.set_stylebox("panel", "AcceptDialog", dialog_skin)
 	confirmation.title = "Confirmar vinculação"
 	confirmation.ok_button_text = "Confirmar vínculo"
 	confirmation.cancel_button_text = "Voltar"
 	confirmation.confirmed.connect(confirm_link)
 	add_child(confirmation)
+	confirmation.get_ok_button().hide()
+	confirmation.get_cancel_button().hide()
+	confirmation.get_label().hide()
+	var dialog_host := Control.new()
+	dialog_host.custom_minimum_size = Vector2(560, 350)
+	confirmation.add_child(dialog_host)
+	var dialog_body := VBoxContainer.new()
+	dialog_host.add_child(dialog_body)
+	dialog_body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dialog_body.add_theme_constant_override("separation", 18)
+	var dialog_header := PanelContainer.new()
+	dialog_header.add_theme_stylebox_override("panel", skin.duplicate())
+	dialog_body.add_child(dialog_header)
+	dialog_header.add_child(label("Conferir vinculação", 23, "#ffffff"))
+	var dialog_margin := MarginContainer.new()
+	for side in ["left", "right", "bottom"]: dialog_margin.add_theme_constant_override("margin_" + side, 24)
+	dialog_body.add_child(dialog_margin)
+	var details := VBoxContainer.new()
+	details.add_theme_constant_override("separation", 18)
+	dialog_margin.add_child(details)
+	confirmation_summary = label("", 18)
+	details.add_child(confirmation_summary)
+	details.add_child(label("O estoque será atualizado após a conferência do vínculo.", 13, "#627b9b"))
+	var actions := HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("separation", 12)
+	details.add_child(actions)
+	actions.add_child(button("Voltar", confirmation.hide))
+	confirmation_action = button("Confirmar vínculo", func(): confirmation.hide(); confirm_link(), true)
+	actions.add_child(confirmation_action)
 	render_rows()
 	set_busy(service.busy)
 	if service.busy:
@@ -182,6 +240,12 @@ func button(text: String, action: Callable, primary: bool = false) -> Button:
 	normal.content_margin_left = 12
 	normal.content_margin_right = 12
 	result.add_theme_stylebox_override("normal", normal)
+	var disabled_style := normal.duplicate()
+	if disabled_style is StyleBoxFlat:
+		disabled_style.bg_color = Color("#dceaf6") if primary else Color("#f2f6fa")
+		disabled_style.border_color = Color("#d6e3ef")
+	result.add_theme_stylebox_override("disabled", disabled_style)
+	result.add_theme_color_override("font_disabled_color", Color("#58728d"))
 	return result
 
 func refresh() -> void:
@@ -193,7 +257,7 @@ func render_rows() -> void:
 	for child in rows.get_children(): rows.remove_child(child); child.queue_free()
 	for child in pending.get_children(): pending.remove_child(child); child.queue_free()
 	for item in service.local_pending():
-		var recovery := button("Conferir gravação pendente · " + str(item.serial), func(): choose(str(item.sku)); plate.text = str(item.plate); review())
+		var recovery := button("Conferir pendência · " + str(item.serial), func(): choose(str(item.sku)); plate.text = str(item.plate); review())
 		recovery.disabled = service.busy
 		pending.add_child(recovery)
 	var available: Array = []
@@ -249,8 +313,15 @@ func review() -> void:
 	var normalized := Service.format_plate(plate.text)
 	if normalized == "": show_progress("Informe uma identificação como AAA - 0123 ou GRS - 021."); return
 	plate.text = normalized
+	var is_pending := false
+	for item in service.local_pending():
+		if str(item.sku) == selected: is_pending = true
+	confirmation_action.text = "Conferir pendência" if is_pending else "Confirmar vínculo"
 	confirmation.dialog_text = "Série: %s\nIdentificação: %s\nCliente titular: RS300\nApós confirmação: Estoque\n\nCriar e confirmar este vínculo na plataforma?" % [selection.text, plate.text]
-	confirmation.popup_centered(Vector2i(500, 250))
+	confirmation_summary.text = "Aparelho   %s\nIdentificação   %s\nCliente titular   RS300\nDestino   Estoque" % [selection.text, plate.text]
+	if is_pending: confirmation_summary.text += "\nSomente conferir · sem repetir o envio"
+	confirmation.get_label().hide()
+	confirmation.popup_centered(Vector2i(580, 370))
 
 func confirm_link() -> void:
 	if service.busy or selected == "": return
@@ -270,6 +341,7 @@ func set_busy(value: bool) -> void:
 
 func show_progress(message: String) -> void:
 	feedback.text = message
+	feedback.get_theme_stylebox("normal").bg_color = Color("#eaf3fc")
 	feedback.add_theme_color_override("font_color", Color("#17395f"))
 	feedback.show()
 
@@ -277,9 +349,10 @@ func show_result(result: Dictionary) -> void:
 	set_busy(false)
 	show_progress(str(result.get("message", "")))
 	feedback.add_theme_color_override("font_color", Color("#078154") if result.get("ok", false) else Color("#aa5511"))
+	feedback.get_theme_stylebox("normal").bg_color = Color("#e9f7f0") if result.get("ok", false) else Color("#fff5e6")
 	if result.get("ok", false):
 		selected = ""
 		selection.text = "Selecione outra série"
 		current_status.text = ""
 		plate.text = ""
-		render_rows()
+	render_rows()

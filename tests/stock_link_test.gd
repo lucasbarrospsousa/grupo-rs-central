@@ -23,6 +23,9 @@ class FakeService extends Service:
 	var wrong_client := false
 	var switched := false
 	var local_failure := false
+	var late_conflict := false
+	var rejected_conflict := false
+	var portal_reads := 0
 	var journal: Dictionary = {}
 	func read_equipment(_serial: String) -> Dictionary:
 		if switched: host.selected_branch_id = "maraba"
@@ -30,13 +33,15 @@ class FakeService extends Service:
 	func read_vehicle(_plate: String, _serial: String, _id: int) -> Dictionary:
 		return {"ok": true, "exists": conflict or linked, "matched": linked and not conflict}
 	func read_portal(_serial: String) -> Dictionary:
+		portal_reads += 1
+		if late_conflict and portal_reads >= 3: linked = true
 		return {"ok": true, "plate": "GRS - 021" if linked else "-", "client": "Outro" if wrong_client else "RS300"}
 	func read_client() -> Dictionary: return {"ok": not client_failure, "client_id": 7, "message": "Titular ambíguo"}
 	func create_vehicle(payload: Dictionary) -> Dictionary:
 		assert(payload == {"placa": "GRS - 021", "codEquipamento": 42, "codCliente": 7, "codTipoVeiculo": 1, "status": "A"})
 		posts += 1
-		linked = not ambiguous
-		return {"response_code": 500 if ambiguous else 201}
+		linked = not ambiguous and not late_conflict and not rejected_conflict
+		return {"response_code": 409 if late_conflict or rejected_conflict else (500 if ambiguous else 201)}
 	func persist(_sku: String, _before: Dictionary, _plate: String) -> Dictionary:
 		persisted += 1
 		host.store.product.status = "Estoque"
@@ -55,7 +60,7 @@ func run() -> void:
 	assert(Service.format_plate("GRS - 021") == "GRS - 021")
 	assert(Service.format_plate("ZZZ - 123") == "")
 	assert(Service.eligible({"status": "Manutenção"}))
-	for scenario in ["success", "maintenance", "conflict", "timeout", "client", "wrong_client", "branch", "existing", "local_failure"]:
+	for scenario in ["success", "maintenance", "conflict", "timeout", "client", "wrong_client", "branch", "existing", "local_failure", "late_409", "second_device", "rejected_409"]:
 		var h := Host.new()
 		root.add_child(h)
 		var service := FakeService.new()
@@ -70,8 +75,10 @@ func run() -> void:
 			"branch": service.switched = true
 			"existing": service.linked = true
 			"local_failure": service.local_failure = true
+			"late_409": service.late_conflict = true
+			"rejected_409": service.rejected_conflict = true
 		var result := await service.run("000000001", "GRS - 021")
-		if scenario in ["success", "maintenance", "existing"]:
+		if scenario in ["success", "maintenance", "existing", "late_409", "second_device"]:
 			assert(result.ok and service.persisted == 1)
 			assert(service.posts == (0 if scenario == "existing" else 1))
 		elif scenario != "local_failure":
@@ -82,14 +89,24 @@ func run() -> void:
 			service.local_failure = false
 			assert((await service.run("000000001", "GRS - 021")).ok)
 			assert(service.posts == 1 and service.journal.is_empty())
-		if scenario == "timeout":
+		if scenario in ["timeout", "rejected_409"]:
 			assert(service.posts == 1 and not service.journal.is_empty())
+			assert(service.local_pending().size() == 1)
 			assert(not (await service.run("000000001", "GRS - 021")).ok)
 			assert(service.posts == 1)
 			assert(not (await service.run("000000001", "AAA - 022")).ok)
 			service.linked = true
 			assert((await service.run("000000001", "GRS - 021")).ok)
 			assert(service.posts == 1 and service.journal.is_empty())
+		if scenario == "second_device":
+			h.store.product = {"sku":"000000002", "imei":"000000002", "status":"Manutenção", "tracker_status":"Manutenção"}
+			service.linked = false
+			service.ambiguous = true
+			assert(not (await service.run("000000002", "GRS - 021")).ok)
+			assert(service.posts == 2 and service.journal.has("imperatriz:000000002"))
+			service.linked = true
+			assert((await service.run("000000002", "GRS - 021")).ok)
+			assert(service.posts == 2 and service.journal.is_empty())
 		h.free()
 	print("STOCK_LINK_TEST PASS: explicit association, reserve/maintenance, collision, missing holder, wrong holder, branch isolation, durable retry fence, reconciliation")
 	quit()

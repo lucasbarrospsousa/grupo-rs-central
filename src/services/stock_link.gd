@@ -84,13 +84,30 @@ func execute(sku: String, requested_plate: String) -> Dictionary:
 		if not valid_context(): return fail("A filial mudou; confirmação pendente.")
 		portal = await read_portal(serial)
 		if not valid_context(): return fail("A filial mudou; confirmação pendente.")
+		# The write and the two read indexes do not necessarily become visible together.
+		# Retry reads only; a 409 must never trigger a second creation or reassignment.
+		for attempt in range(2):
+			if vehicle.get("matched", false) and portal_matches(portal, plate): break
+			if int(sent.get("response_code", 0)) not in [0, 200, 201, 202, 409, 500, 502, 503, 504]: break
+			progress.emit("Aguardando confirmação da plataforma · conferência %d de 3…" % (attempt + 2))
+			await get_tree().create_timer(0.8).timeout
+			if not valid_context(): return fail("A filial mudou; confirmação pendente.")
+			vehicle = await read_vehicle(plate, serial, equipment_id)
+			if not valid_context(): return fail("A filial mudou; confirmação pendente.")
+			portal = await read_portal(serial)
+			if not valid_context(): return fail("A filial mudou; confirmação pendente.")
 		if not vehicle.get("ok", false) or not vehicle.get("matched", false) or not portal_matches(portal, plate):
 			# Definitive rejections may be retried after fixing access/input. Ambiguous
 			# transport errors retain the durable fence across restarts.
 			if int(sent.get("response_code", 0)) in [400, 401, 403, 404, 405, 422] and vehicle.get("ok", false) and not vehicle.get("exists", false) and portal.get("ok", false) and str(portal.get("plate", "")).strip_edges() in ["", "-"]:
 				journal.erase(key)
-				write_journal(journal)
-			return fail("Vínculo não confirmado (HTTP %s). Cadastro local preservado; nenhuma tentativa pela web foi repetida." % str(sent.get("response_code", 0)))
+				if not write_journal(journal): return fail("Rejeição da plataforma; a pendência não pôde ser atualizada. Consulte novamente antes de tentar criar o vínculo.")
+				return fail("A plataforma rejeitou o cadastro (HTTP %s). Nenhum vínculo foi encontrado. Revise os dados e o acesso antes de tentar novamente." % str(sent.get("response_code", 0)))
+			if vehicle.get("matched", false):
+				return fail("A API confirmou %s → %s; falta confirmar o titular RS300 no portal. Use Conferir pendência. O cadastro não será enviado novamente." % [serial, plate])
+			if int(sent.get("response_code", 0)) == 409:
+				return fail("A plataforma informou conflito (HTTP 409). O vínculo ainda não foi confirmado nas consultas. Use Conferir pendência para consultar novamente; nenhuma associação será substituída.")
+			return fail("Confirmação pendente (HTTP %s). Use Conferir pendência para consultar novamente. Cadastro local preservado; nenhum envio será repetido." % str(sent.get("response_code", 0)))
 	if not unchanged(sku, before): return fail("Vínculo remoto confirmado, mas o cadastro local mudou. Confira o aparelho antes de concluir o estoque.")
 	progress.emit("Salvando e conferindo Estoque no banco local…")
 	var saved := await persist(sku, before, plate)
@@ -106,7 +123,7 @@ func local_pending() -> Array[Dictionary]:
 	for product in host.store.get_products():
 		var serial := str(product.get("imei", product.get("sku", "")))
 		var key := str(host.selected_branch_id) + ":" + serial
-		if journal.has(key) and str(product.get("status", "")) == "Estoque":
+		if journal.has(key) and (eligible(product) or str(product.get("status", "")) == "Estoque"):
 			result.append({"sku": product.get("sku", ""), "serial": serial, "plate": journal[key].get("plate", "")})
 	return result
 
@@ -132,7 +149,8 @@ func read_equipment(serial: String) -> Dictionary:
 
 func read_vehicle(plate: String, serial: String, equipment_id: int) -> Dictionary:
 	var found: Array = []
-	for query in [plate, plate_key(plate)]:
+	# The serial index may already expose a link while the plate index is stale.
+	for query in [plate, plate_key(plate), serial]:
 		var response: Dictionary = await host._grupo_rs_api_get("/endpoints/veiculos.php?q=%s&skip=0&take=50" % query.uri_encode(), true, true)
 		if not valid_context(): return fail("A filial mudou.")
 		if not response.get("ok", false): return fail("Não foi possível verificar a disponibilidade da identificação.")
@@ -142,14 +160,14 @@ func read_vehicle(plate: String, serial: String, equipment_id: int) -> Dictionar
 		if rows.size() >= 50: return fail("Consulta de identificação ampla demais. Nenhum vínculo foi criado.")
 		for raw in rows:
 			var row: Dictionary = host._grupo_rs_api_normalize_location(raw)
-			if plate_key(str(row.get("plate", ""))) == plate_key(plate): found.append(row)
+			if plate_key(str(row.get("plate", ""))) == plate_key(plate) or (query == serial and str(row.get("serial", "")) == serial): found.append(row)
 		if not found.is_empty(): break
 	if found.size() > 1: return fail("Há mais de um vínculo para a identificação.")
 	if found.is_empty(): return {"ok": true, "exists": false, "matched": false}
 	var row: Dictionary = found[0]
 	var remote_serial := str(row.get("serial", ""))
 	var remote_id := str(row.get("equipment_id", ""))
-	var matches := (remote_serial == serial or remote_id == str(equipment_id)) and (remote_serial == "" or remote_serial == serial) and (remote_id == "" or remote_id == str(equipment_id))
+	var matches := plate_key(str(row.get("plate", ""))) == plate_key(plate) and (remote_serial == serial or remote_id == str(equipment_id)) and (remote_serial == "" or remote_serial == serial) and (remote_id == "" or remote_id == str(equipment_id))
 	return {"ok": true, "exists": true, "matched": matches}
 
 func read_portal(serial: String) -> Dictionary:

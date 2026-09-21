@@ -22,8 +22,8 @@ func _init() -> void:
 	create_timer(30).timeout.connect(func(): print("STOCK_LINK_UI_TIMEOUT"); quit(2))
 	run.call_deferred()
 func run() -> void:
-	root.size = Vector2i(1917, 1018)
-	root.content_scale_size = Vector2i(1917, 1018)
+	root.size = Vector2i(1917, 991)
+	root.content_scale_size = Vector2i(1917, 991)
 	root.gui_embed_subwindows = true
 	var shell := Shell.new()
 	shell.store = Store.new()
@@ -52,11 +52,28 @@ func run() -> void:
 	view.review()
 	assert(view.confirmation.visible)
 	assert(view.confirmation.dialog_text.contains("RS300"))
+	await process_frame
+	await process_frame
+	if DisplayServer.get_name() != "headless":
+		RenderingServer.force_draw()
+		assert(root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("stock-link-confirmation.png")) == OK)
 	view.confirmation.hide()
 	var service := shell._stock_link_service()
 	service.busy = true
 	assert(shell._sidebar_branch_switch_busy())
 	service.busy = false
+	assert(view.submit.get_global_rect().end.y < root.size.y)
+	view.set_busy(true)
+	assert(view.search.has_theme_stylebox("read_only"))
+	assert(view.submit.has_theme_stylebox_override("disabled"))
+	view.show_progress("Confirmando série, identificação e titular na plataforma…")
+	await process_frame
+	await process_frame
+	if DisplayServer.get_name() != "headless":
+		RenderingServer.force_draw()
+		assert(root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("stock-link-busy.png")) == OK)
+	view.set_busy(false)
+	view.feedback.hide()
 	await process_frame
 	await process_frame
 	if DisplayServer.get_name() != "headless":

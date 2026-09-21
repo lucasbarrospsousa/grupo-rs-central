@@ -4,9 +4,12 @@ class Reader extends "res://src/inventory_dashboard.gd":
 	var payload: Variant = []
 	var http := 200
 	var client_payload: Dictionary = {}
+	var serial_index_only := false
 	func _ready() -> void: pass
 	func _process(_delta: float) -> void: pass
 	func _grupo_rs_api_get(_path: String, _retry: bool = true, _force: bool = false) -> Dictionary:
+		if serial_index_only and not _path.contains("q=000000001"):
+			return {"ok":true,"response_code":200,"body":"[]"}
 		return {"ok": http == 200, "response_code": http, "body": JSON.stringify(payload)}
 	func _modern_grupo_rs_read_get(_path: String) -> Dictionary:
 		return {"ok": true, "body": JSON.stringify(client_payload)}
@@ -29,6 +32,13 @@ func run() -> void:
 	assert(not (await service.read_vehicle("GRS - 021","000000001",42)).matched)
 	h.payload = [{"codVeiculo":8,"placa":"GRS - 021","codEquipamento":42,"numeroSerie":"000000001"}]
 	assert((await service.read_vehicle("GRS - 021","000000001",42)).matched)
+	h.serial_index_only = true
+	assert((await service.read_vehicle("GRS - 021","000000001",42)).matched)
+	h.payload[0].placa = "AAA - 099"
+	var other_plate := await service.read_vehicle("GRS - 021","000000001",42)
+	assert(other_plate.exists and not other_plate.matched)
+	h.payload[0].placa = "GRS - 021"
+	h.serial_index_only = false
 	h.payload.append(h.payload[0].duplicate())
 	assert(not (await service.read_vehicle("GRS - 021","000000001",42)).ok)
 	h.payload.pop_back()
