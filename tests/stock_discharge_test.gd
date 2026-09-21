@@ -80,4 +80,6 @@ func run():
 	if DisplayServer.get_name()!="headless":
 		await create_timer(0.4).timeout;assert(dialog.size.y<root.size.y);RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("analisar-baixa.png"))
+	service.rows[0].ok=false;service.rows[0].message="Baixa aplicada • Instalado"
+	dialog.result_filter.select(2);dialog.render();assert(dialog.filtered.size()==3)
 	shell.free();print("STOCK_DISCHARGE_OK");quit()

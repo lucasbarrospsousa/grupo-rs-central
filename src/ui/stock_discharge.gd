@@ -44,7 +44,7 @@ func _ready() -> void:
 	var subtitle:=text("Conferência da API • atualização somente do estoque da Central",14);subtitle.add_theme_color_override("font_color",Color("#d6eaff"));titles.add_child(subtitle)
 	close_button=button("×",close);close_button.custom_minimum_size=Vector2(36,36);heading.add_child(close_button)
 	var metric_row:=HBoxContainer.new();metric_row.add_theme_constant_override("separation",12);stack.add_child(metric_row)
-	for metric in [["EM ESTOQUE","#246ba5"],["APTOS PARA BAIXA","#19965c"],["PARA REVISÃO","#ce253b"]]:
+	for metric in [["NA ANÁLISE","#246ba5"],["APTOS PARA BAIXA","#19965c"],["PARA REVISÃO","#ce253b"]]:
 		var surface:=PanelContainer.new();surface.size_flags_horizontal=Control.SIZE_EXPAND_FILL;surface.add_theme_stylebox_override("panel",host._style_box(Color(metric[1]),Color.TRANSPARENT,0,18));metric_row.add_child(surface)
 		var spacing:=MarginContainer.new();surface.add_child(spacing)
 		for edge in ["left","right","top","bottom"]:spacing.add_theme_constant_override("margin_"+edge,12)
@@ -120,7 +120,7 @@ func render() -> void:
 	for index in range(service.rows.size()):
 		var row:Dictionary=service.rows[index]
 		if result_filter.selected==1 and not row.ok:continue
-		if result_filter.selected==2 and row.ok:continue
+		if result_filter.selected==2 and (row.ok or str(row.message).begins_with("Baixa aplicada")):continue
 		if search.text.strip_edges()!="" and not (str(row.serial)+" "+str(row.plate)+" "+str(row.client)).to_lower().contains(search.text.strip_edges().to_lower()):continue
 		filtered.append(index)
 	page=mini(page,maxi(0,ceili(filtered.size()/float(PAGE_SIZE))-1))
@@ -136,7 +136,7 @@ func render() -> void:
 	for row in service.rows:
 		if row.selected and row.ok:selected+=1
 	selection.text="%d selecionado(s)" % selected;apply_button.disabled=selected==0 or service.busy or not service.context_ok()
-	metrics[0].text="EM ESTOQUE  ·  %d" % service.rows.size()
+	metrics[0].text="NA ANÁLISE  ·  %d" % service.rows.size()
 	metrics[1].text="APTOS PARA BAIXA  ·  %d" % eligible_count()
 	metrics[2].text="PARA REVISÃO  ·  %d" % service.rows.filter(func(row):return not row.ok and not str(row.message).begins_with("Baixa aplicada")).size()
 	badge_overlay.queue_redraw()
