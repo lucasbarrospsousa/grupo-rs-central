@@ -14,10 +14,10 @@ func _run() -> void:
 		var dashboard = script.new()
 		for removed in ["_show_vehicle_location_monitor", "_show_smart_4g_monitor", "_build_online_lookup_panel", "_request_online_lookup_from_search", "_schedule_online_lookup_confirmed_api_reconcile", "_setup_st310_location_poll_timer"]:
 			_check(not dashboard.has_method(removed), "Retired method in package: " + removed)
-		for kept in ["_show_list", "_show_location_lookup", "_refresh_table", "_generate_inventory_report", "_show_consult", "_show_records", "_show_route", "_show_stock_link", "_show_maintenance_visits"]:
+		for kept in ["_show_list", "_show_location_lookup", "_refresh_table", "_generate_inventory_report", "_show_consult", "_show_records", "_show_route", "_show_stock_link", "_show_maintenance_visits", "_show_scanner_inventory"]:
 			_check(dashboard.has_method(kept), "Required method missing: " + kept)
 		dashboard.free()
-	for required in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py", "res://assets/icons/report/pdf.svg"]:
+	for required in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py", "res://tools/scanner_inventory_service.py", "res://assets/icons/report/pdf.svg"]:
 		_check(FileAccess.file_exists(required) or ResourceLoader.exists(required), "Required resource missing: " + required)
 	for required in ["res://src/services/tracking_records.gd","res://src/ui/tracking_records.gd","res://src/ui/records_map.gd","res://assets/icons/records/history.svg"]:
 		_check(ResourceLoader.exists(required), "Records resource missing: " + required)
@@ -51,7 +51,7 @@ func _audit_directory(path: String) -> void:
 		_check(file.get_extension() not in ["sqlite", "db", "vault", "enc", "jsonl", "log"], "Private data file shipped: " + file)
 		_check(not file.begins_with("res://tests/") and not file.begins_with("res://reports/") and not file.begins_with("res://backups/"), "Private/test directory shipped")
 		if file.ends_with(".py"):
-			_check(file in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py"], "Unreviewed Python script shipped: " + file)
+			_check(file in ["res://tools/local_sqlite_service.py", "res://tools/inventory_report_generator.py", "res://tools/sms_gateway_service.py", "res://tools/scanner_inventory_service.py"], "Unreviewed Python script shipped: " + file)
 	for name in dir.get_directories():
 		_audit_directory(path.path_join(name))
 

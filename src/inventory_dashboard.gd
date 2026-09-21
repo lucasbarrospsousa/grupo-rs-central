@@ -59,7 +59,7 @@ const CODEX_ESCALATION_TIMEOUT_SECONDS := 75.0
 const DEFAULT_AUTH_USER := "lucasabm"
 const DEFAULT_AUTH_SALT := "grupo-rs-central-v1"
 const DEFAULT_AUTH_PASSWORD_HASH := "8b8be979780a3d27da85579c5398e07b6acd78b73e0e6ac0c4ea8adebc78e6fc"
-const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "stock_link", "maintenance_visits", "consult", "records", "route", "bulk", "settings", "sms_panel"]
+const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "stock_link", "maintenance_visits", "consult", "records", "route", "bulk", "settings", "sms_panel", "scanner_inventory"]
 const TABLE_PAGE_SIZE := 10
 const SYSTEM_LOG_PAGE_SIZE := 20
 # A referencia visual do log usa uma lista curta de eventos recentes. Mantemos
@@ -3178,6 +3178,8 @@ func _build_sidebar() -> Control:
 	list.add_child(_make_sidebar_equipment_group())
 	list.add_child(_make_sidebar_button("Manutenções", "arquivo", "maintenance_visits", _show_maintenance_visits))
 	list.add_child(_make_sidebar_tracking_group())
+	if selected_branch_id == "imperatriz":
+		list.add_child(_make_sidebar_button("Estoque Scanner", "cadastros", "scanner_inventory", _show_scanner_inventory))
 	if _branch_supports_sms():
 		list.add_child(_make_sidebar_button("Painel SMS", "sms", "sms_panel", _show_sms_panel))
 	var section_divider := HSeparator.new()
@@ -8258,6 +8260,18 @@ func _stock_link_service() -> Node:
 		stock_link_service.host = self
 		add_child(stock_link_service)
 	return stock_link_service
+
+
+func _show_scanner_inventory() -> void:
+	if selected_branch_id != "imperatriz":return
+	if not has_meta("scanner_bridge"):
+		var bridge := preload("res://src/services/scanner_bridge.gd").new()
+		add_child(bridge);bridge.setup();set_meta("scanner_bridge",bridge)
+	_set_page_context("scanner_inventory", "Estoque do Scanner", "Chips e aparelhos recebidos do celular")
+	_set_content_margins(36,28,36,24)
+	var view := preload("res://src/ui/scanner_inventory.gd").new()
+	view.setup(self,get_meta("scanner_bridge"))
+	_set_content(view,true)
 
 
 func _show_stock_link() -> void:
