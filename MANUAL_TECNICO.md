@@ -16,6 +16,14 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 - Para executar em desenvolvimento, abrir esta pasta no Godot e executar a cena principal definida em project.godot. Nos aplicativos operacionais, isso pode acessar serviços reais: só executar quando estiver no escopo.
 - Instalador: não foi identificado/validado um fluxo comum de instalador. EXE exportado não equivale a instalador. Inspecionar scripts específicos antes de distribuir.
 
+## Navegação organizada — 21/09/2026
+
+Menu: Início; Equipamentos (Estoque, Vinculação, Cadastro em massa); Manutenções; Rastreamento (Consultar veículo, Histórico de posições, Trajeto); Painel SMS nas filiais compatíveis; Configurações. Base, conexão e Sair permanecem no rodapé.
+
+Grupos recolhíveis sem guia vertical: expandir um recolhe o outro. Navegar a um submenu abre seu grupo automaticamente; grupo tem destaque suave e apenas a página selecionada recebe o destaque principal. Reconstrução ao mudar de filial reinicializa os grupos. As rotas e permissões das telas existentes são preservadas.
+
+Validação isolada renderizada em 1917×991: `tools/test_offline.ps1 -Tests @('tests/sidebar_navigation_visual_test.gd') -Rendered`. Também verificar `main_scene_smoke_test.gd` e `sidebar_branch_switch_test.gd`.
+
 ## Testes proporcionais
 
 ### Manutenções por atendimento — 21/09/2026

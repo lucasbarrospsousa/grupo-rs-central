@@ -889,6 +889,9 @@ var sidebar_buttons: Dictionary = {}
 var sidebar_equipment_toggle: Button
 var sidebar_equipment_children: VBoxContainer
 var sidebar_equipment_expanded := true
+var sidebar_tracking_toggle: Button
+var sidebar_tracking_children: VBoxContainer
+var sidebar_tracking_expanded := false
 var sidebar_collapsed := false
 var current_section := "dashboard"
 var stock_link_service: Node
@@ -1441,6 +1444,9 @@ func _clear_screen() -> void:
 	sidebar_equipment_toggle = null
 	sidebar_equipment_children = null
 	sidebar_equipment_expanded = true
+	sidebar_tracking_toggle = null
+	sidebar_tracking_children = null
+	sidebar_tracking_expanded = false
 	sidebar_collapsed = false
 	branch_card_entries.clear()
 	branch_summary_status_labels.clear()
@@ -3161,9 +3167,11 @@ func _build_sidebar() -> Control:
 	list.add_child(navigation_margin)
 
 	list.add_child(_make_sidebar_button("Inicio", "dashboard", "dashboard", _show_dashboard))
+	list.add_child(_make_sidebar_equipment_group())
+	list.add_child(_make_sidebar_button("Manutenções", "arquivo", "maintenance_visits", _show_maintenance_visits))
+	list.add_child(_make_sidebar_tracking_group())
 	if _branch_supports_sms():
 		list.add_child(_make_sidebar_button("Painel SMS", "sms", "sms_panel", _show_sms_panel))
-	list.add_child(_make_sidebar_equipment_group())
 	var section_divider := HSeparator.new()
 	section_divider.add_theme_constant_override("separation", 8)
 	section_divider.add_theme_color_override("separator_color", Color("#315775"))
@@ -3196,69 +3204,40 @@ func _build_sidebar() -> Control:
 
 
 func _make_sidebar_equipment_group() -> Control:
-	var group := VBoxContainer.new()
+	var group := _make_sidebar_navigation_group("Equipamentos", "cadastros", "equipment_group", _toggle_sidebar_equipment_group)
 	group.name = "SidebarEquipmentGroup"
-	group.add_theme_constant_override("separation", 1)
-
-	sidebar_equipment_toggle = _make_sidebar_button(
-		"Equipamentos",
-		"cadastros",
-		"equipment_group",
-		Callable(self, "_toggle_sidebar_equipment_group"),
-		false,
-		true
-	)
-	group.add_child(sidebar_equipment_toggle)
-
-	var children_margin := MarginContainer.new()
-	children_margin.name = "SidebarEquipmentChildrenMargin"
-	children_margin.add_theme_constant_override("margin_left", 16)
-	children_margin.add_theme_constant_override("margin_top", 12)
-	children_margin.add_theme_constant_override("margin_bottom", 6)
-	children_margin.add_theme_constant_override("margin_right", 0)
-	group.add_child(children_margin)
-
-	var children_wrap := HBoxContainer.new()
-	children_wrap.name = "SidebarEquipmentChildrenWrap"
-	children_wrap.add_theme_constant_override("separation", 0)
-	children_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	children_wrap.add_theme_constant_override("alignment", BoxContainer.ALIGNMENT_BEGIN)
-
-	var guide := SidebarEquipmentGuide.new()
-	guide.name = "SidebarEquipmentGuide"
-	guide.custom_minimum_size = Vector2(8, 0)
-	guide.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	children_wrap.add_child(guide)
-
-	sidebar_equipment_children = VBoxContainer.new()
+	sidebar_equipment_toggle = group.get_child(0)
+	sidebar_equipment_children = group.get_child(1).get_child(0)
 	sidebar_equipment_children.name = "SidebarEquipmentChildren"
-	sidebar_equipment_children.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sidebar_equipment_children.add_theme_constant_override("separation", 4)
-	children_wrap.add_child(sidebar_equipment_children)
-
-	sidebar_equipment_children.add_child(
-		_make_sidebar_button("Estoque", "cadastros", "inventory", _show_list, true)
-	)
-	sidebar_equipment_children.add_child(
-		_make_sidebar_button("Vinculação", "cadastros", "stock_link", _show_stock_link, true)
-	)
-	sidebar_equipment_children.add_child(
-		_make_sidebar_button("Manutenções", "arquivo", "maintenance_visits", _show_maintenance_visits, true)
-	)
-	sidebar_equipment_children.add_child(
-		_make_sidebar_button("Consultar", "consulta", "consult", _show_consult, true)
-	)
-	sidebar_equipment_children.add_child(
-		_make_sidebar_button("Registros", "arquivo", "records", _show_records, true)
-	)
-	sidebar_equipment_children.add_child(
-		_make_sidebar_button("Trajeto", "localizacao", "route", _show_route, true)
-	)
-	sidebar_equipment_children.add_child(
-		_make_sidebar_button("Cadastro em massa", "arquivo", "bulk", _show_bulk_registration, true)
-	)
-	children_margin.add_child(children_wrap)
+	for item in [["Estoque", "cadastros", "inventory", _show_list], ["Vinculação", "cadastros", "stock_link", _show_stock_link], ["Cadastro em massa", "arquivo", "bulk", _show_bulk_registration]]:
+		sidebar_equipment_children.add_child(_make_sidebar_button(item[0], item[1], item[2], item[3], true))
 	_set_sidebar_equipment_expanded(sidebar_equipment_expanded)
+	return group
+
+func _make_sidebar_tracking_group() -> Control:
+	var group := _make_sidebar_navigation_group("Rastreamento", "localizacao", "tracking_group", _toggle_sidebar_tracking_group)
+	group.name = "SidebarTrackingGroup"
+	sidebar_tracking_toggle = group.get_child(0)
+	sidebar_tracking_toggle.name = "SidebarTrackingToggle"
+	sidebar_tracking_children = group.get_child(1).get_child(0)
+	sidebar_tracking_children.name = "SidebarTrackingChildren"
+	for item in [["Consultar veículo", "consulta", "consult", _show_consult], ["Histórico de posições", "arquivo", "records", _show_records], ["Trajeto", "localizacao", "route", _show_route]]:
+		sidebar_tracking_children.add_child(_make_sidebar_button(item[0], item[1], item[2], item[3], true))
+	_set_sidebar_tracking_expanded(sidebar_tracking_expanded)
+	return group
+
+func _make_sidebar_navigation_group(title: String, icon: String, key: String, callback: Callable) -> VBoxContainer:
+	var group := VBoxContainer.new()
+	group.add_theme_constant_override("separation", 1)
+	group.add_child(_make_sidebar_button(title, icon, key, callback, false, true))
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	group.add_child(margin)
+	var children := VBoxContainer.new()
+	children.add_theme_constant_override("separation", 3)
+	margin.add_child(children)
 	return group
 
 
@@ -3509,7 +3488,7 @@ func _apply_sidebar_button_state(button: Button, active: bool) -> void:
 
 
 func _is_sidebar_equipment_section(section: String) -> bool:
-	return section in ["inventory", "stock_link", "maintenance_visits", "consult", "records", "route", "bulk"]
+	return section in ["inventory", "stock_link", "bulk"]
 
 
 func _toggle_sidebar_equipment_group() -> void:
@@ -3519,12 +3498,29 @@ func _toggle_sidebar_equipment_group() -> void:
 func _set_sidebar_equipment_expanded(expanded: bool) -> void:
 	sidebar_equipment_expanded = expanded
 	if sidebar_equipment_children != null and is_instance_valid(sidebar_equipment_children):
-		sidebar_equipment_children.visible = expanded
+		sidebar_equipment_children.get_parent().visible = expanded
+	if expanded and is_instance_valid(sidebar_tracking_children):
+		_set_sidebar_tracking_expanded(false)
 	var chevron := sidebar_equipment_toggle.find_child("SidebarChevron", true, false) as Label if sidebar_equipment_toggle != null and is_instance_valid(sidebar_equipment_toggle) else null
 	if chevron != null:
 		chevron.text = "⌃" if expanded else "⌄"
 	if sidebar_equipment_toggle != null and is_instance_valid(sidebar_equipment_toggle):
 		sidebar_equipment_toggle.set_meta("expanded", expanded)
+
+
+func _toggle_sidebar_tracking_group() -> void:
+	_set_sidebar_tracking_expanded(not sidebar_tracking_expanded)
+
+func _set_sidebar_tracking_expanded(expanded: bool) -> void:
+	sidebar_tracking_expanded = expanded
+	if is_instance_valid(sidebar_tracking_children):
+		sidebar_tracking_children.get_parent().visible = expanded
+	if expanded and is_instance_valid(sidebar_equipment_children):
+		_set_sidebar_equipment_expanded(false)
+	if is_instance_valid(sidebar_tracking_toggle):
+		var chevron := sidebar_tracking_toggle.find_child("SidebarChevron", true, false) as Label
+		if chevron != null: chevron.text = "⌃" if expanded else "⌄"
+		sidebar_tracking_toggle.set_meta("expanded", expanded)
 
 
 func _set_page_context(section: String, title: String, subtitle: String = "") -> void:
@@ -3537,7 +3533,7 @@ func _set_page_context(section: String, title: String, subtitle: String = "") ->
 	if is_instance_valid(topbar_title_label):
 		topbar_title_label.text = title
 	if is_instance_valid(topbar_subtitle_label):
-		topbar_subtitle_label.text = "Início  ›  Equipamentos  ›  Estoque" if section == "inventory" else "Início  ›  %s" % title
+		topbar_subtitle_label.text = "Início  ›  %s  ›  %s" % ["Equipamentos" if _is_sidebar_equipment_section(section) else "Rastreamento", "Estoque" if section == "inventory" else title] if _is_sidebar_equipment_section(section) or section in ["consult", "records", "route"] else "Início  ›  %s" % title
 	if is_instance_valid(topbar_context_label):
 		topbar_context_label.text = subtitle
 		topbar_context_label.visible = section == "inventory" and subtitle.strip_edges() != ""
@@ -3549,9 +3545,13 @@ func _set_page_context(section: String, title: String, subtitle: String = "") ->
 			var active := str(section_key) == section
 			if str(section_key) == "equipment_group":
 				active = _is_sidebar_equipment_section(section)
+			if str(section_key) == "tracking_group":
+				active = section in ["consult", "records", "route"]
 			_apply_sidebar_button_state(button, active)
 	if _is_sidebar_equipment_section(section) and not sidebar_equipment_expanded:
 		_set_sidebar_equipment_expanded(true)
+	if section in ["consult", "records", "route"] and not sidebar_tracking_expanded:
+		_set_sidebar_tracking_expanded(true)
 	var event_bus := _app_event_bus()
 	if event_bus != null:
 		event_bus.call("publish_page", section, title, subtitle)
@@ -8274,7 +8274,7 @@ func _show_maintenance_visits() -> void:
 
 
 func _show_consult() -> void:
-	_set_page_context("consult", "Consulta de equipamentos", "Clientes e aparelhos do banco local")
+	_set_page_context("consult", "Consultar veículo", "Clientes, veículos e aparelhos vinculados")
 	_set_content_margins(44, 30, 44, 26)
 	var view := preload("res://src/ui/equipment_consultation.gd").new()
 	view.setup(self)
@@ -8282,7 +8282,7 @@ func _show_consult() -> void:
 
 
 func _show_records() -> void:
-	_set_page_context("records", "Registros de rastreamento", "Histórico de posições • somente leitura")
+	_set_page_context("records", "Histórico de posições", "Registros de rastreamento • somente leitura")
 	_set_content_margins(30, 24, 30, 22)
 	var view := preload("res://src/ui/tracking_records.gd").new()
 	view.setup(self)
