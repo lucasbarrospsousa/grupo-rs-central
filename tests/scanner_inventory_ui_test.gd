@@ -47,7 +47,10 @@ func run() -> void:
 	view.custom.text="Laboratório fictício";view.update_selection();assert(not view.review_button.disabled)
 	view.manual_dialog();await process_frame
 	var manual:AcceptDialog=view.get_node("ManualWarehouseDialog")
-	assert(fake.registers==0)
+	assert(fake.registers==0);assert(manual.borderless)
+	if DisplayServer.get_name()!="headless":
+		await create_timer(0.4).timeout;RenderingServer.force_draw()
+		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("cadastro-armazem.png"))
 	manual.find_child("ItemNumber",true,false).text="invalid"
 	manual.find_child("SaveManualItem",true,false).pressed.emit();await process_frame
 	assert(is_instance_valid(manual));assert(fake.registers==1)
@@ -55,7 +58,8 @@ func run() -> void:
 	manual.find_child("SaveManualItem",true,false).pressed.emit();await process_frame;await process_frame
 	assert(fake.registers==2);assert(not is_instance_valid(manual))
 	view.manual_dialog();await process_frame
-	view.get_node("ManualWarehouseDialog").close_requested.emit();await process_frame
+	view.get_node("ManualWarehouseDialog").canceled.emit();await process_frame;await process_frame
+	assert(root.find_child("WarehouseModalShade",true,false)==null)
 	assert(fake.registers==2)
 	view.set_mode("base");view.base.select(3);view.update_selection();view.select_kind("equipment");await process_frame
 	assert(view.review_button.get_global_rect().end.y<=root.size.y)

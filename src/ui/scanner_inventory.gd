@@ -406,26 +406,41 @@ func submit_dispatch(payload: Dictionary) -> void:
 	else:status.text=str(result.get("error","Não foi possível confirmar o envio. Consulte Movimentações antes de repetir."))
 	await refresh()
 func manual_dialog() -> void:
+	if has_node("ManualWarehouseDialog"):return
 	var dialog:=AcceptDialog.new();dialog.title="Novo item • Armazém";dialog.theme=theme
-	dialog.name="ManualWarehouseDialog";dialog.min_size=Vector2i(540,280)
+	dialog.name="ManualWarehouseDialog";dialog.min_size=Vector2i(640,430)
+	dialog.borderless=true;dialog.unresizable=true;dialog.transparent_bg=true
 	dialog.add_theme_stylebox_override("panel",host._style_box(Color.WHITE,Color("#cbdff0"),1,16))
 	dialog.get_ok_button().hide()
-	var box:=VBoxContainer.new();box.add_theme_constant_override("separation",12);dialog.add_child(box)
-	box.add_child(label("Cadastrar no Armazém",22))
+	var margin:=MarginContainer.new();dialog.add_child(margin)
+	for edge in ["left","right","top","bottom"]:margin.add_theme_constant_override("margin_"+edge,22)
+	var box:=VBoxContainer.new();box.add_theme_constant_override("separation",14);margin.add_child(box)
+	var header:=PanelContainer.new();header.add_theme_stylebox_override("panel",host._style_box(Color("#174c7a"),Color.TRANSPARENT,0,10));box.add_child(header)
+	var header_margin:=MarginContainer.new();header.add_child(header_margin)
+	for edge in ["left","right","top","bottom"]:header_margin.add_theme_constant_override("margin_"+edge,16)
+	var heading:=HBoxContainer.new();header_margin.add_child(heading)
+	var titles:=VBoxContainer.new();titles.size_flags_horizontal=Control.SIZE_EXPAND_FILL;heading.add_child(titles)
+	var title:=label("Novo item no Armazém",24);title.add_theme_color_override("font_color",Color.WHITE);titles.add_child(title)
+	var subtitle:=label("Cadastro manual de aparelhos e chips",14);subtitle.add_theme_color_override("font_color",Color("#d5e9ff"));titles.add_child(subtitle)
+	var close:=action("×",dialog.queue_free);close.custom_minimum_size=Vector2(36,36);close.tooltip_text="Fechar cadastro";heading.add_child(close)
+	box.add_child(label("Tipo de item",15))
 	var type:=OptionButton.new();type.name="ItemType";type.add_item("Aparelho");type.add_item("Chip")
 	type.select(1 if kind=="chip" else 0);style_input(type);box.add_child(type)
+	var number_label:=label("",15);box.add_child(number_label)
 	var number:=LineEdit.new();number.name="ItemNumber";number.max_length=20;style_input(number);box.add_child(number)
-	var hint:=label("",15);box.add_child(hint)
+	var hint:=label("",14);hint.add_theme_color_override("font_color",Color("#607895"));hint.custom_minimum_size.x=580;hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(hint)
 	var update_hint:=func():
-		number.placeholder_text="Número de série • 9 dígitos" if type.selected==0 else "ICCID • 19 ou 20 dígitos"
-		hint.text="Ex.: 024000123 • mantenha o zero inicial" if type.selected==0 else "Número do chip, começando por 89 • somente dígitos"
+		number_label.text="Número de série" if type.selected==0 else "Número do chip (ICCID)"
+		number.placeholder_text="Digite os 9 dígitos da série" if type.selected==0 else "Digite os 19 ou 20 dígitos do ICCID"
+		hint.text="Ex.: 024000123 • mantenha o zero inicial." if type.selected==0 else "O ICCID começa com 89. Informe somente os números."
 	update_hint.call();type.item_selected.connect(func(_index):update_hint.call())
-	var feedback:=label("",15);feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(feedback)
-	var buttons:=HBoxContainer.new();box.add_child(buttons)
-	var save:=action("Salvar no Armazém",func():pass,true);save.name="SaveManualItem";buttons.add_child(save)
+	var feedback:=label("",14);feedback.custom_minimum_size=Vector2(580,22);feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;feedback.add_theme_color_override("font_color",Color("#a64312"));box.add_child(feedback)
+	box.add_child(HSeparator.new())
+	var buttons:=HBoxContainer.new();buttons.alignment=BoxContainer.ALIGNMENT_END;buttons.add_theme_constant_override("separation",10);box.add_child(buttons)
 	var cancel:=action("Cancelar",dialog.queue_free);buttons.add_child(cancel)
+	var save:=action("Salvar no Armazém",func():pass,true);save.name="SaveManualItem";buttons.add_child(save)
 	save.pressed.connect(func():
-		save.disabled=true;cancel.disabled=true;type.disabled=true;number.editable=false;feedback.text="Salvando…"
+		dialog.dialog_close_on_escape=false;save.disabled=true;cancel.disabled=true;close.disabled=true;type.disabled=true;number.editable=false;feedback.text="Salvando…"
 		var result:Dictionary=await service.call_service("register",{"kind":"equipment" if type.selected==0 else "chip","number":number.text.strip_edges()})
 		if not is_instance_valid(dialog):return
 		if result.get("ok",false):
@@ -434,6 +449,13 @@ func manual_dialog() -> void:
 			dialog.queue_free();await refresh();last_usage_check=-15000;await receive()
 		else:
 			feedback.text=str(result.get("error","Não foi possível salvar. Tente novamente."))
-			save.disabled=false;cancel.disabled=false;type.disabled=false;number.editable=true
+			dialog.dialog_close_on_escape=true;save.disabled=false;cancel.disabled=false;close.disabled=false;type.disabled=false;number.editable=true
 	)
-	dialog.close_requested.connect(dialog.queue_free);add_child(dialog);dialog.popup_centered();number.grab_focus()
+	dialog.close_requested.connect(func():
+		if not save.disabled:dialog.queue_free()
+	)
+	dialog.canceled.connect(dialog.queue_free)
+	var shade:=ColorRect.new();shade.name="WarehouseModalShade";shade.color=Color(0.03,0.09,0.15,0.35);shade.mouse_filter=Control.MOUSE_FILTER_STOP
+	get_tree().root.add_child(shade);shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dialog.tree_exiting.connect(shade.queue_free)
+	add_child(dialog);dialog.popup_centered(Vector2i(640,480));number.grab_focus()
