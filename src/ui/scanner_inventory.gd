@@ -14,7 +14,6 @@ var selected := {}
 var search: LineEdit
 var table: Tree
 var status: Label
-var connection_status: Label
 var pages: Label
 var devices: Button
 var chips: Button
@@ -33,7 +32,6 @@ var equipment_count: Label
 var chip_count: Label
 var sent_count: Label
 var retry: Timer
-var failures := 0
 var destination_mode := "base"
 const BASE_IDS := ["imperatriz","araguaina","acailandia","maraba"]
 
@@ -83,17 +81,16 @@ func setup(owner_node: Node, bridge: Node) -> void:
 	add_theme_constant_override("separation",14)
 	var header:=HBoxContainer.new();add_child(header)
 	var titles:=VBoxContainer.new();titles.size_flags_horizontal=Control.SIZE_EXPAND_FILL;header.add_child(titles)
-	titles.add_child(label("Armazém",30));titles.add_child(label("Aparelhos e chips • recebimento e distribuição",14))
-	connection_status=label("● Verificando Scanner…",15);header.add_child(connection_status)
-	header.add_child(action("Conexão",pair_dialog))
+	titles.add_child(label("Armazém",30));titles.add_child(label("Aparelhos e chips • cadastro manual e distribuição",14))
+	header.add_child(action("+ Novo item",manual_dialog,true))
 	var strip:=HBoxContainer.new();add_child(strip)
-	status=label("Reconexão automática ao abrir o Armazém",13);status.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	status=label("Cadastre aparelhos e chips pelo número, preservando os zeros iniciais.",13);status.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;strip.add_child(status)
-	strip.add_child(action("Atualizar agora",receive))
+	strip.add_child(action("Atualizar lista",receive))
 	usage_status=label("Verificando utilização dos chips no banco compartilhado…",13);add_child(usage_status)
 	var metrics:=HBoxContainer.new();metrics.add_theme_constant_override("separation",16);add_child(metrics)
 	equipment_count=metric(metrics,"Aparelhos disponíveis","Prontos para distribuição")
-	chip_count=metric(metrics,"Chips disponíveis","Recebidos pelo Scanner")
+	chip_count=metric(metrics,"Chips disponíveis","Cadastrados no Armazém")
 	sent_count=metric(metrics,"Enviados hoje","Destinações registradas no Armazém")
 	var body:=HBoxContainer.new();body.add_theme_constant_override("separation",18);body.size_flags_vertical=Control.SIZE_EXPAND_FILL;add_child(body)
 	var left:=panel(body);left.get_parent().get_parent().set_meta("static_card",true);left.get_parent().get_parent().size_flags_stretch_ratio=2.3
@@ -214,27 +211,9 @@ func receive() -> void:
 			for number in usage.get("used_numbers",[]):selected.erase("chip:"+str(number))
 			await refresh()
 		else:usage_status.text=str(usage.get("error","Verificação de uso pendente; nova tentativa automática."))
-	var cfg: Dictionary=await service.call_service("config")
-	if not is_inside_tree():return
-	if not cfg.get("ok",false) or cfg.get("config",{}).is_empty():
-		connection_status.text="● Scanner não pareado";syncing=false
-		status.text="Abra Conexão para parear o celular. O recebimento será automático.";retry.start(10);return
-	connection_status.text="● Conectando ao Scanner…"
-	var result: Dictionary=await service.call_service("sync")
-	if not is_inside_tree():return
+	await refresh()
 	syncing=false
-	if result.get("ok",false):
-		failures=0;connection_status.text="● Scanner conectado"
-		connection_status.add_theme_color_override("font_color",Color("#168354"))
-		status.text="Recebimento automático ativo • última sincronização %s • %d novos itens" % [date_text(int(Time.get_unix_time_from_system())).right(8),result.get("added",0)]
-		if result.get("ack_pending",0)>0:status.text+=" • confirmação ao celular pendente; nova tentativa automática"
-		await refresh()
-		retry.start(2 if result.get("received",0)==40 else 5)
-	else:
-		failures+=1;connection_status.text="● Aguardando reconexão"
-		connection_status.add_theme_color_override("font_color",Color("#b36b12"))
-		status.text=str(result.get("error","Scanner indisponível"))+" Nova tentativa automática."
-		retry.start(mini(30,5*failures))
+	retry.start(15)
 
 func check_item() -> void:
 	var item:=table.get_edited()
@@ -306,26 +285,35 @@ func submit_dispatch(payload: Dictionary) -> void:
 		clear_selection();note.clear();status.text="Envio registrado • %d item(ns). Histórico em Movimentações." % result.get("sent",0)
 	else:status.text=str(result.get("error","Não foi possível confirmar o envio. Consulte Movimentações antes de repetir."))
 	await refresh()
-func pair_dialog() -> void:
-	var dialog := AcceptDialog.new();dialog.title = "Conectar RS Scanner • Imperatriz";dialog.min_size = Vector2i(660,360)
-	dialog.theme=theme;dialog.add_theme_stylebox_override("panel",host._style_box(Color.WHITE,Color("#cbdff0"),1,16))
-	var box := VBoxContainer.new();box.add_theme_constant_override("separation",12);dialog.add_child(box)
-	box.add_child(label("No celular: modo 2 → Conectar ao Grupo RS Central",15))
-	var url := LineEdit.new();url.placeholder_text = "https://IP-DO-CELULAR:8843";box.add_child(url)
-	var pin := LineEdit.new();pin.placeholder_text = "SHA256 exibido pelo Scanner";box.add_child(pin)
-	var code := LineEdit.new();code.placeholder_text = "Código temporário de pareamento";code.secret = true;box.add_child(code)
-	for input in [url,pin,code]:style_input(input);input.custom_minimum_size.y=42
-	var feedback := label("Confira o certificado no celular antes de parear.",14);feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART;box.add_child(feedback)
-	var pair := action("Conferi o certificado • Parear",func():pass,true);box.add_child(pair)
-	pair.pressed.connect(func():
-		pair.disabled=true
-		var result: Dictionary = await service.call_service("pair",{"url":url.text.strip_edges(),"fingerprint":pin.text.strip_edges().to_lower(),"code":code.text.strip_edges()})
-		if not is_instance_valid(feedback):return
-		code.clear();pair.disabled=false
-		feedback.text = "Pareado. O Armazém receberá as leituras automaticamente." if result.get("ok",false) else str(result.get("error","Falha"))
+func manual_dialog() -> void:
+	var dialog:=AcceptDialog.new();dialog.title="Novo item • Armazém";dialog.theme=theme
+	dialog.name="ManualWarehouseDialog";dialog.min_size=Vector2i(540,280)
+	dialog.add_theme_stylebox_override("panel",host._style_box(Color.WHITE,Color("#cbdff0"),1,16))
+	dialog.get_ok_button().hide()
+	var box:=VBoxContainer.new();box.add_theme_constant_override("separation",12);dialog.add_child(box)
+	box.add_child(label("Cadastrar no Armazém",22))
+	var type:=OptionButton.new();type.name="ItemType";type.add_item("Aparelho");type.add_item("Chip")
+	type.select(1 if kind=="chip" else 0);style_input(type);box.add_child(type)
+	var number:=LineEdit.new();number.name="ItemNumber";number.max_length=20;style_input(number);box.add_child(number)
+	var hint:=label("",13);box.add_child(hint)
+	var update_hint:=func():
+		number.placeholder_text="Número de série • 9 dígitos" if type.selected==0 else "ICCID • 19 ou 20 dígitos"
+		hint.text="Ex.: 024000123 • mantenha o zero inicial" if type.selected==0 else "Número do chip, começando por 89 • somente dígitos"
+	update_hint.call();type.item_selected.connect(func(_index):update_hint.call())
+	var feedback:=label("",13);feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(feedback)
+	var buttons:=HBoxContainer.new();box.add_child(buttons)
+	var save:=action("Salvar no Armazém",func():pass,true);save.name="SaveManualItem";buttons.add_child(save)
+	var cancel:=action("Cancelar",dialog.queue_free);buttons.add_child(cancel)
+	save.pressed.connect(func():
+		save.disabled=true;cancel.disabled=true;type.disabled=true;number.editable=false;feedback.text="Salvando…"
+		var result:Dictionary=await service.call_service("register",{"kind":"equipment" if type.selected==0 else "chip","number":number.text.strip_edges()})
+		if not is_instance_valid(dialog):return
+		if result.get("ok",false):
+			kind=str(result.kind);page_index=0;search.clear();filter.select(0)
+			status.text="%s cadastrado no Armazém: %s" % ["Aparelho" if kind=="equipment" else "Chip",result.number]
+			dialog.queue_free();await refresh();last_usage_check=-15000;await receive()
+		else:
+			feedback.text=str(result.get("error","Não foi possível salvar. Tente novamente."))
+			save.disabled=false;cancel.disabled=false;type.disabled=false;number.editable=true
 	)
-	box.add_child(action("Atualizar somente endereço",func():
-		var result: Dictionary = await service.call_service("address",{"url":url.text.strip_edges()})
-		if is_instance_valid(feedback):feedback.text="Endereço confirmado." if result.get("ok",false) else str(result.get("error","Falha"))
-	))
-	host.add_child(dialog);dialog.popup_centered();dialog.confirmed.connect(dialog.queue_free);dialog.close_requested.connect(dialog.queue_free)
+	dialog.close_requested.connect(dialog.queue_free);add_child(dialog);dialog.popup_centered();number.grab_focus()

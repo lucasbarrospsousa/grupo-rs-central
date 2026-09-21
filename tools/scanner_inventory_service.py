@@ -1,7 +1,6 @@
-"""Separate scanner intake. Never opens or changes the operational inventory database."""
+"""Manual warehouse intake. Never opens or changes the operational inventory database."""
 import json, re, sqlite3, sys, time, uuid
 from pathlib import Path
-from sms_gateway_service import protect, request_remote, endpoint
 
 
 def connect(path):
@@ -25,47 +24,20 @@ def connect(path):
     return db
 
 
-def config(db, secret=False):
-    row = db.execute('SELECT value FROM config WHERE id=1').fetchone()
-    value = json.loads(row[0]) if row else {}
-    encrypted = value.pop('protected_token', None)
-    if secret and encrypted:
-        value['token'] = protect(encrypted, True)
-    return value
-
-
-def validate(row):
-    if not isinstance(row, dict) or set(row) != {'id','kind','number','created_at','branch','version'}:
-        raise ValueError('Formato de leitura inválido')
-    if row['version'] != 1 or type(row['version']) is not int or row['branch'] != 'imperatriz':
-        raise ValueError('Base ou versão inválida')
-    if str(uuid.UUID(row['id'])) != row['id']:
-        raise ValueError('Identificador inválido')
-    if row['kind'] not in ('equipment','chip') or not isinstance(row['number'], str):
-        raise ValueError('Tipo de leitura inválido')
-    pattern = r'[0-9]{9}' if row['kind'] == 'equipment' else r'89[0-9]{17,18}'
-    if not re.fullmatch(pattern, row['number']):
-        raise ValueError('Número inválido')
-    if type(row['created_at']) is not int or not 0 < row['created_at'] <= time.time()+300:
-        raise ValueError('Confira a data e a hora do celular')
-
-
-def accept(db, source, rows):
-    if not isinstance(rows, list) or len(rows) > 40:
-        raise ValueError('Lote inválido')
-    added = 0
+def register(db, data):
+    kind, number = data.get('kind'), data.get('number')
+    if kind not in ('equipment', 'chip') or not isinstance(number, str):
+        raise ValueError('Selecione aparelho ou chip e informe o número')
+    number = number.strip()
+    pattern = r'[0-9]{9}' if kind == 'equipment' else r'89[0-9]{17,18}'
+    if not re.fullmatch(pattern, number):
+        raise ValueError('Informe a série com 9 dígitos' if kind == 'equipment' else 'Informe o ICCID com 19 ou 20 dígitos, começando por 89')
     with db:
         db.execute('BEGIN IMMEDIATE')
-        for row in rows:
-            validate(row)
-            payload = json.dumps(row, sort_keys=True)
-            old = db.execute('SELECT payload FROM receipts WHERE source=? AND id=?', (source,row['id'])).fetchone()
-            if old and old[0] != payload:
-                raise ValueError('Leitura repetida com conteúdo diferente; recebimento bloqueado')
-            db.execute('INSERT OR IGNORE INTO receipts VALUES(?,?,?)', (source,row['id'],payload))
-            added += db.execute('INSERT OR IGNORE INTO items VALUES(?,?,?,?)',
-                (row['branch'],row['kind'],row['number'],int(time.time()))).rowcount
-    return added
+        if db.execute('SELECT 1 FROM items WHERE kind=? AND number=?', (kind, number)).fetchone():
+            raise ValueError('Este número já está no Armazém. O cadastro e seu histórico foram preservados.')
+        db.execute('INSERT INTO items VALUES(?,?,?,?)', ('imperatriz', kind, number, int(time.time())))
+    return {'ok': True, 'kind': kind, 'number': number}
 
 
 BASES = {'imperatriz':'Imperatriz','araguaina':'Araguaína','acailandia':'Açailândia','maraba':'Marabá'}
@@ -145,46 +117,7 @@ def dispatch(db, data):
 def operate(db, op, data):
     if op == 'reconcile_usage':return reconcile_usage(db,OPERATIONAL_DB)
     if op == 'dispatch':return dispatch(db,data)
-    if op == 'config':
-        return {'ok':True, 'config':config(db)}
-    if op == 'pair':
-        endpoint(data['url'])
-        status, result = request_remote(data, 'POST', '/pair', {'code':data['code']})
-        if status != 200 or result.get('service') != 'rs-scanner' or result.get('version') != 1 or not re.fullmatch('[0-9a-f]{64}',result.get('token','')):
-            raise ValueError('Pareamento do Scanner não confirmado')
-        value = {'url':data['url'], 'fingerprint':data['fingerprint'], 'protected_token':protect(result['token'])}
-        with db:
-            db.execute('INSERT OR REPLACE INTO config VALUES(1,?)',(json.dumps(value),))
-        return {'ok':True}
-    if op == 'address':
-        value=config(db,True)
-        if not value:raise ValueError('Pareie o Scanner primeiro')
-        value['url']=data['url'];endpoint(value['url'])
-        status, health=request_remote(value,'GET','/health')
-        if status!=200 or health.get('service')!='rs-scanner' or health.get('branch')!='imperatriz':
-            raise ValueError('Scanner não confirmado neste endereço')
-        value['protected_token']=protect(value.pop('token'))
-        with db:db.execute('UPDATE config SET value=? WHERE id=1',(json.dumps(value),))
-        return {'ok':True}
-    if op == 'sync':
-        value = config(db,True)
-        if not value:raise ValueError('Pareie o RS Scanner antes de receber leituras')
-        status, result = request_remote(value,'GET','/readings')
-        if status != 200 or result.get('service') != 'rs-scanner':
-            raise ValueError('Resposta do Scanner inválida')
-        rows = result.get('readings')
-        added = accept(db,value['fingerprint'],rows)
-        acknowledged = 0
-        deadline = time.monotonic()+12
-        for row in rows:
-            if time.monotonic() >= deadline:break
-            try:
-                status, response = request_remote(value,'POST','/ack',{k:row[k] for k in ('id','kind','number')})
-                if status != 200 or response.get('id') != row['id'] or response.get('state') != 'received':break
-                acknowledged += 1
-            except Exception:
-                break
-        return {'ok':True,'added':added,'received':len(rows),'ack_pending':len(rows)-acknowledged}
+    if op == 'register':return register(db,data)
     if op == 'list':
         kind=data.get('kind','equipment')
         if kind not in ('equipment','chip','movements'):raise ValueError('Tipo inválido')
@@ -224,5 +157,5 @@ if __name__ == '__main__':
     except (ValueError, KeyError) as error:
         result={'ok':False,'error':str(error) if isinstance(error,ValueError) else 'Requisição incompleta'}
     except Exception:
-        result={'ok':False,'error':'Scanner indisponível ou falha de gravação. Confira o Wi-Fi e tente novamente.'}
+        result={'ok':False,'error':'Armazém indisponível ou falha de gravação. Tente novamente.'}
     output.write_text(json.dumps(result,ensure_ascii=False),encoding='utf-8')

@@ -11,7 +11,7 @@ func setup() -> void:
 	var folder := ProjectSettings.globalize_path("user://scanner_bridge")
 	DirAccess.make_dir_recursive_absolute(folder)
 	runtime = folder.path_join("scanner_inventory_service.py")
-	for filename in ["scanner_inventory_service.py", "sms_gateway_service.py"]:
+	for filename in ["scanner_inventory_service.py"]:
 		var file := FileAccess.open(folder.path_join(filename), FileAccess.WRITE)
 		if file == null: return
 		file.store_string(FileAccess.get_file_as_string("res://tools/" + filename))
@@ -32,7 +32,7 @@ func _execute(op: String, data: Dictionary) -> Dictionary:
 	OS.execute(python, PackedStringArray([runtime, op, database, input, output]), stdout, true, false)
 	var result: Variant = JSON.parse_string(FileAccess.get_file_as_string(output)) if FileAccess.file_exists(output) else null
 	DirAccess.remove_absolute(input);DirAccess.remove_absolute(output)
-	return result if result is Dictionary else {"ok":false, "error":"Serviço do Scanner indisponível"}
+	return result if result is Dictionary else {"ok":false, "error":"Serviço do Armazém indisponível"}
 
 func call_service(op: String, data: Dictionary = {}) -> Dictionary:
 	while busy: await get_tree().process_frame

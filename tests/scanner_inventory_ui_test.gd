@@ -2,7 +2,7 @@ extends SceneTree
 const Shell=preload("res://tests/fixtures/offline_main_dashboard.gd")
 class FakeBridge extends Node:
 	var offline:=false
-	var syncs:=0
+	var registers:=0
 	var sent:=false
 	var usage_calls:=0
 	var use_chip:=false
@@ -12,7 +12,6 @@ class FakeBridge extends Node:
 			usage_calls+=1
 			if usage_fail:return {"ok":false,"error":"Verificação pendente (teste)"}
 			return {"ok":true,"checked":7,"used":1 if use_chip else 0,"used_numbers":["89553000000000000120"] if use_chip else [],"ambiguous":0}
-		if op=="config":return {"ok":true,"config":{"url":"https://127.0.0.1:18843"}}
 		if op=="list":
 			var rows:=[]
 			for i in range(7):
@@ -21,9 +20,10 @@ class FakeBridge extends Node:
 				rows[0].state="used";rows[0].kind="chip";rows[0].number="89553000000000000120"
 				rows[0].device_serial="024000555";rows[0].used_branch="Araguaína";rows[0].registered_at="2026-09-21 15:00:00";rows[0].detected_at=1700000001
 			return {"ok":true,"total":7,"page":0,"counts":{"equipment":7,"chip":7,"sent_today":2},"rows":rows}
-		if op=="sync":
-			syncs+=1
-			return {"ok":false,"error":"Sem rede (teste)"} if offline else {"ok":true,"added":1,"received":1,"ack_pending":0}
+		if op=="register":
+			registers+=1
+			if data.number=="invalid":return {"ok":false,"error":"Número inválido"}
+			return {"ok":true,"kind":data.kind,"number":data.number}
 		if op=="dispatch":sent=true;return {"ok":true,"sent":data.items.size()}
 		return {"ok":true}
 func _initialize() -> void:run.call_deferred()
@@ -34,7 +34,7 @@ func run() -> void:
 	var fake:=FakeBridge.new();shell.add_child(fake);shell.set_meta("scanner_bridge",fake)
 	shell._show_scanner_inventory();await process_frame;await process_frame
 	var view:Node=shell.find_child("ScannerInventory",true,false)
-	assert(view!=null);assert(fake.syncs==1)
+	assert(view!=null);assert(fake.registers==0)
 	assert(view.table.get_root().get_child(0).get_text(1)=="024000120")
 	assert(shell.sidebar_panel.get_global_rect().encloses(shell.sidebar_buttons.exit.get_global_rect()))
 	view.check_page(true);assert(view.selected.size()==7)
@@ -44,8 +44,18 @@ func run() -> void:
 	view.check_page(true);assert(view.selected.size()==14)
 	view.set_mode("custom");assert(view.custom.visible);assert(view.review_button.disabled)
 	view.custom.text="Laboratório fictício";view.update_selection();assert(not view.review_button.disabled)
-	fake.offline=true;await view.receive();assert(view.connection_status.text.contains("reconexão"));assert(not view.retry.is_stopped())
-	fake.offline=false;view.retry.timeout.emit();await process_frame;assert(view.connection_status.text.contains("conectado"))
+	view.manual_dialog();await process_frame
+	var manual:AcceptDialog=view.get_node("ManualWarehouseDialog")
+	assert(fake.registers==0)
+	manual.find_child("ItemNumber",true,false).text="invalid"
+	manual.find_child("SaveManualItem",true,false).pressed.emit();await process_frame
+	assert(is_instance_valid(manual));assert(fake.registers==1)
+	manual.find_child("ItemNumber",true,false).text="89553000000000000123"
+	manual.find_child("SaveManualItem",true,false).pressed.emit();await process_frame;await process_frame
+	assert(fake.registers==2);assert(not is_instance_valid(manual))
+	view.manual_dialog();await process_frame
+	view.get_node("ManualWarehouseDialog").close_requested.emit();await process_frame
+	assert(fake.registers==2)
 	view.set_mode("base");view.base.select(3);view.update_selection();view.select_kind("equipment");await process_frame
 	assert(view.review_button.get_global_rect().end.y<=root.size.y)
 	assert(view.table.get_global_rect().end.x<view.review_button.get_global_rect().position.x)
@@ -64,11 +74,10 @@ func run() -> void:
 	assert(view.usage_status.text.contains("pendente"));assert(view.selected.size()==1)
 	fake.usage_fail=false;fake.use_chip=true;fake.offline=true;view.last_usage_check=-15000;await view.receive()
 	assert(view.selected.is_empty());assert(view.usage_status.text.contains("1 utilizado"))
-	assert(view.connection_status.text.contains("reconexão"))
 	view.select_kind("movements");await process_frame
 	assert(view.table.get_root().get_child(0).get_text(3)=="Utilizado • Araguaína")
 	assert(view.table.get_root().get_child(0).get_tooltip_text(3).contains("024000555"))
 	var checks:=fake.usage_calls
-	var syncs:=fake.syncs;shell._show_dashboard();await process_frame
-	await create_timer(6).timeout;assert(fake.syncs==syncs);assert(fake.usage_calls==checks)
+	shell._show_dashboard();await process_frame
+	await create_timer(6).timeout;assert(fake.usage_calls==checks)
 	shell.free();print("SCANNER_INVENTORY_UI_OK");quit()
