@@ -528,8 +528,8 @@ func manual_dialog() -> void:
 				var tones:Dictionary={"TELEFONE":"#246ba5","OPERADORA":"#0866ef","APN":"#19965c","CONEXÃO":"#19965c" if str(field[1])=="Online" else "#ce253b","ÚLTIMA CONEXÃO":"#246ba5"}
 				var fill:Color=Color(tones[str(field[0])])
 				cell.get_parent().get_parent().add_theme_stylebox_override("panel",host._style_box(fill,fill,0,22))
-				var field_title:=label(str(field[0]),12);field_title.add_theme_color_override("font_color",Color.WHITE);cell.add_child(field_title)
-				var value:=label(str(field[1]) if str(field[1])!="" else "Não informado",16);value.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;value.custom_minimum_size.x=250;value.add_theme_color_override("font_color",Color.WHITE);cell.add_child(value)
+				var field_title:=label(str(field[0]),12);field_title.add_theme_color_override("font_color",Color.WHITE);field_title.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf"));cell.add_child(field_title)
+				var value:=label(str(field[1]) if str(field[1])!="" else "Não informado",16);value.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;value.custom_minimum_size.x=250;value.add_theme_color_override("font_color",Color.WHITE);value.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf"));cell.add_child(value)
 		else:
 			validation.add_theme_color_override("font_color",Color("#a64312"));validation.text=str(result.get("message","Validação pendente."))+" O cadastro permanece bloqueado."
 		sync_validation.call();dialog.reset_size();dialog.popup_centered(Vector2i(640,480))
