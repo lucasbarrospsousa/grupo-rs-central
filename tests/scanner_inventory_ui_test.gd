@@ -4,12 +4,22 @@ class FakeBridge extends Node:
 	var offline:=false
 	var syncs:=0
 	var sent:=false
+	var usage_calls:=0
+	var use_chip:=false
+	var usage_fail:=false
 	func call_service(op:String,data:Dictionary={}) -> Dictionary:
+		if op=="reconcile_usage":
+			usage_calls+=1
+			if usage_fail:return {"ok":false,"error":"Verificação pendente (teste)"}
+			return {"ok":true,"checked":7,"used":1 if use_chip else 0,"used_numbers":["89553000000000000120"] if use_chip else [],"ambiguous":0}
 		if op=="config":return {"ok":true,"config":{"url":"https://127.0.0.1:18843"}}
 		if op=="list":
 			var rows:=[]
 			for i in range(7):
 				rows.append({"kind":"equipment" if data.kind=="movements" else data.kind,"number":("02400012%d" % i) if data.kind!="chip" else ("8955300000000000012%d" % i),"received_at":1700000000,"state":"sent" if data.kind=="movements" else "available","destination":"Marabá","note":"Demonstração fictícia","sent_at":1700000000})
+			if use_chip:
+				rows[0].state="used";rows[0].kind="chip";rows[0].number="89553000000000000120"
+				rows[0].device_serial="024000555";rows[0].used_branch="Araguaína";rows[0].registered_at="2026-09-21 15:00:00";rows[0].detected_at=1700000001
 			return {"ok":true,"total":7,"page":0,"counts":{"equipment":7,"chip":7,"sent_today":2},"rows":rows}
 		if op=="sync":
 			syncs+=1
@@ -49,6 +59,16 @@ func run() -> void:
 	assert(dialog!=null);assert(dialog.dialog_text.contains("14 item"));assert(not fake.sent)
 	dialog.canceled.emit();assert(not fake.sent)
 	await view.submit_dispatch({"items":view.selected.values()});assert(fake.sent);assert(view.selected.is_empty())
+	view.selected["chip:89553000000000000120"]={"kind":"chip","number":"89553000000000000120"}
+	fake.usage_fail=true;view.last_usage_check=-15000;await view.receive()
+	assert(view.usage_status.text.contains("pendente"));assert(view.selected.size()==1)
+	fake.usage_fail=false;fake.use_chip=true;fake.offline=true;view.last_usage_check=-15000;await view.receive()
+	assert(view.selected.is_empty());assert(view.usage_status.text.contains("1 utilizado"))
+	assert(view.connection_status.text.contains("reconexão"))
+	view.select_kind("movements");await process_frame
+	assert(view.table.get_root().get_child(0).get_text(3)=="Utilizado • Araguaína")
+	assert(view.table.get_root().get_child(0).get_tooltip_text(3).contains("024000555"))
+	var checks:=fake.usage_calls
 	var syncs:=fake.syncs;shell._show_dashboard();await process_frame
-	await create_timer(6).timeout;assert(fake.syncs==syncs)
+	await create_timer(6).timeout;assert(fake.syncs==syncs);assert(fake.usage_calls==checks)
 	shell.free();print("SCANNER_INVENTORY_UI_OK");quit()

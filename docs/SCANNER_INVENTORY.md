@@ -26,3 +26,13 @@ Somente user://scanner_inventory.sqlite: itens/recibos/configuração preservado
 Não publicar bancos, credenciais, filas, números operacionais, capturas reais ou APKs/EXEs com segredos. Backup desta entrega contém apenas fontes revisadas e manifesto.
 
 Ensaio USB autorizado e sintético: instalar os APKs debug e androidTest do Scanner, então executar `python tests/scanner_usb_integration.py --adb <caminho-adb> --serial <serial-autorizado>`. O script recusa encaminhamento já existente em 18843, não grava token em texto, usa banco temporário e remove o encaminhamento criado ao terminar. A instrumentação apaga apenas suas fixtures. Não rodar sem autorização para usar o celular.
+
+## Uso automático de chips — 21/09/2026
+
+Somente a Central reconcilia chips do Armazém com os registros confirmados no SQLite compartilhado `C:/GRUPO RS CENTRAL/database/grupo_rs_central.sqlite`. O Configurador e o celular permanecem inalterados. Fonte aberta com `mode=ro` e `query_only`, leitura transacional; não consulta portais nem pressupõe que dados remotos ainda não registrados estejam presentes. Partições Imperatriz, backups_araguaina, backups_acailandia e backups_maraba (aliases canônicos também reconhecidos).
+
+Ao abrir a aba e periodicamente enquanto visível (intervalo mínimo 15 s, sujeito ao ciclo de conexão de até 30 s), compara ICCID inteiro, incluindo chips já enviados. Não depende de o Scanner estar conectado/pareado. Uma única linha com base reconhecida e série de nove dígitos confirma Utilizado. Ambiguidade, identidade inválida, banco ausente/corrompido/bloqueado ou consulta interrompida não geram baixa. Ausência de cadastro não altera o item. A consulta não aceita correspondência parcial nem extrai série de IMEI.
+
+Tabela aditiva chip_usage registra série, base, atualização do cadastro e detecção; remove dos disponíveis, bloqueia envio e mantém histórico e eventual saída anterior. Repetição é idempotente; remoção/alteração posterior do cadastro não apaga o histórico nem devolve automaticamente o chip. Filtro Utilizados; detalhes de base/série/datas e envio anterior no tooltip da situação. Seleções de chips recém utilizados são removidas antes de novo envio; backend revalida estado.
+
+Validação: 15 testes Python, incluindo quatro bases, commit pendente, hash do banco fonte preservado, reexecução, lote enviado, ICCID parcial, duplicidade e indisponibilidade. UI isolada testa verificação mesmo sem Scanner, preservação em falha e encerramento ao sair da aba. Nenhuma baixa operacional usada como teste.

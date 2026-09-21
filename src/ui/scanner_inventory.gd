@@ -7,6 +7,8 @@ var page_index := 0
 var total := 0
 var loading := false
 var syncing := false
+var last_usage_check := -15000
+var usage_status: Label
 var sending := false
 var selected := {}
 var search: LineEdit
@@ -88,6 +90,7 @@ func setup(owner_node: Node, bridge: Node) -> void:
 	status=label("Reconexão automática ao abrir o Armazém",13);status.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;strip.add_child(status)
 	strip.add_child(action("Atualizar agora",receive))
+	usage_status=label("Verificando utilização dos chips no banco compartilhado…",13);add_child(usage_status)
 	var metrics:=HBoxContainer.new();metrics.add_theme_constant_override("separation",16);add_child(metrics)
 	equipment_count=metric(metrics,"Aparelhos disponíveis","Prontos para distribuição")
 	chip_count=metric(metrics,"Chips disponíveis","Recebidos pelo Scanner")
@@ -100,7 +103,7 @@ func setup(owner_node: Node, bridge: Node) -> void:
 	var filters:=HBoxContainer.new();filters.add_theme_constant_override("separation",8);left.add_child(filters)
 	search=LineEdit.new();search.placeholder_text="Buscar pelo número de série ou chip";search.size_flags_horizontal=Control.SIZE_EXPAND_FILL;style_input(search);filters.add_child(search)
 	search.text_submitted.connect(func(_value):search_rows())
-	filter=OptionButton.new();for text in ["Disponíveis","Enviados","Todos"]:filter.add_item(text)
+	filter=OptionButton.new();for text in ["Disponíveis","Enviados","Utilizados","Todos"]:filter.add_item(text)
 	style_input(filter);filters.add_child(filter);filter.item_selected.connect(func(_index):search_rows())
 	filters.add_child(action("Buscar",search_rows))
 	select_all=CheckBox.new();select_all.text="Selecionar esta página";select_all.add_theme_color_override("font_color",Color("#173a59"));left.add_child(select_all)
@@ -169,22 +172,25 @@ func date_text(value: int) -> String:
 func refresh() -> void:
 	if loading:return
 	loading=true
-	var result: Dictionary=await service.call_service("list",{"kind":kind,"query":search.text,"page":page_index,"state":["available","sent","all"][filter.selected]})
+	var result: Dictionary=await service.call_service("list",{"kind":kind,"query":search.text,"page":page_index,"state":["available","sent","used","all"][filter.selected]})
 	if not is_inside_tree():return
 	loading=false
 	if not result.get("ok",false):status.text=str(result.get("error","Falha ao carregar"));return
 	table.clear();var root_item:=table.create_item()
-	for i in range(4):table.set_column_title(i,["","Número" if kind!="movements" else "Número / tipo","Recebido em" if kind!="movements" else "Enviado em","Situação" if kind!="movements" else "Destino"][i])
+	for i in range(4):table.set_column_title(i,["","Número" if kind!="movements" else "Número / tipo","Recebido em" if kind!="movements" else "Data do registro","Situação" if kind!="movements" else "Destino"][i])
 	for row in result.get("rows",[]):
 		var item:=table.create_item(root_item);item.set_metadata(0,row)
 		var key:=str(row.kind)+":"+str(row.number)
 		item.set_cell_mode(0,TreeItem.CELL_MODE_CHECK);item.set_editable(0,row.state=="available" and not sending)
 		item.set_checked(0,selected.has(key));item.set_selectable(0,false)
 		item.set_text(1,str(row.number)+( (" • Chip" if row.kind=="chip" else " • Aparelho") if kind=="movements" else ""))
-		item.set_text(2,date_text(int(row.sent_at) if kind=="movements" else int(row.received_at)))
-		item.set_text(3,str(row.destination) if kind=="movements" else ("Disponível" if row.state=="available" else "Enviado"))
+		item.set_text(2,date_text((int(row.get("detected_at",0)) if row.state=="used" else int(row.sent_at)) if kind=="movements" else int(row.received_at)))
+		item.set_text(3,("Utilizado • "+str(row.used_branch)) if row.state=="used" else (str(row.destination) if kind=="movements" else ("Disponível" if row.state=="available" else "Enviado")))
+		if row.state=="used":selected.erase(key)
 		item.set_custom_color(3,Color("#168354") if row.state=="available" else Color("#236fa8"))
 		item.set_tooltip_text(3,"Destino: %s\n%s" % [row.get("destination",""),row.get("note","")] if row.state=="sent" else "Disponível para envio")
+		if row.state=="used":
+			item.set_tooltip_text(3,"Utilizado no aparelho: %s\nBase: %s\nCadastro atualizado: %s\nDetectado: %s\nEnvio anterior: %s" % [row.device_serial,row.used_branch,row.registered_at,date_text(int(row.detected_at)),str(row.get("destination", "—"))])
 	total=int(result.get("total",0));page_index=int(result.get("page",0))
 	equipment_count.text=str(result.get("counts",{}).get("equipment",0));chip_count.text=str(result.get("counts",{}).get("chip",0));sent_count.text=str(result.get("counts",{}).get("sent_today",0))
 	devices.disabled=kind=="equipment";chips.disabled=kind=="chip";movements.disabled=kind=="movements"
@@ -197,6 +203,17 @@ func receive() -> void:
 	if sending:
 		retry.start(5);return
 	syncing=true;retry.stop()
+	if Time.get_ticks_msec()-last_usage_check>=15000:
+		last_usage_check=Time.get_ticks_msec()
+		var usage: Dictionary=await service.call_service("reconcile_usage")
+		if not is_inside_tree():return
+		if usage.get("ok",false):
+			usage_status.text="Uso de chips conferido no banco compartilhado • %d utilizado(s) nesta verificação" % usage.get("used",0)
+			if usage.get("checked",0)==0:usage_status.text="Nenhum chip pendente de verificação de uso."
+			if usage.get("ambiguous",0)>0:usage_status.text+=" • %d vínculo(s) ambíguo(s), sem baixa" % usage.ambiguous
+			for number in usage.get("used_numbers",[]):selected.erase("chip:"+str(number))
+			await refresh()
+		else:usage_status.text=str(usage.get("error","Verificação de uso pendente; nova tentativa automática."))
 	var cfg: Dictionary=await service.call_service("config")
 	if not is_inside_tree():return
 	if not cfg.get("ok",false) or cfg.get("config",{}).is_empty():

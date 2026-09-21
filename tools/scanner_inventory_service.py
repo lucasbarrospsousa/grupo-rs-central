@@ -14,6 +14,8 @@ def connect(path):
         received_at INTEGER NOT NULL,PRIMARY KEY(branch,kind,number));
       CREATE TABLE IF NOT EXISTS receipts(source TEXT NOT NULL,id TEXT NOT NULL,payload TEXT NOT NULL,
         PRIMARY KEY(source,id));
+      CREATE TABLE IF NOT EXISTS chip_usage(number TEXT PRIMARY KEY,device_serial TEXT NOT NULL,
+        used_branch TEXT NOT NULL,registered_at TEXT NOT NULL,detected_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS movements(id TEXT PRIMARY KEY,payload TEXT NOT NULL,
         destination TEXT NOT NULL,mode TEXT NOT NULL,note TEXT NOT NULL,created_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS movement_items(movement_id TEXT NOT NULL,branch TEXT NOT NULL,
@@ -69,6 +71,40 @@ def accept(db, source, rows):
 BASES = {'imperatriz':'Imperatriz','araguaina':'Araguaína','acailandia':'Açailândia','maraba':'Marabá'}
 
 
+OPERATIONAL_DB = Path('C:/GRUPO RS CENTRAL/database/grupo_rs_central.sqlite')
+PARTITIONS = {**{k:k for k in BASES}, **{'backups_'+k:k for k in BASES if k!='imperatriz'}}
+
+
+def reconcile_usage(db, source_path):
+    """Read committed registrations only. Never create/write the source database."""
+    candidates=[r[0] for r in db.execute("SELECT i.number FROM items i LEFT JOIN chip_usage u ON u.number=i.number WHERE i.kind='chip' AND u.number IS NULL")]
+    if not candidates:return {'ok':True,'used':0,'ambiguous':0,'used_numbers':[],'checked':0}
+    matches={}
+    try:
+        source=sqlite3.connect(Path(source_path).resolve().as_uri()+'?mode=ro',uri=True,timeout=2)
+        try:
+            source.execute('PRAGMA query_only=ON');source.execute('BEGIN')
+            for offset in range(0,len(candidates),400):
+                batch=candidates[offset:offset+400]
+                rows=source.execute('SELECT branch_id,sku,iccid,updated_at FROM devices WHERE iccid IN ('+','.join('?' for _ in batch)+')',batch)
+                for branch,serial,number,stamp in rows:matches.setdefault(number,[]).append((branch,serial,stamp))
+        finally:source.close()
+    except (sqlite3.Error,OSError,ValueError):
+        return {'ok':False,'error':'Verificação de uso pendente: banco compartilhado indisponível. Nenhum chip alterado.'}
+    confirmed=[];ambiguous=0
+    for number,rows in matches.items():
+        if len(rows)!=1 or rows[0][0] not in PARTITIONS or not isinstance(rows[0][1],str) or not re.fullmatch(r'[0-9]{9}',rows[0][1]):
+            ambiguous+=1;continue
+        branch,serial,stamp=rows[0]
+        confirmed.append((number,serial,PARTITIONS[branch],str(stamp or ''),int(time.time())))
+    used=[]
+    with db:
+        db.execute('BEGIN IMMEDIATE')
+        for row in confirmed:
+            if db.execute('INSERT OR IGNORE INTO chip_usage VALUES(?,?,?,?,?)',row).rowcount:used.append(row[0])
+    return {'ok':True,'used':len(used),'used_numbers':used,'ambiguous':ambiguous,'checked':len(candidates)}
+
+
 def dispatch(db, data):
     request_id = data.get('id','')
     if str(uuid.UUID(request_id)) != request_id:raise ValueError('Identificador inválido')
@@ -99,13 +135,15 @@ def dispatch(db, data):
         for kind,number in selected:
             exists=db.execute('SELECT 1 FROM items WHERE branch=? AND kind=? AND number=?',('imperatriz',kind,number)).fetchone()
             sent=db.execute('SELECT 1 FROM movement_items WHERE branch=? AND kind=? AND number=?',('imperatriz',kind,number)).fetchone()
-            if not exists or sent:raise ValueError('Um item não está mais disponível. Atualize e revise a seleção.')
+            used=kind=='chip' and db.execute('SELECT 1 FROM chip_usage WHERE number=?',(number,)).fetchone()
+            if not exists or sent or used:raise ValueError('Um item não está mais disponível. Atualize e revise a seleção.')
         db.execute('INSERT INTO movements VALUES(?,?,?,?,?,?)',(request_id,payload,destination,mode,note,int(time.time())))
         db.executemany('INSERT INTO movement_items VALUES(?,?,?,?)',[(request_id,'imperatriz',k,n) for k,n in selected])
     return {'ok':True,'sent':len(selected),'id':request_id,'repeated':False}
 
 
 def operate(db, op, data):
+    if op == 'reconcile_usage':return reconcile_usage(db,OPERATIONAL_DB)
     if op == 'dispatch':return dispatch(db,data)
     if op == 'config':
         return {'ok':True, 'config':config(db)}
@@ -153,24 +191,27 @@ def operate(db, op, data):
         query=str(data.get('query','')).strip()
         if query and not re.fullmatch('[0-9]{1,20}',query):raise ValueError('Busque apenas por números')
         page=max(0,int(data.get('page',0)))
-        joins=' FROM items i LEFT JOIN movement_items mi ON mi.branch=i.branch AND mi.kind=i.kind AND mi.number=i.number LEFT JOIN movements m ON m.id=mi.movement_id '
+        joins=" FROM items i LEFT JOIN movement_items mi ON mi.branch=i.branch AND mi.kind=i.kind AND mi.number=i.number LEFT JOIN movements m ON m.id=mi.movement_id LEFT JOIN chip_usage u ON i.kind='chip' AND u.number=i.number "
         state=data.get('state','available')
-        if state not in ('available','sent','all'):raise ValueError('Filtro inválido')
+        if state not in ('available','sent','used','all'):raise ValueError('Filtro inválido')
         where="WHERE i.branch='imperatriz' AND i.number LIKE ?"
         params=['%'+query+'%']
-        if kind=='movements':where+=' AND mi.movement_id IS NOT NULL'
+        if kind=='movements':where+=' AND (mi.movement_id IS NOT NULL OR u.number IS NOT NULL)'
         else:
             where+=' AND i.kind=?';params.append(kind)
-            if state!='all':where+=' AND mi.movement_id IS '+('NULL' if state=='available' else 'NOT NULL')
+            if state=='available':where+=' AND mi.movement_id IS NULL AND u.number IS NULL'
+            elif state=='sent':where+=' AND mi.movement_id IS NOT NULL AND u.number IS NULL'
+            elif state=='used':where+=' AND u.number IS NOT NULL'
         total=db.execute('SELECT COUNT(*)'+joins+where,params).fetchone()[0]
         page=min(page,max(0,(total-1)//12))
-        counts={r['kind']:r['n'] for r in db.execute('SELECT i.kind,COUNT(*) n'+joins+"WHERE i.branch='imperatriz' AND mi.movement_id IS NULL GROUP BY i.kind")}
+        counts={r['kind']:r['n'] for r in db.execute('SELECT i.kind,COUNT(*) n'+joins+"WHERE i.branch='imperatriz' AND mi.movement_id IS NULL AND u.number IS NULL GROUP BY i.kind")}
         # Fortaleza is UTC-3; the count is independent from the Windows timezone.
         today=int((time.time()-10800)//86400)*86400+10800
         counts['sent_today']=db.execute('SELECT COUNT(*) FROM movement_items mi JOIN movements m ON m.id=mi.movement_id WHERE m.created_at>=?',(today,)).fetchone()[0]
-        rows=[dict(r) for r in db.execute("SELECT i.*,m.id movement_id,m.destination,m.mode,m.note,m.created_at sent_at,CASE WHEN mi.movement_id IS NULL THEN 'available' ELSE 'sent' END state"+joins+where+' ORDER BY COALESCE(m.created_at,i.received_at) DESC,i.number LIMIT 12 OFFSET ?',(*params,page*12))]
+        rows=[dict(r) for r in db.execute("SELECT i.*,m.id movement_id,m.destination,m.mode,m.note,m.created_at sent_at,u.device_serial,u.used_branch,u.registered_at,u.detected_at,CASE WHEN u.number IS NOT NULL THEN 'used' WHEN mi.movement_id IS NULL THEN 'available' ELSE 'sent' END state"+joins+where+' ORDER BY COALESCE(u.detected_at,m.created_at,i.received_at) DESC,i.number LIMIT 12 OFFSET ?',(*params,page*12))]
         for row in rows:
             if row['mode']=='base':row['destination']=BASES.get(row['destination'],row['destination'])
+            if row['used_branch']:row['used_branch']=BASES[row['used_branch']]
         return {'ok':True,'rows':rows,'total':total,'counts':counts,'page':page}
     raise ValueError('Operação inválida')
 
