@@ -3,6 +3,7 @@ const Shell=preload("res://tests/fixtures/offline_main_dashboard.gd")
 class FakeBridge extends Node:
 	var offline:=false
 	var registers:=0
+	var paginated:=false
 	var sent:=false
 	var usage_calls:=0
 	var use_chip:=false
@@ -19,7 +20,7 @@ class FakeBridge extends Node:
 			if use_chip:
 				rows[0].state="used";rows[0].kind="chip";rows[0].number="89553000000000000120"
 				rows[0].device_serial="024000555";rows[0].used_branch="Araguaína";rows[0].registered_at="2026-09-21 15:00:00";rows[0].detected_at=1700000001
-			return {"ok":true,"total":7,"page":0,"counts":{"equipment":7,"chip":7,"sent_today":2},"rows":rows}
+			return {"ok":true,"total":37 if paginated else 7,"page":data.page if paginated else 0,"counts":{"equipment":7,"chip":7,"sent_today":2},"rows":rows}
 		if op=="register":
 			registers+=1
 			if data.number=="invalid":return {"ok":false,"error":"Número inválido"}
@@ -77,6 +78,16 @@ func run() -> void:
 	view.select_kind("movements");await process_frame
 	assert(view.table.get_root().get_child(0).get_text(3)=="Utilizado • Araguaína")
 	assert(view.table.get_root().get_child(0).get_tooltip_text(3).contains("024000555"))
+	fake.use_chip=false;fake.paginated=true;view.select_kind("equipment");await process_frame
+	assert(view.page_buttons.get_child_count()==4)
+	view.page_buttons.get_child(2).pressed.emit();await process_frame;assert(view.page_index==2)
+	view.go_page(0);await process_frame;view.clear_selection()
+	for i in range(3):view.selected["equipment:02400012%d" % i]={"kind":"equipment","number":"02400012%d" % i}
+	view.base.select(1);await view.refresh()
+	if DisplayServer.get_name()!="headless":
+		root.content_scale_size=Vector2i(1920,1088);root.content_scale_mode=Window.CONTENT_SCALE_MODE_CANVAS_ITEMS;root.size=Vector2i(1310,742)
+		await create_timer(0.5).timeout;RenderingServer.force_draw()
+		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("armazem-referencia.png"))
 	var checks:=fake.usage_calls
 	shell._show_dashboard();await process_frame
 	await create_timer(6).timeout;assert(fake.usage_calls==checks)

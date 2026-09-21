@@ -13,7 +13,11 @@ var sending := false
 var selected := {}
 var search: LineEdit
 var table: Tree
+var status_overlay: Control
 var status: Label
+var page_buttons: HBoxContainer
+var destination_summary: Label
+var shipment_count: Label
 var pages: Label
 var devices: Button
 var chips: Button
@@ -42,8 +46,9 @@ func label(value: String, size: int = 16) -> Label:
 	return item
 
 func action(value: String, callback: Callable, primary: bool=false) -> Button:
-	var button: Button=host._make_action_button(value,Color("#137ad2") if primary else Color.WHITE,Color("#cbdff0"),Color.WHITE if primary else Color("#173a59"),Vector2(100,40),callback)
+	var button: Button=host._make_action_button(value,Color("#137ad2") if primary else Color.WHITE,Color("#cbdff0"),Color.WHITE if primary else Color("#173a59"),Vector2(100,44),callback)
 	button.size_flags_vertical=Control.SIZE_SHRINK_CENTER
+	button.add_theme_font_size_override("font_size",17)
 	button.add_theme_stylebox_override("disabled",host._style_box(Color("#e4f1ff"),Color("#cbdff0"),1,10))
 	button.add_theme_color_override("font_disabled_color",Color("#57758d"))
 	for state in ["normal","hover","pressed","disabled","focus"]:
@@ -60,7 +65,7 @@ func style_input(input: Control) -> void:
 	input.add_theme_color_override("font_color",Color("#173a59"))
 	input.add_theme_color_override("font_placeholder_color",Color("#6c8297"))
 	input.add_theme_color_override("caret_color",Color("#137ad2"))
-	input.custom_minimum_size.y=40
+	input.custom_minimum_size.y=44
 
 func panel(parent: Node, padding: int=18) -> VBoxContainer:
 	var outer:=PanelContainer.new();outer.size_flags_horizontal=Control.SIZE_EXPAND_FILL;parent.add_child(outer)
@@ -70,40 +75,116 @@ func panel(parent: Node, padding: int=18) -> VBoxContainer:
 	var box:=VBoxContainer.new();box.add_theme_constant_override("separation",12);margin.add_child(box)
 	return box
 
-func metric(parent: Node, title: String, hint: String) -> Label:
-	var box:=panel(parent,14);box.add_child(label(title,14))
-	var count:=label("—",27);box.add_child(count)
-	box.add_child(label(hint,12));return count
+func icon_texture(symbol: String, color: String) -> ImageTexture:
+	var paths:={"device":"M7 2h10v20H7z M10 18h4", "chip":"M7 2h8l4 4v16H5V2z M9 9h6v9H9z M9 13h6", "truck":"M2 5h12v12H2z M14 10h4l4 4v3h-8 M5 17a2 2 0 1 0 0.1 0 M18 17a2 2 0 1 0 0.1 0", "send":"M2 11L22 2l-6 20-5-8-9-3z M11 14L22 2", "search":"M17 17l5 5 M19 10a9 9 0 1 0-18 0 9 9 0 0 0 18 0", "trash":"M4 6h16 M9 3h6 M6 6l1 16h10l1-16 M10 10v8 M14 10v8"}
+	var image:=Image.new()
+	image.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="%s" fill="none" stroke="%s" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' % [paths[symbol],color])
+	return ImageTexture.create_from_image(image)
+
+func checkbox_texture(checked: bool) -> ImageTexture:
+	var image:=Image.new()
+	var svg:='<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22"><rect x="2" y="2" width="18" height="18" rx="4" fill="%s" stroke="%s" stroke-width="1.3"/>' % ["#0878ed" if checked else "#ffffff","#0878ed" if checked else "#a8bed4"]
+	if checked:svg+='<path d="m6 11 3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+	image.load_svg_from_string(svg+'</svg>');return ImageTexture.create_from_image(image)
+
+func metric(parent: Node, title: String, symbol: String, tint: String, fill: String) -> Label:
+	var box:=panel(parent,20)
+	var row:=HBoxContainer.new();row.add_theme_constant_override("separation",22);box.add_child(row)
+	var circle:=PanelContainer.new();circle.custom_minimum_size=Vector2(68,68)
+	circle.add_theme_stylebox_override("panel",host._style_box(Color(fill),Color.TRANSPARENT,0,34));row.add_child(circle)
+	var center:=CenterContainer.new();circle.add_child(center)
+	var picture:=TextureRect.new();picture.texture=icon_texture(symbol,tint);picture.custom_minimum_size=Vector2(32,32);picture.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;center.add_child(picture)
+	var content:=VBoxContainer.new();content.size_flags_vertical=Control.SIZE_SHRINK_CENTER;row.add_child(content)
+	var title_label:=label(title,17);title_label.add_theme_color_override("font_color",Color("#607895"));content.add_child(title_label)
+	var count:=label("—",36);count.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf"));content.add_child(count);return count
+
+func style_tab(button: Button, active: bool) -> void:
+	for state in ["normal","hover","pressed","disabled"]:
+		var box:=StyleBoxFlat.new();box.bg_color=Color("#f2f7ff") if state=="hover" else Color.WHITE
+		box.content_margin_left=20;box.content_margin_right=20;box.content_margin_bottom=10;box.content_margin_top=8
+		box.border_width_bottom=3 if active else 1;box.border_color=Color("#0878ed") if active else Color("#e4edf6")
+		button.add_theme_stylebox_override(state,box)
+		button.add_theme_color_override("font_"+state+"_color",Color("#0878ed") if active else Color("#607895"))
+	button.add_theme_color_override("font_color",Color("#0878ed") if active else Color("#607895"))
+	button.add_theme_color_override("font_disabled_color",Color("#0878ed"))
+
+func tab_count(button: Button, title: String, value: String, active: bool) -> void:
+	button.text=title;button.alignment=HORIZONTAL_ALIGNMENT_LEFT
+	if button.has_node("Counter"):button.get_node("Counter").free()
+	var width:=theme.default_font.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,14).x+16
+	button.custom_minimum_size.x=theme.default_font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,17).x+width+58
+	var badge:=PanelContainer.new();badge.name="Counter";badge.mouse_filter=Control.MOUSE_FILTER_IGNORE;button.add_child(badge)
+	badge.anchor_left=1;badge.anchor_right=1;badge.anchor_top=0.5;badge.anchor_bottom=0.5
+	badge.offset_left=-width-16;badge.offset_right=-16;badge.offset_top=-14;badge.offset_bottom=10
+	badge.add_theme_stylebox_override("panel",host._style_box(Color("#0878ed") if active else Color("#eaf3ff"),Color.TRANSPARENT,0,12))
+	var count:=label(value,14);count.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;count.add_theme_color_override("font_color",Color.WHITE if active else Color("#2463a5"));badge.add_child(count)
+
+func draw_status(item: TreeItem, rect: Rect2) -> void:
+	var row:Dictionary=item.get_metadata(0)
+	var color:=Color("#159b47") if row.state=="available" else Color("#246fab")
+	var text:="Disponível" if row.state=="available" else ("Utilizado" if row.state=="used" else "Enviado")
+	var font:Font=theme.default_font
+	var width:=font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x+36
+	var badge:=Rect2(rect.position+Vector2(8,(rect.size.y-28)/2),Vector2(width,28))
+	var box:=StyleBoxFlat.new();box.bg_color=Color("#def5e5") if row.state=="available" else Color("#e7f1fd")
+	box.set_corner_radius_all(13)
+	var canvas:=status_overlay.get_canvas_item()
+	box.draw(canvas,badge)
+	RenderingServer.canvas_item_add_circle(canvas,badge.position+Vector2(12,14),3,color)
+	font.draw_string(canvas,badge.position+Vector2(22,20),text,HORIZONTAL_ALIGNMENT_LEFT,-1,16,color)
+
+func draw_statuses() -> void:
+	if kind=="movements" or table.get_root()==null:return
+	for item in table.get_root().get_children():
+		var rect:=table.get_item_area_rect(item,3)
+		if rect.position.y<24 or rect.position.y>=table.size.y:continue
+		draw_status(item,rect)
+
+func go_page(value: int) -> void:
+	if loading or sending:return
+	page_index=value;refresh()
+
+func update_pages() -> void:
+	for child in page_buttons.get_children():page_buttons.remove_child(child);child.queue_free()
+	var count:=maxi(1,ceili(total/12.0))
+	var first:=maxi(0,mini(page_index-2,count-5))
+	for index in range(first,mini(count,first+5)):
+		var button:=action(str(index+1),go_page.bind(index),index==page_index)
+		button.custom_minimum_size=Vector2(38,38);button.disabled=index==page_index
+		if index==page_index:
+			button.add_theme_stylebox_override("disabled",host._style_box(Color("#0878ed"),Color("#0878ed"),1,7))
+			button.add_theme_color_override("font_disabled_color",Color.WHITE)
+		page_buttons.add_child(button)
 
 func setup(owner_node: Node, bridge: Node) -> void:
 	host=owner_node;service=bridge;name="ScannerInventory"
-	theme=Theme.new();theme.default_font=preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf");theme.default_font_size=15
-	add_theme_constant_override("separation",14)
+	theme=Theme.new();theme.default_font=preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf");theme.default_font_size=18
+	add_theme_constant_override("separation",16)
 	var header:=HBoxContainer.new();add_child(header)
 	var titles:=VBoxContainer.new();titles.size_flags_horizontal=Control.SIZE_EXPAND_FILL;header.add_child(titles)
-	titles.add_child(label("Armazém",30));titles.add_child(label("Aparelhos e chips • cadastro manual e distribuição",14))
+	titles.add_child(label("Armazém",40));titles.add_child(label("Aparelhos e chips • cadastro manual e distribuição",16))
 	header.add_child(action("+ Novo item",manual_dialog,true))
+	header.add_child(action("Atualizar lista",receive))
 	var strip:=HBoxContainer.new();add_child(strip)
-	status=label("Cadastre aparelhos e chips pelo número, preservando os zeros iniciais.",13);status.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	status=label("Cadastre aparelhos e chips pelo número, preservando os zeros iniciais.",15);status.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	status.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;strip.add_child(status)
-	strip.add_child(action("Atualizar lista",receive))
-	usage_status=label("Verificando utilização dos chips no banco compartilhado…",13);add_child(usage_status)
+	usage_status=label("Verificando utilização dos chips…",14);strip.add_child(usage_status)
 	var metrics:=HBoxContainer.new();metrics.add_theme_constant_override("separation",16);add_child(metrics)
-	equipment_count=metric(metrics,"Aparelhos disponíveis","Prontos para distribuição")
-	chip_count=metric(metrics,"Chips disponíveis","Cadastrados no Armazém")
-	sent_count=metric(metrics,"Enviados hoje","Destinações registradas no Armazém")
+	equipment_count=metric(metrics,"Aparelhos disponíveis","device","#0878ed","#e3f0ff")
+	chip_count=metric(metrics,"Chips disponíveis","chip","#ff9000","#fff0db")
+	sent_count=metric(metrics,"Enviados hoje","truck","#159b47","#e2f6e8")
 	var body:=HBoxContainer.new();body.add_theme_constant_override("separation",18);body.size_flags_vertical=Control.SIZE_EXPAND_FILL;add_child(body)
-	var left:=panel(body);left.get_parent().get_parent().set_meta("static_card",true);left.get_parent().get_parent().size_flags_stretch_ratio=2.3
+	var left:=panel(body);left.get_parent().get_parent().set_meta("static_card",true);left.get_parent().get_parent().size_flags_stretch_ratio=2.05
 	var tabs:=HBoxContainer.new();tabs.add_theme_constant_override("separation",8);left.add_child(tabs)
 	devices=action("Aparelhos",select_kind.bind("equipment"));chips=action("Chips",select_kind.bind("chip"));movements=action("Movimentações",select_kind.bind("movements"))
 	for button in [devices,chips,movements]:tabs.add_child(button)
 	var filters:=HBoxContainer.new();filters.add_theme_constant_override("separation",8);left.add_child(filters)
-	search=LineEdit.new();search.placeholder_text="Buscar pelo número de série ou chip";search.size_flags_horizontal=Control.SIZE_EXPAND_FILL;style_input(search);filters.add_child(search)
+	search=LineEdit.new();search.placeholder_text="Buscar número de série…";search.right_icon=icon_texture("search","#7890a9");search.size_flags_horizontal=Control.SIZE_EXPAND_FILL;style_input(search);filters.add_child(search)
 	search.text_submitted.connect(func(_value):search_rows())
 	filter=OptionButton.new();for text in ["Disponíveis","Enviados","Utilizados","Todos"]:filter.add_item(text)
 	style_input(filter);filters.add_child(filter);filter.item_selected.connect(func(_index):search_rows())
 	filters.add_child(action("Buscar",search_rows))
-	select_all=CheckBox.new();select_all.text="Selecionar esta página";select_all.add_theme_color_override("font_color",Color("#173a59"));left.add_child(select_all)
+	select_all=CheckBox.new();select_all.text="Selecionar esta página";select_all.add_theme_color_override("font_color",Color("#173a59"));select_all.text="";select_all.tooltip_text="Selecionar esta página"
 	for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]:select_all.add_theme_color_override(state,Color("#173a59"))
 	select_all.toggled.connect(check_page)
 	table=Tree.new();table.name="ScannerReadings";table.columns=4;table.hide_root=true;table.column_titles_visible=true
@@ -112,34 +193,54 @@ func setup(owner_node: Node, bridge: Node) -> void:
 	table.add_theme_color_override("font_hovered_color",Color("#173a59"));table.add_theme_color_override("font_color",Color("#173a59"));table.add_theme_color_override("font_selected_color",Color("#173a59"))
 	for state in ["selected","selected_focus"]:table.add_theme_stylebox_override(state,host._style_box(Color("#e4f1ff"),Color.TRANSPARENT,0,4))
 	for state in ["title_button_normal","title_button_hover","title_button_pressed"]:table.add_theme_stylebox_override(state,host._style_box(Color("#eef4fa"),Color.TRANSPARENT,0,4))
-	table.add_theme_color_override("title_button_color",Color("#536f8c"));table.add_theme_constant_override("v_separation",5)
+	table.add_theme_color_override("title_button_color",Color("#536f8c"));table.add_theme_constant_override("v_separation",7)
 	table.set_column_expand(0,false);table.set_column_custom_minimum_width(0,38)
 	table.set_column_expand_ratio(1,2)
 	for i in range(4):table.set_column_title_alignment(i,HORIZONTAL_ALIGNMENT_LEFT)
+	table.add_theme_icon_override("checked",checkbox_texture(true));table.add_theme_icon_override("unchecked",checkbox_texture(false))
+	select_all.add_theme_icon_override("checked",checkbox_texture(true));select_all.add_theme_icon_override("unchecked",checkbox_texture(false))
 	table.item_edited.connect(check_item);left.add_child(table)
+	table.add_child(select_all);select_all.position=Vector2(4,0);select_all.z_index=3
+	status_overlay=Control.new();status_overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE;status_overlay.clip_contents=true;status_overlay.z_index=1;table.add_child(status_overlay);status_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	status_overlay.draw.connect(draw_statuses);table.draw.connect(status_overlay.queue_redraw)
 	var footer:=HBoxContainer.new();left.add_child(footer)
-	pages=label("",12);pages.size_flags_horizontal=Control.SIZE_EXPAND_FILL;footer.add_child(pages)
-	footer.add_child(action("Anterior",move_page.bind(-1)));footer.add_child(action("Próxima",move_page.bind(1)))
-	var selected_row:=HBoxContainer.new();left.add_child(selected_row)
-	selected_label=label("Nenhum item selecionado",13);selected_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL;selected_row.add_child(selected_label)
-	selected_row.add_child(action("Limpar seleção",clear_selection))
+	pages=label("",14);pages.size_flags_horizontal=Control.SIZE_EXPAND_FILL;footer.add_child(pages)
+	var previous:=action("‹",move_page.bind(-1));previous.custom_minimum_size.x=38;footer.add_child(previous)
+	page_buttons=HBoxContainer.new();page_buttons.add_theme_constant_override("separation",6);footer.add_child(page_buttons)
+	var next:=action("›",move_page.bind(1));next.custom_minimum_size.x=38;footer.add_child(next)
+	var selection_panel:=PanelContainer.new();selection_panel.custom_minimum_size.y=58;selection_panel.add_theme_stylebox_override("panel",host._style_box(Color("#eff7ff"),Color("#d5e8ff"),1,10));left.add_child(selection_panel)
+	var selected_row:=HBoxContainer.new();selection_panel.add_child(selected_row)
+	selected_label=label("Nenhum item selecionado",15);selected_label.size_flags_horizontal=Control.SIZE_EXPAND_FILL;selected_row.add_child(selected_label)
+	var clear:=action("Limpar seleção",clear_selection);clear.icon=icon_texture("trash","#0878ed");selected_row.add_child(clear)
 	var right:=panel(body);right.get_parent().get_parent().set_meta("static_card",true);right.get_parent().get_parent().custom_minimum_size.x=350
-	right.add_child(label("Enviar selecionados",22));right.add_child(label("Defina o destino dos itens marcados",13))
+	var send_title:=HBoxContainer.new();send_title.add_theme_constant_override("separation",18);right.add_child(send_title)
+	var truck:=TextureRect.new();truck.texture=icon_texture("truck","#163655");truck.custom_minimum_size=Vector2(36,36);truck.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;truck.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;send_title.add_child(truck)
+	var send_text:=VBoxContainer.new();send_title.add_child(send_text);send_text.add_child(label("Enviar selecionados",22))
+	shipment_count=label("Nenhum item selecionado",15);send_text.add_child(shipment_count)
 	var modes:=HBoxContainer.new();right.add_child(modes)
 	base_mode=action("Selecionar base",set_mode.bind("base"));custom_mode=action("Escrever destino",set_mode.bind("custom"))
 	modes.add_child(base_mode);modes.add_child(custom_mode)
-	right.add_child(label("Destino",14));base=OptionButton.new()
+	right.add_child(label("Base de destino",16));base=OptionButton.new()
 	for title in ["Imperatriz","Araguaína","Açailândia","Marabá"]:base.add_item(title)
 	style_input(base);right.add_child(base);base.item_selected.connect(func(_index):update_selection())
 	custom=LineEdit.new();custom.placeholder_text="Ex.: laboratório ou fornecedor";custom.max_length=120;style_input(custom);right.add_child(custom)
 	custom.text_changed.connect(func(_value):update_selection())
-	right.add_child(label("Observação (opcional)",14));note=LineEdit.new();note.placeholder_text="Informações sobre o envio";note.max_length=500;style_input(note);right.add_child(note)
+	var base_hint:=label("Imperatriz · Araguaína · Açailândia · Marabá\nPara outro local, use Escrever destino.",14);base_hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;right.add_child(base_hint)
+	right.add_child(label("Observação (opcional)",16));note=LineEdit.new();note.placeholder_text="Ex.: reposição da filial";note.max_length=500;style_input(note);right.add_child(note)
 	var spacer:=Control.new();spacer.size_flags_vertical=Control.SIZE_EXPAND_FILL;right.add_child(spacer)
-	selection_summary=label("",15);selection_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;right.add_child(selection_summary)
-	review_button=action("Revisar envio",review_dispatch,true)
-	review_button.add_theme_stylebox_override("normal",host._style_box(Color("#ff9019"),Color("#ff9019"),1,10))
-	review_button.add_theme_color_override("font_color",Color("#173a59"));right.add_child(review_button)
-	var hint:=label("O envio registra a saída no Armazém e mantém o histórico.",12);hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;right.add_child(hint)
+	right.add_child(HSeparator.new())
+	var summary_row:=HBoxContainer.new();right.add_child(summary_row);var item_title:=label("Itens",16);item_title.size_flags_horizontal=Control.SIZE_EXPAND_FILL;summary_row.add_child(item_title)
+	selection_summary=label("",17);summary_row.add_child(selection_summary)
+	var destination_row:=HBoxContainer.new();right.add_child(destination_row);var dest_title:=label("Destino",16);dest_title.size_flags_horizontal=Control.SIZE_EXPAND_FILL;destination_row.add_child(dest_title)
+	destination_summary=label("",17);destination_row.add_child(destination_summary)
+	review_button=action("",review_dispatch,true);review_button.tooltip_text="Revisar envio"
+	var send_center:=CenterContainer.new();send_center.mouse_filter=Control.MOUSE_FILTER_IGNORE;review_button.add_child(send_center);send_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var send_content:=HBoxContainer.new();send_content.mouse_filter=Control.MOUSE_FILTER_IGNORE;send_content.add_theme_constant_override("separation",12);send_center.add_child(send_content)
+	var send_icon:=TextureRect.new();send_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE;send_icon.texture=icon_texture("send","#ffffff");send_content.add_child(send_icon)
+	var send_label:=label("Revisar envio",17);send_label.add_theme_color_override("font_color",Color.WHITE);send_content.add_child(send_label)
+	review_button.add_theme_stylebox_override("normal",host._style_box(Color("#ff8000"),Color("#ff8000"),1,10))
+	review_button.add_theme_color_override("font_color",Color.WHITE);right.add_child(review_button)
+	var hint:=label("Confira os itens e o destino antes de confirmar.",14);hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;right.add_child(hint)
 	set_mode("base")
 	retry=Timer.new();retry.one_shot=true;retry.timeout.connect(receive);add_child(retry)
 	call_deferred("open_warehouse")
@@ -184,15 +285,22 @@ func refresh() -> void:
 		item.set_text(2,date_text((int(row.get("detected_at",0)) if row.state=="used" else int(row.sent_at)) if kind=="movements" else int(row.received_at)))
 		item.set_text(3,("Utilizado • "+str(row.used_branch)) if row.state=="used" else (str(row.destination) if kind=="movements" else ("Disponível" if row.state=="available" else "Enviado")))
 		if row.state=="used":selected.erase(key)
-		item.set_custom_color(3,Color("#168354") if row.state=="available" else Color("#236fa8"))
+		if kind!="movements":
+			item.set_cell_mode(3,TreeItem.CELL_MODE_CUSTOM);item.set_text(3,"")
+		else:item.set_custom_color(3,Color("#236fa8"))
 		item.set_tooltip_text(3,"Destino: %s\n%s" % [row.get("destination",""),row.get("note","")] if row.state=="sent" else "Disponível para envio")
 		if row.state=="used":
 			item.set_tooltip_text(3,"Utilizado no aparelho: %s\nBase: %s\nCadastro atualizado: %s\nDetectado: %s\nEnvio anterior: %s" % [row.device_serial,row.used_branch,row.registered_at,date_text(int(row.detected_at)),str(row.get("destination", "—"))])
 	total=int(result.get("total",0));page_index=int(result.get("page",0))
 	equipment_count.text=str(result.get("counts",{}).get("equipment",0));chip_count.text=str(result.get("counts",{}).get("chip",0));sent_count.text=str(result.get("counts",{}).get("sent_today",0))
+	devices.text="Aparelhos  %s" % equipment_count.text;chips.text="Chips  %s" % chip_count.text
 	devices.disabled=kind=="equipment";chips.disabled=kind=="chip";movements.disabled=kind=="movements"
+	style_tab(devices,kind=="equipment");style_tab(chips,kind=="chip");style_tab(movements,kind=="movements")
+	tab_count(devices,"Aparelhos",equipment_count.text,kind=="equipment");tab_count(chips,"Chips",chip_count.text,kind=="chip")
+	search.placeholder_text="Buscar ICCID do chip…" if kind=="chip" else "Buscar número de série…"
 	filter.disabled=kind=="movements";select_all.disabled=kind=="movements" or sending
-	pages.text="%d registros • página %d de %d" % [total,page_index+1,maxi(1,ceili(total/12.0))]
+	pages.text="Mostrando %d–%d de %d" % [page_index*12+1 if total>0 else 0,mini(total,(page_index+1)*12),total]
+	update_pages()
 	update_selection()
 
 func receive() -> void:
@@ -205,7 +313,7 @@ func receive() -> void:
 		var usage: Dictionary=await service.call_service("reconcile_usage")
 		if not is_inside_tree():return
 		if usage.get("ok",false):
-			usage_status.text="Uso de chips conferido no banco compartilhado • %d utilizado(s) nesta verificação" % usage.get("used",0)
+			usage_status.text="Chips conferidos • %d utilizado(s) nesta verificação" % usage.get("used",0)
 			if usage.get("checked",0)==0:usage_status.text="Nenhum chip pendente de verificação de uso."
 			if usage.get("ambiguous",0)>0:usage_status.text+=" • %d vínculo(s) ambíguo(s), sem baixa" % usage.ambiguous
 			for number in usage.get("used_numbers",[]):selected.erase("chip:"+str(number))
@@ -242,14 +350,26 @@ func clear_selection() -> void:
 
 func set_mode(value: String) -> void:
 	destination_mode=value;base.visible=value=="base";custom.visible=value=="custom"
-	base_mode.disabled=value=="base";custom_mode.disabled=value=="custom";update_selection()
+	base_mode.disabled=value=="base";custom_mode.disabled=value=="custom"
+	for button in [base_mode,custom_mode]:
+		button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		button.add_theme_stylebox_override("disabled",host._style_box(Color("#0878ed"),Color("#0878ed"),1,7))
+		button.add_theme_color_override("font_disabled_color",Color.WHITE)
+	update_selection()
 
 func destination_text() -> String:
 	return base.get_item_text(base.selected) if destination_mode=="base" else custom.text.strip_edges()
 
 func update_selection() -> void:
-	selected_label.text="%d item(ns) selecionado(s) • seleção entre páginas e tipos" % selected.size()
-	selection_summary.text="%d item(ns)\nDestino: %s" % [selected.size(),destination_text() if not destination_text().is_empty() else "Informe o destino"]
+	selected_label.text="  %d item(ns) selecionado(s)" % selected.size()
+	shipment_count.text="%d item(ns) selecionado(s)" % selected.size()
+	var equipment_selected:=0;var chip_selected:=0
+	for row in selected.values():
+		if row.kind=="equipment":equipment_selected+=1
+		else:chip_selected+=1
+	selection_summary.text=("%d aparelhos" % equipment_selected) if chip_selected==0 else (("%d chips" % chip_selected) if equipment_selected==0 else "%d aparelhos · %d chips" % [equipment_selected,chip_selected])
+	shipment_count.text=selection_summary.text
+	destination_summary.text=destination_text() if not destination_text().is_empty() else "Informe o destino"
 	review_button.disabled=selected.is_empty() or selected.size()>250 or destination_text().is_empty() or sending
 	var all_checked:=false
 	if table.get_root()!=null:
@@ -295,12 +415,12 @@ func manual_dialog() -> void:
 	var type:=OptionButton.new();type.name="ItemType";type.add_item("Aparelho");type.add_item("Chip")
 	type.select(1 if kind=="chip" else 0);style_input(type);box.add_child(type)
 	var number:=LineEdit.new();number.name="ItemNumber";number.max_length=20;style_input(number);box.add_child(number)
-	var hint:=label("",13);box.add_child(hint)
+	var hint:=label("",15);box.add_child(hint)
 	var update_hint:=func():
 		number.placeholder_text="Número de série • 9 dígitos" if type.selected==0 else "ICCID • 19 ou 20 dígitos"
 		hint.text="Ex.: 024000123 • mantenha o zero inicial" if type.selected==0 else "Número do chip, começando por 89 • somente dígitos"
 	update_hint.call();type.item_selected.connect(func(_index):update_hint.call())
-	var feedback:=label("",13);feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(feedback)
+	var feedback:=label("",15);feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(feedback)
 	var buttons:=HBoxContainer.new();box.add_child(buttons)
 	var save:=action("Salvar no Armazém",func():pass,true);save.name="SaveManualItem";buttons.add_child(save)
 	var cancel:=action("Cancelar",dialog.queue_free);buttons.add_child(cancel)
