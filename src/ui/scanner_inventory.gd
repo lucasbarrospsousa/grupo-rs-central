@@ -1,5 +1,5 @@
 extends VBoxContainer
-## Separate warehouse; no calls to the operational inventory or tracking APIs.
+## Separate warehouse; read-only Arya confirmation for manual chip intake.
 var host: Node
 var service: Node
 var kind := "equipment"
@@ -484,6 +484,7 @@ func manual_dialog() -> void:
 	update_hint.call();type.item_selected.connect(func(_index):update_hint.call())
 	var feedback:=label("",14);feedback.custom_minimum_size=Vector2(580,22);feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;feedback.add_theme_color_override("font_color",Color("#a64312"));box.add_child(feedback)
 	var validation:=label("",15);validation.name="AryaValidation";validation.custom_minimum_size.x=580;validation.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(validation)
+	var details_grid:=GridContainer.new();details_grid.name="AryaMiniCards";details_grid.columns=2;details_grid.add_theme_constant_override("h_separation",10);details_grid.add_theme_constant_override("v_separation",8);details_grid.hide();box.add_child(details_grid)
 	var consult:=action("Consultar na Arya",func():pass);consult.name="ConsultArya";box.add_child(consult)
 	var check_timer:=Timer.new();check_timer.one_shot=true;check_timer.wait_time=0.7;dialog.add_child(check_timer)
 	var verification:={"revision":0,"running":false,"iccid":"","result":{},"checked_at":0}
@@ -494,6 +495,7 @@ func manual_dialog() -> void:
 	var sync_validation:=func():
 		var is_chip:=type.selected==1
 		validation.visible=is_chip;consult.visible=is_chip
+		details_grid.visible=is_chip and verification.result.get("state","")=="found"
 		save.disabled=is_chip and (verification.iccid!=number.text.strip_edges() or verification.result.get("state","")!="found")
 	var changed:=func():
 		verification.revision+=1;verification.iccid="";verification.result={};verification.checked_at=0;check_timer.stop()
@@ -516,9 +518,16 @@ func manual_dialog() -> void:
 		verification.result=result;verification.iccid=iccid;verification.checked_at=int(Time.get_unix_time_from_system())
 		if result.get("state","")=="found":
 			validation.add_theme_color_override("font_color",Color("#168354"))
-			var details:Array[String]=["ICCID confirmado na Arya", "Telefone: "+(str(result.phone) if str(result.phone)!="" else "Não informado"),"Operadora: "+(str(result.operator) if str(result.operator)!="" else "Não informada"),"APN: "+(str(result.apn) if str(result.apn)!="" else "Não informada"),"Conexão: "+str(result.connection)]
-			if str(result.last_connection)!="":details.append("Última conexão: "+str(result.last_connection))
-			validation.text="\n".join(details)
+			validation.text="ICCID confirmado na Arya"
+			for child in details_grid.get_children():details_grid.remove_child(child);child.queue_free()
+			var fields:Array=[["TELEFONE",result.phone],["OPERADORA",result.operator],["APN",result.apn],["CONEXÃO",result.connection]]
+			if str(result.last_connection)!="":fields.append(["ÚLTIMA CONEXÃO",result.last_connection])
+			for field in fields:
+				var cell:=panel(details_grid,10);cell.add_theme_constant_override("separation",4)
+				cell.get_parent().get_parent().custom_minimum_size.x=280
+				var field_title:=label(str(field[0]),12);field_title.add_theme_color_override("font_color",Color("#607895"));cell.add_child(field_title)
+				var value:=label(str(field[1]) if str(field[1])!="" else "Não informado",16);value.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;value.custom_minimum_size.x=250;cell.add_child(value)
+				if field[0]=="CONEXÃO":value.add_theme_color_override("font_color",Color("#168354") if str(field[1])=="Online" else Color("#a46322"))
 		else:
 			validation.add_theme_color_override("font_color",Color("#a64312"));validation.text=str(result.get("message","Validação pendente."))+" O cadastro permanece bloqueado."
 		sync_validation.call();dialog.reset_size();dialog.popup_centered(Vector2i(640,480))
