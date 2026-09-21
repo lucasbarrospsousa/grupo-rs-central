@@ -657,6 +657,44 @@ func get_maintenances(include_completed: bool = false) -> Array[Dictionary]:
 	return result
 
 
+func save_maintenance_visit(values: Dictionary) -> Dictionary:
+	# Each visit has its own identity, even when plate and device repeat.
+	if not _can_mutate(): return {"ok": false, "message": "Banco indisponível."}
+	if not _loaded: load_db()
+	var item := _normalize_maintenance(values)
+	if item.is_empty(): return {"ok": false, "message": "Selecione cliente, veículo e aparelho vinculados."}
+	if str(item.reason) not in ["Sem comunicação", "Localização errada", "Troca de aparelho"]:
+		return {"ok": false, "message": "Selecione o motivo da manutenção."}
+	if str(item.status) not in ["pendente", "aguardando_peca", "aguardando_cliente", "concluido", "cancelado"]:
+		return {"ok": false, "message": "Situação inválida."}
+	if item.status == "concluido" and (str(item.solution).is_empty() or (item.reason == "Troca de aparelho" and str(item.departure_serial).is_empty())):
+		return {"ok": false, "message": "Informe a solução e o aparelho de saída antes de concluir."}
+	var before := _db.duplicate(true)
+	var rows: Array = _db.get("maintenances", [])
+	var index := _find_maintenance_index_by_id(str(item.id)) if str(item.id) != "" else -1
+	if str(item.id) != "" and index < 0: return {"ok": false, "message": "Atendimento não encontrado. Atualize a lista."}
+	if index >= 0:
+		var current: Dictionary = rows[index]
+		# Preserve the original linkage snapshot throughout the visit.
+		for key in ["client", "client_id", "plate", "serial", "vehicle_id", "created_at", "source_date"]:
+			item[key] = current.get(key, item.get(key, ""))
+	else:
+		item.id = "visit-" + Crypto.new().generate_random_bytes(16).hex_encode()
+		item.created_at = _now_string()
+		item.source_date = item.created_at
+	item.updated_at = _now_string()
+	item.completed_at = (str(item.completed_at) if str(item.completed_at) != "" else _now_string()) if item.status == "concluido" else ""
+	item.visit_version = 1
+	if item.reason != "Troca de aparelho": item.departure_serial = item.serial if item.status == "concluido" else ""
+	if index >= 0: rows[index] = item
+	else: rows.append(item)
+	_db.maintenances = rows
+	if not save_db():
+		_db = before
+		return {"ok": false, "message": "Falha ao salvar o atendimento. Tente novamente."}
+	return {"ok": true, "id": item.id, "message": "Atendimento salvo."}
+
+
 func get_scheduled_maintenances(query: String = "") -> Array[Dictionary]:
 	var normalized_query := _normalize_search_text(query)
 	var result: Array[Dictionary] = []
@@ -1597,6 +1635,14 @@ func _normalize_maintenance(value: Dictionary) -> Dictionary:
 	return {
 		"id": str(value.get("id", "")).strip_edges(),
 		"client": client,
+		"client_id": str(value.get("client_id", "")),
+		"vehicle_id": str(value.get("vehicle_id", "")),
+		"visit_version": int(value.get("visit_version", 0)),
+		"reason": str(value.get("reason", "")).strip_edges(),
+		"diagnosis": str(value.get("diagnosis", "")).strip_edges(),
+		"solution": str(value.get("solution", "")).strip_edges(),
+		"technician": str(value.get("technician", "")).strip_edges(),
+		"departure_serial": str(value.get("departure_serial", "")).strip_edges(),
 		"plate": plate,
 		"serial": serial,
 		"provider": str(value.get("provider", "")).strip_edges(),
@@ -2343,6 +2389,8 @@ func _find_maintenance_index(serial: String, plate: String) -> int:
 		var item := _normalize_maintenance(maintenances[index])
 		if item.is_empty():
 			continue
+		if int(item.get("visit_version", 0)) > 0:
+			continue # Legacy imports cannot overwrite the new per-visit history.
 		if str(item.get("serial", "")).strip_edges() == clean_serial and str(item.get("plate", "")).strip_edges().to_upper() == clean_plate:
 			return index
 

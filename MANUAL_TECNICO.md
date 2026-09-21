@@ -18,6 +18,10 @@ Esta pasta é a fonte deste projeto; não usar o diretório de outro aplicativo 
 
 ## Testes proporcionais
 
+### Manutenções por atendimento — 21/09/2026
+
+Aba Equipamentos > Manutenções: cliente → veículo único → aparelho de chegada via consultas JSON autenticadas do portal de Imperatriz, histórico por visita, relatório técnico e PDF dos filtros. Não movimenta estoque nem vínculos. Fluxo e testes: `docs/manutencoes_atendimentos.md`.
+
 ### Vinculação para estoque — 19/09/2026
 
 Aba Equipamentos > Vinculação: seleção de Reserva/Manutenção, identificação informada e titular RS300. Envia um POST pela API somente após revisão explícita; confere série/identificação na API e titular no portal antes de concluir Estoque local. Conflitos bloqueiam; tentativas ambíguas são reconciliadas sem repetir gravação. Escopo inicial Imperatriz. Fluxo, limites e testes: `docs/vinculacao_estoque.md`.

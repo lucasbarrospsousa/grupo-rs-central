@@ -59,7 +59,7 @@ const CODEX_ESCALATION_TIMEOUT_SECONDS := 75.0
 const DEFAULT_AUTH_USER := "lucasabm"
 const DEFAULT_AUTH_SALT := "grupo-rs-central-v1"
 const DEFAULT_AUTH_PASSWORD_HASH := "8b8be979780a3d27da85579c5398e07b6acd78b73e0e6ac0c4ea8adebc78e6fc"
-const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "stock_link", "consult", "records", "route", "bulk", "settings", "sms_panel"]
+const ACTIVE_SCOPE_SECTIONS := ["dashboard", "inventory", "stock_link", "maintenance_visits", "consult", "records", "route", "bulk", "settings", "sms_panel"]
 const TABLE_PAGE_SIZE := 10
 const SYSTEM_LOG_PAGE_SIZE := 20
 # A referencia visual do log usa uma lista curta de eventos recentes. Mantemos
@@ -3243,6 +3243,9 @@ func _make_sidebar_equipment_group() -> Control:
 		_make_sidebar_button("Vinculação", "cadastros", "stock_link", _show_stock_link, true)
 	)
 	sidebar_equipment_children.add_child(
+		_make_sidebar_button("Manutenções", "arquivo", "maintenance_visits", _show_maintenance_visits, true)
+	)
+	sidebar_equipment_children.add_child(
 		_make_sidebar_button("Consultar", "consulta", "consult", _show_consult, true)
 	)
 	sidebar_equipment_children.add_child(
@@ -3506,7 +3509,7 @@ func _apply_sidebar_button_state(button: Button, active: bool) -> void:
 
 
 func _is_sidebar_equipment_section(section: String) -> bool:
-	return section in ["inventory", "stock_link", "consult", "records", "route", "bulk"]
+	return section in ["inventory", "stock_link", "maintenance_visits", "consult", "records", "route", "bulk"]
 
 
 func _toggle_sidebar_equipment_group() -> void:
@@ -8101,7 +8104,7 @@ func _section_requires_local_database(section: String = "") -> bool:
 		active_section = current_section.strip_edges().to_lower()
 	# Estoque, cadastro em massa, manutencoes, logs e o dashboard exibem ou
 	# alteram dados operacionais cuja unica fonte autorizada e o Banco local SQL.
-	return active_section in ["dashboard", "inventory", "stock_link", "consult", "bulk", "maintenance", "logs"]
+	return active_section in ["dashboard", "inventory", "stock_link", "maintenance_visits", "consult", "bulk", "maintenance", "logs"]
 
 
 func _local_database_topbar_text(state: String, pending_count: int = 0) -> String:
@@ -8211,6 +8214,8 @@ func _restore_current_content_after_connection() -> void:
 			_show_list()
 		"stock_link":
 			_show_stock_link()
+		"maintenance_visits":
+			_show_maintenance_visits()
 		"consult":
 			_show_consult()
 		"records":
@@ -8256,6 +8261,14 @@ func _show_stock_link() -> void:
 	if not _stock_link_service().busy:
 		store.reload_db_from_disk()
 	var view := preload("res://src/ui/stock_link.gd").new()
+	view.setup(self)
+	_set_content(view)
+
+
+func _show_maintenance_visits() -> void:
+	_set_page_context("maintenance_visits", "Manutenções", "Histórico de retornos, diagnósticos e soluções")
+	_set_content_margins(44, 28, 44, 24)
+	var view := preload("res://src/ui/maintenance_visits.gd").new()
 	view.setup(self)
 	_set_content(view)
 

@@ -255,6 +255,35 @@ def generate_pdf(payload, output_path, logo_path):
     return {"ok": True, "path": output_path, "format": "pdf", "rows": len(rows)}
 
 
+def generate_maintenance_pdf(payload, output_path):
+    from html import escape
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+
+    styles = getSampleStyleSheet()
+    styles['Heading1'].textColor = colors.HexColor('#173b5d')
+    styles['Heading2'].textColor = colors.HexColor('#2879bf')
+    rows = payload.get('visits', [])
+    states = {'pendente': 'Em análise', 'aguardando_peca': 'Aguardando peça',
+              'aguardando_cliente': 'Aguardando cliente', 'concluido': 'Concluída', 'cancelado': 'Cancelada'}
+    story = [Paragraph('Grupo RS Central · Manutenções', styles['Heading1']),
+             Paragraph(escape(str(payload.get('branch', ''))) + f' · {len(rows)} atendimento(s)', styles['Normal']), Spacer(1, 16)]
+    for row in rows:
+        story.append(Paragraph(escape(str(row.get('plate', ''))) + ' · ' + escape(str(row.get('client', ''))), styles['Heading2']))
+        for label, key in [('Entrada', 'created_at'), ('Situação', 'status'), ('Aparelho de chegada', 'serial'),
+                           ('Aparelho de saída', 'departure_serial'), ('Motivo', 'reason'), ('Relato', 'note'),
+                           ('Diagnóstico', 'diagnosis'), ('Solução', 'solution'), ('Responsável', 'technician'),
+                           ('Conclusão', 'completed_at')]:
+            value = str(row.get(key, '') or 'Não informado')
+            if key == 'status': value = states.get(value, value)
+            story.append(Paragraph('<b>' + label + ':</b> ' + escape(value).replace('\n', '<br/>'), styles['Normal']))
+        story.append(Spacer(1, 16))
+    SimpleDocTemplate(output_path, pagesize=A4, title='Histórico de manutenções', leftMargin=36, rightMargin=36).build(story)
+    return {'ok': True, 'path': output_path, 'format': 'pdf', 'rows': len(rows)}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
@@ -264,7 +293,10 @@ def main():
     args = parser.parse_args()
     with open(args.input, "r", encoding="utf-8-sig") as handle:
         payload = json.load(handle)
-    result = generate_pdf(payload, args.output, args.logo) if args.format == "pdf" else generate_xlsx(payload, args.output, args.logo)
+    if payload.get('report_type') == 'maintenance' and args.format == 'pdf':
+        result = generate_maintenance_pdf(payload, args.output)
+    else:
+        result = generate_pdf(payload, args.output, args.logo) if args.format == "pdf" else generate_xlsx(payload, args.output, args.logo)
     print(json.dumps(result, ensure_ascii=False))
 
 
