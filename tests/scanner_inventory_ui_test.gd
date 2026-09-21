@@ -1,5 +1,13 @@
 extends SceneTree
 const Shell=preload("res://tests/fixtures/offline_main_dashboard.gd")
+class AryaShell extends "res://tests/fixtures/offline_main_dashboard.gd":
+	var arya_found:=false
+	var arya_calls:=0
+	func _ensure_arya_token(_force:bool=false) -> Dictionary:return {"ok":true}
+	func _arya_token() -> String:return "fixture"
+	func _arya_inventory_get_with_retry(_url:String) -> Dictionary:
+		arya_calls+=1
+		return {"ok":true,"response_code":200,"body":JSON.stringify({"data":[{"iccid":"89553000000000000123","msisdn":"5599999999999","provider":"Operadora demonstrativa","apn":"apn.exemplo","conn_status":false}] if arya_found else []})}
 class FakeBridge extends Node:
 	var offline:=false
 	var registers:=0
@@ -33,7 +41,7 @@ func _initialize() -> void:run.call_deferred()
 func run() -> void:
 	create_timer(45).timeout.connect(func():push_error("Scanner UI timeout");quit(1))
 	root.size=Vector2i(1917,991)
-	var shell:=Shell.new();root.add_child(shell);await process_frame
+	var shell:=AryaShell.new();root.add_child(shell);await process_frame
 	var fake:=FakeBridge.new();shell.add_child(fake);shell.set_meta("scanner_bridge",fake)
 	shell._show_scanner_inventory();await process_frame;await process_frame
 	var view:Node=shell.find_child("ScannerInventory",true,false)
@@ -60,16 +68,31 @@ func run() -> void:
 		await create_timer(0.3).timeout;RenderingServer.force_draw()
 		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("tipo-item-armazem.png"))
 	item_type.get_popup().hide()
-	manual.find_child("ItemNumber",true,false).text="invalid"
-	manual.find_child("SaveManualItem",true,false).pressed.emit();await process_frame
-	assert(is_instance_valid(manual));assert(fake.registers==1)
-	manual.find_child("ItemNumber",true,false).text="89553000000000000123"
-	manual.find_child("SaveManualItem",true,false).pressed.emit();await process_frame;await process_frame
-	assert(fake.registers==2);assert(not is_instance_valid(manual))
+	var number:LineEdit=manual.find_child("ItemNumber",true,false)
+	var save:Button=manual.find_child("SaveManualItem",true,false)
+	var consult:Button=manual.find_child("ConsultArya",true,false)
+	number.text="invalid";number.text_changed.emit(number.text)
+	save.pressed.emit();await process_frame
+	assert(is_instance_valid(manual));assert(fake.registers==0);assert(save.disabled)
+	number.text="89553000000000000123";number.text_changed.emit(number.text)
+	consult.pressed.emit();await process_frame
+	assert(save.disabled);assert(manual.find_child("AryaValidation",true,false).text.contains("bloqueado"))
+	shell.arya_found=true;consult.pressed.emit();await process_frame
+	assert(not save.disabled)
+	number.text="89553000000000000124";number.text_changed.emit(number.text)
+	assert(save.disabled);save.pressed.emit();assert(fake.registers==0)
+	number.text="89553000000000000123";number.text_changed.emit(number.text)
+	consult.pressed.emit();await process_frame
+	assert(not save.disabled)
+	if DisplayServer.get_name()!="headless":
+		await create_timer(0.3).timeout;RenderingServer.force_draw()
+		root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("chip-confirmado-arya.png"))
+	save.pressed.emit();await process_frame;await process_frame
+	assert(fake.registers==1);assert(not is_instance_valid(manual))
 	view.manual_dialog();await process_frame
 	view.get_node("ManualWarehouseDialog").canceled.emit();await process_frame;await process_frame
 	assert(root.find_child("WarehouseModalShade",true,false)==null)
-	assert(fake.registers==2)
+	assert(fake.registers==1)
 	view.set_mode("base");view.base.select(3);view.update_selection();view.select_kind("equipment");await process_frame
 	assert(view.review_button.get_global_rect().end.y<=root.size.y)
 	assert(view.table.get_global_rect().end.x<view.review_button.get_global_rect().position.x)

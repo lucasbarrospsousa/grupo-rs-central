@@ -10,7 +10,7 @@ class ScannerInventoryTests(unittest.TestCase):
         self.row={'version':1,'id':str(uuid.uuid4()),'branch':'imperatriz','kind':'equipment','number':'024000123','created_at':int(time.time())}
     def tearDown(self):self.db.close();self.temp.cleanup()
     def add(self, rows):
-        for row in rows:s.register(self.db, {'kind':row['kind'],'number':row['number']})
+        for row in rows:s.register(self.db, {'kind':row['kind'],'number':row['number'],'arya_confirmation':{'iccid':row['number'],'checked_at':int(time.time())}})
     def test_manual_numbers_and_duplicates(self):
         self.add([self.row])
         with self.assertRaises(ValueError):self.add([self.row])
@@ -23,6 +23,11 @@ class ScannerInventoryTests(unittest.TestCase):
         for op in ['sync','pair','address','config']:
             with self.assertRaises(ValueError):s.operate(self.db,op,{})
         self.assertEqual(s.operate(self.db,'list',{})['total'],0)
+    def test_chip_requires_recent_confirmation_of_same_iccid(self):
+        chip={'kind':'chip','number':'89553000000000000123'}
+        for confirmation in [{},{'iccid':'89553000000000000124','checked_at':int(time.time())},{'iccid':chip['number'],'checked_at':int(time.time())-301}]:
+            with self.assertRaises(ValueError):s.register(self.db,dict(chip,arya_confirmation=confirmation))
+        self.assertEqual(s.operate(self.db,'list',{'kind':'chip'})['total'],0)
     def test_removal_preserves_history_and_blocks_dispatch(self):
         self.add([self.row]);item={'kind':'equipment','number':self.row['number']}
         self.assertFalse(s.operate(self.db,'remove',item)['repeated'])

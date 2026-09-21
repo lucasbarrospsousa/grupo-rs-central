@@ -13,3 +13,9 @@ Validação: testes Python isolados de cadastro, duplicação, movimentação e 
 ## Remoção manual e seletores
 
 O X na coluna Ações remove somente itens disponíveis, após confirmação. O registro original é preservado; a tabela removals registra a data. O item sai das listas de aparelhos/chips e fica em Movimentações como Removido da lista. Repetir a operação não duplica o evento. Itens enviados/utilizados não podem ser removidos; itens removidos não podem ser enviados, recadastrados como novos ou reconciliados automaticamente. Não há exclusão no banco operacional. Seletores de tipo, situação e base usam estilos claros em todos os estados.
+
+## Confirmação obrigatória na Arya
+
+Ao digitar um ICCID completo, a Central consulta a integração Arya existente (somente leitura). O cadastro fica bloqueado até resposta com correspondência exata do ICCID. Falha de acesso, resposta inválida, ausência e ambiguidade não liberam o cadastro. Alterar o número ou o tipo invalida a confirmação; ela expira após 5 minutos. O botão Consultar na Arya permite repetir a consulta. Telefone, operadora, APN, conexão e última conexão são mostrados quando fornecidos; Offline não significa inexistente. Aparelhos continuam com cadastro manual independente da Arya.
+
+A confirmação é metadado interno do fluxo local, não uma credencial ou atestado criptográfico. O serviço local também exige ICCID correspondente e confirmação recente. Testes usam respostas simuladas e não comprovam disponibilidade atual da conta Arya.

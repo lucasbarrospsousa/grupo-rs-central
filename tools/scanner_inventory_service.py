@@ -34,6 +34,10 @@ def register(db, data):
     pattern = r'[0-9]{9}' if kind == 'equipment' else r'89[0-9]{17,18}'
     if not re.fullmatch(pattern, number):
         raise ValueError('Informe a série com 9 dígitos' if kind == 'equipment' else 'Informe o ICCID com 19 ou 20 dígitos, começando por 89')
+    if kind == 'chip':
+        proof=data.get('arya_confirmation',{})
+        if not isinstance(proof,dict) or proof.get('iccid')!=number or type(proof.get('checked_at')) is not int or not 0 <= time.time()-proof['checked_at'] <= 300:
+            raise ValueError('Confirme este ICCID na Arya antes de salvar. A confirmação vale por 5 minutos.')
     with db:
         db.execute('BEGIN IMMEDIATE')
         if db.execute('SELECT 1 FROM items WHERE kind=? AND number=?', (kind, number)).fetchone():

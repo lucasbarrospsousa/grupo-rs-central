@@ -483,13 +483,54 @@ func manual_dialog() -> void:
 		hint.text="Ex.: 024000123 • mantenha o zero inicial." if type.selected==0 else "O ICCID começa com 89. Informe somente os números."
 	update_hint.call();type.item_selected.connect(func(_index):update_hint.call())
 	var feedback:=label("",14);feedback.custom_minimum_size=Vector2(580,22);feedback.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;feedback.add_theme_color_override("font_color",Color("#a64312"));box.add_child(feedback)
+	var validation:=label("",15);validation.name="AryaValidation";validation.custom_minimum_size.x=580;validation.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;box.add_child(validation)
+	var consult:=action("Consultar na Arya",func():pass);consult.name="ConsultArya";box.add_child(consult)
+	var check_timer:=Timer.new();check_timer.one_shot=true;check_timer.wait_time=0.7;dialog.add_child(check_timer)
+	var verification:={"revision":0,"running":false,"iccid":"","result":{},"checked_at":0}
 	box.add_child(HSeparator.new())
 	var buttons:=HBoxContainer.new();buttons.alignment=BoxContainer.ALIGNMENT_END;buttons.add_theme_constant_override("separation",10);box.add_child(buttons)
 	var cancel:=action("Cancelar",dialog.queue_free);buttons.add_child(cancel)
 	var save:=action("Salvar no Armazém",func():pass,true);save.name="SaveManualItem";buttons.add_child(save)
+	var sync_validation:=func():
+		var is_chip:=type.selected==1
+		validation.visible=is_chip;consult.visible=is_chip
+		save.disabled=is_chip and (verification.iccid!=number.text.strip_edges() or verification.result.get("state","")!="found")
+	var changed:=func():
+		verification.revision+=1;verification.iccid="";verification.result={};verification.checked_at=0;check_timer.stop()
+		validation.text="Informe o ICCID completo para validar na Arya."
+		validation.add_theme_color_override("font_color",Color("#607895"));sync_validation.call()
+		if type.selected==1 and preload("res://src/services/warehouse_chip_lookup.gd").new().valid_iccid(number.text.strip_edges()):check_timer.start()
+	var query:=func():
+		if verification.running or type.selected!=1:return
+		var iccid:=number.text.strip_edges()
+		var lookup:=preload("res://src/services/warehouse_chip_lookup.gd").new()
+		if not lookup.valid_iccid(iccid):validation.text="Informe 19 ou 20 dígitos, começando por 89.";return
+		var revision:int=verification.revision;verification.running=true;consult.disabled=true
+		verification.result={};verification.iccid="";feedback.text="";sync_validation.call();validation.text="Consultando ICCID na Arya…"
+		var result:Dictionary=await lookup.lookup(host,iccid)
+		if not is_instance_valid(dialog):return
+		verification.running=false;consult.disabled=false
+		if revision!=verification.revision or type.selected!=1:
+			if type.selected==1:check_timer.start(0.2)
+			return
+		verification.result=result;verification.iccid=iccid;verification.checked_at=int(Time.get_unix_time_from_system())
+		if result.get("state","")=="found":
+			validation.add_theme_color_override("font_color",Color("#168354"))
+			var details:Array[String]=["ICCID confirmado na Arya", "Telefone: "+(str(result.phone) if str(result.phone)!="" else "Não informado"),"Operadora: "+(str(result.operator) if str(result.operator)!="" else "Não informada"),"APN: "+(str(result.apn) if str(result.apn)!="" else "Não informada"),"Conexão: "+str(result.connection)]
+			if str(result.last_connection)!="":details.append("Última conexão: "+str(result.last_connection))
+			validation.text="\n".join(details)
+		else:
+			validation.add_theme_color_override("font_color",Color("#a64312"));validation.text=str(result.get("message","Validação pendente."))+" O cadastro permanece bloqueado."
+		sync_validation.call();dialog.reset_size();dialog.popup_centered(Vector2i(640,480))
+	check_timer.timeout.connect(query);consult.pressed.connect(query)
+	number.text_changed.connect(func(_text):changed.call());type.item_selected.connect(func(_index):changed.call())
+	changed.call()
 	save.pressed.connect(func():
+		if type.selected==1 and (verification.iccid!=number.text.strip_edges() or verification.result.get("state","")!="found" or Time.get_unix_time_from_system()-verification.checked_at>300):
+			feedback.text="Confirme este ICCID na Arya antes de salvar.";changed.call();return
+		check_timer.stop();consult.disabled=true
 		dialog.dialog_close_on_escape=false;save.disabled=true;cancel.disabled=true;close.disabled=true;type.disabled=true;number.editable=false;feedback.text="Salvando…"
-		var result:Dictionary=await service.call_service("register",{"kind":"equipment" if type.selected==0 else "chip","number":number.text.strip_edges()})
+		var result:Dictionary=await service.call_service("register",{"kind":"equipment" if type.selected==0 else "chip","number":number.text.strip_edges(),"arya_confirmation":{"iccid":verification.iccid,"checked_at":verification.checked_at} if type.selected==1 else {}})
 		if not is_instance_valid(dialog):return
 		if result.get("ok",false):
 			kind=str(result.kind);page_index=0;search.clear();filter.select(0)
@@ -497,7 +538,7 @@ func manual_dialog() -> void:
 			dialog.queue_free();await refresh();last_usage_check=-15000;await receive()
 		else:
 			feedback.text=str(result.get("error","Não foi possível salvar. Tente novamente."))
-			dialog.dialog_close_on_escape=true;save.disabled=false;cancel.disabled=false;close.disabled=false;type.disabled=false;number.editable=true
+			dialog.dialog_close_on_escape=true;save.disabled=false;cancel.disabled=false;close.disabled=false;type.disabled=false;number.editable=true;consult.disabled=false;sync_validation.call()
 	)
 	dialog.close_requested.connect(func():
 		if not save.disabled:dialog.queue_free()
