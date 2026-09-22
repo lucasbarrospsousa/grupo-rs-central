@@ -22,6 +22,7 @@ var active_branch := ""
 var page := 0
 var filtered_rows: Array = []
 var detail_dialog: Window
+const Bold=preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf")
 const PAGE_SIZE := 8
 var page_size:=8
 var collapsed_groups:Dictionary={}
@@ -211,17 +212,19 @@ func open_list(id: String) -> void:
 	list_title.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf"))
 	list_title.add_theme_color_override("font_color", Color("#07153f"))
 	title_row.add_child(list_title)
-	list_base_badge=label("",18);list_base_badge.add_theme_stylebox_override("normal",box(Color("#e0f1ff"),16));list_base_badge.add_theme_color_override("font_color",Color("#0064ca"));title_row.add_child(list_base_badge)
-	list_total_badge=label("",17);list_total_badge.add_theme_stylebox_override("normal",box(Color("#045ba9"),20));list_total_badge.add_theme_color_override("font_color",Color.WHITE);title_row.add_child(list_total_badge)
+	list_base_badge=label("",18);list_base_badge.add_theme_font_override("font",Bold);list_base_badge.add_theme_stylebox_override("normal",box(Color("#e0f1ff"),16));list_base_badge.add_theme_color_override("font_color",Color("#0064ca"));title_row.add_child(list_base_badge)
+	list_total_badge=label("",17);list_total_badge.add_theme_font_override("font",Bold);list_total_badge.add_theme_stylebox_override("normal",box(Color("#045ba9"),20));list_total_badge.add_theme_color_override("font_color",Color.WHITE);title_row.add_child(list_total_badge)
 	var subtitle := label("Consulte os veículos da base, organizados por APN.", 13)
 	subtitle.add_theme_color_override("font_color", Color("#345885"))
 	titles.add_child(subtitle)
 	list_refresh = Button.new()
 	list_refresh.size_flags_vertical=Control.SIZE_SHRINK_CENTER
-	list_refresh.custom_minimum_size.y=46
-	list_refresh.text = "↻  Atualizar lista"
+	list_refresh.custom_minimum_size=Vector2(180,46)
+	list_refresh.text = "  Atualizar lista"
+	list_refresh.icon=preload("res://assets/icons/approved/refresh.svg");list_refresh.expand_icon=true;list_refresh.add_theme_constant_override("icon_max_width",24)
+	list_refresh.add_theme_font_override("font",Bold)
 	style_button(list_refresh)
-	list_refresh.add_theme_stylebox_override("normal", box(Color("#f5faff"), 8))
+	var refresh_style:=box(Color.WHITE,8);refresh_style.border_color=Color("#0070ff");refresh_style.set_border_width_all(1);list_refresh.add_theme_stylebox_override("normal",refresh_style)
 	list_refresh.add_theme_stylebox_override("hover", box(Color("#e5f2ff"), 8))
 	list_refresh.add_theme_color_override("font_color", Color("#005acd"))
 	list_refresh.add_theme_color_override("font_hover_color", Color("#005acd"))
@@ -229,8 +232,10 @@ func open_list(id: String) -> void:
 	header.add_child(list_refresh)
 	var close := Button.new()
 	close.text = "×"
+	close.add_theme_font_size_override("font_size",28)
 	close.size_flags_vertical=Control.SIZE_SHRINK_CENTER
 	style_button(close)
+	close.add_theme_font_size_override("font_size",28)
 	close.add_theme_stylebox_override("normal", box(Color.WHITE, 10))
 	close.add_theme_color_override("font_color",Color("#0c2850"))
 	close.pressed.connect(func(): list_dialog.queue_free())
@@ -239,6 +244,8 @@ func open_list(id: String) -> void:
 	stack.add_child(filters)
 	list_search = LineEdit.new()
 	list_search.placeholder_text = "Buscar cliente, placa ou equipamento"
+	var search_style:=box(Color.WHITE,6);search_style.border_color=Color("#cbdcf0");search_style.set_border_width_all(1);search_style.content_margin_left=54;list_search.add_theme_stylebox_override("normal",search_style)
+	var search_icon:=VectorIcon.new();search_icon.kind="search";search_icon.position=Vector2(15,12);search_icon.size=Vector2(24,24);search_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE;list_search.add_child(search_icon)
 	list_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_search.text_changed.connect(func(_value): page = 0; populate_list())
 	filters.add_child(list_search)
@@ -265,7 +272,7 @@ func open_list(id: String) -> void:
 	notice.add_child(list_status)
 	var headings := PanelContainer.new()
 	var heading_style := box(Color("#e0e8f3"), 6)
-	heading_style.content_margin_right = 34
+	heading_style.content_margin_right = 26
 	headings.add_theme_stylebox_override("panel", heading_style)
 	stack.add_child(headings)
 	var heading_row := HBoxContainer.new()
@@ -274,7 +281,9 @@ func open_list(id: String) -> void:
 	for index in range(6):
 		var heading := cell(columns[index], index)
 		heading.add_theme_color_override("font_color", Color("#07153f"))
+		var divider_style:=StyleBoxFlat.new();divider_style.bg_color=Color.TRANSPARENT;divider_style.border_color=Color("#cddbea");divider_style.border_width_right=1;heading.add_theme_stylebox_override("normal",divider_style)
 		heading_row.add_child(heading)
+	var heading_arrow:=Control.new();heading_arrow.custom_minimum_size.x=20;heading_row.add_child(heading_arrow)
 	list_scroll = ScrollContainer.new()
 	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -287,19 +296,22 @@ func open_list(id: String) -> void:
 	var footer := HBoxContainer.new()
 	stack.add_child(footer)
 	list_count = label("", 12)
-	list_count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_count.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	footer.add_child(list_count)
 	var per_page:=OptionButton.new();per_page.add_item("8 por página");per_page.add_item("16 por página");per_page.add_item("25 por página");per_page.item_selected.connect(func(index):page_size=[8,16,25][index];page=0;populate_list());footer.add_child(per_page)
+	var footer_spacer:=Control.new();footer_spacer.size_flags_horizontal=Control.SIZE_EXPAND_FILL;footer.add_child(footer_spacer)
 	list_pages = HBoxContainer.new()
 	footer.add_child(list_pages)
+	var footer_hint:=label("Clique na linha para ver detalhes.",12);footer_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT;stack.add_child(footer_hint)
 	populate_list()
 	list_dialog.popup_centered()
 	list_dialog.position.x=mini(get_viewport_rect().size.x-list_dialog.size.x-20,(get_viewport_rect().size.x+95-list_dialog.size.x)/2)
 
 static func cell(value: String, index: int) -> Label:
-	var node := label(value, 14)
-	node.custom_minimum_size.x = [230, 135, 155, 110, 190, 190][index]
+	var node := label(value, 16)
+	node.custom_minimum_size.x = [230, 140, 160, 110, 190, 160][index]
 	if index == 0: node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	node.add_theme_constant_override("line_spacing",-2)
 	node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	node.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	node.clip_text = true
@@ -407,6 +419,7 @@ func populate_list() -> void:
 			group_row.add_theme_constant_override("separation", 16)
 			group.add_child(group_row)
 			var group_text := label("⌄  %sAPN: %s" % [(str(BASES[data.base]) + "  •  ") if active_branch == "" else "", str(data.apn).to_upper() if str(data.apn) != "" else "NÃO INFORMADA"], 17)
+			group_text.add_theme_font_override("font",Bold)
 			group_text.add_theme_color_override("font_color", Color("#102653"))
 			group_row.add_child(group_text)
 			var counter := PanelContainer.new()
@@ -431,8 +444,9 @@ func populate_list() -> void:
 		var panel := PanelContainer.new()
 		panel.set_meta("vehicle_row", data)
 		var style := box(Color.WHITE if index % 2 == 0 else Color("#f5f7fa"), 0)
-		style.content_margin_top = 3
-		style.content_margin_bottom = 3
+		style.content_margin_top = 0
+		style.content_margin_bottom = 0
+		style.border_color=Color("#dce6f0");style.border_width_bottom=1
 		panel.add_theme_stylebox_override("panel", style)
 		list_rows.add_child(panel)
 		var row := HBoxContainer.new()
@@ -443,8 +457,9 @@ func populate_list() -> void:
 			if column==1:text_cell.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf"))
 			row.add_child(text_cell)
 		row.add_child(badge(str(data.apn) if str(data.apn) != "" else "Não informada", 110, Color("#168955")))
-		var phone:=HBoxContainer.new();phone.custom_minimum_size.x=190;var phone_label:=label(str(data.phone) if str(data.phone)!="" else "Não informado",14);phone.add_child(phone_label);var copy:=Button.new();copy.text="▢";copy.add_theme_color_override("font_color",Color("#0064c9"));copy.flat=true;copy.tooltip_text="Copiar telefone do chip";copy.pressed.connect(func():DisplayServer.clipboard_set(str(data.phone)));phone.add_child(copy);row.add_child(phone)
+		var phone:=HBoxContainer.new();phone.custom_minimum_size.x=190;var phone_label:=label(str(data.phone) if str(data.phone)!="" else "Não informado",16);phone.add_child(phone_label);var copy:=Button.new();copy.text="";copy.custom_minimum_size=Vector2(26,30);copy.size_flags_vertical=Control.SIZE_SHRINK_CENTER;var copy_icon:=VectorIcon.new();copy_icon.kind="copy";copy_icon.position=Vector2(4,5);copy_icon.size=Vector2(18,22);copy_icon.mouse_filter=Control.MOUSE_FILTER_IGNORE;copy.add_child(copy_icon);copy.add_theme_color_override("font_color",Color("#0064c9"));copy.flat=true;copy.tooltip_text="Copiar telefone do chip";copy.pressed.connect(func():DisplayServer.clipboard_set(str(data.phone)));phone.add_child(copy);row.add_child(phone)
 		row.add_child(cell(str(data.updated_at).replace(" ","\n"), 5))
+		var arrow:=label("›",24);arrow.custom_minimum_size.x=20;row.add_child(arrow)
 		for child in row.get_children():
 			if child!=phone:ignore_mouse(child)
 		panel.tooltip_text = "Clique para ver detalhes • " + str(BASES[data.base])
@@ -453,7 +468,7 @@ func populate_list() -> void:
 	if filtered_rows.is_empty():
 		var unavailable: bool = confirmed.is_empty() or (active_branch != "" and not results.get(active_branch, {}).get("ok", false))
 		list_rows.add_child(label("Lista indisponível. Confira as bases pendentes no aviso da consulta." if unavailable else "Nenhum veículo encontrado com estes filtros.", 14))
-	list_count.text = "%d–%d de %d veículos • Clique na linha para detalhes" % [0 if filtered_rows.is_empty() else page * page_size + 1, mini((page + 1) * page_size, filtered_rows.size()), filtered_rows.size()]
+	list_count.text = "Exibindo %d–%d de %d veículos •" % [0 if filtered_rows.is_empty() else page * page_size + 1, mini((page + 1) * page_size, filtered_rows.size()), filtered_rows.size()]
 	page_button("Anterior", page - 1, page == 0)
 	var page_numbers: Array = [0]
 	for number in range(maxi(0, page - 1), mini(pages, page + 3)):
@@ -507,3 +522,14 @@ func show_details(data: Dictionary) -> void:
 	close.pressed.connect(func(): detail_dialog.queue_free())
 	stack.add_child(close)
 	detail_dialog.popup_centered()
+
+class VectorIcon extends Control:
+	var kind:="copy"
+	func _draw()->void:
+		var ink:=Color("#0065c5")
+		if kind=="search":
+			draw_arc(Vector2(9,9),8,0,TAU,32,ink,2,true);draw_line(Vector2(15,15),Vector2(23,23),ink,2,true)
+		else:
+			draw_style_box(outline(),Rect2(5,2,10,14));draw_style_box(outline(),Rect2(2,5,10,14))
+	func outline()->StyleBoxFlat:
+		var style:=StyleBoxFlat.new();style.bg_color=Color.WHITE;style.border_color=Color("#0065c5");style.set_border_width_all(1);style.set_corner_radius_all(2);return style
