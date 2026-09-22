@@ -83,7 +83,7 @@ static func build(host: Control) -> void:
 	for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]:
 		change.add_theme_color_override(state,Color("#216eaa"))
 	change.pressed.connect(host._show_branch_selector)
-	row.add_child(change)
+	change.queue_free()
 	form.add_child(UI.text("Bem-vindo de volta",13,Design.MUTED))
 	form.add_child(UI.text("Acesse sua central",29))
 	form.add_child(UI.text("Informe seu usuário e senha para continuar.",14,Design.MUTED))
@@ -116,8 +116,8 @@ static func build(host: Control) -> void:
 	)
 	password.add_child(reveal)
 	host.remember_user_check = CheckBox.new()
-	host.remember_user_check.text = "Lembrar usuário neste computador"
-	host.remember_user_check.button_pressed = host.login_user_input.text != ""
+	host.remember_user_check.text = "Manter conectado neste computador"
+	host.remember_user_check.button_pressed = true
 	host.remember_user_check.add_theme_font_size_override("font_size",13)
 	for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]:
 		host.remember_user_check.add_theme_color_override(state,Design.MUTED)
@@ -129,7 +129,7 @@ static func build(host: Control) -> void:
 	host.login_error_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(host.login_error_label)
 	form.add_child(UI.text("Acesso restrito a usuários autorizados.",12,Design.MUTED))
-	form.add_child(host._make_login_button("← Voltar para as filiais",Color.TRANSPARENT,Color("#216eaa"),host._show_branch_selector,true))
+
 	host.login_user_input.grab_focus()
 	preload("res://src/ui/button_motion.gd").install(host)
 	for button in host.find_children("*","BaseButton",true,false):

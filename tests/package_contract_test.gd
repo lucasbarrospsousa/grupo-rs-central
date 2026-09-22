@@ -30,7 +30,7 @@ func _run() -> void:
 	_check(FileAccess.file_exists("res://assets/icons/location/LEAFLET-LICENSE.txt"), "Marker license missing")
 	for required in ["res://src/services/maintenance_visits.gd", "res://src/ui/maintenance_visits.gd"]:
 		_check(ResourceLoader.exists(required), "Maintenance resource missing: " + required)
-	for required in ["res://src/services/hub_maintenance.gd", "res://src/ui/hub_maintenance.gd"]:
+	for required in ["res://src/services/hub_maintenance.gd", "res://src/ui/hub_maintenance.gd", "res://src/ui/overview_dashboard.gd", "res://src/ui/overview_group.gd"]:
 		_check(ResourceLoader.exists(required), "Hub maintenance resource missing: " + required)
 	if not OS.has_feature("editor") or "--audit-package" in OS.get_cmdline_user_args():
 		_audit_directory("res://")

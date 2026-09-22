@@ -22,7 +22,11 @@ var active_branch := ""
 var page := 0
 var filtered_rows: Array = []
 var detail_dialog: Window
-const PAGE_SIZE := 25
+const PAGE_SIZE := 8
+var page_size:=8
+var collapsed_groups:Dictionary={}
+var list_base_badge:Label
+var list_total_badge:Label
 
 static func label(value: String, size: int = 14) -> Label:
 	var node := Label.new()
@@ -162,12 +166,15 @@ func open_list(id: String) -> void:
 	page = 0
 	list_dialog = Window.new()
 	list_dialog.title = "Manutenção na plataforma"
-	list_dialog.size = Vector2i(1540, 810)
+	list_dialog.size = Vector2i(mini(1262,get_viewport_rect().size.x-32), mini(848,get_viewport_rect().size.y-40))
+	list_dialog.transparent_bg=true
 	list_dialog.borderless = true
 	list_dialog.min_size = Vector2i(820, 420)
 	list_dialog.transient = true
 	list_dialog.exclusive = true
 	list_dialog.close_requested.connect(func(): list_dialog.queue_free())
+	list_dialog.window_input.connect(func(event):
+		if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE:list_dialog.queue_free())
 	add_child(list_dialog)
 	var light := Theme.new()
 	light.default_font = preload("res://assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf")
@@ -181,46 +188,57 @@ func open_list(id: String) -> void:
 		light.set_stylebox("panel", control, box(Color.WHITE, 6))
 	light.set_color("font_placeholder_color", "LineEdit", Color("#657d94"))
 	list_dialog.theme = light
+	var shade:=ColorRect.new();shade.color=Color(0.02,0.08,0.19,0.60);get_tree().root.add_child(shade);shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);list_dialog.tree_exiting.connect(shade.queue_free)
 	var panel := PanelContainer.new()
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.add_theme_stylebox_override("panel", box(Color.WHITE))
+	var main_style:=box(Color.WHITE,20);main_style.content_margin_left=30;main_style.content_margin_right=30;main_style.content_margin_top=26;main_style.content_margin_bottom=24
+	panel.add_theme_stylebox_override("panel",main_style)
 	list_dialog.add_child(panel)
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 12)
 	panel.add_child(stack)
 	var header_panel := PanelContainer.new()
-	header_panel.add_theme_stylebox_override("panel", box(Color("#1b5689"), 12))
+	header_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	stack.add_child(header_panel)
 	var header := HBoxContainer.new()
 	header_panel.add_child(header)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
-	list_title = label("Veículos em manutenção", 24)
-	list_title.add_theme_color_override("font_color", Color.WHITE)
-	titles.add_child(list_title)
-	var subtitle := label("Categoria da plataforma • agrupamento por APN", 13)
-	subtitle.add_theme_color_override("font_color", Color("#dceafa"))
+	titles.add_child(label("Visão geral   /   Manutenções",13))
+	var title_row:=HBoxContainer.new();title_row.add_theme_constant_override("separation",12);titles.add_child(title_row)
+	list_title = label("Veículos em manutenção", 29)
+	list_title.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf"))
+	list_title.add_theme_color_override("font_color", Color("#07153f"))
+	title_row.add_child(list_title)
+	list_base_badge=label("",18);list_base_badge.add_theme_stylebox_override("normal",box(Color("#e0f1ff"),16));list_base_badge.add_theme_color_override("font_color",Color("#0064ca"));title_row.add_child(list_base_badge)
+	list_total_badge=label("",17);list_total_badge.add_theme_stylebox_override("normal",box(Color("#045ba9"),20));list_total_badge.add_theme_color_override("font_color",Color.WHITE);title_row.add_child(list_total_badge)
+	var subtitle := label("Consulte os veículos da base, organizados por APN.", 13)
+	subtitle.add_theme_color_override("font_color", Color("#345885"))
 	titles.add_child(subtitle)
 	list_refresh = Button.new()
-	list_refresh.text = "↻  Atualizar listas"
+	list_refresh.size_flags_vertical=Control.SIZE_SHRINK_CENTER
+	list_refresh.custom_minimum_size.y=46
+	list_refresh.text = "↻  Atualizar lista"
 	style_button(list_refresh)
-	list_refresh.add_theme_stylebox_override("normal", box(Color("#ffcd08"), 10))
-	list_refresh.add_theme_stylebox_override("hover", box(Color("#ffdc54"), 10))
-	list_refresh.add_theme_color_override("font_color", Color("#152c40"))
-	list_refresh.add_theme_color_override("font_hover_color", Color("#152c40"))
+	list_refresh.add_theme_stylebox_override("normal", box(Color("#f5faff"), 8))
+	list_refresh.add_theme_stylebox_override("hover", box(Color("#e5f2ff"), 8))
+	list_refresh.add_theme_color_override("font_color", Color("#005acd"))
+	list_refresh.add_theme_color_override("font_hover_color", Color("#005acd"))
 	list_refresh.pressed.connect(func(): page = 0; load_all())
 	header.add_child(list_refresh)
 	var close := Button.new()
 	close.text = "×"
+	close.size_flags_vertical=Control.SIZE_SHRINK_CENTER
 	style_button(close)
-	close.add_theme_stylebox_override("normal", box(Color("#d93432"), 10))
+	close.add_theme_stylebox_override("normal", box(Color.WHITE, 10))
+	close.add_theme_color_override("font_color",Color("#0c2850"))
 	close.pressed.connect(func(): list_dialog.queue_free())
 	header.add_child(close)
 	var filters := HBoxContainer.new()
 	stack.add_child(filters)
 	list_search = LineEdit.new()
-	list_search.placeholder_text = "Buscar cliente, placa ou aparelho"
+	list_search.placeholder_text = "Buscar cliente, placa ou equipamento"
 	list_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list_search.text_changed.connect(func(_value): page = 0; populate_list())
 	filters.add_child(list_search)
@@ -229,14 +247,14 @@ func open_list(id: String) -> void:
 	list_base.add_item("Todas as bases")
 	list_base.set_item_metadata(0, "")
 	for branch_id in BASES:
-		list_base.add_item(BASES[branch_id])
+		list_base.add_item("Base: "+BASES[branch_id])
 		list_base.set_item_metadata(list_base.item_count - 1, branch_id)
 		if branch_id == id: list_base.select(list_base.item_count - 1)
 	list_base.item_selected.connect(func(index): active_branch = str(list_base.get_item_metadata(index)); page = 0; populate_list())
 	filters.add_child(list_base)
 	list_apn = OptionButton.new()
 	list_apn.custom_minimum_size.x = 230
-	list_apn.add_item("Todas as APNs")
+	list_apn.add_item("APN: Todas")
 	list_apn.item_selected.connect(func(_index): page = 0; populate_list())
 	filters.add_child(list_apn)
 	var notice := PanelContainer.new()
@@ -246,7 +264,7 @@ func open_list(id: String) -> void:
 	list_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	notice.add_child(list_status)
 	var headings := PanelContainer.new()
-	var heading_style := box(Color("#22292e"), 3)
+	var heading_style := box(Color("#e0e8f3"), 6)
 	heading_style.content_margin_right = 34
 	headings.add_theme_stylebox_override("panel", heading_style)
 	stack.add_child(headings)
@@ -255,7 +273,7 @@ func open_list(id: String) -> void:
 	var columns := ["Cliente", "Placa", "Equipamento", "APN", "Telefone chip", "Última comunicação"]
 	for index in range(6):
 		var heading := cell(columns[index], index)
-		heading.add_theme_color_override("font_color", Color.WHITE)
+		heading.add_theme_color_override("font_color", Color("#07153f"))
 		heading_row.add_child(heading)
 	list_scroll = ScrollContainer.new()
 	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -271,14 +289,16 @@ func open_list(id: String) -> void:
 	list_count = label("", 12)
 	list_count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(list_count)
+	var per_page:=OptionButton.new();per_page.add_item("8 por página");per_page.add_item("16 por página");per_page.add_item("25 por página");per_page.item_selected.connect(func(index):page_size=[8,16,25][index];page=0;populate_list());footer.add_child(per_page)
 	list_pages = HBoxContainer.new()
 	footer.add_child(list_pages)
 	populate_list()
 	list_dialog.popup_centered()
+	list_dialog.position.x=mini(get_viewport_rect().size.x-list_dialog.size.x-20,(get_viewport_rect().size.x+95-list_dialog.size.x)/2)
 
 static func cell(value: String, index: int) -> Label:
-	var node := label(value, 16)
-	node.custom_minimum_size.x = [280, 135, 155, 125, 180, 215][index]
+	var node := label(value, 14)
+	node.custom_minimum_size.x = [230, 135, 155, 110, 190, 190][index]
 	if index == 0: node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	node.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -333,7 +353,7 @@ func populate_list() -> void:
 			if not str(row.apn).is_empty() and not apns.has(row.apn): apns.append(row.apn)
 	apns.sort()
 	list_apn.clear()
-	list_apn.add_item("Todas as APNs")
+	list_apn.add_item("APN: Todas")
 	for apn in apns:
 		list_apn.add_item(str(apn))
 		if apn == apn_selection: list_apn.select(list_apn.item_count - 1)
@@ -367,62 +387,73 @@ func populate_list() -> void:
 	for row in filtered_rows:
 		var key := group_key(row)
 		group_totals[key] = int(group_totals.get(key, 0)) + 1
-	list_title.text = "Veículos em manutenção • %s (%d)" % [BASES.get(active_branch, "Todas as bases"), filtered_rows.size()]
+	list_title.text = "Veículos em manutenção"
+	list_base_badge.text=BASES.get(active_branch,"Todas as bases")
+	list_total_badge.text="%d veículos" % filtered_rows.size()
 	if confirmed.is_empty() or (active_branch != "" and not results.get(active_branch, {}).get("ok", false)):
-		list_title.text = "Veículos em manutenção • %s • Consulta pendente" % BASES.get(active_branch, "Todas as bases")
-	var pages := maxi(1, ceili(float(filtered_rows.size()) / PAGE_SIZE))
+		list_total_badge.text="Consulta pendente"
+	var pages := maxi(1, ceili(float(filtered_rows.size()) / page_size))
 	page = clampi(page, 0, pages - 1)
 	var previous_group := ""
-	for index in range(page * PAGE_SIZE, mini((page + 1) * PAGE_SIZE, filtered_rows.size())):
+	for index in range(page * page_size, mini((page + 1) * page_size, filtered_rows.size())):
 		var data: Dictionary = filtered_rows[index]
 		var key := group_key(data)
 		if key != previous_group:
 			var group := PanelContainer.new()
 			group.set_meta("apn_group", key)
 			group.set_meta("group_count", group_totals[key])
-			group.add_theme_stylebox_override("panel", box(Color("#f2bb08"), 0))
+			group.add_theme_stylebox_override("panel", box(Color("#e6f3ff"), 7))
 			var group_row := HBoxContainer.new()
 			group_row.add_theme_constant_override("separation", 16)
 			group.add_child(group_row)
-			var group_text := label("%sAPN: %s" % [(str(BASES[data.base]) + "  •  ") if active_branch == "" else "", str(data.apn).to_upper() if str(data.apn) != "" else "NÃO INFORMADA"], 17)
-			group_text.add_theme_color_override("font_color", Color("#121212"))
+			var group_text := label("⌄  %sAPN: %s" % [(str(BASES[data.base]) + "  •  ") if active_branch == "" else "", str(data.apn).to_upper() if str(data.apn) != "" else "NÃO INFORMADA"], 17)
+			group_text.add_theme_color_override("font_color", Color("#102653"))
 			group_row.add_child(group_text)
 			var counter := PanelContainer.new()
-			var counter_style := box(Color("#131313"), 7)
+			var counter_style := box(Color("#c7e4ff"), 14)
 			counter_style.content_margin_top = 3
 			counter_style.content_margin_bottom = 3
 			counter_style.content_margin_left = 10
 			counter_style.content_margin_right = 10
 			counter.add_theme_stylebox_override("panel", counter_style)
-			var counter_text := label(str(group_totals[key]), 17)
-			counter_text.add_theme_color_override("font_color", Color("#ffcd08"))
+			var counter_text := label(str(group_totals[key])+" veículos", 13)
+			counter_text.add_theme_color_override("font_color", Color("#005acd"))
 			counter.add_child(counter_text)
 			counter.tooltip_text = "Total deste grupo nos filtros atuais, incluindo outras páginas"
 			group_row.add_child(counter)
 			list_rows.add_child(group)
+			ignore_mouse(group_row)
+			group.gui_input.connect(func(event):
+				if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
+					collapsed_groups[key]=not bool(collapsed_groups.get(key,false));populate_list())
 			previous_group = key
+		if collapsed_groups.get(key,false):continue
 		var panel := PanelContainer.new()
 		panel.set_meta("vehicle_row", data)
-		var style := box(Color.WHITE if index % 2 == 0 else Color("#f0f1f3"), 0)
-		style.content_margin_top = 4
-		style.content_margin_bottom = 4
+		var style := box(Color.WHITE if index % 2 == 0 else Color("#f5f7fa"), 0)
+		style.content_margin_top = 3
+		style.content_margin_bottom = 3
 		panel.add_theme_stylebox_override("panel", style)
 		list_rows.add_child(panel)
 		var row := HBoxContainer.new()
 		panel.add_child(row)
 		var values := [data.client, data.plate, data.serial]
-		for column in range(3): row.add_child(cell(str(values[column]), column))
-		row.add_child(badge(str(data.apn) if str(data.apn) != "" else "Não informada", 125, Color("#168955")))
-		row.add_child(badge(str(data.phone) if str(data.phone) != "" else "Não informado", 180, Color("#4686ba")))
-		row.add_child(cell(str(data.updated_at), 5))
-		ignore_mouse(row)
-		panel.tooltip_text = "Duplo clique para ver detalhes • " + str(BASES[data.base])
+		for column in range(3):
+			var text_cell:=cell(str(values[column]), column)
+			if column==1:text_cell.add_theme_font_override("font",preload("res://assets/fonts/Noto_Sans/static/NotoSans-Bold.ttf"))
+			row.add_child(text_cell)
+		row.add_child(badge(str(data.apn) if str(data.apn) != "" else "Não informada", 110, Color("#168955")))
+		var phone:=HBoxContainer.new();phone.custom_minimum_size.x=190;var phone_label:=label(str(data.phone) if str(data.phone)!="" else "Não informado",14);phone.add_child(phone_label);var copy:=Button.new();copy.text="▢";copy.add_theme_color_override("font_color",Color("#0064c9"));copy.flat=true;copy.tooltip_text="Copiar telefone do chip";copy.pressed.connect(func():DisplayServer.clipboard_set(str(data.phone)));phone.add_child(copy);row.add_child(phone)
+		row.add_child(cell(str(data.updated_at).replace(" ","\n"), 5))
+		for child in row.get_children():
+			if child!=phone:ignore_mouse(child)
+		panel.tooltip_text = "Clique para ver detalhes • " + str(BASES[data.base])
 		panel.gui_input.connect(func(event):
-			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.double_click: show_details(data))
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed: show_details(data))
 	if filtered_rows.is_empty():
 		var unavailable: bool = confirmed.is_empty() or (active_branch != "" and not results.get(active_branch, {}).get("ok", false))
 		list_rows.add_child(label("Lista indisponível. Confira as bases pendentes no aviso da consulta." if unavailable else "Nenhum veículo encontrado com estes filtros.", 14))
-	list_count.text = "%d–%d de %d veículos • Duplo clique na linha para detalhes" % [0 if filtered_rows.is_empty() else page * PAGE_SIZE + 1, mini((page + 1) * PAGE_SIZE, filtered_rows.size()), filtered_rows.size()]
+	list_count.text = "%d–%d de %d veículos • Clique na linha para detalhes" % [0 if filtered_rows.is_empty() else page * page_size + 1, mini((page + 1) * page_size, filtered_rows.size()), filtered_rows.size()]
 	page_button("Anterior", page - 1, page == 0)
 	var page_numbers: Array = [0]
 	for number in range(maxi(0, page - 1), mini(pages, page + 3)):
@@ -440,7 +471,9 @@ func page_button(value: String, target: int, disabled: bool) -> void:
 	button.text = value
 	style_button(button)
 	button.disabled = disabled
-	if target == page: button.add_theme_stylebox_override("normal", box(Color("#ff870d"), 6))
+	if target == page: button.add_theme_stylebox_override("normal", box(Color("#0065ce"), 6))
+	else:
+		button.add_theme_stylebox_override("normal",box(Color("#f3f8ff"),6));button.add_theme_color_override("font_color",Color("#0065ce"))
 	button.pressed.connect(func(): page = target; list_scroll.scroll_vertical = 0; populate_list())
 	list_pages.add_child(button)
 

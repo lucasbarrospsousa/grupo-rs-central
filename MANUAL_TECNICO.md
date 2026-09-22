@@ -106,3 +106,11 @@ Consultar a política em `C:/Users/lugan/OneDrive/Documentos/Sidera Code/AGENTS.
 ## Análise de baixa por API — 21/09/2026
 
 Estoque > Analisar baixa nas quatro filiais. Consulta API por série, complementa cliente no portal da própria base e apresenta seleção explícita. Aplicar baixa altera somente estoque local após reconsulta e confirmação. Fluxo, limites e testes: `docs/analise_baixa_estoque.md`. Nenhuma baixa remota.
+
+## Visão geral unificada — 21/09/2026
+
+HUB de entrada aposentado: abertura prepara a última filial (Imperatriz no primeiro acesso) e mostra o login. Manter conectado é padrão; somente após autenticação válida, credenciais são salvas no namespace central_session do cofre existente, nunca no JSON comum. Cada abertura revalida o acesso e mantém o login visível em falha. Desmarcar Manter conectado e entrar remove o acesso salvo. Troca de filial continua usando a rota de autenticação e confirmação existentes.
+
+Visão geral reúne panorama das quatro bases, gráfico decrescente clicável, total confirmado/parcial e operação local da filial. Seleção da filial fica no topo; callbacks e estoques permanecem isolados. Dados do grupo ficam em memória durante a sessão, com atualização manual e consulta inicial. A lista de manutenção usa oito linhas por página (opções 16/25), APN recolhível, filtros, cópia do telefone e detalhes por clique. Falhas nunca são apresentadas como zero confirmado.
+
+Testes isolados: central_login_test, overview_dashboard_test (capturas 1568×1003), hub_maintenance_test e sidebar_branch_switch_test. Capturas usam dados sintéticos. Referências visuais orientam composição; totais reais continuam dinâmicos.

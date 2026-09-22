@@ -32,8 +32,9 @@ func run() -> void:
 	var shell := Shell.new()
 	root.add_child(shell)
 	shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shell._show_branch_selector()
-	var view: PanelContainer = shell.find_child("HubMaintenance", true, false)
+	var view:=View.new()
+	view.custom_minimum_size=Vector2(1400,320)
+	shell.add_child(view)
 	# Prevent deferred network work; all rows and counts below are synthetic.
 	view.credentials_for = Callable()
 	var index := 1
@@ -87,7 +88,7 @@ func run() -> void:
 	var vehicle_line: Control = view.list_rows.get_children().filter(func(item): return item.has_meta("vehicle_row"))[0]
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
-	click.double_click = true
+	click.pressed = true
 	vehicle_line.gui_input.emit(click)
 	assert(is_instance_valid(view.detail_dialog))
 	view.detail_dialog.free()

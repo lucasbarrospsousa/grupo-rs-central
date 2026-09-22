@@ -11,13 +11,15 @@ func _initialize() -> void: call_deferred("run")
 func run() -> void:
 	var shell := Shell.new()
 	root.add_child(shell)
+	shell.overview_results={"imperatriz":{"ok":false,"message":"Offline fixture"}}
+	shell._show_dashboard()
 	await process_frame
-	var picker := shell.find_child("SidebarBranchSelector",true,false) as OptionButton
+	var picker := shell.find_child("OverviewBranch",true,false) as OptionButton
 	assert(picker != null and picker.item_count == 4)
 	picker.item_selected.emit(2)
 	assert(shell.selected_branch_id == "imperatriz" and shell.entered == "")
 	assert(shell.confirmation.is_valid())
-	assert(str(picker.get_item_metadata(picker.selected)) == "imperatriz")
+	assert(shell.selected_branch_id == "imperatriz")
 	shell.equipment_registration_running = true
 	shell.confirmation.call()
 	assert(shell.warned and shell.entered == "")

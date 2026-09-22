@@ -893,6 +893,7 @@ var sidebar_tracking_toggle: Button
 var sidebar_tracking_children: VBoxContainer
 var sidebar_tracking_expanded := false
 var sidebar_collapsed := false
+var overview_results: Dictionary = {}
 var current_section := "dashboard"
 var stock_link_service: Node
 var cloud_status_dot: CloudStatusDot
@@ -1365,7 +1366,7 @@ func _ready() -> void:
 	app_theme.set_constant("icon_max_width", "Button", 22)
 	theme = app_theme
 	get_tree().node_added.connect(_on_app_scroll_node_added)
-	_show_branch_selector()
+	_start_direct_login()
 	await get_tree().process_frame
 	await _play_rs_intro()
 	var update_bootstrap := _update_bootstrap()
@@ -1657,189 +1658,18 @@ func _animate_screen_card(panel: Control, stack: VBoxContainer) -> void:
 
 
 func _show_branch_selector() -> void:
-	_clear_screen()
-	store = null
+	# Compatibility entry point: the retired HUB is never rendered.
+	if store != null:
+		_show_dashboard()
+	else:
+		_start_direct_login()
 
-	var background := ColorRect.new()
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	background.color = Color("#061d3b")
-	add_child(background)
-	_add_signal_background(background, 0.18)
-
-	var shell := MarginContainer.new()
-	shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shell.add_theme_constant_override("margin_left", 24)
-	shell.add_theme_constant_override("margin_right", 24)
-	shell.add_theme_constant_override("margin_top", 10)
-	shell.add_theme_constant_override("margin_bottom", 10)
-	add_child(shell)
-	var shell_stack := VBoxContainer.new()
-	shell_stack.add_theme_constant_override("separation", 14)
-	shell.add_child(shell_stack)
-
-	var top := HBoxContainer.new()
-	top.custom_minimum_size = Vector2(0, 56)
-	top.add_theme_constant_override("separation", 14)
-	shell_stack.add_child(top)
-	var old_logo := TextureRect.new()
-	old_logo.texture = LOGO_TEXTURE
-	old_logo.custom_minimum_size = Vector2(50, 50)
-	old_logo.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	old_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	top.add_child(old_logo)
-	var old_logo_label := Label.new()
-	old_logo_label.text = "GRUPO RS CENTRAL"
-	old_logo_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	old_logo_label.add_theme_font_override("font", UI_FONT)
-	old_logo_label.add_theme_font_size_override("font_size", 18)
-	old_logo_label.add_theme_color_override("font_color", Color.WHITE)
-	top.add_child(old_logo_label)
-	var top_spacer := Control.new()
-	top_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(top_spacer)
-	var top_hint := Label.new()
-	top_hint.text = "SISTEMA OPERACIONAL"
-	top_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	top_hint.add_theme_font_override("font", UI_FONT)
-	top_hint.add_theme_font_size_override("font_size", 12)
-	top_hint.add_theme_color_override("font_color", Color("#b9cceb"))
-	top.add_child(top_hint)
-
-	var body := HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 0)
-	shell_stack.add_child(body)
-	var sos_panel := PanelContainer.new()
-	sos_panel.custom_minimum_size = Vector2(470, 0)
-	sos_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	sos_panel.add_theme_stylebox_override("panel", _style_box(Color("#082a54"), Color("#1e6db1"), 1, 22, true))
-	body.add_child(sos_panel)
-	var sos_stack := VBoxContainer.new()
-	sos_stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	sos_stack.add_theme_constant_override("separation", 10)
-	sos_panel.add_child(sos_stack)
-	var sos_logo := TextureRect.new()
-	sos_logo.texture = preload("res://assets/branding/sos_abm_favicon.png")
-	sos_logo.custom_minimum_size = Vector2(270, 270)
-	sos_logo.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	sos_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sos_stack.add_child(sos_logo)
-	# Pequenos acentos em laranja queimado equilibram o azul do painel sem
-	# competir com as cores mais vivas da marca.
-	var sos_accent := HBoxContainer.new()
-	sos_accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sos_accent.alignment = BoxContainer.ALIGNMENT_CENTER
-	sos_accent.add_theme_constant_override("separation", 8)
-	sos_stack.add_child(sos_accent)
-	var sos_line_left := ColorRect.new()
-	sos_line_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sos_line_left.custom_minimum_size = Vector2(64, 2)
-	sos_line_left.color = Color("#d89142")
-	sos_accent.add_child(sos_line_left)
-	var sos_dot := PanelContainer.new()
-	sos_dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sos_dot.custom_minimum_size = Vector2(7, 7)
-	sos_dot.add_theme_stylebox_override("panel", _style_box(Color("#d89142"), Color("#d89142"), 0, 4))
-	sos_accent.add_child(sos_dot)
-	var sos_line_right := ColorRect.new()
-	sos_line_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sos_line_right.custom_minimum_size = Vector2(64, 2)
-	sos_line_right.color = Color("#d89142")
-	sos_accent.add_child(sos_line_right)
-	var sos_title := Label.new()
-	sos_title.text = "SOS PROTEÇÃO VEICULAR"
-	sos_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sos_title.add_theme_font_override("font", preload("res://assets/fonts/Noto_Sans/static/NotoSans_ExtraCondensed-Black.ttf"))
-	sos_title.add_theme_font_size_override("font_size", 18)
-	sos_title.add_theme_color_override("font_color", Color.WHITE)
-	sos_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	sos_title.custom_minimum_size = Vector2(0, 28)
-	sos_stack.add_child(sos_title)
-	var sos_subtitle := Label.new()
-	sos_subtitle.text = ""
-	sos_subtitle.visible = false
-	sos_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sos_subtitle.add_theme_font_override("font", UI_FONT)
-	sos_subtitle.add_theme_font_size_override("font_size", 14)
-	sos_subtitle.add_theme_color_override("font_color", Color("#dce8f7"))
-	sos_stack.add_child(sos_subtitle)
-	var sidera_brand := PanelContainer.new()
-	sidera_brand.custom_minimum_size = Vector2(260, 72)
-	sidera_brand.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	sidera_brand.add_theme_stylebox_override("panel", _style_box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0))
-	sos_stack.add_child(sidera_brand)
-	var sidera_logo := TextureRect.new()
-	sidera_logo.texture = preload("res://assets/branding/sideracode_logo_final2.png")
-	sidera_logo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sidera_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sidera_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sidera_brand.add_child(sidera_logo)
-
-	var right_panel := PanelContainer.new()
-	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right_panel.add_theme_stylebox_override("panel", _style_box(Color("#092b56"), Color("#1e6db1"), 1, 22, true))
-	body.add_child(right_panel)
-	var right_margin := MarginContainer.new()
-	right_margin.add_theme_constant_override("margin_left", 42)
-	right_margin.add_theme_constant_override("margin_right", 42)
-	right_margin.add_theme_constant_override("margin_top", 24)
-	right_margin.add_theme_constant_override("margin_bottom", 12)
-	right_panel.add_child(right_margin)
-	var right_stack := VBoxContainer.new()
-	right_stack.add_theme_constant_override("separation", 8)
-	right_margin.add_child(right_stack)
-	var title := Label.new()
-	title.text = "GRUPO RS CENTRAL"
-	title.add_theme_font_override("font", UI_FONT)
-	title.add_theme_font_size_override("font_size", 36)
-	title.add_theme_color_override("font_color", Color.WHITE)
-	right_stack.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "Gestão de rastreadores e estoque"
-	subtitle.add_theme_font_override("font", UI_FONT)
-	subtitle.add_theme_font_size_override("font_size", 18)
-	subtitle.add_theme_color_override("font_color", Color("#c9d8ed"))
-	right_stack.add_child(subtitle)
-	var accent := ColorRect.new()
-	accent.custom_minimum_size = Vector2(120, 4)
-	accent.color = ORANGE
-	right_stack.add_child(accent)
-	branch_selector_online_badge_label = Label.new()
-	branch_selector_online_badge_label.text = "○  Bases disponíveis"
-	branch_selector_online_badge_label.add_theme_font_override("font", UI_FONT)
-	branch_selector_online_badge_label.add_theme_font_size_override("font_size", 13)
-	branch_selector_online_badge_label.add_theme_color_override("font_color", Color("#b9cceb"))
-	branch_selector_online_badge_label.visible = false
-	right_stack.add_child(branch_selector_online_badge_label)
-
-	var grid := GridContainer.new()
-	# Os cartoes seguem a referencia visual: quatro bases alinhadas em uma unica
-	# faixa. O restante da tela e mantido intacto.
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 18)
-	right_stack.add_child(grid)
-	for config in _branch_configs():
-		var branch_id := str(config.get("id", ""))
-		var branch_name := str(config.get("name", ""))
-		var enabled := bool(config.get("enabled", false))
-		var color: Color = config.get("color", ORANGE)
-		grid.add_child(_make_branch_button(branch_name, color, enabled, branch_id))
-
-	var maintenance_chart := preload("res://src/ui/hub_maintenance.gd").new()
-	maintenance_chart.credentials_for = _hub_maintenance_credentials
-	right_stack.add_child(maintenance_chart)
-	branch_summary_count_label = null
-	branch_summary_last_sync_label = null
-
-
-	_update_branch_selector_visuals()
-	# A primeira base habilitada é a base operacional padrão. Iniciamos a
-	# pré-sincronização depois que os cartões existem para que o usuário veja
-	# imediatamente o estado Conectando/Sincronizando, sem precisar clicar.
-	if selected_branch_id.strip_edges() == "" and not branch_auto_sync_requested:
-		call_deferred("_auto_start_branch_preview_sync")
+func _start_direct_login() -> void:
+	var settings:=_read_json_dictionary(SETTINGS_PATH)
+	var branch:=str(settings.get("overview_branch","imperatriz"))
+	if _branch_config(branch).is_empty():branch="imperatriz"
+	_select_branch(branch)
+	_show_login_screen()
 
 
 func _auto_start_branch_preview_sync() -> void:
@@ -2663,7 +2493,25 @@ func _show_waiting_screen() -> void:
 func _show_login_screen() -> void:
 	_clear_screen()
 	preload("res://src/ui/approved_login.gd").build(self)
+	call_deferred("_resume_central_login")
 
+
+func _resume_central_login() -> void:
+	var vault:=_secret_vault()
+	if vault==null:return
+	var saved:Variant=vault.call("get_secret","central_session","credentials",{})
+	if not saved is Dictionary or str(saved.get("user",""))=="" or str(saved.get("password",""))=="":return
+	login_user_input.text=str(saved.user)
+	login_password_input.text=str(saved.password)
+	remember_user_check.button_pressed=true
+	await _attempt_login()
+
+func _save_central_login(login:String,password:String) -> void:
+	var vault:=_secret_vault()
+	if vault==null:return
+	if remember_user_check!=null and remember_user_check.button_pressed:
+		vault.call("set_secret","central_session","credentials",{"user":login,"password":password})
+	else:vault.call("remove_secret","central_session","credentials")
 
 func _make_login_input(placeholder: String, secret: bool = false) -> LineEdit:
 	var input := LineEdit.new()
@@ -2721,6 +2569,7 @@ func _attempt_login() -> void:
 		login_attempt_running = false
 		if bool(result.get("ok", false)):
 			_update_remembered_login(login)
+			_save_central_login(login,password)
 			_open_selected_branch()
 			return
 		if login_error_label:
@@ -2731,6 +2580,7 @@ func _attempt_login() -> void:
 		return
 	if _validate_login(login, password):
 		_update_remembered_login(login)
+		_save_central_login(login,password)
 		_open_selected_branch()
 		return
 	if login_error_label:
@@ -2989,6 +2839,9 @@ func _register_integrations_credentials_log() -> void:
 
 
 func _open_selected_branch() -> void:
+	var remembered_settings:=_read_json_dictionary(SETTINGS_PATH)
+	remembered_settings["overview_branch"]=selected_branch_id
+	_write_json_dictionary(SETTINGS_PATH,remembered_settings)
 	_clear_screen()
 	# Reaproveite somente a prévia da mesma filial. O vínculo exato impede mistura
 	# entre bases e evita carregar/deserializar os mesmos milhares de registros
@@ -3141,14 +2994,14 @@ func _build_ui() -> void:
 
 func _build_sidebar() -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(AppDesignSystem.SIDEBAR_WIDTH, 0)
+	panel.custom_minimum_size = Vector2(215, 0)
 	panel.add_theme_stylebox_override("panel", AppDesignSystem.surface(Color("#112f4e"), Color("#112f4e"), 0, 0, false))
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_top", 30)
 	margin.add_theme_constant_override("margin_bottom", 18)
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 12)
 	panel.add_child(margin)
 
 	var list := VBoxContainer.new()
@@ -3174,7 +3027,7 @@ func _build_sidebar() -> Control:
 	navigation_margin.add_child(navigation_caption)
 	list.add_child(navigation_margin)
 
-	list.add_child(_make_sidebar_button("Inicio", "dashboard", "dashboard", _show_dashboard))
+	list.add_child(_make_sidebar_button("Visão geral", "dashboard", "dashboard", _show_dashboard))
 	list.add_child(_make_sidebar_equipment_group())
 	list.add_child(_make_sidebar_button("Manutenções", "arquivo", "maintenance_visits", _show_maintenance_visits))
 	list.add_child(_make_sidebar_tracking_group())
@@ -3201,8 +3054,8 @@ func _build_sidebar() -> Control:
 	var base_margin := MarginContainer.new()
 	base_margin.add_theme_constant_override("margin_left", 12)
 	base_margin.add_child(base_caption)
-	list.add_child(base_margin)
-	list.add_child(_make_sidebar_branch_card())
+	base_margin.queue_free()
+	# Branch selection lives in the overview header.
 	var exit_divider := HSeparator.new()
 	exit_divider.name = "SidebarExitDivider"
 	exit_divider.add_theme_constant_override("separation", 7)
@@ -3539,7 +3392,7 @@ func _set_page_context(section: String, title: String, subtitle: String = "") ->
 		_clear_inventory_visible_scope()
 	current_section = section
 	if is_instance_valid(topbar_panel):
-		topbar_panel.visible = section != "sms_panel"
+		topbar_panel.visible = section not in ["sms_panel","dashboard"]
 	if is_instance_valid(topbar_title_label):
 		topbar_title_label.text = title
 	if is_instance_valid(topbar_subtitle_label):
@@ -8213,8 +8066,8 @@ func _restore_backup(path: String) -> void:
 
 
 func _show_dashboard() -> void:
-	_set_page_context("dashboard", "Visão geral da operação", "Estoque, equipamentos e rotina da filial")
-	_set_content_margins(44, 38, 44, 38)
+	_set_page_context("dashboard", "Visão geral", "Todas as bases e sua filial em um só lugar.")
+	_set_content_margins(18, 12, 24, 18)
 	_set_content(_build_dashboard_view())
 
 
@@ -9429,7 +9282,7 @@ func _animate_children_cascade(parent: Control, step_delay: float, base_delay: f
 
 
 func _build_dashboard_view() -> Control:
-	return preload("res://src/ui/approved_dashboard.gd").build(self)
+	return preload("res://src/ui/overview_dashboard.gd").build(self)
 
 
 
