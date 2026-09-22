@@ -20,10 +20,12 @@ class Shell extends "res://tests/fixtures/offline_main_dashboard.gd":
 class Service extends "res://src/services/stock_discharge.gd":
 	var owner_reply:Dictionary={"ok":false,"message":"Cliente indisponível (teste)"}
 	var owner_calls:=0
+	var paths:Array[String]=[]
 	var calls:=0
 	var response:Dictionary={}
 	var change_branch:=false
 	func request(path:String,fields:Dictionary={})->Dictionary:
+		paths.append(path)
 		assert(fields.is_empty() or path.ends_with("/auth/login.php"));calls+=1
 		if not fields.is_empty():return {"ok":true,"data":{"token":"fixture"}}
 		if change_branch:host.selected_branch_id="other"
@@ -36,13 +38,18 @@ func run():
 	var shell:=Shell.new();root.add_child(shell)
 	var store:=Store.new();shell.store=store
 	var service:=Service.new();service.host=shell;shell.add_child(service)
+	assert(service.product_serial({"imei":"","sku":"024123456","equipment_number":"XRS - 008"})=="024123456")
+	assert(service.product_serial({"sku":"XRS - 008","equipment_number":"AAA - 001"})=="")
+	assert(service.product_serial({"sku":"local-id","equipment_number":"807123456"})=="807123456")
 	var raw:={"numeroSerie":"024999991","placa":"ABC1D23","cliente":"CLIENTE DEMONSTRATIVO"}
 	for branch in service.ORIGINS:
 		shell.selected_branch_id=branch
-		store.items=[{"sku":"024999991","equipment_number":"024999991","tracker_status":"Estoque"},{"sku":"024999992","tracker_status":"Instalado"}]
+		store.items=[{"sku":"024999991","equipment_number":"XRS - 008","imei":"024999991","tracker_status":"Estoque"},{"sku":"024999992","tracker_status":"Instalado"}]
 		service.response={"ok":true,"data":{"veiculos":[raw]}}
 		await service.analyze();assert(service.rows.size()==1);assert(service.rows[0].ok);assert(store.writes==0)
 		assert(service.branch==branch)
+		assert(service.rows[0].serial=="024999991")
+		assert(service.paths[-1].contains("q=024999991"))
 	service.response={"ok":true,"data":{"veiculos":[raw,raw]}}
 	await service.analyze();assert(not service.rows[0].ok)
 	service.response={"ok":false,"message":"Sem acesso"};await service.analyze();assert(not service.rows[0].ok)

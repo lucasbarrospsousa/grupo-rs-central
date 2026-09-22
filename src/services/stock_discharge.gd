@@ -86,14 +86,22 @@ func lookup_client(serial:String,plate:String) -> Dictionary:
 	if matches.size()!=1 or str(matches[0].client)=="":return {"ok":false,"message":"O portal não confirmou cliente, série e placa únicos."}
 	return {"ok":true,"client":str(matches[0].client)}
 
+static func product_serial(product:Dictionary)->String:
+	# Regional equipment_number can contain the stock identification (XRS/AAA/GRS).
+	# Match the stock table's canonical series fields, preserving leading zeros.
+	var pattern:=RegEx.new();pattern.compile("^[0-9]{6,17}$")
+	for key in ["imei","sku","serial","equipment_number"]:
+		var value:=str(product.get(key,"")).strip_edges()
+		if pattern.search(value)!=null:return value
+	return ""
+
 func analyze() -> void:
 	if busy:return
 	busy=true;cancelled=false;rows.clear();branch=host.selected_branch_id;bound_store=host.store
 	if bound_store==null:busy=false;return
 	for product in bound_store.get_products():
 		if host._status_key_for_selected_branch(product)!="estoque":continue
-		var serial:=str(product.get("equipment_number",""))
-		if serial=="":serial=str(product.get("sku",""))
+		var serial:=product_serial(product)
 		rows.append({"sku":str(product.sku),"serial":serial,"before":product.duplicate(true),"plate":"","client":"","ok":false,"message":"Aguardando consulta","selected":false})
 	var serial_counts:Dictionary={}
 	for row in rows:serial_counts[row.serial]=int(serial_counts.get(row.serial,0))+1
@@ -102,6 +110,8 @@ func analyze() -> void:
 	var auth:=await login()
 	for index in range(rows.size()):
 		if cancelled or not context_ok():break
+		if rows[index].serial=="":
+			rows[index].message="Número de série ausente ou inválido no cadastro local.";rows[index].category="review";progress.emit(index+1,rows.size());continue
 		var result:Dictionary={"ok":false,"message":"Série duplicada no estoque local; revisão necessária."} if serial_counts[rows[index].serial]>1 else (await lookup(rows[index].serial) if auth.ok else auth)
 		if cancelled or not context_ok():break
 		if not result.has("category"):result.category="eligible" if result.ok else "review"
