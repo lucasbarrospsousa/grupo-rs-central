@@ -27,6 +27,13 @@ func run():
 	await process_frame
 	if DisplayServer.get_name()!="headless":
 		RenderingServer.force_draw();root.get_texture().get_image().save_png(OS.get_environment("GRUPO_RS_TEST_OUTPUT").path_join("manutencoes.png"))
+	var vehicle:Control=group.list_rows.get_children().filter(func(item):return item.has_meta("vehicle_row"))[0]
+	assert(vehicle.has_meta("card_hover_motion"))
+	assert(group.list_base.get_theme_stylebox("pressed").bg_color==Color.WHITE)
+	group.list_generation.select(1);group.populate_list();assert(group.filtered_rows.size()==113)
+	group.list_generation.select(2);group.populate_list();assert(group.filtered_rows.is_empty())
+	group.results.maraba.rows[0].serial="860012345";group.populate_list();assert(group.filtered_rows.size()==1)
+	group.list_generation.select(0);group.populate_list()
 	group.list_search.text="NENHUM RESULTADO";group.populate_list();assert(group.filtered_rows.is_empty())
 	group.list_search.clear();group.populate_list();group.page=14;group.populate_list();assert(group.page==14)
 	group.results.maraba={"ok":false,"message":"Indisponível"};group.render();assert(group.total_note.text.contains("parcial"));assert(not group.list_status.text.contains("completa"))

@@ -10,6 +10,7 @@ var busy := false
 var list_dialog: Window
 var list_rows: VBoxContainer
 var list_search: LineEdit
+var list_generation:OptionButton
 var list_apn: OptionButton
 var list_base: OptionButton
 var list_status: Label
@@ -185,7 +186,8 @@ func open_list(id: String) -> void:
 		var field_style := box(Color.WHITE, 6)
 		field_style.border_color = Color("#ccdbea")
 		field_style.set_border_width_all(1)
-		light.set_stylebox("normal", control, field_style)
+		for state in ["normal","hover","pressed","hover_pressed","focus","disabled"]:light.set_stylebox(state,control,field_style.duplicate())
+		for state in ["font_color","font_hover_color","font_pressed_color","font_hover_pressed_color","font_focus_color"]:light.set_color(state,control,Color("#163d61"))
 		light.set_stylebox("panel", control, box(Color.WHITE, 6))
 	light.set_color("font_placeholder_color", "LineEdit", Color("#657d94"))
 	list_dialog.theme = light
@@ -250,7 +252,7 @@ func open_list(id: String) -> void:
 	list_search.text_changed.connect(func(_value): page = 0; populate_list())
 	filters.add_child(list_search)
 	list_base = OptionButton.new()
-	list_base.custom_minimum_size.x = 230
+	list_base.custom_minimum_size.x = 200
 	list_base.add_item("Todas as bases")
 	list_base.set_item_metadata(0, "")
 	for branch_id in BASES:
@@ -260,10 +262,15 @@ func open_list(id: String) -> void:
 	list_base.item_selected.connect(func(index): active_branch = str(list_base.get_item_metadata(index)); page = 0; populate_list())
 	filters.add_child(list_base)
 	list_apn = OptionButton.new()
-	list_apn.custom_minimum_size.x = 230
+	list_apn.custom_minimum_size.x = 180
 	list_apn.add_item("APN: Todas")
 	list_apn.item_selected.connect(func(_index): page = 0; populate_list())
 	filters.add_child(list_apn)
+	list_generation=OptionButton.new();list_generation.custom_minimum_size.x=160
+	for caption in ["Todos: 4G e 2G","4G • série 024","2G • demais séries"]:list_generation.add_item(caption)
+	list_generation.item_selected.connect(func(_index):page=0;populate_list());filters.add_child(list_generation)
+	for picker in [list_base,list_apn,list_generation]:
+		picker.add_theme_icon_override("arrow",load("res://assets/icons/approved/chevron-down.svg"));picker.get_popup().theme=light
 	var notice := PanelContainer.new()
 	notice.add_theme_stylebox_override("panel", box(Color("#e4f2ff"), 7))
 	stack.add_child(notice)
@@ -386,6 +393,9 @@ func populate_list() -> void:
 		var result: Dictionary = results.get(id, {})
 		if not result.get("ok", false): continue
 		for source in result.get("rows", []):
+			var serial:=str(source.get("serial","")).strip_edges()
+			if list_generation.selected==1 and not serial.begins_with("024"):continue
+			if list_generation.selected==2 and (serial=="" or serial.begins_with("024")):continue
 			if not query.is_empty() and not (str(source.client) + " " + str(source.plate) + " " + str(source.serial)).to_lower().contains(query): continue
 			if apn_selection != "" and source.apn != apn_selection: continue
 			var row: Dictionary = source.duplicate()
@@ -418,7 +428,9 @@ func populate_list() -> void:
 			var group_row := HBoxContainer.new()
 			group_row.add_theme_constant_override("separation", 16)
 			group.add_child(group_row)
-			var group_text := label("⌄  %sAPN: %s" % [(str(BASES[data.base]) + "  •  ") if active_branch == "" else "", str(data.apn).to_upper() if str(data.apn) != "" else "NÃO INFORMADA"], 17)
+			var arrow_icon:=TextureRect.new();arrow_icon.texture=load("res://assets/icons/approved/chevron-down.svg");arrow_icon.custom_minimum_size=Vector2(22,22);arrow_icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;arrow_icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;arrow_icon.size_flags_vertical=Control.SIZE_SHRINK_CENTER;group_row.add_child(arrow_icon)
+			if collapsed_groups.get(key,false):arrow_icon.flip_v=true
+			var group_text := label("%sAPN: %s" % [(str(BASES[data.base]) + "  •  ") if active_branch == "" else "", str(data.apn).to_upper() if str(data.apn) != "" else "NÃO INFORMADA"], 17)
 			group_text.add_theme_font_override("font",Bold)
 			group_text.add_theme_color_override("font_color", Color("#102653"))
 			group_row.add_child(group_text)
@@ -443,6 +455,7 @@ func populate_list() -> void:
 		if collapsed_groups.get(key,false):continue
 		var panel := PanelContainer.new()
 		panel.set_meta("vehicle_row", data)
+		preload("res://src/ui/card_hover_motion.gd").attach(panel)
 		var style := box(Color.WHITE if index % 2 == 0 else Color("#f5f7fa"), 0)
 		style.content_margin_top = 0
 		style.content_margin_bottom = 0
