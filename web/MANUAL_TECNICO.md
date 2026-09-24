@@ -87,3 +87,11 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Importação local limitada a CSV/TSV/TXT até 2 MB; Excel pode ser colado ou exportado como CSV. Leitura direta XLSX/PDF, inferências avançadas do desktop, consulta de clientes, SMS e gravação remota ainda pendentes. Não interpretar como migração integral desses serviços.
 - Análise não consulta duplicados no banco operacional. Confirmação bloqueada até integração autorizada.
 - Chrome: três linhas resultaram em dois registros únicos e uma repetição; organização, desfazer e revisão conferidos. 22 testes passaram.
+
+## Manutenções: página de atendimentos
+
+- `maintenance-page.js` e `maintenance.css`: resumos coloridos, filtros combinados por nome/placa/séries, situação e data; cards por visita em duas colunas e relatório individual.
+- Seis visitas sintéticas ilustram a tela sem copiar dados pessoais da referência. Novos relatórios usam o adaptador demonstrativo existente e aparecem na lista. Concluída significa relatório registrado, não comprovação de solução.
+- Exportar PDF prepara o recorte filtrado e oferece impressão/salvar PDF do navegador. Não é o gerador PDF operacional do desktop.
+- Regras consultadas em `docs/manutencoes_atendimentos.md`; formulário e baixa demonstrativa existentes preservados. Banco/API real não conectados.
+- Chrome: composição visual, filtro de placa e relatório individual conferidos. 23 testes automatizados passaram, incluindo filtros e regras existentes de relatório/baixa.

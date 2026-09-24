@@ -1,3 +1,4 @@
+import { mountMaintenance } from './maintenance-page.js';
 import { mountBulk } from './bulk-page.js';
 import { mountLinking } from './link-page.js';
 import { mountStock } from './stock-page.js';
@@ -34,9 +35,10 @@ function login() {
 }
 const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings']];
 function render() {
-  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk'].includes(state.route));
+  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
   document.body.classList.toggle('bulk-page', state.entered && state.route === 'bulk');
+  document.body.classList.toggle('maintenance-page', state.entered && state.route === 'maintenance');
   if (!state.entered) return login();
   const route = routes.find(r => r[0] === state.route) || routes[0];
   app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
@@ -118,10 +120,7 @@ function newWarehouseItem() {
   for (const value of ['device','chip']) on('kind-' + value,'click',() => { kind = value; document.querySelector('#kind-device').classList.toggle('primary',kind === 'device'); document.querySelector('#kind-chip').classList.toggle('primary',kind === 'chip'); document.querySelector('#new-serial').value = ''; document.querySelector('#new-serial').placeholder = kind === 'device' ? 'Série com 9 dígitos' : 'ICCID completo com 19 ou 20 dígitos'; validate(); });
   on('new-serial','input',validate); on('warehouse-form','submit',e => { e.preventDefault(); safe(() => { repo.addWarehouse(kind, document.querySelector('#new-serial').value); modal.close(); render(); notify('Aparelho demonstrativo cadastrado.'); }); });
 }
-function maintenance() {
-  const rows = repo.reports.filter(r => r.branch === state.branch);
-  page(`<section class="panel"><div class="top"><div><h2>Relatórios de manutenção</h2><p class="muted">Registro de atendimento e baixa local do aparelho de reposição.</p></div>${button('Novo relatório','new-report','primary','plus')}</div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Cliente</th><th>Placa</th><th>Meio</th><th>Motivo</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.date}</td><td>${escape(r.client)}</td><td>${r.plate}</td><td>${r.medium}</td><td>${r.reason}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Nenhum relatório nesta sessão. Cadastre um exemplo para testar o fluxo.</td></tr>'}</tbody></table></div></section>`); on('new-report','click',reportForm);
-}
+function maintenance() { mountMaintenance({repo,branch:state.branch,icon,showModal,reportForm}); }
 function reportForm() {
   const branch = state.branch; const vehicles = repo.vehicles.filter(v => v.branch === branch);
   showModal('Relatório de manutenção', `<form id="report-form"><label class="field">Cliente / veículo<select name="vehicle" required>${options(vehicles.map(v => [v.id, `${v.client} • ${v.plate} • ${v.serial}`]), '')}</select></label><div class="form-grid"><label class="field">Motivo<select name="reason" id="report-reason">${options(['Sem comunicação','Localização errada','Troca de aparelho'].map(s => [s,s]), 'Sem comunicação')}</select></label><label class="field">Meio<select name="medium">${options(['App de rastreamento','Suporte do rastreio','Consultor informou'].map(s => [s,s]), 'App de rastreamento')}</select></label></div><label class="field" id="replacement-field" hidden>Aparelho que entrará no veículo<select name="replacement"><option value="">Selecionar aparelho disponível</option>${options(repo.list(branch).filter(d => d.status === 'Estoque').map(d => [d.id,d.serial]), '')}</select><small>A troca registrada dará baixa somente no estoque demonstrativo da Central.</small></label><label class="field">Relato / observações<textarea name="notes" rows="4" maxlength="2000"></textarea></label><div class="form-actions"><button type="submit" class="primary">Salvar relatório</button></div></form>`, 'medium');
