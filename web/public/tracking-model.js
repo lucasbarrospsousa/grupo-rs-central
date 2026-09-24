@@ -1,0 +1,5 @@
+export const validPoint=r=>r.lat!==null&&r.lng!==null&&r.lat!==''&&r.lng!==''&&Number.isFinite(+r.lat)&&Number.isFinite(+r.lng)&&Math.abs(+r.lat)<=90&&Math.abs(+r.lng)<=180&&(+r.lat!==0||+r.lng!==0);
+export function gpsTime(value){const s=String(value||''),br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})[ T](\d{2}:\d{2}(?::\d{2})?)/);return Date.parse(br?`${br[3]}-${br[2]}-${br[1]}T${br[4]}`:s);}
+export function chronological(rows){return rows.filter(validPoint).slice().sort((a,b)=>(gpsTime(a.gps_at)||0)-(gpsTime(b.gps_at)||0));}
+export function segments(rows){const out=[];let part=[];for(const r of chronological(rows)){const previous=part.at(-1),gap=previous?gpsTime(r.gps_at)-gpsTime(previous.gps_at):0;if(previous&&(!Number.isFinite(gap)||gap>600000)){out.push(part);part=[];}part.push(r);}if(part.length)out.push(part);return out;}
+export function routeKml(rows){return '<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document>'+segments(rows).map(part=>'<Placemark><LineString><coordinates>'+part.map(r=>`${+r.lng},${+r.lat},0`).join(' ')+'</coordinates></LineString></Placemark>').join('')+'</Document></kml>';}

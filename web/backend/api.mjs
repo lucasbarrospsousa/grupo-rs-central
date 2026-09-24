@@ -1,14 +1,14 @@
+import {Buffer} from 'node:buffer';
 import {integrationRoute} from './integration-routes.mjs';
 import { randomUUID } from 'node:crypto';
 import { hash, token, passwordMatches, passwordHash, session, cookies } from './auth.mjs';
 import { businessMutation } from './business.mjs';
 const dummy=passwordHash('non-account-'+randomUUID());
-const attempts=new Map();
 const allowedFields=['serial','identification','plate','client','carrier','model','status','iccid','phone','apn','installed_at'];
 const states=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const reply=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
 const fail=(status,message)=>Object.assign(Error(message),{status});
-async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>32768)throw fail(413,'Solicitação muito grande.');}try{return JSON.parse(raw||'{}');}catch{throw fail(400,'JSON inválido.');}}
+async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>131072)throw fail(413,'Solicitação muito grande.');}try{return JSON.parse(raw||'{}');}catch{throw fail(400,'JSON inválido.');}}
 export function api(pool,{integrationService}={}){return async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(!url.pathname.startsWith('/api/'))return false;
@@ -16,9 +16,9 @@ export function api(pool,{integrationService}={}){return async(req,res)=>{
     const mutation=!['GET','HEAD'].includes(req.method);
     if(mutation&&req.headers.origin!==`http://${req.headers.host}`&&req.headers.origin!==`https://${req.headers.host}`)throw fail(403,'Origem inválida.');
     if(req.method==='POST'&&url.pathname==='/api/login'){
-      const key=req.socket.remoteAddress;const entry=attempts.get(key)||{n:0,until:Date.now()+60000};
-      if(entry.until<Date.now()){entry.n=0;entry.until=Date.now()+60000;}entry.n++;attempts.set(key,entry);
-      if(entry.n>10)throw fail(429,'Aguarde um minuto antes de tentar novamente.');
+      const key=hash('login:'+String(req.socket.remoteAddress));
+      const entry=(await pool.query(`insert into central_homologacao.login_limits(key_hash,attempts,until_at) values($1,1,now()+interval '1 minute') on conflict(key_hash) do update set attempts=case when login_limits.until_at<now() then 1 else login_limits.attempts+1 end,until_at=case when login_limits.until_at<now() then now()+interval '1 minute' else login_limits.until_at end returning attempts`,[key])).rows[0];
+      if(entry.attempts>10)throw fail(429,'Aguarde um minuto antes de tentar novamente.');
       const b=await body(req);if(typeof b.username!=='string'||typeof b.password!=='string'||b.password.length>256)throw fail(400,'Informe usuário e senha.');
       const u=(await pool.query('select * from central_homologacao.users where username=$1 and active',[b.username.trim().toLowerCase()])).rows[0];
       if(!passwordMatches(b.password,u?.password_hash||dummy)||!u)throw fail(401,'Usuário ou senha inválidos.');

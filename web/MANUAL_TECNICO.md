@@ -1,3 +1,7 @@
+# Estado atual — 24/09/2026
+
+A versão web já possui SQL e integrações reais. Consulte [OPERACAO_WEB.md](OPERACAO_WEB.md) para a arquitetura hospedada, comandos verificados, testes e limites de homologação. As seções anteriores abaixo documentam a evolução da prévia e não substituem o estado atual.
+
 # Grupo RS Central Web
 
 > Atualização de 24/09/2026: a homologação SQL foi autorizada e implementada separadamente. Consulte `HOMOLOGACAO_SQL.md` para execução, limites e testes. O restante deste documento registra a etapa visual e continua descrevendo o modo padrão de demonstração.

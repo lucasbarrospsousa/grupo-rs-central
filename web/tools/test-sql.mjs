@@ -54,6 +54,16 @@ try{
  const visit=await call('maintenance?branch=imperatriz','POST',{vehicle:rows.data.rows[0].id,reason:'Sem comunicação',medium:'Consultor informou',notes:'Teste isolado',replacement:''});check(visit.status===200,'maintenance POST records new visit without changing stock');
  check((await call('maintenance/'+visit.data.id+'?branch=imperatriz','PATCH',{version:1,status:'Aguardando',notes:'QA atualizado'})).status===200,'maintenance PATCH updates versioned visit');
  check((await call('maintenance/'+visit.data.id+'?branch=imperatriz','PATCH',{version:1,status:'Concluída',notes:'stale'})).status===409,'maintenance stale update denied');
+ const arrival=await call('devices?branch=imperatriz','POST',{data:{serial:'991'+String(Date.now()).slice(-6),status:'Estoque',plate:'',carrier:'Claro'}});
+ const replacement=await call('devices?branch=imperatriz','POST',{data:{serial:'992'+String(Date.now()).slice(-6),status:'Estoque',plate:'',carrier:'Claro'}});
+ await admin.query("update central_homologacao.devices set data=data||$2::jsonb where id=$1",[arrival.data.id,JSON.stringify({status:'Instalado',plate:'QAT1A23',client:'Cliente QA descartável'})]);
+ const exchange={vehicle:arrival.data.id,replacement:replacement.data.id,vehicleVersion:1,replacementVersion:1,reason:'Troca de aparelho',medium:'Consultor informou',notes:'QA troca isolada'};
+ check((await call('maintenance?branch=imperatriz','POST',{...exchange,replacementVersion:99})).status===409,'replacement stale version blocks whole operation');
+ const exchangeKey=randomUUID(),swapped=await call('maintenance?branch=imperatriz','POST',exchange,{'Idempotency-Key':exchangeKey});check(swapped.status===200,'replacement records visit and discharges local stock atomically');
+ check((await call('maintenance?branch=imperatriz','POST',exchange,{'Idempotency-Key':exchangeKey})).data.id===swapped.data.id,'replacement replay does not discharge twice');
+ const afterSwap=(await call('devices/'+replacement.data.id+'?branch=imperatriz')).data.rows[0];check(afterSwap.status==='Instalado'&&afterSwap.version===2&&afterSwap.plate==='QAT1A23','replacement inherits vehicle and increments once');
+ check((await call('maintenance?branch=imperatriz','POST',exchange)).status===409,'second visit cannot consume already installed replacement');
+ const arrivalAfter=(await call('devices/'+arrival.data.id+'?branch=imperatriz')).data.rows[0];check(arrivalAfter.version===1&&arrivalAfter.status==='Instalado','arrival record stays intact');
  const serialA='998'+String(Date.now()).slice(-6),serialB='997'+String(Date.now()).slice(-6);
  const bulk=await call('bulk?branch=imperatriz','POST',{rows:[{serial:serialA,plate:'',carrier:'Claro'},{serial:serialB,plate:'',carrier:'TIM'}]});
  if(bulk.data.ids)bulkOwned.push(...bulk.data.ids);

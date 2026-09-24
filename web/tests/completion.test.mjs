@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import * as PDFLib from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
+import ExcelJS from 'exceljs';
+import {makePdf} from '../public/reports.js';
+import {segments,routeKml,validPoint} from '../public/tracking-model.js';
+import {inspectWorkbook,workbookText,cellText} from '../public/spreadsheet-import.js';
+test('route separates missing time and long gaps, rejects invalid coordinates',()=>{const rows=[{lat:-5,lng:-47,gps_at:'2026-09-24T10:00:00'},{lat:-5.1,lng:-47.1,gps_at:'2026-09-24T10:05:00'},{lat:-5.2,lng:-47.2,gps_at:'2026-09-24T11:00:00'}];assert.equal(segments(rows).length,2);assert.equal((routeKml(rows).match(/<Placemark>/g)||[]).length,2);assert.equal(validPoint({lat:null,lng:0}),false);assert.equal(validPoint({lat:100,lng:0}),false);});
+test('Excel preserves text and formatted leading zeros, rejects formulas and unsafe integers',async()=>{const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Dados');sheet.addRow(['Série','Placa']);sheet.addRow(['024000001','ABC1D23']);sheet.addRow([24000002,'']);sheet.getCell('A3').numFmt='000000000';const bytes=new Uint8Array(await book.xlsx.writeBuffer());inspectWorkbook(bytes);const read=new ExcelJS.Workbook();await read.xlsx.load(bytes);assert.match(workbookText(read),/024000001/);assert.match(workbookText(read),/024000002/);assert.throws(()=>cellText({value:{formula:'1+1'}}),/fórmulas/);assert.throws(()=>cellText({value:8955300000000000000}),/precisão/);assert.throws(()=>inspectWorkbook(new Uint8Array(30)),/inválida/);});
+test('PDF paginates a long report with Portuguese text and reloads as a valid document',async()=>{const bytes=await makePdf({title:'Manutenções • Açailândia',columns:[{label:'Série',key:'serial'},{label:'Descrição',key:'description',width:3}],rows:Array.from({length:150},(_,i)=>({serial:'024'+String(i).padStart(6,'0'),description:'Relatório de homologação — comunicação e localização. '.repeat(3)}))},{PDFLib,fontkit,fontBytes:await readFile(new URL('../public/vendor/NotoSans-Regular.ttf',import.meta.url))});const doc=await PDFLib.PDFDocument.load(bytes);assert.ok(doc.getPageCount()>3);});

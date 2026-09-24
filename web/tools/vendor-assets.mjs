@@ -1,0 +1,6 @@
+import {copyFileSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+const dest=new URL('../public/vendor/',import.meta.url);mkdirSync(dest,{recursive:true});
+for(const [from,to] of [['leaflet/dist/leaflet.js','leaflet.js'],['leaflet/dist/leaflet.css','leaflet.css'],['leaflet/LICENSE','LEAFLET-LICENSE.txt'],['pdf-lib/dist/pdf-lib.min.js','pdf-lib.min.js'],['pdf-lib/LICENSE.md','PDF-LIB-LICENSE.txt'],['@pdf-lib/fontkit/dist/fontkit.umd.min.js','fontkit.min.js'],['exceljs/dist/exceljs.min.js','exceljs.min.js'],['exceljs/LICENSE','EXCELJS-LICENSE.txt']])copyFileSync(new URL('../node_modules/'+from,import.meta.url),new URL(to,dest));
+mkdirSync(new URL('images/',dest),{recursive:true});for(const name of ['layers.png','layers-2x.png','marker-icon.png','marker-icon-2x.png','marker-shadow.png'])copyFileSync(new URL('../node_modules/leaflet/dist/images/'+name,import.meta.url),new URL('images/'+name,dest));
+copyFileSync(new URL('../../assets/fonts/Noto_Sans/static/NotoSans-Regular.ttf',import.meta.url),new URL('NotoSans-Regular.ttf',dest));copyFileSync(new URL('../../assets/fonts/Noto_Sans/OFL.txt',import.meta.url),new URL('NOTO-OFL.txt',dest));
+console.log('Local vendor assets ready.');

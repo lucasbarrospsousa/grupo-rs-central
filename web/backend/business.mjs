@@ -5,10 +5,21 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
  const id=randomUUID();
  if(path==='/api/maintenance'&&method==='POST'){
   if(!['Sem comunicação','Localização errada','Troca de aparelho'].includes(body.reason)||typeof body.medium!=='string'||body.medium.length>100||typeof body.notes!=='string'||body.notes.length>2000)throw failure(400,'Dados do atendimento inválidos.');
-  if(body.replacement)throw failure(422,'A troca exige validação da plataforma. Registre o atendimento sem aplicar a troca por enquanto.');
-  const row=(await c.query('select id,serial,data from central_homologacao.devices where id=$1 and branch_id=$2 and deleted_at is null',[body.vehicle,branch])).rows[0];
+  const changing=body.reason==='Troca de aparelho';
+  if(changing&&!body.replacement)throw failure(422,'Selecione o aparelho de reposição.');
+  if(!changing&&body.replacement)throw failure(422,'Reposição permitida somente para troca de aparelho.');
+  const ids=[body.vehicle,...(changing?[body.replacement]:[])];
+  const locked=(await c.query('select id,serial,data,version from central_homologacao.devices where id=any($1::uuid[]) and branch_id=$2 and deleted_at is null order by id for update',[ids,branch])).rows;
+  const row=locked.find(r=>r.id===body.vehicle),replacement=locked.find(r=>r.id===body.replacement);
   if(!row)throw failure(404,'Aparelho não encontrado nesta filial.');
-  await c.query('insert into central_homologacao.visits(id,branch_id,device_id,data) values($1,$2,$3,$4)',[id,branch,row.id,{status:'Em análise',client:row.data.client||'',plate:row.data.plate||'',currentSerial:row.serial,reason:body.reason,medium:body.medium,notes:body.notes,entry:new Date().toISOString()}]);
+  if(changing&&(!replacement||replacement.id===row.id||!['Estoque',...(branch==='imperatriz'?[]:['Reserva'])].includes(replacement.data.status)||replacement.version!==body.replacementVersion||row.version!==body.vehicleVersion))throw failure(409,'Aparelho de reposição indisponível ou cadastro alterado. Atualize a lista.');
+  if(changing&&(!row.data.plate||row.data.status!=='Instalado'))throw failure(422,'Selecione o aparelho instalado no veículo de chegada.');
+  const entry=new Date().toISOString();
+  await c.query('insert into central_homologacao.visits(id,branch_id,device_id,data) values($1,$2,$3,$4)',[id,branch,row.id,{status:'Em análise',client:row.data.client||'',plate:row.data.plate||'',currentSerial:row.serial,reason:body.reason,medium:body.medium,notes:body.notes,entry,...(changing?{installSerial:replacement.serial,replacementId:replacement.id,stockDischarged:true,installationSource:'Relatório local; vínculo remoto não alterado'}:{})}]);
+  if(changing){
+   await c.query("update central_homologacao.devices set data=data||$3::jsonb,version=version+1,updated_at=now() where id=$1 and branch_id=$2",[replacement.id,branch,JSON.stringify({status:'Instalado',plate:row.data.plate,client:row.data.client||'',installed_at:entry,installation_source:'maintenance_local',maintenance_visit:id})]);
+   await c.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,'MAINTENANCE_DISCHARGE',replacement.id,{visit:id,beforeVersion:replacement.version,source:'Relatório local; sem escrita na plataforma'}]);
+  }
   return{id,response:{ok:true,id}};
  }
  if(path.startsWith('/api/maintenance/')&&method==='PATCH'){

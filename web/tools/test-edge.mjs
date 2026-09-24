@@ -1,0 +1,14 @@
+import {createPool,privatePath} from '../backend/database.mjs';
+import {passwordHash} from '../backend/auth.mjs';
+import {readFile} from 'node:fs/promises';
+import {randomUUID,randomBytes} from 'node:crypto';
+import assert from 'node:assert/strict';
+const admin=createPool({admin:true}),id=randomUUID(),name='qa-edge-'+randomBytes(5).toString('hex'),password=randomBytes(24).toString('hex'),bridge=(await readFile(privatePath('bridge-token.txt'),'utf8')).trim(),origin='https://grupo-rs-central.lucasbarrosp.chatgpt.site';let cookie='',csrf='',device;
+async function call(path,method='GET',body){const r=await fetch('https://vwiayytzmorcjeaszowg.supabase.co/functions/v1/central-api/api/'+path,{method,headers:{'x-central-bridge':bridge,Origin:origin,Cookie:cookie,'x-csrf-token':csrf,'idempotency-key':randomUUID(),'content-type':'application/json'},body:body?JSON.stringify(body):undefined});const data=await r.json();return {status:r.status,data,cookie:r.headers.get('set-cookie')};}
+try{
+ await admin.query('insert into central_homologacao.users(id,username,password_hash) values($1,$2,$3)',[id,name,passwordHash(password)]);await admin.query('insert into central_homologacao.memberships values($1,$2,$3)',[id,'imperatriz','admin']);
+ const login=await call('login','POST',{username:name,password});assert.equal(login.status,200,JSON.stringify(login.data));assert.match(login.cookie,/Secure/);cookie=login.cookie.split(';')[0];csrf=login.data.csrf;console.log('PASS hosted login and Secure cookie');
+ assert.equal((await call('session')).data.branches.length,1);assert.equal((await call('devices?branch=maraba')).status,403);console.log('PASS hosted session and branch isolation');
+ const added=await call('devices?branch=imperatriz','POST',{data:{serial:'990'+String(Date.now()).slice(-6),status:'Estoque',carrier:'Claro',plate:''}});assert.equal(added.status,200,JSON.stringify(added.data));device=added.data.id;const path='devices/'+device+'?branch=imperatriz';assert.equal((await call(path)).data.rows[0].version,1);assert.equal((await call(path,'PATCH',{version:1,data:{carrier:'Vivo'}})).status,200);assert.equal((await call(path,'DELETE',{version:2})).status,200);console.log('PASS hosted POST GET PATCH DELETE disposable record');
+ assert.equal((await call('logout','POST',{})).status,200);assert.equal((await call('session')).status,401);console.log('PASS hosted logout');
+}finally{await admin.query('delete from central_homologacao.devices where id in (select entity_id from central_homologacao.audit_events where user_id=$1)',[id]);await admin.query('delete from central_homologacao.audit_events where user_id=$1',[id]);await admin.query('delete from central_homologacao.requests where user_id=$1',[id]);await admin.query('delete from central_homologacao.users where id=$1',[id]);await admin.end();}

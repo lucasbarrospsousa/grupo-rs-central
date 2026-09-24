@@ -1,3 +1,4 @@
+import {Buffer} from 'node:buffer';
 import {integrationSecrets} from './integration-secrets.mjs';
 export const ORIGINS={imperatriz:'https://imp.ogrupors.com.br',araguaina:'https://arg.ogrupors.com.br',acailandia:'https://acl.ogrupors.com.br',maraba:'https://mab.ogrupors.com.br'};
 const err=(message,status=502)=>Object.assign(Error(message),{status});
