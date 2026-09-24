@@ -110,3 +110,9 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Navegação pelo submenu Rastreamento. Sem API não há busca real, posições, mapa ou PDF; botão Buscar explica a pendência, sem classificar como ausência de registros.
 - Atalhos usam a data local do navegador nesta prévia. O fuso da plataforma será aplicado pelo adaptador autorizado.
 - Chrome: composição e navegação conferidas. Testes de datas e regressão: 25 testes.
+
+## Trajeto
+
+- `route-page.js`/`route.css`: filtros e atalhos, métricas, área de mapa, legenda, reprodução e linha do tempo conforme referência. Reaproveita validação de sete dias do Histórico.
+- Fonte consultada: `src/ui/tracking_route.gd`. Sem API/posições, mapa, reprodução e KML ficam desabilitados. Não desenha percurso fictício nem atribui ausência de dados a ausência de posições reais.
+- Chrome: navegação e composição conferidas; 25 testes de regressão passaram. Integração real, mapa, reprodução e exportação ainda pendentes.

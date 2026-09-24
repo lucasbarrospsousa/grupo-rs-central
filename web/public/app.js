@@ -1,3 +1,4 @@
+import { mountRoute } from './route-page.js';
 import { mountRecords } from './records-page.js';
 import { mountConsult } from './consult-page.js';
 import { mountMaintenance } from './maintenance-page.js';
@@ -37,12 +38,12 @@ function login() {
 }
 const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings']];
 function render() {
-  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records'].includes(state.route));
+  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
   document.body.classList.toggle('bulk-page', state.entered && state.route === 'bulk');
   document.body.classList.toggle('maintenance-page', state.entered && state.route === 'maintenance');
-  document.body.classList.toggle('consult-page', state.entered && ['tracking','records'].includes(state.route));
-  document.body.classList.toggle('records-page', state.entered && state.route === 'records');
+  document.body.classList.toggle('consult-page', state.entered && ['tracking','records','route'].includes(state.route));
+  document.body.classList.toggle('records-page', state.entered && ['records','route'].includes(state.route));
   if (!state.entered) return login();
   const route = routes.find(r => r[0] === state.route) || routes[0];
   app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
@@ -50,7 +51,7 @@ function render() {
   on('exit', 'click', e => { e.preventDefault(); state.entered = false; state.selected.clear(); render(); });
   on('branch', 'change', e => { state.branch = e.target.value; state.selected.clear(); render(); });
   on('refresh', 'click', () => { render(); notify('Demonstração atualizada. Nenhuma API real foi consultada.'); });
-  ({ overview, stock, warehouse, maintenance, tracking, records, sms, settings, link: linking, bulk })[state.route]();
+  ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk })[state.route]();
 }
 const page = html => document.querySelector('#page').innerHTML = html;
 const colors = ['#f32c4d', '#ff8808', '#edb20b', '#13b468'];
@@ -142,3 +143,5 @@ function settings() { page(`<section class="panel"><h2>Conexões e migração</h
 render();
 
 function records() { mountRecords({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
+
+function routePage() { mountRoute({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
