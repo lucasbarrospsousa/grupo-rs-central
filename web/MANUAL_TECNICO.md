@@ -130,3 +130,10 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Exemplos sintéticos, sem telefones reais, gateway, consulta automática ou envio. Atualizar apenas informa ausência de integração. A composição anterior de mensagem deixa de ser a página principal de acompanhamento.
 - Contador enviados inclui entregues; entrega não comprova execução do comando. Falha Wi-Fi não altera estado dos exemplos nem aciona reenvio.
 - Chrome: layout e seleção de pedido conferidos. Contadores testados; 26 testes passaram.
+
+## Configurações
+
+- `settings-page.js`/`settings.css`: quatro cards de integrações e painel Ambiente da operação; alternância Conexões/Atualizações e detalhes das APIs.
+- Layout conferido contra a composição de configurações em `inventory_dashboard.gd`. Conexões exibem Pendente e zero configuradas, não o estado real do desktop.
+- Nenhuma leitura de cofre, coleta de credenciais, teste remoto ou instalação de atualização. Os botões explicam as integrações pendentes.
+- Chrome: composição e alternância de seções conferidas; 26 testes de regressão passaram. As páginas adaptadas continuam uma prévia, não migração integral de banco e serviços.
