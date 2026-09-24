@@ -103,3 +103,10 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Dados vêm somente do adaptador demonstrativo. Vínculos, comunicação e ausência no banco real não são presumidos; ficam não consultados. Consulta de clientes usa nomes sintéticos da sessão.
 - SMS, edição remota, Histórico de posições e Trajeto mostram pendência de integração; não simulam envio, posição ou gravação. Edição demonstrativa continua disponível na página Estoque.
 - Chrome: digitar manteve 14 resultados; Buscar pela série retornou um; menu expandiu/recolheu. 24 testes passaram.
+
+## Histórico de posições
+
+- Tela `records-page.js`/`records.css` baseada em `src/ui/tracking_records.gd`: período, Hoje/Ontem/Personalizado/Limpar, validação de até sete dias, métricas, histórico vazio e detalhes.
+- Navegação pelo submenu Rastreamento. Sem API não há busca real, posições, mapa ou PDF; botão Buscar explica a pendência, sem classificar como ausência de registros.
+- Atalhos usam a data local do navegador nesta prévia. O fuso da plataforma será aplicado pelo adaptador autorizado.
+- Chrome: composição e navegação conferidas. Testes de datas e regressão: 25 testes.

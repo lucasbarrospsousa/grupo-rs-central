@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {validateRecordPeriod} from '../public/records-page.js';
+test('records requires valid ordered period no longer than seven days',()=>{assert.equal(validateRecordPeriod('2026-09-01T00:00','2026-09-08T00:00'),'');assert.ok(validateRecordPeriod('2026-09-01T00:00','2026-09-08T00:01'));assert.ok(validateRecordPeriod('2026-09-02T00:00','2026-09-01T00:00'));assert.ok(validateRecordPeriod('',''));});
