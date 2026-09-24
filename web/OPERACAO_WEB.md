@@ -4,7 +4,7 @@
 
 O site usa o PostgreSQL do projeto Supabase existente, schema privado `central_homologacao`. A origem foi o backup de 24/09/2026, reconciliado com nova cópia consistente do desktop às 11:47 (Fortaleza): um aparelho atualizado e uma movimentação incorporada. O armazém foi conferido sem diferenças. Não há sincronização automática com o aplicativo desktop. Uma alteração feita no site não atualiza o banco do executável, e vice-versa.
 
-O usuário autorizou testes de vinculação e troca somente na homologação. Os testes de escrita nas plataformas usam adaptadores simulados. SMS permanece pausado por escolha do usuário. A versão 1.0 passa a ser o destino dos novos cadastros. O aplicativo desktop permanece preservado como consulta histórica; não continuar registrando nos dois sistemas. O nome interno do schema foi preservado para evitar uma migração desnecessária de credenciais e permissões. Não reexecutar importadores sobre o banco em operação.
+O usuário autorizou testes de vinculação e troca somente na homologação. Os testes de escrita nas plataformas usam adaptadores simulados. SMS utiliza a ponte local autorizada em 24/09/2026. A versão 1.0 passa a ser o destino dos novos cadastros. O aplicativo desktop permanece preservado como consulta histórica; não continuar registrando nos dois sistemas. O nome interno do schema foi preservado para evitar uma migração desnecessária de credenciais e permissões. Não reexecutar importadores sobre o banco em operação.
 
 ## Hospedagem
 
@@ -82,3 +82,11 @@ O campo Veículo aceita a placa na própria linha. Dar baixa pede confirmação 
 Tipo segue src/tracker_versions.gd: GRS → V7.3.2; AAA → V7.2.2/7.1.6; XRS → V7.3.5, com normalização dos nomes antigos. Essa classificação não representa leitura de firmware.
 
 Validação: 65 testes automatizados, fluxo sintético no navegador e cadastro temporário no SQL de homologação (gravação, releitura, repetição idempotente e rejeição de versão antiga). Nenhum aparelho operacional foi baixado nos testes.
+
+## Ponte SMS do computador
+
+`node web/tools/sms-bridge.mjs` mantém uma conexão de saída com o SQL e consulta o Galaxy com o certificado e o token já pareados no desktop, sem escrever na fila SQLite. A configuração privada fica em `.secrets/homologacao/sms-bridge.json`. O computador precisa permanecer ligado, com a sessão Windows iniciada, e o Gateway ativo na mesma rede. A inicialização automática usa um atalho na pasta Inicializar do usuário, executando `web/tools/run-sms-bridge.ps1` oculto. Não abre portas de entrada. Se o endereço do Galaxy mudar, atualizar a configuração privada após conferir o celular; nunca desativar a validação do certificado.
+
+A API aceita comandos revisados somente para séries 024 de Imperatriz, conferindo o telefone novamente na plataforma. Registra a fila antes do envio. A ponte grava a tentativa antes do PUT; reinícios, timeouts e retornos ausentes geram apenas consultas ao mesmo pedido. Pedidos antigos sem marca da ponte não são enviados. Há trava de instância e índice de exclusividade por aparelho. Retornos de entrega são acompanhados por até 24 horas após a criação. A indisponibilidade não é confirmação de falha.
+
+O painel lê o banco a cada 15 segundos; heartbeat com mais de 90 segundos é desconectado. Novos envios exigem ponte recente. Pendências incertas bloqueiam outro envio para a mesma série e exigem conferência; não há reenvio automático nem disparo em massa. Os testes de fila SQL usam uma trava que impede execução junto da ponte real. Validação realizada com gateway health real e fila/transporte sintéticos, sem disparar SMS real.

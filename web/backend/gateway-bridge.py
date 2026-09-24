@@ -9,6 +9,10 @@ try:
  db=sqlite3.connect(source_db.as_uri()+'?mode=ro',uri=True);db.row_factory=sqlite3.Row
  cfg=gateway.config_get(db,True);db.close()
  if not cfg:raise ValueError('Gateway não pareado')
+ override=pathlib.Path(__file__).resolve().parents[2]/'.secrets'/'homologacao'/'sms-bridge.json'
+ if override.exists():
+  endpoint=json.loads(override.read_text(encoding='utf-8-sig')).get('gateway_url')
+  if endpoint:cfg['url']=endpoint
  action=request['action']
  if action=='health':
   code,result=gateway.request_remote(cfg,'GET','/health');result={'ok':code==200,'reachable':code==200}

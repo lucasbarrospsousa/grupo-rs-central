@@ -1,3 +1,4 @@
+import {bridgeHealth} from './sms-queue.mjs';
 import {remoteAction,scoped} from './remote-actions.mjs';
 import {createHash} from 'node:crypto';
 import {integrations} from './integrations.mjs';
@@ -14,10 +15,10 @@ export async function integrationRoute({req,res,url,pool,user,readBody,service=i
   if(req.method==='GET'){
    let data;
    if(action==='sync-status')data=(await pool.query('select central_homologacao.sync_status() as status')).rows[0].status;
-   else if(action==='gateway')data={ok:false,paused:true,error:'SMS pausado a pedido do usuário.'};
+   else if(action==='gateway')data=await scoped(pool,user,c=>bridgeHealth(c,branch));
    else if(action==='stock')data=await (service===integrations?guardedIntegrations(pool):service).stockDetails(branch,serial);
    else if(action==='equipment')data=await service.equipmentPortal(branch,serial);
-   else if(action==='operations')data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,payload from central_homologacao.remote_operations where branch_id=$1 order by created_at desc limit 100',[branch])).rows)};
+   else if(action==='operations')data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 order by created_at desc limit 100',[branch])).rows)};
    else if(action==='maintenance'){const snapshot=(await pool.query('select central_homologacao.sync_panorama($1) as snapshot',[branch])).rows[0].snapshot;if(!snapshot)throw fail(503,'Aguardando a primeira consulta automática desta base.');if(snapshot.data.ok===false)throw fail(503,snapshot.data.message);data={...snapshot.data,checked_at:snapshot.checked_at};}
    else if(action==='binding')data=await service.binding(branch,serial);
    else if(action==='location')data=await service.location(branch,serial);
