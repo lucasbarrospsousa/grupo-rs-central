@@ -1,9 +1,11 @@
 import {mountSmsLive} from './sms-live.js';
 import {openDischarge} from './discharge-panel.js';
 import {mountLiveOverview} from './overview-live.js';
+import {mountBackupCard} from './backup-card.js';
 import {mountLiveTracking} from './tracking-live.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function mountIntegrationActions({repo,branch,route,showModal,notify,render}){
+ if(route==='overview')mountBackupCard({repo});
  const query=(action,params={})=>repo.request('integrations/'+action+'?'+new URLSearchParams({branch,...params}));
  const syncNote=document.createElement('div');syncNote.className='sync-status';syncNote.setAttribute('role','status');syncNote.textContent='Verificando atualização automática…';(document.querySelector('#visits-sync')||document.querySelector('#page')).prepend(syncNote);
  const updateSync=()=>query('sync-status').then(s=>{if(!syncNote.isConnected)return;syncNote.classList.remove('sync-warning');syncNote.textContent=(s.enabled?'Atualização automática ativa':'Atualização automática pausada')+' • ciclo '+s.cycle+' • '+s.completed+'/'+s.total+' aparelhos • intervalo '+s.interval_minutes+' min entre ciclos'+(s.alerts.length?' • '+s.alerts.length+' integração(ões) pausada(s)':'');

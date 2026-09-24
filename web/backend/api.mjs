@@ -1,4 +1,5 @@
 import {Buffer} from 'node:buffer';
+import {backupStatus} from './backup-status.mjs';
 import {integrationRoute} from './integration-routes.mjs';
 import { randomUUID } from 'node:crypto';
 import { hash, token, passwordMatches, passwordHash, session, cookies } from './auth.mjs';
@@ -39,6 +40,7 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       await pool.query('delete from central_homologacao.sessions where token_hash=$1',[hash(cookies(req).central_session)]);
       res.setHeader('Set-Cookie','central_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');reply(res,200,{ok:true});return true;
     }
+    if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
     if(await integrationRoute({req,res,url,pool,user,readBody:body,service:integrationService}))return true;
     if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');

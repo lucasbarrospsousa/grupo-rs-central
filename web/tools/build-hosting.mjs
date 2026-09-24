@@ -1,6 +1,6 @@
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
-import {mkdir,writeFile,copyFile,cp,readFile} from 'node:fs/promises';
+import {mkdir,writeFile,copyFile,cp,readFile,readdir} from 'node:fs/promises';
 const root=new URL('../',import.meta.url),stage=new URL('.sites-runtime/central/',root);
 await mkdir(new URL('dist/server/',stage),{recursive:true});await mkdir(new URL('worker/',stage),{recursive:true});
 await cp(new URL('public/',root),new URL('public/',stage),{recursive:true});
@@ -14,4 +14,10 @@ await build({entryPoints:[fileURLToPath(new URL('hosting/edge-entry.mjs',root))]
  b.onLoad({filter:/integration-secrets\.mjs$/},()=>({contents:`export function integrationSecrets(){const text=process.env.CENTRAL_INTEGRATIONS_JSON;if(!text)throw Error('Integrações indisponíveis.');return JSON.parse(text);}`,loader:'js'}));
  b.onLoad({filter:/database\.mjs$/},()=>({contents:`import pg from 'npm:pg@8.23.0';export function createPool(){return new pg.Pool({host:'aws-0-us-west-2.pooler.supabase.com',port:5432,database:'postgres',user:process.env.CENTRAL_DB_USER,password:process.env.CENTRAL_DB_PASSWORD,ssl:{rejectUnauthorized:true,ca:process.env.CENTRAL_DB_CA},max:2,connectionTimeoutMillis:10000,idleTimeoutMillis:1000,statement_timeout:20000});}`,loader:'js'}));
  }}]});
-console.log('Sources prepared: ChatGPT Site and Supabase API. No secrets included.');
+const migrations={};for(const name of await readdir(new URL('migrations/',root)))if(name.endsWith('.sql'))migrations[name]=await readFile(new URL('migrations/'+name,root),'utf8');
+await mkdir(new URL('.sites-runtime/backup/',root),{recursive:true});
+await build({entryPoints:[fileURLToPath(new URL('hosting/backup-entry.mjs',root))],outfile:fileURLToPath(new URL('.sites-runtime/backup/index.ts',root)),bundle:true,platform:'node',format:'esm',external:['node:*','npm:pg@8.23.0'],plugins:[{name:'backup-platform',setup(b){
+ b.onResolve({filter:/^pg$/},()=>({path:'npm:pg@8.23.0',external:true}));
+ b.onLoad({filter:/backup-migrations\.mjs$/},()=>({contents:'export const backupMigrations='+JSON.stringify(migrations)+';',loader:'js'}));
+}}]});
+console.log('Sources prepared: ChatGPT Site, Supabase API and separate backup worker. No secrets included.');
