@@ -79,3 +79,11 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Cenário isolado com 12 aparelhos fictícios, somente Imperatriz, sem alterar o adaptador de Estoque. Outras filiais exibem a indisponibilidade correspondente ao escopo original.
 - Revisão funciona; confirmação permanece desabilitada até integração autorizada. Atualizar lista não consulta API real.
 - Chrome: filtro Reserva, seleção e resumo revisados; layout com rolagem natural e sem transbordamento horizontal. Teste de identificação e regressão: 20 testes.
+
+## Cadastro em massa: adaptação visual e análise local
+
+- `bulk-page.js` e `bulk.css`: quatro cards de resumo, entrada e quadro de análise em duas colunas, layout com rolagem natural.
+- Regras consultadas no desktop: `approved_bulk_view.gd` e funções de análise/organização de `inventory_dashboard.gd`. Série com nove dígitos, placa opcional, operadora padrão, repetições e conflitos, restauração do texto anterior, cópia e revisão.
+- Importação local limitada a CSV/TSV/TXT até 2 MB; Excel pode ser colado ou exportado como CSV. Leitura direta XLSX/PDF, inferências avançadas do desktop, consulta de clientes, SMS e gravação remota ainda pendentes. Não interpretar como migração integral desses serviços.
+- Análise não consulta duplicados no banco operacional. Confirmação bloqueada até integração autorizada.
+- Chrome: três linhas resultaram em dois registros únicos e uma repetição; organização, desfazer e revisão conferidos. 22 testes passaram.
