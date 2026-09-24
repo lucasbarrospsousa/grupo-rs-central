@@ -149,3 +149,16 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 A descrição operacional vigente está em `OPERACAO_WEB.md`, seção Atualização automática. As notas anteriores de demonstração são histórico da migração. `backend/background-sync.mjs`, migrações 006/007 e `tools/schedule-sync.mjs` implementam a coleta persistente. `public/sidebar.js`/`sidebar.css` substituem os menus específicos de cada página. `public/stock-live.js` apresenta as observações sem sobrescrever os cadastros.
 
 Validação desta entrega: 57 testes locais, validação API/portal publicada nas quatro bases, execução real do agendador com posições e chips confirmados. Não foram executadas escritas de teste nas plataformas operacionais.
+
+
+## Correção de atendimentos e consumo de chips — 24/09/2026
+
+A aba Manutenções mostra relatórios com cliente, placa e série, normaliza as situações do desktop e exclui da apresentação registros técnicos do Configurador. Esses registros permanecem no banco. O histórico importado mantém todos os campos originais, com aliases de apresentação; uma referência estável evita duplicar o relatório na tela.
+
+O formulário de Imperatriz pesquisa clientes no portal e exige selecionar o veículo e aparelho retornados. Ao salvar, o servidor reconfirma cliente e vínculo, preserva o aparelho de chegada e salva relatório e eventual baixa em uma transação. O estado Concluída indica relatório registrado. Edição mantém identidade original e baixa existente; uma nova troca requer outro atendimento. Busca, situações, período, contadores filtrados e PDF utilizam os mesmos atendimentos visíveis.
+
+`node web/tools/import-maintenance.mjs` faz conferência sem gravar; `--apply` adiciona somente identidades ausentes. Snapshot SQLite consistente, cópia dos registros de destino e resultado ficam em `.secrets/homologacao/`. Não atualiza nem exclui registros existentes. A migração 010 permite relatórios históricos sem cadastro atual do aparelho, preservando sua identidade no documento, e impede importar duas vezes a mesma visita.
+
+A gravação do Configurador agora consome o ICCID exato no Armazém e registra movimentação Utilizado na mesma transação do aparelho. Repetição não cria nova movimentação. Item enviado, filial divergente ou chip associado a múltiplos aparelhos bloqueiam a gravação. Chips externos ao Armazém continuam permitidos. `reconcile-configurator-chip.mjs` permite conferir um caso explícito por filial, série e ICCID completo; `--apply` exige confirmação atual na plataforma e auditoria da gravação original, criando backup privado antes da correção.
+
+Validações focadas: `node --test web/tests/maintenance*.test.mjs web/tests/configurator.test.mjs`; `node web/tools/test-maintenance-sql.mjs`; `node web/tools/test-configurator-warehouse-sql.mjs`. Os dois últimos usam dados sintéticos em transações revertidas, papel SQL de runtime e plataformas simuladas; nunca enviam SMS ou escrevem na plataforma. Conferência visual de formulário, filtros, edição e viewport móvel foi executada em Chrome isolado.

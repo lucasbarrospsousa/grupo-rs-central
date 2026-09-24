@@ -14,10 +14,10 @@ export class SqlRepository {
     const encoded=encodeURIComponent(branch);
     const [devices,history,warehouse]=await Promise.all([this.request('devices?branch='+encoded),this.request('history?branch='+encoded),this.request('warehouse?branch='+encoded)]);
     this.devices=this.devices.filter(d=>d.branch!==branch).concat(devices.rows.map(d=>({identification:'',model:'',communication:'Não consultado',connectivity:'Não consultado',installed_at:'',updated_at:'',...d})));
-    this.reports=history.rows.filter(r=>r.source_table==='maintenance').map(r=>({...r.data,id:r.id,branch,entry:r.data.opened_at||r.data.created_at||'',currentSerial:r.data.serial||'',installSerial:r.data.replacement_serial||'',medium:r.data.discovery_method||'',notes:r.data.note||''}));
+    this.reports=history.rows.filter(r=>r.source_table==='maintenance').map(r=>({...r.data,id:r.id,branch,legacy:true,entry:r.data.created_at||r.data.opened_at||'',currentSerial:r.data.serial||'',installSerial:r.data.replacement_serial||'',medium:r.data.discovery_method||'',notes:r.data.note||''}));
     this.reports.unshift(...(history.visits||[]).map(r=>({...r.data,id:r.id,branch,version:r.version,editable:true})));
     this.warehouse=warehouse.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR')}));
-    this.movements=warehouse.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch,type:'Envio',serial:item.serial,at:new Date(m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
+    this.movements=warehouse.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch,type:item.action||'Envio',serial:item.serial,at:new Date(m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
     const moved=new Set(this.movements.map(r=>r.serial));
     this.movements.push(...this.warehouse.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch,type:r.status,serial:r.serial,at:r.received,destination:'Registro importado • destino não informado'})));
     this.currentBranch=branch;
@@ -32,6 +32,6 @@ export class SqlRepository {
   async transfer(ids,destination,note){const items=ids.map(id=>{const r=this.warehouse.find(r=>r.id===id);return{id,version:r.version};});await this.request('warehouse-transfer?branch='+this.currentBranch,{method:'POST',body:{items,destination,note}});await this.load(this.currentBranch);}
   async addBulk(rows){const result=await this.request('bulk?branch='+this.currentBranch,{method:'POST',body:{rows}});await this.load(this.currentBranch);return result;}
   async saveReport({branch,id,...data}){await this.request('maintenance?branch='+branch,{method:'POST',body:data,key:id});await this.load(branch);}
-  async updateReport(report,status,notes){await this.request('maintenance/'+report.id+'?branch='+report.branch,{method:'PATCH',body:{version:report.version,status,notes}});await this.load(report.branch);}
+  async updateReport(report,values){await this.request('maintenance/'+report.id+'?branch='+report.branch,{method:'PATCH',body:{version:report.version,...values}});await this.load(report.branch);}
   record(){throw Error('Operação ainda não conectada ao servidor.');}
 }

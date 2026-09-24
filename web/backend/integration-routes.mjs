@@ -25,6 +25,7 @@ export async function integrationRoute({req,res,url,pool,user,readBody,service=i
    else if(action==='binding')data=await service.binding(branch,serial);
    else if(action==='location')data=await service.location(branch,serial);
    else if(action==='history')data=await service.history(branch,serial,url.searchParams.get('start'),url.searchParams.get('end'));
+   else if(action==='client-vehicles')data={rows:await service.clientVehicles(branch,url.searchParams.get('client'))};
    else if(action==='clients')data={rows:await service.clients(branch,url.searchParams.get('q'))};
    else if(action==='carrier')data=await service.carrier(url.searchParams.get('provider'),url.searchParams.get('iccid'));
    else if(action==='status'){await service.api(branch,'/endpoints/veiculos.php?skip=0&take=1');await service.maintenance(branch);data={api:true,portal:true,branch,checked_at:new Date().toISOString()};}

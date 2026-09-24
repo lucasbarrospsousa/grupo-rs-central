@@ -1,3 +1,4 @@
+import {consumeConfiguredChip} from './configurator-warehouse.mjs';
 import {createHash,randomUUID,timingSafeEqual} from 'node:crypto';
 import {Buffer} from 'node:buffer';
 import {scoped} from './remote-actions.mjs';
@@ -48,7 +49,8 @@ export async function configuratorOperation(pool,user,p,service=integrations){
    if(old&&status==='Manutenção')await c.query('insert into central_homologacao.visits(id,branch_id,device_id,data) values($1,$2,$3,$4)',[randomUUID(),p.branch,id,{serial:p.serial,currentSerial:p.serial,plate:old.data.plate||'',client:old.data.client||'',status:'Em análise',entry:new Date().toISOString(),medium:'Configurador RS300',reason:'Reconfiguração de aparelho',notes:'Chip, telefone e operadora confirmados na plataforma.'}]);
   }
   const confirmed=(await c.query('select data,version from central_homologacao.devices where id=$1',[id])).rows[0];if(confirmed.data.iccid!==p.iccid||confirmed.version!==version)throw fail(500,'Releitura SQL não confirmou a gravação.');
-  const result={ok:true,confirmed:true,created:!old,already_exists:!!same,id,version,status,branch:p.branch,database:'Central online',message:same?'Registro online já confirmado; nenhuma alteração repetida.':'Gravação e releitura confirmadas na Central online.'};
+  const warehouse=await consumeConfiguredChip(c,{branch:p.branch,serial:p.serial,iccid:p.iccid,userId:user.user_id});
+  const result={warehouse,ok:true,confirmed:true,created:!old,already_exists:!!same,id,version,status,branch:p.branch,database:'Central online',message:same?'Registro online já confirmado; nenhuma alteração repetida.':'Gravação e releitura confirmadas na Central online.'};
   await c.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,p.key,fingerprint,result]);return result;
  });
 }
