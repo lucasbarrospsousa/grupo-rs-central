@@ -14,6 +14,8 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   const safe = async fn => { try { await fn(); } catch(e) { notify(e.message); } };
   const model = {query:'',status:'Todos',start:'',end:'',sort:'installed_at',direction:-1,page:1};
   const plateDrafts = new Map();
+  const viewKey='central-stock-view:'+(repo.user?.username||'demo')+':'+branch;
+  try{const saved=JSON.parse(localStorage.getItem(viewKey)||'{}');if(statuses.includes(saved.status))model.status=saved.status;if(Number.isInteger(saved.page)&&saved.page>0)model.page=saved.page;}catch{}
   const selected = new Set(); const perPage = 10; let current = [];
   const regional = branch !== 'imperatriz';
   let live=null;
@@ -51,6 +53,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     document.querySelectorAll('[data-location]').forEach(b=>b.onclick=()=>details(b.dataset.location,true));
     document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>details(b.dataset.detail,false));
     document.querySelector('#stock-all').onchange=e=>{rows.forEach(r=>e.target.checked?selected.add(r.id):selected.delete(r.id));draw();};
+    try{localStorage.setItem(viewKey,JSON.stringify({status:model.status,page:model.page}));}catch{}
     syncSelection(rows);
     if(focused){const input=[...document.querySelectorAll("[data-vehicle-plate]")].find(el=>el.dataset.vehiclePlate===focused);if(input){input.focus({preventScroll:true});input.setSelectionRange(caret,caret);}}
     if(live)queueMicrotask(()=>live.refresh());

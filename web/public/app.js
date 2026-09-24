@@ -62,6 +62,7 @@ function render() {
   document.body.classList.toggle('sms-page', state.entered && state.route === 'sms');
   document.body.classList.toggle('settings-page', state.entered && state.route === 'settings');
   if (!state.entered) return login();
+  if(repo.real)try{localStorage.setItem("central-view:"+repo.user.username,JSON.stringify({branch:state.branch,route:state.route}));}catch{}
   const route = routes.find(r => r[0] === state.route) || routes[0];
   app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
   app.querySelectorAll('[data-route]').forEach(a => a.onclick = e => { e.preventDefault(); state.route = a.dataset.route; state.selected.clear(); render(); });
@@ -187,10 +188,22 @@ function sms() { mountSms({repo,branch:state.branch,branchName:name(state.branch
 function linking() { mountLinking({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function bulk() { mountBulk({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function settings() { mountSettings({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
-async function enterSql(){if(!repo.user.branches.length)throw Error('Usuário sem filial autorizada.');state.branch=repo.user.branches.find(b=>b.id==='imperatriz')?.id||repo.user.branches[0].id;await repo.load(state.branch);state.route='overview';state.entered=true;render();}
-// Paint first: slow/unavailable SQL must never leave the document blank.
-render();
-if(repo.real){repo.session().then(enterSql).catch(()=>{});}
+async function enterSql(){
+ if(!repo.user.branches.length)throw Error('Usuário sem filial autorizada.');
+ let saved={};try{saved=JSON.parse(localStorage.getItem('central-view:'+repo.user.username)||'{}')||{};}catch{}
+ state.branch=repo.user.branches.find(b=>b.id===saved.branch)?.id||repo.user.branches.find(b=>b.id==='imperatriz')?.id||repo.user.branches[0].id;
+ state.route=routes.some(r=>r[0]===saved.route)?saved.route:'overview';
+ await repo.load(state.branch);state.entered=true;render();
+}
+async function restoreSession(){
+ app.innerHTML='<main class="login-main"><h1>Grupo RS Central</h1><p role="status">Restaurando sua sessão e carregando a última página…</p></main>';
+ try{await repo.session();await enterSql();}
+ catch(error){if(error.status===401){state.entered=false;login();return;}
+ app.innerHTML='<main class="login-main"><h1>Não foi possível carregar a Central</h1><p role="alert">'+escape(error.message)+'</p><button id="retry-session" class="primary">Tentar novamente</button></main>';
+ on('retry-session','click',restoreSession);
+ }
+}
+if(repo.real)void restoreSession();else render();
 
 function records() { mountRecords({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 
