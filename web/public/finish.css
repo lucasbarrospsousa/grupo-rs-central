@@ -30,3 +30,10 @@ dialog[open]{animation:dialog-in .18s ease-out}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 .sync-status{padding:10px 14px;margin-bottom:16px;background:#e7f3fd;border:1px solid #c8dff4;border-radius:10px;color:#23577e;font-size:13px}.sync-warning{background:#fff4df;color:#8b5100}.sync-status p{margin:6px 0 0}
+/* Consistent card motion, including discharge counters. */
+.metric,.branch-card,.discharge-counts>div,.settings-api,.warehouse-stat,.bulk-stat{transition:transform .2s ease,box-shadow .2s ease}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+ .metric:hover,.branch-card:hover,.discharge-counts>div:hover,.settings-api:hover,.warehouse-stat:hover,.bulk-stat:hover{transform:translateY(-4px);box-shadow:0 9px 20px #123f6322}
+}
+@media(prefers-reduced-motion:reduce){.metric:hover,.branch-card:hover,.discharge-counts>div:hover,.settings-api:hover,.warehouse-stat:hover,.bulk-stat:hover{transform:none}}
+
