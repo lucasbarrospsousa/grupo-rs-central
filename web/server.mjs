@@ -1,0 +1,23 @@
+import http from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+// Development preview only. No proxy, database, credentials or remote requests.
+const root = path.resolve(fileURLToPath(new URL('./public/', import.meta.url)));
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const server = http.createServer(async (req, res) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+  try {
+    const requested = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    const target = path.resolve(root, '.' + (requested === '/' ? '/index.html' : requested));
+    if (!target.startsWith(root + path.sep) || !types[path.extname(target)]) { res.writeHead(404); return res.end(); }
+    const content = await readFile(target);
+    res.setHeader('Content-Type', types[path.extname(target)]);
+    res.end(req.method === 'HEAD' ? undefined : content);
+  } catch { res.writeHead(404); res.end('Não encontrado'); }
+});
+server.listen(Number(process.env.PORT || 4173), '127.0.0.1', () => console.log('Prévia local: http://127.0.0.1:' + server.address().port));

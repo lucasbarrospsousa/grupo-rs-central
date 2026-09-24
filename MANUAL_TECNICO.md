@@ -1,4 +1,9 @@
 # Grupo RS Central — manual técnico
+
+## Versão web em preparação — 24/09/2026
+
+A pasta `web/` contém a aplicação demonstrativa anterior à autorização do banco. Leia `web/MANUAL_TECNICO.md` para execução, testes, funcionalidades preparadas e limites, e `web/BANCO_PROPOSTO.md` para o próximo ponto de autorização. Estado somente em memória, dados fictícios, sem conexão com Supabase/SQLite operacional/APIs. Não substitui o desktop. `web/.gdignore` isola os recursos web da importação e exportação Godot.
+
 Empresa: Sinderacode. Identificador: `central`.
 Função: Aplicativo operacional do Grupo RS Central, incluindo estoque e integrações.
 Raiz: `C:/Users/lugan/OneDrive/Documentos/Sidera Code/Grupo RS Central/app`.

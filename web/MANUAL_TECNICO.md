@@ -1,0 +1,64 @@
+# Grupo RS Central Web
+
+Data: 24/09/2026. Etapa: preparação anterior à autorização do banco.
+Raiz: subpasta `web/` do repositório Grupo RS Central (`app`). O desktop continua sendo o sistema operacional.
+
+## Estado da entrega
+
+Esta é uma aplicação web demonstrativa, não uma migração de dados nem uma implantação de produção.
+Não cria tabelas, não conecta Supabase, não lê o SQLite operacional e não consulta APIs externas.
+Os dados são fictícios e voláteis: recarregar a página restaura o cenário. Sair retorna à entrada, sem simular autenticação segura.
+Não há persistência em localStorage, coleta de senha ou chave administrativa distribuída.
+
+| Módulo | Implementado antes do banco | Pendente depois da autorização |
+|---|---|---|
+| Entrada | Seleção da filial e entrada explicitamente demonstrativa | Supabase Auth, sessão, autorização por filial |
+| Visão geral | Quatro bases, cores por ordem de quantidade, gráfico clicável, indicadores | Leituras reais e estados parciais das APIs |
+| Lista de manutenção da plataforma | Busca, APN recolhível, filtro 4G/2G, paginação, detalhes | Consulta oficial, atualização, telefone real e cópia |
+| Estoque | Consulta por filial, filtros, análise/seleção/confirmação de baixa simulada | Reconsulta remota, progresso, transação e auditoria no servidor |
+| Armazém | Cadastro de aparelho, seleção, destino base/livre, confirmação, remoção, histórico | Persistência, permissão, transações e integração com Configurador |
+| Chips | Lista de exemplos, validação de formato, bloqueio sem Arya | Consulta Arya no servidor e prova de validação não falsificável |
+| Relatório de manutenção | Motivo, meio, observações, seleção de reposição, baixa simulada | Identidade real, transação SQL, edição e PDF |
+| Cadastro em massa | Pré-validação de séries, inválidas e duplicadas | Importação com confirmação e relatório de erros |
+| Rastreamento | Busca de veículos fictícios e detalhes | Posições, mapa, registros e trajetos reais |
+| Vinculação | Preparação da seleção e identificação | Escrita remota confirmada e reconciliação |
+| SMS | Composição e prévia, envio bloqueado | Gateway, autenticação, fila, consentimento e confirmação |
+
+Não chamar as linhas parcialmente preparadas de módulos migrados integralmente.
+
+## Execução e arquitetura
+
+Node.js 22 ou superior. Sem dependências npm nesta etapa.
+
+```powershell
+# A partir da raiz app:
+node web/server.mjs
+node --check web/public/app.js
+node --test web/tests/*.test.mjs
+```
+
+Abrir `http://127.0.0.1:4173`. `PORT` pode escolher outra porta.
+O servidor escuta somente loopback, oferece apenas `public/`, aceita GET/HEAD e bloqueia conexões de saída da página com CSP `connect-src 'none'`.
+Não usar este servidor de prévia como servidor de produção.
+
+- `public/app.js`: navegação, telas e eventos. Conteúdo editável interpolado passa por escape HTML.
+- `public/styles.css`: identidade azul/branco/laranja, layout adaptável, SVGs e respeito a movimento reduzido.
+- `public/domain.js`: regras puras, classificação por série, filtros e adaptador em memória.
+- `public/logo.png`: cópia do ícone já versionado do aplicativo.
+- `tests/domain.test.mjs`: regras e isolamento em cenários sintéticos.
+- `tests/server.test.mjs`: rotas, assets, CSP e bloqueio de escrita/travessia; servidor temporário isolado.
+
+O próximo adaptador deverá ser assíncrono e tratar concorrência no servidor. A validação em JavaScript desta demonstração não é uma fronteira de segurança.
+Não colocar a chave service_role, senha SQL ou tokens das filiais em `public/`.
+Não há EXE, instalador ou processo de publicação pública criado para a web.
+
+## Validação em 24/09/2026
+
+- Testes de domínio: quatro filiais, série com zero, falha versus ausência, vínculo ambíguo, 4G/2G, baixa repetida, versão alterada, filial incorreta, chips, envio e relatório.
+- Chrome perfil Lucas, prévia local: entrada, painel, barra de Marabá, filtro 4G, recolhimento APN, baixa de três exemplos, cadastro de aparelho, bloqueio de chip sem Arya, envio para destino livre e histórico, relatório com reposição.
+- Inspeção visual em 1568×1003; comportamento responsivo verificado separadamente. Os números são demonstrativos.
+- Nenhuma validação real de banco, RLS, multiusuário, API, SMS ou persistência. Não substituir a Central atual.
+
+## Próxima etapa
+
+Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migrações SQL revisáveis, autenticação, RLS, conectar ambiente de teste e validar transações/concorrência. Importação de produção e substituição do aplicativo são etapas separadas.
