@@ -24,3 +24,14 @@ body .central-sidebar .bottom small{display:block;font-size:12px;padding:0 12px 
 body .central-sidebar .bottom a{margin:0;min-height:42px}
 @media(max-width:760px){body .app-layout{grid-template-columns:210px minmax(0,1fr)}body .central-sidebar{width:210px;padding:18px 10px 10px}body .central-sidebar .brand b{font-size:20px}body .central-sidebar .brand img{width:48px;height:48px}body .central-sidebar a,body .central-sidebar .nav-group{gap:9px;font-size:13px}}
 @media(prefers-reduced-motion:reduce){body .central-sidebar *{transition:none!important}}
+
+body .app-layout{transition:grid-template-columns .24s ease}
+body .central-sidebar{transition:transform .24s ease,visibility .24s;z-index:2}
+body .app-layout.sidebar-collapsed{grid-template-columns:0 minmax(0,1fr)}
+body .sidebar-collapsed .central-sidebar{transform:translateX(-100%);visibility:hidden;pointer-events:none}
+body .sidebar-toggle{display:inline-flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;padding:8px;border:0;background:transparent;color:#173e62;cursor:pointer}
+body .sidebar-toggle:hover{background:#e5eff9;transform:none}
+body .sidebar-toggle:focus-visible{outline:3px solid #1483d5;outline-offset:2px}
+body .sidebar-heading{display:grid;grid-template-columns:auto 1fr;column-gap:14px;align-items:center}
+body .sidebar-heading>.sidebar-toggle{grid-row:1 / span 2}
+@media(prefers-reduced-motion:reduce){body .app-layout,body .central-sidebar{transition:none}}
