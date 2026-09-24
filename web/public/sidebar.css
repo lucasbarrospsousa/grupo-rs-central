@@ -1,4 +1,4 @@
-body .app-layout{grid-template-columns:258px minmax(0,1fr)}
+body .app-layout:not(.sidebar-collapsed){grid-template-columns:258px minmax(0,1fr)}
 body .central-sidebar{box-sizing:border-box;width:258px;height:100dvh;position:sticky;top:0;display:flex;flex-direction:column;padding:28px 16px 14px;gap:0;background:#102f4d;overflow:hidden;font-family:"Segoe UI",Arial,sans-serif}
 body .central-sidebar .brand{flex:none;display:flex;align-items:center;gap:13px;margin:0 0 26px}
 body .central-sidebar .brand img{width:58px;height:58px;flex:none}
@@ -22,7 +22,7 @@ body .central-sidebar .nav-children .icon{width:19px;height:19px;flex-basis:19px
 body .central-sidebar .bottom{flex:none;margin:12px 0 0;padding:13px 0 0;border-top:1px solid #466278}
 body .central-sidebar .bottom small{display:block;font-size:12px;padding:0 12px 7px;color:#a5bfd4}
 body .central-sidebar .bottom a{margin:0;min-height:42px}
-@media(max-width:760px){body .app-layout{grid-template-columns:210px minmax(0,1fr)}body .central-sidebar{width:210px;padding:18px 10px 10px}body .central-sidebar .brand b{font-size:20px}body .central-sidebar .brand img{width:48px;height:48px}body .central-sidebar a,body .central-sidebar .nav-group{gap:9px;font-size:13px}}
+@media(max-width:760px){body .app-layout:not(.sidebar-collapsed){grid-template-columns:210px minmax(0,1fr)}body .central-sidebar{width:210px;padding:18px 10px 10px}body .central-sidebar .brand b{font-size:20px}body .central-sidebar .brand img{width:48px;height:48px}body .central-sidebar a,body .central-sidebar .nav-group{gap:9px;font-size:13px}}
 @media(prefers-reduced-motion:reduce){body .central-sidebar *{transition:none!important}}
 
 body .app-layout{transition:grid-template-columns .24s ease}
