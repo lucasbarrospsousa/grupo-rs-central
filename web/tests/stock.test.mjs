@@ -23,9 +23,16 @@ test('stock period uses update date inclusively, not installation, excludes unkn
   assert.equal(filterStock(rows,{start:'2026-09-22'}).rows.length,0);
 });
 test('installation sorting puts missing dates last and does not mutate source order',()=>{
-  assert.deepEqual(filterStock(rows).rows.map(r=>r.id),['c','a','b']);assert.deepEqual(rows.map(r=>r.id),['a','b','c']);
+  assert.deepEqual(filterStock(rows,{sort:'installed_at'}).rows.map(r=>r.id),['c','a','b']);assert.deepEqual(rows.map(r=>r.id),['a','b','c']);
 });
 test('CSV escapes quotes and formula cells',()=>{
   const csv=csvText([{serial:'024000001',identification:'=HYPERLINK("example")'}]);
   assert.ok(csv.includes('"024000001"'));assert.ok(csv.includes('"\'=HYPERLINK(""example"")"'));
+});
+
+test('default order groups stock reserve maintenance recent installations inactive',()=>{
+ const data=[{serial:'1',status:'Inativos'},{serial:'2',status:'Instalado',installed_at:''},{serial:'3',status:'Instalado',installed_at:'2026-09-23T12:00:00Z'},{serial:'4',status:'Manutenção'},{serial:'5',status:'Reserva'},{serial:'6',status:'Estoque'},{serial:'7',status:'Instalado',installed_at:'2026-09-24T12:00:00Z'}];
+ assert.deepEqual(filterStock(data).rows.map(r=>r.serial),['6','5','4','7','3','2','1']);
+ assert.deepEqual(filterStock(data,{status:'Instalado'}).rows.map(r=>r.serial),['7','3','2']);
+ assert.deepEqual(data.map(r=>r.serial),['1','2','3','4','5','6','7']);
 });

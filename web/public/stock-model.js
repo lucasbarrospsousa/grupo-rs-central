@@ -13,7 +13,7 @@ export function stockRows(rows) {
     phone: '', iccid: '', ...r
   }));
 }
-export function filterStock(rows, { query = '', status = 'Todos', start = '', end = '', branch = 'imperatriz', sort = 'installed_at', direction = -1 } = {}) {
+export function filterStock(rows, { query = '', status = 'Todos', start = '', end = '', branch = 'imperatriz', sort = 'default', direction = -1 } = {}) {
   if (start && end && start > end) throw Error('A data final não pode ser anterior à data inicial.');
   const batch = /[;\r\n]/.test(query);
   const wanted = [...new Set(query.split(/[;\r\n]+/).map(s => s.trim()).filter(Boolean))];
@@ -25,7 +25,18 @@ export function filterStock(rows, { query = '', status = 'Todos', start = '', en
     const date = (r.updated_at || r.created_at || r.source_date || r.purchase_date || r.date || '').slice(0,10);
     return (status === 'Todos' || visibleStatus(r, branch) === status) && (!(start || end) || (date && (!start || date >= start) && (!end || date <= end)));
   });
+  const rank={Estoque:0,Reserva:1,'Manutenção':2,Instalado:3,Inativos:4,Inativo:4};
+  const installationTime=r=>{const value=Date.parse(r.installed_at||'');return Number.isFinite(value)?value:null;};
   filtered.sort((a,b) => {
+    if(sort==='default'){
+      if(status==='Todos'){const group=(rank[a.status]??5)-(rank[b.status]??5);if(group)return group;}
+      if(a.status==='Instalado'&&b.status==='Instalado'){
+        const at=installationTime(a),bt=installationTime(b);
+        if(at===null&&bt!==null)return 1;if(at!==null&&bt===null)return -1;
+        if(at!==null&&bt!==null&&at!==bt)return bt-at;
+      }
+      return a.serial.localeCompare(b.serial,'pt-BR',{numeric:true});
+    }
     const av = String(a[sort] || ''), bv = String(b[sort] || '');
     if (!av && bv) return 1; if (av && !bv) return -1;
     return av.localeCompare(bv,'pt-BR',{numeric:true}) * direction || a.serial.localeCompare(b.serial);
