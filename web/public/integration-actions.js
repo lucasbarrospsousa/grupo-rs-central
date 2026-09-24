@@ -13,7 +13,6 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
  const details=(title,data)=>showModal(title,'<div class="detail-list">'+Object.entries(data).filter(([k,v])=>typeof v!=='object'&&!['ok','vehicle_id'].includes(k)).map(([k,v])=>'<div>'+esc(labels[k]||k)+'<b>'+esc(v===null||v===undefined||v===''?'Não informado':v)+'</b></div>').join('')+'</div>','medium');
  if(route==='stock'){
   const analyze=document.querySelector('#stock-analyze');analyze.onclick=()=>discharge();
-  document.querySelector('#stock-body').addEventListener('click',e=>{const button=e.target.closest('[data-discharge]');if(button)void discharge(button.dataset.discharge);});
  }
 
  if(route==='bulk'){

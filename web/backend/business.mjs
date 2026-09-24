@@ -1,8 +1,20 @@
+import {trackerClassification} from '../public/tracker-classification.js';
 import {integrations} from './integrations.mjs';
 import {randomUUID} from 'node:crypto';
 const failure=(status,message)=>Object.assign(Error(message),{status});
 export async function businessMutation(c,{path,method,body,branch,user,role,service=integrations}){
  const id=randomUUID();
+ if(path==='/api/install'&&method==='POST'){
+  if(role==='reader')throw failure(403,'Usuário somente de leitura.');
+  if(body.confirmed!==true||typeof body.id!=='string'||!Number.isInteger(body.version)||typeof body.plate!=='string'||!body.plate.trim()||body.plate.length>20||/[\x00-\x1f<>]/.test(body.plate))throw failure(400,'Confirme a baixa e informe uma placa válida.');
+  const row=(await c.query('select id,serial,data,version from central_homologacao.devices where id=$1 and branch_id=$2 and deleted_at is null for update',[body.id,branch])).rows[0];
+  if(!row||row.version!==body.version||!['Estoque',...(branch==='imperatriz'?[]:['Reserva'])].includes(row.data.status))throw failure(409,'Cadastro mudou ou não está em estoque. Atualize a lista.');
+  const now=new Date().toISOString(),plate=body.plate.trim().toUpperCase();
+  const data={...row.data,status:'Instalado',plate,model:trackerClassification(row.data.identification,row.data.model),installed_at:now,discharged_at:now,updated_at:now};
+  await c.query('update central_homologacao.devices set data=$2,version=version+1,updated_at=now() where id=$1',[row.id,data]);
+  return {id:row.id,response:{ok:true,id:row.id,version:row.version+1,plate}};
+ }
+
  if(path==='/api/maintenance'&&method==='POST'){
   if(!['Sem comunicação','Localização errada','Troca de aparelho'].includes(body.reason)||typeof body.medium!=='string'||body.medium.length>100||typeof body.notes!=='string'||body.notes.length>2000)throw failure(400,'Dados do atendimento inválidos.');
   const changing=body.reason==='Troca de aparelho';

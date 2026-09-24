@@ -40,7 +40,7 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       res.setHeader('Set-Cookie','central_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');reply(res,200,{ok:true});return true;
     }
     if(await integrationRoute({req,res,url,pool,user,readBody:body,service:integrationService}))return true;
-    if(!['/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
+    if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');
     const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];
     if(!membership)throw fail(403,'Sem acesso a esta filial.');

@@ -60,3 +60,5 @@
 /* Keep individual discharge visible within the actions column. */
 .stock-row-actions{flex-wrap:wrap}
 .stock-row-actions button.stock-discharge{width:100%;height:auto;min-height:32px;display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-size:12px;padding:5px}
+
+.stock-vehicle-plate{width:100%;min-width:0;box-sizing:border-box;padding:8px 5px;font-size:13px;text-transform:uppercase}

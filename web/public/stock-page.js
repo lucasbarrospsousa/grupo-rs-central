@@ -1,3 +1,4 @@
+import {trackerClassification} from './tracker-classification.js';
 import {createStockLive} from './stock-live.js';
 import {exportPdf} from './reports.js';
 import { stockRows, filterStock, visibleStatus, statuses, csvText } from './stock-model.js';
@@ -12,6 +13,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   const on = (id, event, fn) => document.getElementById(id)?.addEventListener(event, fn);
   const safe = async fn => { try { await fn(); } catch(e) { notify(e.message); } };
   const model = {query:'',status:'Todos',start:'',end:'',sort:'installed_at',direction:-1,page:1};
+  const plateDrafts = new Map();
   const selected = new Set(); const perPage = 10; let current = [];
   const regional = branch !== 'imperatriz';
   let live=null;
@@ -26,6 +28,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     <div class="stock-period"><label>${svg('calendar')}<span>Período inicial</span><input type="date" id="stock-start" aria-label="Período inicial"></label><label>${svg('calendar')}<span>Período final</span><input type="date" id="stock-end" aria-label="Período final"></label><button id="stock-period-apply" class="primary">Aplicar</button><button id="stock-period-clear">Limpar período</button><small>Período do cadastro / atualização</small></div>
     <div class="stock-selection" id="stock-selection" hidden></div><div class="stock-table-wrap"><table class="stock-table"><thead><tr><th><input type="checkbox" id="stock-all" aria-label="Selecionar página"></th><th><button data-sort="serial">Série ↕</button></th><th>Identificação</th><th>Veículo</th><th>Tipo</th><th><button data-sort="carrier">Operadora ↕</button></th><th><button data-sort="status">Status ↕</button></th><th><button data-sort="connectivity">Conectividade ↕</button></th><th><button data-sort="installed_at">Instalação ↕</button></th><th>Ações</th></tr></thead><tbody id="stock-body"></tbody></table></div><div class="stock-pagination" id="stock-pagination"></div></section>`;
   function draw() {
+    const focused=document.activeElement?.dataset?.vehiclePlate,caret=document.activeElement?.selectionStart;
     const result = data(); current = result.rows;
     model.page = Math.min(model.page,Math.max(1,Math.ceil(current.length/perPage)));
     const rows = current.slice((model.page-1)*perPage,model.page*perPage); const all = refreshRows();
@@ -34,12 +37,14 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     document.querySelectorAll('[data-status]').forEach(b => b.onclick=()=>{model.status=b.dataset.status;model.page=1;draw();});
     const batch=document.querySelector('#stock-batch'); batch.hidden=!result.batch;
     batch.textContent=`${result.requested} pesquisados · ${result.found} encontrados na base · ${current.length} exibidos · ${result.missing.length} não encontrados${result.missing.length ? ' — '+result.missing.join('; ') : ''}`;
-    document.querySelector('#stock-body').innerHTML=rows.map(r=>`<tr><td><input type="checkbox" data-selected="${escape(r.id)}" aria-label="Selecionar ${r.serial}" ${selected.has(r.id)?'checked':''}></td><td><div class="stock-series"><button class="stock-pin ${r.communication==='Atualizado'?'green':r.communication==='Desligado'?'red':r.communication==='Possível GPS'?'amber':'neutral'}" data-location="${r.id}" aria-label="Localização de ${r.serial}">${icon('map')}</button><div><button class="stock-series-link" data-detail="${r.id}">${r.serial}</button><small class="${r.communication==='Atualizado'?'green':r.communication==='Desligado'?'red':r.communication==='Possível GPS'?'amber':'neutral'}">${escape(r.communication)}</small></div></div></td><td>${escape(r.identification||'—')}</td><td>${escape(r.status==='Instalado'?r.plate:'—')}</td><td>${escape(r.model)}</td><td>${escape(r.carrier)}</td><td><span class="stock-badge">${svg('check')}${escape(visibleStatus(r,branch))}</span></td><td><span class="stock-connect ${r.connectivity==='Online'?'green':r.connectivity==='Off'?'red':'neutral'}">${escape(r.connectivity)}</span></td><td><time>${date(r.installed_at)}</time></td><td><div class="stock-row-actions"><button data-edit="${r.id}" aria-label="Editar ${r.serial}">${svg('edit')}</button><button data-sms="${r.id}" aria-label="SMS para ${r.serial}">${icon('mail')}</button><button data-delete="${r.id}" aria-label="Excluir ${r.serial}">${svg('trash')}</button>${repo.real&&(r.status==='Estoque'||regional&&r.status==='Reserva')?`<button class="stock-discharge" data-discharge="${escape(r.id)}" aria-label="Dar baixa em ${r.serial}">${svg('download')}Dar baixa</button>`:''}</div></td></tr>`).join('')||'<tr><td colspan="10" class="empty">Nenhum equipamento encontrado para estes filtros.</td></tr>';
+    document.querySelector('#stock-body').innerHTML=rows.map(r=>`<tr><td><input type="checkbox" data-selected="${escape(r.id)}" aria-label="Selecionar ${r.serial}" ${selected.has(r.id)?'checked':''}></td><td><div class="stock-series"><button class="stock-pin ${r.communication==='Atualizado'?'green':r.communication==='Desligado'?'red':r.communication==='Possível GPS'?'amber':'neutral'}" data-location="${r.id}" aria-label="Localização de ${r.serial}">${icon('map')}</button><div><button class="stock-series-link" data-detail="${r.id}">${r.serial}</button><small class="${r.communication==='Atualizado'?'green':r.communication==='Desligado'?'red':r.communication==='Possível GPS'?'amber':'neutral'}">${escape(r.communication)}</small></div></div></td><td>${escape(r.identification||'—')}</td><td>${r.status==='Estoque'||regional&&r.status==='Reserva'?`<input class="stock-vehicle-plate" data-vehicle-plate="${escape(r.id)}" aria-label="Placa do veículo para ${escape(r.serial)}" placeholder="Sem veículo" maxlength="20" value="${escape(plateDrafts.get(r.id)||'')}">`:escape(r.status==='Instalado'?r.plate:'—')}</td><td>${escape(trackerClassification(r.identification,r.model)||'—')}</td><td>${escape(r.carrier)}</td><td><span class="stock-badge">${svg('check')}${escape(visibleStatus(r,branch))}</span></td><td><span class="stock-connect ${r.connectivity==='Online'?'green':r.connectivity==='Off'?'red':'neutral'}">${escape(r.connectivity)}</span></td><td><time>${date(r.installed_at)}</time></td><td><div class="stock-row-actions"><button data-edit="${r.id}" aria-label="Editar ${r.serial}">${svg('edit')}</button><button data-sms="${r.id}" aria-label="SMS para ${r.serial}">${icon('mail')}</button><button data-delete="${r.id}" aria-label="Excluir ${r.serial}">${svg('trash')}</button>${repo.real&&(r.status==='Estoque'||regional&&r.status==='Reserva')?`<button class="stock-discharge" data-discharge="${escape(r.id)}" aria-label="Dar baixa em ${r.serial}">${svg('download')}Dar baixa</button>`:''}</div></td></tr>`).join('')||'<tr><td colspan="10" class="empty">Nenhum equipamento encontrado para estes filtros.</td></tr>';
     const totalPages=Math.max(1,Math.ceil(current.length/perPage));
     const numbers=[...new Set([1,model.page-1,model.page,model.page+1,totalPages])].filter(n=>n>0&&n<=totalPages).sort((a,b)=>a-b);
     document.querySelector('#stock-pagination').innerHTML=`<span>Mostrando ${current.length?(model.page-1)*perPage+1:0}-${Math.min(model.page*perPage,current.length)} de ${current.length} encontrados</span><button data-page="${model.page-1}" ${model.page===1?'disabled':''} aria-label="Página anterior">‹</button>${numbers.map((n,i)=>`${i&&n>numbers[i-1]+1?'<span>…</span>':''}<button data-page="${n}" class="${n===model.page?'active':''}" ${n===model.page?'aria-current="page"':''}>${n}</button>`).join('')}<button data-page="${model.page+1}" ${model.page===totalPages?'disabled':''}>Próximo</button>`;
     document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{model.page=Number(b.dataset.page);draw();document.querySelector('.stock-table-wrap').scrollTop=0;});
     document.querySelectorAll('[data-selected]').forEach(c=>c.onchange=()=>{c.checked?selected.add(c.dataset.selected):selected.delete(c.dataset.selected);syncSelection(rows);});
+    document.querySelectorAll('[data-vehicle-plate]').forEach(input=>input.oninput=()=>{input.value=input.value.toUpperCase();plateDrafts.set(input.dataset.vehiclePlate,input.value);});
+    document.querySelectorAll('[data-discharge]').forEach(b=>b.onclick=()=>install(b.dataset.discharge));
     document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>equipmentForm(b.dataset.edit));
     document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>remove(b.dataset.delete));
     document.querySelectorAll('[data-sms]').forEach(b=>b.onclick=()=>smsDialog(b.dataset.sms));
@@ -47,11 +52,28 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>details(b.dataset.detail,false));
     document.querySelector('#stock-all').onchange=e=>{rows.forEach(r=>e.target.checked?selected.add(r.id):selected.delete(r.id));draw();};
     syncSelection(rows);
+    if(focused){const input=[...document.querySelectorAll("[data-vehicle-plate]")].find(el=>el.dataset.vehiclePlate===focused);if(input){input.focus({preventScroll:true});input.setSelectionRange(caret,caret);}}
     if(live)queueMicrotask(()=>live.refresh());
   }
   function syncSelection(rows) {
     const all=document.querySelector('#stock-all'); all.checked=!!rows.length&&rows.every(r=>selected.has(r.id)); all.indeterminate=rows.some(r=>selected.has(r.id))&&!all.checked;all.disabled=!rows.length;
     const bar=document.querySelector('#stock-selection');bar.hidden=!selected.size;bar.innerHTML=`<strong>${selected.size} selecionados nesta filial</strong><button id="stock-unselect">Limpar seleção</button>`;on('stock-unselect','click',()=>{selected.clear();draw();});
+  }
+  function install(id) {
+    const row=repo.list(branch).find(r=>r.id===id),plate=(plateDrafts.get(id)||'').trim().toUpperCase();
+    if(!plate)return notify('Informe a placa antes de dar baixa no aparelho.');
+    const key=crypto.randomUUID();
+    showModal('Dar baixa',`<p>A identificação <strong>${escape(row.identification||row.serial)}</strong> será instalada no veículo <strong>${escape(plate)}</strong>.</p><p>A baixa registra a instalação na Central. Nenhum cadastro da plataforma será alterado.</p><button id="stock-install-confirm" class="primary">Confirmar baixa</button><p id="stock-install-result" role="status"></p>`,'medium');
+    let saved=false;
+    on('stock-install-confirm','click',()=>safe(async()=>{
+      const button=document.querySelector('#stock-install-confirm');button.disabled=true;
+      try{
+        if(!saved){await repo.request('install?branch='+branch,{method:'POST',key,body:{id:row.id,version:row.version,plate,confirmed:true}});saved=true;}
+        await repo.load(branch);plateDrafts.delete(id);draw();
+        document.querySelector('#stock-install-result').textContent='Baixa salva. Aparelho instalado no veículo '+plate+'.';
+        button.textContent='Concluído';button.replaceWith(button.cloneNode(true));const done=document.querySelector('#stock-install-confirm');done.disabled=false;done.onclick=()=>modal.close();
+      }catch(e){if(saved){button.textContent='Atualizar lista';document.querySelector('#stock-install-result').textContent='Baixa salva; falta atualizar a lista.';}throw e;}finally{button.disabled=false;}
+    }));
   }
   function pending(title,detail) {showModal(title,`<div class="gate"><strong>Integração real pendente</strong><p>${escape(detail)}</p><p>Nenhuma consulta ou envio foi realizado.</p></div>`,'compact');}
   function details(id,location) {

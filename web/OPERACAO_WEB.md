@@ -74,3 +74,11 @@ A página consulta automaticamente até 10 séries visíveis, com duas consultas
 O botão de localização abre mapa OpenStreetMap com marcador, dados da última posição, zoom, centralização, cópia das coordenadas e link Maps. Ausência de posição confirmada é explicitada. Nenhuma consulta altera cadastro ou envia comandos.
 Validação: 62 testes automatizados; navegador isolado em 1917×991 com dados sintéticos, consulta dos 10 itens, próxima página, mapa, atualização e reabertura sem erros JavaScript.
 Consulta real somente leitura também confirmou equipamento, localização com coordenadas válidas e chip, sem pendências, em uma série de Imperatriz. Publicação privada confirmada: d7956a60892ee3fad4b2b03d55e2195ef2eed356 (fonte Sites).
+
+### Baixa individual do estoque — regra do executável
+
+O campo Veículo aceita a placa na própria linha. Dar baixa pede confirmação e registra a instalação no SQL da Central, preservando identificação, gravando placa em maiúsculas, situação Instalado e data. Não modifica a plataforma externa. A rota POST /api/install exige sessão, filial autorizada, CSRF, confirmação, versão atual e chave de idempotência; a transação registra auditoria. Analisar baixa continua sendo o fluxo independente de conferência de vínculos remotos.
+
+Tipo segue src/tracker_versions.gd: GRS → V7.3.2; AAA → V7.2.2/7.1.6; XRS → V7.3.5, com normalização dos nomes antigos. Essa classificação não representa leitura de firmware.
+
+Validação: 65 testes automatizados, fluxo sintético no navegador e cadastro temporário no SQL de homologação (gravação, releitura, repetição idempotente e rejeição de versão antiga). Nenhum aparelho operacional foi baixado nos testes.
