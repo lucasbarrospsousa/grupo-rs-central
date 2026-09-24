@@ -8,6 +8,7 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
  const details=(title,data)=>showModal(title,'<div class="detail-list">'+Object.entries(data).filter(([k,v])=>typeof v!=='object'&&!['ok','vehicle_id'].includes(k)).map(([k,v])=>'<div>'+esc(labels[k]||k)+'<b>'+esc(v===null||v===undefined||v===''?'Não informado':v)+'</b></div>').join('')+'</div>','medium');
  if(route==='stock'){
   const analyze=document.querySelector('#stock-analyze');analyze.onclick=()=>discharge();
+  const reconnect=document.querySelector('#stock-reconnect');if(reconnect)reconnect.onclick=()=>run(reconnect,async()=>{await query('status');await repo.load(branch);render();notify('Conexão com a plataforma confirmada.');});
   document.querySelectorAll('[data-location]').forEach(b=>b.onclick=()=>run(b,async()=>{const row=repo.list(branch).find(r=>r.id===b.dataset.location);details('Localização consultada',await query('location',{serial:row.serial}));}));
  }
 
@@ -37,7 +38,7 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
   };
   const connections=document.querySelector('#settings-connections'),original=connections.onclick;connections.onclick=()=>{original();setup();};setup();
   document.querySelector('.settings-environment p:last-child').textContent='Abertura da tela não altera o estoque. Conexões são verificadas somente quando solicitadas.';
-  document.querySelector('#settings-updates').onclick=()=>{document.querySelector('#settings-content').innerHTML='<h2>Versão web de homologação</h2><p>SQL conectado à cópia do backup. As consultas das plataformas são executadas pelo servidor.</p><div class="settings-notice">SMS pausado. A cópia SQL não sincroniza automaticamente alterações do aplicativo desktop.</div><p>A publicação de novas versões passa por validação. O aplicativo desktop não é atualizado por esta tela.</p>';};
+  document.querySelector('#settings-updates').onclick=()=>{document.querySelector('#settings-content').innerHTML='<h2>Grupo RS Central • versão 1.0</h2><p>Dados da Central online. As consultas das plataformas são executadas pelo servidor.</p><div class="settings-notice">SMS pausado. Use a Central online para novos registros; o aplicativo desktop não é sincronizado.</div><p>A publicação de novas versões passa por validação. O aplicativo desktop não é atualizado por esta tela.</p>';};
  }
  if(['stock','tracking','settings'].includes(route)){
   const panel=document.createElement('section');panel.className='panel';panel.innerHTML='<h2>Consulta das integrações</h2><form class="toolbar" id="integration-query"><select name="action" aria-label="Tipo de consulta"><option value="binding">Vínculo por série</option><option value="location">Localização por série</option><option value="arya">Chip Arya / Innova</option><option value="link">Chip Link Solutions</option></select><input name="number" required inputmode="numeric" placeholder="Série ou ICCID exato" aria-label="Série ou ICCID"><button class="primary">Consultar</button></form><p>Consulta somente leitura • nenhuma alteração automática</p><div id="integration-result" role="status"></div>';document.querySelector('#page').append(panel);

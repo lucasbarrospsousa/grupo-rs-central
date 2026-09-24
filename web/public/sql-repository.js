@@ -17,6 +17,8 @@ export class SqlRepository {
     this.reports.unshift(...(history.visits||[]).map(r=>({...r.data,id:r.id,branch,version:r.version,editable:true})));
     this.warehouse=warehouse.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR')}));
     this.movements=warehouse.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch,type:'Envio',serial:item.serial,at:new Date(m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
+    const moved=new Set(this.movements.map(r=>r.serial));
+    this.movements.push(...this.warehouse.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch,type:r.status,serial:r.serial,at:r.received,destination:'Registro importado • destino não informado'})));
     this.currentBranch=branch;
   }
   list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d}));}

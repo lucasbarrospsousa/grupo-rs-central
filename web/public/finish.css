@@ -1,0 +1,30 @@
+/* Shared finish: preserve each operational page's layout and density. */
+button,a,input,select,textarea{transition:background-color .16s,border-color .16s,box-shadow .16s,transform .16s}
+button:active:not(:disabled){transform:translateY(1px)}
+.metric,.panel,.branch-card{min-width:0}
+.metric{transition:transform .2s,box-shadow .2s}
+@media(hover:hover){.metric:hover{transform:translateY(-3px);box-shadow:0 8px 20px #123f6318}}
+.track i{transform-origin:left;animation:bar-in .55s ease-out both}
+@keyframes bar-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+dialog[open]{animation:dialog-in .18s ease-out}
+@keyframes dialog-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.dashboard-heading{margin-top:20px}.dashboard-heading h2{font-size:25px}
+.dashboard-lower{margin-top:14px}.dashboard-lower .chart-row{grid-template-columns:minmax(100px,135px) 1fr 50px}
+.dashboard-summary .selected-info{margin-top:14px}
+.live-heading{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:15px}
+.live-heading p{margin-bottom:0;font-size:13px}.live-heading h2{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.live-grid{margin-bottom:15px}.live-grid .branch-card{min-height:120px}
+.live-grid .branch-card .value{display:block;margin-bottom:4px}
+.live-grid .branch-card[aria-busy=true]{background:linear-gradient(100deg,#f7faff,#eaf3fb,#f7faff);background-size:200% 100%;animation:loading-card 1.5s ease-in-out infinite}
+@keyframes loading-card{to{background-position:-200% 0}}
+.live-total .total{margin-top:18px;font-size:clamp(42px,5vw,72px)}
+.live-progress{font-size:12px;color:#597599}
+.live-apn.closed svg{transform:rotate(-90deg)}
+.vehicle-phone{display:flex;align-items:center;gap:5px}.copy-phone{padding:5px;border:0;background:transparent}
+.vehicle-details{display:grid;grid-template-columns:1fr 1fr;gap:12px}.vehicle-details>div{padding:14px;background:#f4f8fc;border-radius:9px;overflow-wrap:anywhere}.vehicle-details b{display:block;margin-top:5px}
+.release-strip{font-size:12px;display:flex;justify-content:space-between;color:#597599;margin:0 0 12px;gap:12px}
+.stock-page .release-strip{display:none}
+.sidebar{overflow-y:auto}.sidebar .bottom{flex-shrink:0}
+@media(max-width:900px){.live-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.live-heading{align-items:flex-start}.dashboard-lower{grid-template-columns:1fr}.live-heading h2{font-size:19px}}
+@media(max-width:600px){.live-grid{grid-template-columns:1fr 1fr;gap:8px}.live-grid .branch-card{padding:12px}.vehicle-details{grid-template-columns:1fr}.live-heading{flex-wrap:wrap}.dashboard-heading{flex-wrap:wrap}.release-strip{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

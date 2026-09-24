@@ -3,13 +3,14 @@ import {integrationRoute} from './integration-routes.mjs';
 import { randomUUID } from 'node:crypto';
 import { hash, token, passwordMatches, passwordHash, session, cookies } from './auth.mjs';
 import { businessMutation } from './business.mjs';
+import { integrations } from './integrations.mjs';
 const dummy=passwordHash('non-account-'+randomUUID());
 const allowedFields=['serial','identification','plate','client','carrier','model','status','iccid','phone','apn','installed_at'];
 const states=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const reply=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
 const fail=(status,message)=>Object.assign(Error(message),{status});
 async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>131072)throw fail(413,'Solicitação muito grande.');}try{return JSON.parse(raw||'{}');}catch{throw fail(400,'JSON inválido.');}}
-export function api(pool,{integrationService}={}){return async(req,res)=>{
+export function api(pool,{integrationService=integrations}={}){return async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(!url.pathname.startsWith('/api/'))return false;
   try{

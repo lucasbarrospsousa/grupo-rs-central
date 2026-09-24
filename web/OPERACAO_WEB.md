@@ -2,9 +2,9 @@
 
 ## Ambiente e responsabilidade pelos dados
 
-O site usa o PostgreSQL do projeto Supabase existente, schema privado `central_homologacao`. A origem foi o backup de 24/09/2026. Não há sincronização automática com o aplicativo desktop. Uma alteração feita no site não atualiza o banco do executável, e vice-versa.
+O site usa o PostgreSQL do projeto Supabase existente, schema privado `central_homologacao`. A origem foi o backup de 24/09/2026, reconciliado com nova cópia consistente do desktop às 11:47 (Fortaleza): um aparelho atualizado e uma movimentação incorporada. O armazém foi conferido sem diferenças. Não há sincronização automática com o aplicativo desktop. Uma alteração feita no site não atualiza o banco do executável, e vice-versa.
 
-O usuário autorizou testes de vinculação e troca somente na homologação. Os testes de escrita nas plataformas usam adaptadores simulados. SMS permanece pausado por escolha do usuário. A migração definitiva da operação requer conferir mudanças posteriores ao backup e definir o momento em que o desktop deixa de receber cadastros; não substituir a cópia SQL automaticamente.
+O usuário autorizou testes de vinculação e troca somente na homologação. Os testes de escrita nas plataformas usam adaptadores simulados. SMS permanece pausado por escolha do usuário. A versão 1.0 passa a ser o destino dos novos cadastros. O aplicativo desktop permanece preservado como consulta histórica; não continuar registrando nos dois sistemas. O nome interno do schema foi preservado para evitar uma migração desnecessária de credenciais e permissões. Não reexecutar importadores sobre o banco em operação.
 
 ## Hospedagem
 
@@ -12,7 +12,7 @@ O usuário autorizou testes de vinculação e troca somente na homologação. Os
 - API: função `central-api` no Supabase existente.
 - SQL: papel `central_homologacao_web`, sem privilégios administrativos, com regras por filial.
 - O site chama a API pelo servidor, usando segredo próprio de conexão. Senhas SQL e credenciais das plataformas não são enviadas ao navegador.
-- A publicação inicial conserva o acesso privado do proprietário. O login da Central continua obrigatório.
+- A publicação conserva o acesso exclusivo do proprietário, conforme solicitado. O login da Central continua obrigatório.
 - Nenhuma assinatura paga foi contratada por esta implementação. Limites e disponibilidade dos serviços são definidos pelos respectivos provedores.
 
 ## Funcionalidades
@@ -42,3 +42,15 @@ A publicação do Site usa o workflow do plugin Sites no checkout sanitizado. No
 ## Recuperação
 
 As exclusões do estoque são lógicas (`deleted_at`) e auditadas. Não remover fisicamente cadastros operacionais para corrigir a tela. Operações remotas pendentes devem ser reconciliadas por leitura antes de qualquer nova tentativa. Backup de código não substitui backup do SQL. As cópias não sensíveis em Downloads não contêm banco, credenciais ou dados de clientes; a atualização local dessas cópias não comprova sincronização com OneDrive.
+
+## Entrega 1.0
+
+URL: https://grupo-rs-central.lucasbarrosp.chatgpt.site
+
+O painel inicial consulta as bases na abertura, usa totais confirmados e exibe falhas como pendências. A cache de navegação dura até um minuto; Atualizar plataformas faz nova consulta. Os gráficos da filial usam os cadastros SQL e agrupam variações do nome da operadora. Cards, barras e janelas respeitam movimento reduzido.
+
+`node tools/backup-sql.mjs` salva uma cópia privada de todas as tabelas da Central, com migrações e SHA-256. Restaura os dados em tabelas temporárias com a estrutura e restrições atuais, compara os conteúdos e desfaz a transação. Não restaura sobre produção. Credenciais, hashes de login e dados privados nesse pacote impedem sua inclusão no Git ou backup público de código. Para recuperação após desastre, aplicar as migrações num banco isolado, importar na ordem das dependências e conferir antes de qualquer troca de destino; a verificação temporária não simula indisponibilidade total do provedor.
+
+`tools/reconcile-snapshot.mjs` é ferramenta de virada, não sincronização. Exige backup SQL recente verificado, snapshot local e baseline privados; bloqueia conflitos com edições web, remoções e operações remotas pendentes. Não executar após começar a registrar operações no site. O relatório privado registra hash e diferenças aplicadas.
+
+SMS continua pausado. Os testes de escrita nas plataformas reais continuam não autorizados; a integração implementada exige confirmação explícita do usuário na tela, preserva pedidos incertos e oferece reconciliação por leitura. Não foi feita vinculação real de teste nesta entrega.
