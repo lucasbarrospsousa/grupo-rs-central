@@ -68,3 +68,9 @@ Migrações 006 e 007 adicionam fila, bloqueio de execução simultânea, observ
 O PHP das plataformas diferencia `Authorization` de `authorization`. Na hospedagem, o transporte TLS usa HTTP/1 e preserva essa grafia, com validação TLS padrão, limite de resposta e timeout. As quatro APIs e os quatro portais foram conferidos na hospedagem após a correção. Referência do agendamento: https://supabase.com/docs/guides/functions/schedule-functions.
 
 O menu lateral agora é compartilhado em todas as páginas, incluindo ícones, largura, grupos recolhíveis, seleção e rodapé. Estoque relê as observações SQL a cada minuto enquanto estiver aberto; a coleta externa continua independente.
+
+## Estoque: consulta da página e localização — 24/09/2026
+A página consulta automaticamente até 10 séries visíveis, com duas consultas simultâneas, incluindo plataforma e chip. Ao mudar página/filtro, descarta a fila anterior; requisições já iniciadas podem terminar, sem redesenhar outra página. Atualiza novamente a cada minuto enquanto visível e oferece atualização manual. O ciclo geral do servidor continua independente, em cinco minutos entre ciclos. Credenciais recusadas respeitam a pausa persistida do sincronizador.
+O botão de localização abre mapa OpenStreetMap com marcador, dados da última posição, zoom, centralização, cópia das coordenadas e link Maps. Ausência de posição confirmada é explicitada. Nenhuma consulta altera cadastro ou envia comandos.
+Validação: 62 testes automatizados; navegador isolado em 1917×991 com dados sintéticos, consulta dos 10 itens, próxima página, mapa, atualização e reabertura sem erros JavaScript.
+Consulta real somente leitura também confirmou equipamento, localização com coordenadas válidas e chip, sem pendências, em uma série de Imperatriz. Publicação privada confirmada: d7956a60892ee3fad4b2b03d55e2195ef2eed356 (fonte Sites).

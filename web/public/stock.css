@@ -54,3 +54,5 @@
  .stock-table th{height:48px}
  .stock-table td{height:60px}
 }
+
+.stock-location-grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:22px}.stock-location-map{height:360px;margin:14px 0;background:#eaf2f7;border-radius:12px;display:flex;align-items:center;justify-content:center}.stock-location aside{padding:20px;background:#e5eef6;border-radius:18px}.stock-location aside .detail-list{grid-template-columns:1fr}.stock-location .toolbar{flex-wrap:wrap}.stock-location a{padding:10px;color:#075ea8}@media(max-width:760px){.stock-location-grid{grid-template-columns:1fr}.stock-location-map{height:300px}}

@@ -55,7 +55,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   }
   function pending(title,detail) {showModal(title,`<div class="gate"><strong>Integração real pendente</strong><p>${escape(detail)}</p><p>Nenhuma consulta ou envio foi realizado.</p></div>`,'compact');}
   function details(id,location) {
-    if(live)return live.details(id);
+    if(live)return live.details(id,location);
     const r=refreshRows().find(r=>r.id===id);showModal(location?'Localização do equipamento':'Detalhes do equipamento',`<div class="detail-list">${[['Série',r.serial],['Identificação',r.identification],['Veículo',r.plate],['Status',visibleStatus(r,branch)],['Operadora',r.carrier],['Tipo',r.model]].map(([k,v])=>`<div>${k}<b>${escape(v)}</b></div>`).join('')}</div>${location?'<div class="gate" style="margin-top:18px">Posição e mapa aguardam a API da filial. As cores desta lista são demonstrativas.</div>':''}`,'medium');
   }
   function equipmentForm(id) {
