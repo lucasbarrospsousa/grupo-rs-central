@@ -1,3 +1,4 @@
+import { mountSms } from './sms-page.js';
 import { styleWarehouse } from './warehouse-page.js';
 import { mountRoute } from './route-page.js';
 import { mountRecords } from './records-page.js';
@@ -39,13 +40,14 @@ function login() {
 }
 const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings']];
 function render() {
-  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route','warehouse'].includes(state.route));
+  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route','warehouse','sms'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
   document.body.classList.toggle('bulk-page', state.entered && state.route === 'bulk');
   document.body.classList.toggle('maintenance-page', state.entered && state.route === 'maintenance');
-  document.body.classList.toggle('consult-page', state.entered && ['tracking','records','route'].includes(state.route));
+  document.body.classList.toggle('consult-page', state.entered && ['tracking','records','route','sms'].includes(state.route));
   document.body.classList.toggle('records-page', state.entered && ['records','route'].includes(state.route));
   document.body.classList.toggle('warehouse-page', state.entered && state.route === 'warehouse');
+  document.body.classList.toggle('sms-page', state.entered && state.route === 'sms');
   if (!state.entered) return login();
   const route = routes.find(r => r[0] === state.route) || routes[0];
   app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
@@ -140,10 +142,7 @@ function reportForm() {
   on('report-form','submit',e => { e.preventDefault(); safe(() => { repo.saveReport({ ...Object.fromEntries(new FormData(e.target)), branch, id: crypto.randomUUID() }); modal.close(); render(); notify('Relatório salvo na demonstração.'); }); });
 }
 function tracking() { mountConsult({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
-function sms() {
-  page(`<div class="grid two"><section class="panel"><h2>Preparar mensagem</h2><p class="muted">Prévia de texto, sem envio.</p><label class="field">Telefone<input id="sms-phone" inputmode="tel" placeholder="DDD + telefone" maxlength="20"></label><label class="field">Mensagem<textarea id="sms-message" rows="6" maxlength="160" placeholder="Escreva a mensagem..."></textarea></label><span id="sms-count">0 / 160</span><div class="form-actions"><button disabled>Enviar SMS • integração pendente</button></div></section><section class="panel"><h2>Prévia do SMS</h2><div class="selected-info"><b id="sms-to">Destinatário não informado</b><p id="sms-preview" style="white-space:pre-wrap;margin-top:20px">Sua mensagem aparecerá aqui.</p></div><div class="gate" style="margin-top:20px">O gateway do celular precisará ser conectado ao servidor antes de liberar os envios.</div></section></div>`);
-  const update = () => { document.querySelector('#sms-to').textContent = document.querySelector('#sms-phone').value || 'Destinatário não informado'; const text = document.querySelector('#sms-message').value; document.querySelector('#sms-count').textContent = `${text.length} / 160`; document.querySelector('#sms-preview').textContent = text || 'Sua mensagem aparecerá aqui.'; }; on('sms-phone','input',update); on('sms-message','input',update);
-}
+function sms() { mountSms({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function linking() { mountLinking({branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function bulk() { mountBulk({branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function settings() { page(`<section class="panel"><h2>Conexões e migração</h2><p class="muted">Estado real desta versão web.</p>${[['Interface web','Disponível para demonstração'],['Dados desta prévia','Memória da página • reiniciados ao recarregar'],['Banco Supabase','Aguardando autorização para criar e conectar'],['Login e permissões reais','Dependem da etapa de autenticação'],['APIs das quatro bases','Não conectadas'],['Arya','Não conectada • chips bloqueados sem confirmação'],['SMS / USB / Configurador','Integração posterior com os auxiliares existentes']].map(([key,value]) => `<div class="summary-line"><strong>${key}</strong><span>${value}</span></div>`).join('')}</section><section class="panel"><h2>Histórico desta sessão</h2><div class="table-wrap">${movementsTable(repo.movements)}</div></section>`); }

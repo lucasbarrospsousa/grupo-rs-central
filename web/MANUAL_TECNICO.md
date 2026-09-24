@@ -123,3 +123,10 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Regras conferidas em `src/ui/scanner_inventory.gd`. Preservados cadastro manual, zeros, confirmação de envio, histórico e bloqueio de chip sem Arya.
 - Somente adaptador em memória; não confere chips utilizados no banco real. Indicador de envios refere-se à sessão demonstrativa.
 - Chrome: aparelho selecionado, envio confirmado na simulação e encontrado em Movimentações; cadastro de chip bloqueado; abas e layout conferidos. Testes de regressão: 25 passaram.
+
+## Painel SMS
+
+- `sms-page.js`/`sms.css`: acompanhamento com quatro indicadores, aviso explícito de demonstração, tabela selecionável e detalhes do pedido; referência `src/ui/sms_delivery_panel.gd`.
+- Exemplos sintéticos, sem telefones reais, gateway, consulta automática ou envio. Atualizar apenas informa ausência de integração. A composição anterior de mensagem deixa de ser a página principal de acompanhamento.
+- Contador enviados inclui entregues; entrega não comprova execução do comando. Falha Wi-Fi não altera estado dos exemplos nem aciona reenvio.
+- Chrome: layout e seleção de pedido conferidos. Contadores testados; 26 testes passaram.
