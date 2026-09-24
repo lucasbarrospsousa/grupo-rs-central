@@ -1,7 +1,7 @@
 import {mountConsult} from './consult-page.js';
 export function smsCounts(jobs){return [jobs.filter(j=>['waiting_gateway','received','sending'].includes(j.state)).length,jobs.filter(j=>['sent','delivered'].includes(j.state)).length,jobs.filter(j=>j.state==='delivered').length,jobs.filter(j=>['failed','expired','indeterminate','needs_confirmation'].includes(j.state)).length];}
 export function mountSms(ctx){
- mountConsult(ctx);document.querySelector('#consult-nav').classList.remove('active');
+ mountConsult(ctx);
  const jobs=ctx.repo.real?[]:['expired','delivered','sent','waiting_gateway','failed','indeterminate','delivered','expired'].map((state,i)=>({state,serial:`024900${String(i).padStart(3,'0')}`,created:`23/09 14:${String(i).padStart(2,'0')}:00`,returned:['sent','delivered','failed'].includes(state)?`23/09 14:${String(i+1).padStart(2,'0')}:00`:'—'}));
  const labels={expired:'Expirado',delivered:'Entrega confirmada',sent:'SMS enviado',waiting_gateway:'Aguardando celular',failed:'Falhou',indeterminate:'Resultado indeterminado'};
  const counts=ctx.repo.real?['—','—','—','—']:smsCounts(jobs);

@@ -27,7 +27,7 @@ Manutenção: atendimento e histórico versionados, filtro, PDF e troca local. N
 
 Rastreamento: consulta local, confirmação remota por série, histórico até sete dias, mapa de ruas, detalhes da posição, trajetória, reprodução e KML/PDF. O traçado separa intervalos acima de dez minutos; não é reconstrução comprovada das ruas percorridas. Mapa utiliza tiles OpenStreetMap sob demanda, com atribuição visível; não faz cache offline ou download em massa.
 
-Armazém: cadastro, seleção, envio por destino, auditoria e consulta de chips. Configurações: verificações sob demanda de APIs e operadoras. As falhas de consulta não são tratadas como estoque vazio.
+Armazém: cadastro, seleção, envio por destino, auditoria e consulta de chips. Configurações: acompanhamento da sincronização e verificações adicionais sob demanda. As falhas de consulta não são tratadas como estoque vazio.
 
 ## Validação e comandos
 
@@ -47,10 +47,24 @@ As exclusões do estoque são lógicas (`deleted_at`) e auditadas. Não remover 
 
 URL: https://grupo-rs-central.lucasbarrosp.chatgpt.site
 
-O painel inicial consulta as bases na abertura, usa totais confirmados e exibe falhas como pendências. A cache de navegação dura até um minuto; Atualizar plataformas faz nova consulta. Os gráficos da filial usam os cadastros SQL e agrupam variações do nome da operadora. Cards, barras e janelas respeitam movimento reduzido.
+O painel inicial lê os totais confirmados pela sincronização do servidor e exibe falhas como pendências. Atualizar plataformas relê o resultado salvo; a coleta não depende da abertura da tela. Os gráficos da filial usam os cadastros SQL e agrupam variações do nome da operadora. Cards, barras e janelas respeitam movimento reduzido.
 
 `node tools/backup-sql.mjs` salva uma cópia privada de todas as tabelas da Central, com migrações e SHA-256. Restaura os dados em tabelas temporárias com a estrutura e restrições atuais, compara os conteúdos e desfaz a transação. Não restaura sobre produção. Credenciais, hashes de login e dados privados nesse pacote impedem sua inclusão no Git ou backup público de código. Para recuperação após desastre, aplicar as migrações num banco isolado, importar na ordem das dependências e conferir antes de qualquer troca de destino; a verificação temporária não simula indisponibilidade total do provedor.
 
 `tools/reconcile-snapshot.mjs` é ferramenta de virada, não sincronização. Exige backup SQL recente verificado, snapshot local e baseline privados; bloqueia conflitos com edições web, remoções e operações remotas pendentes. Não executar após começar a registrar operações no site. O relatório privado registra hash e diferenças aplicadas.
 
 SMS continua pausado. Os testes de escrita nas plataformas reais continuam não autorizados; a integração implementada exige confirmação explícita do usuário na tela, preserva pedidos incertos e oferece reconciliação por leitura. Não foi feita vinculação real de teste nesta entrega.
+
+## Atualização automática — 24/09/2026
+
+O Supabase executa a coleta sem navegador, sessão pessoal ou computador ligado. O ciclo cobre todos os aparelhos ativos no SQL das quatro bases, com lotes de até 50 e três consultas concorrentes. Cada execução trabalha por até 45 segundos antes de deixar o restante para a próxima chamada. O agendador acorda a cada minuto para continuar a fila. Após finalizar a fila completa, aguarda cinco minutos para iniciar outro ciclo. **Cinco minutos não é garantia de que cada aparelho será atualizado nesse prazo**: a duração da varredura depende da quantidade, latência e limites das plataformas. O aviso no site mostra o progresso real.
+
+A coleta consulta cadastro/ICCID, localização/comunicação e operadoras Arya e Link. Confere série e ICCID exatos; não inventa online quando só existe situação cadastral. Persiste observações separadas do estoque, preserva a última resposta confirmada e registra falhas. Não dá baixa, vincula, exclui ou envia SMS automaticamente. Histórico e trajetos continuam sob demanda para o período solicitado.
+
+Tokens expirados recebem uma renovação e uma repetição de leitura. Credencial rejeitada interrompe as tentativas dessa integração e gera aviso persistente no site. A mudança do segredo no servidor libera nova validação. Recusa de acesso após renovar a sessão também pausa a integração, com motivo diferente; falha de rede não é senha inválida. Os demais provedores continuam funcionando.
+
+Migrações 006 e 007 adicionam fila, bloqueio de execução simultânea, observações, alertas e panorama. As funções SQL são restritas ao servidor. O endpoint interno exige segredo próprio, mantido no Vault e no ambiente da função; não aceita o login do navegador como autorização. `node tools/schedule-sync.mjs` instala/atualiza o job idempotente `central-background-sync` e habilita o intervalo de cinco minutos. Não expõe o segredo nos logs.
+
+O PHP das plataformas diferencia `Authorization` de `authorization`. Na hospedagem, o transporte TLS usa HTTP/1 e preserva essa grafia, com validação TLS padrão, limite de resposta e timeout. As quatro APIs e os quatro portais foram conferidos na hospedagem após a correção. Referência do agendamento: https://supabase.com/docs/guides/functions/schedule-functions.
+
+O menu lateral agora é compartilhado em todas as páginas, incluindo ícones, largura, grupos recolhíveis, seleção e rodapé. Estoque relê as observações SQL a cada minuto enquanto estiver aberto; a coleta externa continua independente.

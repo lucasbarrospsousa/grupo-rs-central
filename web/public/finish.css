@@ -28,3 +28,5 @@ dialog[open]{animation:dialog-in .18s ease-out}
 @media(max-width:900px){.live-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.live-heading{align-items:flex-start}.dashboard-lower{grid-template-columns:1fr}.live-heading h2{font-size:19px}}
 @media(max-width:600px){.live-grid{grid-template-columns:1fr 1fr;gap:8px}.live-grid .branch-card{padding:12px}.vehicle-details{grid-template-columns:1fr}.live-heading{flex-wrap:wrap}.dashboard-heading{flex-wrap:wrap}.release-strip{flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.sync-status{padding:10px 14px;margin-bottom:16px;background:#e7f3fd;border:1px solid #c8dff4;border-radius:10px;color:#23577e;font-size:13px}.sync-warning{background:#fff4df;color:#8b5100}.sync-status p{margin:6px 0 0}

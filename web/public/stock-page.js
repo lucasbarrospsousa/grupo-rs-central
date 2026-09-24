@@ -1,3 +1,4 @@
+import {createStockLive} from './stock-live.js';
 import {exportPdf} from './reports.js';
 import { stockRows, filterStock, visibleStatus, statuses, csvText } from './stock-model.js';
 
@@ -13,14 +14,12 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   const model = {query:'',status:'Todos',start:'',end:'',sort:'installed_at',direction:-1,page:1};
   const selected = new Set(); const perPage = 10; let current = [];
   const regional = branch !== 'imperatriz';
-  const refreshRows = () => stockRows(repo.list(branch));
+  let live=null;
+  const refreshRows = () => live?live.decorate(stockRows(repo.list(branch))):stockRows(repo.list(branch));
   const data = () => filterStock(refreshRows(), {...model, branch});
   const date = s => /^\d{4}-\d{2}-\d{2}/.test(s||'') ? `${s.slice(8,10)}/${s.slice(5,7)}/${s.slice(0,4)} ${s.slice(11,16)}` : '—';
   document.querySelector('.content>.top').innerHTML = `<div class="stock-app-heading">${svg('menu')}<div><strong>Estoque de equipamentos</strong><small>Cadastro, disponibilidade e situação dos rastreadores</small><small>Início › Equipamentos › Estoque</small></div></div><span class="stock-demo">Demonstração • sem banco conectado</span>`;
-  const stockLink = document.querySelector('[data-route="stock"]');
-  const group = document.createElement('div'); group.className='stock-nav-group'; group.innerHTML=`${icon('box')}<b>Equipamentos</b><span>⌃</span>`; stockLink.before(group);
-  for (const id of ['stock','link','bulk']) document.querySelector(`[data-route="${id}"]`).classList.add('stock-subnav');
-  page.innerHTML = `<div class="stock-heading"><div><div class="stock-eyebrow">GRUPO RS CENTRAL / ${escape(branchName.toUpperCase())}</div><h1>Estoque de equipamentos</h1><p>Consulta e ações conforme a filial selecionada.</p></div><div class="stock-main-actions"><button id="stock-report">${svg('download')}Gerar relatório</button>${regional ? '' : `<button id="stock-sms-monitor">Acompanhar SMS</button><button id="stock-new" class="primary">${icon('plus')}Novo equipamento</button><button id="stock-reconnect">${icon('refresh')}Reconectar</button>`}</div></div>
+  page.innerHTML = `<div class="stock-heading"><div><div class="stock-eyebrow">GRUPO RS CENTRAL / ${escape(branchName.toUpperCase())}</div><h1>Estoque de equipamentos</h1><p>Consulta e ações conforme a filial selecionada.</p></div><div class="stock-main-actions"><button id="stock-report">${svg('download')}Gerar relatório</button>${regional ? '' : `<button id="stock-sms-monitor">Acompanhar SMS</button><button id="stock-new" class="primary">${icon('plus')}Novo equipamento</button><button id="stock-reconnect">${icon('refresh')}Atualizar dados</button>`}</div></div>
     <section class="stock-card"><div class="stock-card-heading"><h2>Equipamentos · ${escape(branchName.toUpperCase())}</h2><span class="stock-count" id="stock-total"></span><small>Comunicação: demonstração • API não conectada</small></div>
     <div class="stock-search-row"><div class="stock-search"><input id="stock-query" aria-label="Buscar equipamentos" placeholder="Buscar por placa, série, telefone, chip ou operadora · várias séries com ;">${icon('search')}</div><button id="stock-analyze" class="primary">${svg('chart')}Analisar baixa</button><button id="stock-paste">Colar séries</button><button id="stock-clear">${svg('clear')}Limpar</button></div>
     <div class="stock-status-filters" id="stock-status-filters"></div><div id="stock-batch" class="stock-batch" role="status" hidden></div>
@@ -48,6 +47,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>details(b.dataset.detail,false));
     document.querySelector('#stock-all').onchange=e=>{rows.forEach(r=>e.target.checked?selected.add(r.id):selected.delete(r.id));draw();};
     syncSelection(rows);
+    if(live)queueMicrotask(()=>live.refresh());
   }
   function syncSelection(rows) {
     const all=document.querySelector('#stock-all'); all.checked=!!rows.length&&rows.every(r=>selected.has(r.id)); all.indeterminate=rows.some(r=>selected.has(r.id))&&!all.checked;all.disabled=!rows.length;
@@ -55,6 +55,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   }
   function pending(title,detail) {showModal(title,`<div class="gate"><strong>Integração real pendente</strong><p>${escape(detail)}</p><p>Nenhuma consulta ou envio foi realizado.</p></div>`,'compact');}
   function details(id,location) {
+    if(live)return live.details(id);
     const r=refreshRows().find(r=>r.id===id);showModal(location?'Localização do equipamento':'Detalhes do equipamento',`<div class="detail-list">${[['Série',r.serial],['Identificação',r.identification],['Veículo',r.plate],['Status',visibleStatus(r,branch)],['Operadora',r.carrier],['Tipo',r.model]].map(([k,v])=>`<div>${k}<b>${escape(v)}</b></div>`).join('')}</div>${location?'<div class="gate" style="margin-top:18px">Posição e mapa aguardam a API da filial. As cores desta lista são demonstrativas.</div>':''}`,'medium');
   }
   function equipmentForm(id) {
@@ -83,7 +84,8 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   on('stock-period-clear','click',()=>{model.start=model.end='';model.page=1;document.querySelector('#stock-start').value=document.querySelector('#stock-end').value='';draw();});
   document.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{model.direction=model.sort===b.dataset.sort?-model.direction:1;model.sort=b.dataset.sort;model.page=1;draw();});
   if(!repo.real)on('stock-analyze','click',analyze);on('stock-new','click',()=>equipmentForm());on('stock-report','click',report);
-  on('stock-reconnect','click',()=>pending('Reconectar APIs','A reconexão das APIs será habilitada após autorização e configuração das integrações.'));
+  on('stock-reconnect','click',()=>live?live.refresh(true):pending('Reconectar APIs','A reconexão das APIs depende de configuração.'));
   on('stock-sms-monitor','click',()=>pending('Acompanhar SMS','A fila e as confirmações de entrega dependem do gateway conectado.'));
+  if(repo.real)live=createStockLive({repo,branch,draw,showModal});
   draw();
 }

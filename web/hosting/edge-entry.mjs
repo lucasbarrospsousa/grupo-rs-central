@@ -1,3 +1,4 @@
+import {syncTick} from '../backend/background-sync.mjs';
 import {Buffer} from 'node:buffer';
 import {api} from '../backend/api.mjs';
 import {createPool} from '../backend/database.mjs';
@@ -6,6 +7,11 @@ const pool=createPool(),handler=api(pool);
 // Only the hosted site knows this separate bridge token; user sessions and CSRF
 // are still validated by the ordinary API. No database administrative key is used.
 export async function edgeFetch(request){
+ if(new URL(request.url).pathname.endsWith('/internal/sync')){
+  const expected=process.env.CENTRAL_SYNC_TOKEN||'',actual=request.headers.get('x-central-sync')||'';
+  if(request.method!=='POST'||!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});
+  try{return Response.json(await syncTick(pool));}catch{return Response.json({error:'Atualização automática pendente.'},{status:503});}
+ }
  const expected=process.env.CENTRAL_BRIDGE_TOKEN||'',actual=request.headers.get('x-central-bridge')||'';
  if(!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});
  const url=new URL(request.url),origin=process.env.CENTRAL_PUBLIC_ORIGIN;

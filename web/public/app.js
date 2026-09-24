@@ -1,3 +1,4 @@
+import {mountSidebar} from './sidebar.js';
 import {carrierSummary,stockSummary} from './dashboard-model.js';
 import {mountIntegrationActions} from './integration-actions.js';
 import { mountSettings } from './settings-page.js';
@@ -74,6 +75,7 @@ function render() {
     if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
   }
   ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk })[state.route]();
+  mountSidebar({route:state.route,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real)await repo.logout();state.entered=false;state.selected.clear();render();})});
   if(repo.real){
     for(const selector of ['.visits-demo','.link-demo','.consult-intro']){const el=document.querySelector(selector);if(el)el.textContent='Dados da Central • consulte a plataforma para conferir o estado atual.';}
     if(!document.querySelector('#branch')){
@@ -81,7 +83,7 @@ function render() {
     document.querySelector('.stock-demo').innerHTML='<label>Filial <select id="sql-branch">'+branchOptions(state.branch)+'</select></label>';
     on('sql-branch','change',e=>{const next=e.target.value;safe(async()=>{await repo.load(next);state.branch=next;render();});});
     }
-    if(document.querySelector('.stock-card-heading small'))document.querySelector('.stock-card-heading small').textContent='SQL conectado • comunicação da plataforma não consultada';
+
     const readonly=repo.user.branches.find(b=>b.id===state.branch)?.role==='reader';
     if(state.route==='warehouse'&&repo.user.branches.find(b=>b.id===state.branch)?.role!=='admin'){document.querySelectorAll('#new-item,#review-transfer,[data-remove]').forEach(b=>{b.disabled=true;b.title='Escrita no armazém ainda em validação';});}
 

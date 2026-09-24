@@ -1,3 +1,4 @@
+import {communication} from './stock-live.js';
 export class SqlRepository {
   constructor(){this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;}
   async request(path,{method='GET',body,key}={}){
@@ -21,7 +22,7 @@ export class SqlRepository {
     this.movements.push(...this.warehouse.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch,type:r.status,serial:r.serial,at:r.received,destination:'Registro importado • destino não informado'})));
     this.currentBranch=branch;
   }
-  list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d}));}
+  list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d,...(d.observation?{communication:communication(d.observation.location),connectivity:d.observation.chip?.ok?d.observation.chip.connectivity||'Não informado':'Consulta pendente'}:{})}));}
   async saveDevice(branch,values,current){await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',body:{data:values,...(current?{version:current.version}:{})}});await this.load(branch);}
   async deleteDevice(branch,current){await this.request('devices/'+current.id+'?branch='+encodeURIComponent(branch),{method:'DELETE',body:{version:current.version}});await this.load(branch);}
   analyze(){throw Error('A baixa depende da integração de consulta da plataforma, ainda em validação.');}

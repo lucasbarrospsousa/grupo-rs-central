@@ -3,13 +3,16 @@ import {mountLiveTracking} from './tracking-live.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function mountIntegrationActions({repo,branch,route,showModal,notify,render}){
  const query=(action,params={})=>repo.request('integrations/'+action+'?'+new URLSearchParams({branch,...params}));
+ const syncNote=document.createElement('div');syncNote.className='sync-status';syncNote.setAttribute('role','status');syncNote.textContent='Verificando atualização automática…';document.querySelector('#page').prepend(syncNote);
+ const updateSync=()=>query('sync-status').then(s=>{if(!syncNote.isConnected)return;syncNote.classList.remove('sync-warning');syncNote.textContent=(s.enabled?'Atualização automática ativa':'Atualização automática pausada')+' • ciclo '+s.cycle+' • '+s.completed+'/'+s.total+' aparelhos • intervalo '+s.interval_minutes+' min entre ciclos'+(s.alerts.length?' • '+s.alerts.length+' integração(ões) pausada(s)':'');
+ if(s.alerts.length){syncNote.classList.add('sync-warning');for(const a of s.alerts){const p=document.createElement('p');p.textContent=a.source+' — '+a.message;syncNote.append(p);}}
+ }).catch(e=>{if(syncNote.isConnected)syncNote.textContent='Atualização automática: '+e.message;});
+ void updateSync();const syncTimer=setInterval(()=>{if(!syncNote.isConnected){clearInterval(syncTimer);return;}void updateSync();},60000);
  const run=async(button,fn)=>{button.disabled=true;try{await fn();}catch(e){notify(e.message);}finally{button.disabled=false;}};
  const labels={serial:'Número de série',plate:'Placa / identificação',client:'Cliente',phone:'Telefone do chip',iccid:'ICCID',apn:'APN',lat:'Latitude',lng:'Longitude',speed:'Velocidade',ignition:'Ignição',battery:'Bateria',updated_at:'Última comunicação',gps_at:'Data GPS',source:'Fonte',queried_at:'Consultado em',message:'Resultado',category:'Classificação',provider:'Operadora consultada',status:'Situação',operator:'Operadora'};
  const details=(title,data)=>showModal(title,'<div class="detail-list">'+Object.entries(data).filter(([k,v])=>typeof v!=='object'&&!['ok','vehicle_id'].includes(k)).map(([k,v])=>'<div>'+esc(labels[k]||k)+'<b>'+esc(v===null||v===undefined||v===''?'Não informado':v)+'</b></div>').join('')+'</div>','medium');
  if(route==='stock'){
   const analyze=document.querySelector('#stock-analyze');analyze.onclick=()=>discharge();
-  const reconnect=document.querySelector('#stock-reconnect');if(reconnect)reconnect.onclick=()=>run(reconnect,async()=>{await query('status');await repo.load(branch);render();notify('Conexão com a plataforma confirmada.');});
-  document.querySelectorAll('[data-location]').forEach(b=>b.onclick=()=>run(b,async()=>{const row=repo.list(branch).find(r=>r.id===b.dataset.location);details('Localização consultada',await query('location',{serial:row.serial}));}));
  }
 
  if(route==='bulk'){
@@ -26,10 +29,9 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
  if(['link','sms'].includes(route)){
   const p=document.createElement('section');p.className='panel';p.innerHTML='<h2>Conferir operações pendentes</h2><button>Consultar pendências</button><div></div>';document.querySelector('#page').append(p);p.querySelector('button').onclick=e=>run(e.target,async()=>{const data=await query('operations');const out=p.querySelector('div');out.replaceChildren();for(const op of data.rows.filter(r=>['submitted','pending','prepared'].includes(r.state))){const row=document.createElement('p'),b=document.createElement('button');row.textContent=op.kind+' • '+op.serial+' ';b.textContent='Conferir sem reenviar';b.onclick=()=>run(b,async()=>{const r=await repo.request('integrations/reconcile?branch='+branch,{method:'POST',body:{id:op.id}});notify(r.message||r.state);});row.append(b);out.append(row);}if(!out.children.length)out.textContent='Nenhuma pendência.';});
  }
- if(route==='stock')document.querySelector('#stock-body').addEventListener('click',e=>{const btn=e.target.closest('[data-sms],[data-location]');if(!btn)return;e.stopImmediatePropagation();e.preventDefault();const id=btn.dataset.sms||btn.dataset.location,row=repo.list(branch).find(r=>r.id===id);run(btn,async()=>{if(btn.dataset.location){details('Localização consultada',await query('location',{serial:row.serial}));return;}notify('SMS pendente: aguardando conexão com o Galaxy.');return;});},true);
  if(route==='settings'){
   const setup=()=>{
-   const band=document.querySelector('.settings-band span');band.textContent='Conexões pelo servidor • validação sob demanda';
+   const band=document.querySelector('.settings-band span');band.textContent='Conexões pelo servidor • atualização automática ativa';
    document.querySelectorAll('.settings-state').forEach(b=>b.textContent='Não consultada');
    document.querySelectorAll('.settings-api small:last-child').forEach(b=>b.textContent='Consulte para confirmar o estado atual');
    const test=document.querySelector('#settings-test');test.onclick=()=>run(test,async()=>{const result=await query('status');band.textContent='API e portal da filial confirmados • '+new Date(result.checked_at).toLocaleString('pt-BR');document.querySelectorAll('.settings-state').forEach((b,i)=>b.textContent=i<2?'Conectada':'Consultar chip');});
@@ -37,7 +39,7 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
    document.querySelector('.settings-notice').textContent='Credenciais protegidas no servidor. Consultas por filial; SMS pausado.';
   };
   const connections=document.querySelector('#settings-connections'),original=connections.onclick;connections.onclick=()=>{original();setup();};setup();
-  document.querySelector('.settings-environment p:last-child').textContent='Abertura da tela não altera o estoque. Conexões são verificadas somente quando solicitadas.';
+  document.querySelector('.settings-environment p:last-child').textContent='A atualização automática funciona no servidor, mesmo com o site fechado. Falhas de acesso aparecem no aviso de sincronização.';
   document.querySelector('#settings-updates').onclick=()=>{document.querySelector('#settings-content').innerHTML='<h2>Grupo RS Central • versão 1.0</h2><p>Dados da Central online. As consultas das plataformas são executadas pelo servidor.</p><div class="settings-notice">SMS pausado. Use a Central online para novos registros; o aplicativo desktop não é sincronizado.</div><p>A publicação de novas versões passa por validação. O aplicativo desktop não é atualizado por esta tela.</p>';};
  }
  if(['stock','tracking','settings'].includes(route)){

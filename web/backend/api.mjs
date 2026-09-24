@@ -57,9 +57,9 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       if(req.method==='GET'){
         if(!url.pathname.startsWith('/api/devices'))throw fail(405,'Método não permitido.');
         const deviceId=url.pathname==='/api/devices'?null:url.pathname.split('/').at(-1);
-        const rows=(await client.query('select id,serial,data,version from central_homologacao.devices where branch_id=$1 and deleted_at is null and ($2::uuid is null or id=$2::uuid) order by serial',[branch,deviceId])).rows;
+        const rows=(await client.query('select d.id,d.serial,d.data,d.version,o.data as observation,o.checked_at from central_homologacao.devices d left join central_homologacao.device_observations o on o.device_id=d.id where d.branch_id=$1 and d.deleted_at is null and ($2::uuid is null or d.id=$2::uuid) order by d.serial',[branch,deviceId])).rows;
         if(deviceId&&!rows.length)throw fail(404,'Cadastro não encontrado.');
-        await client.query('COMMIT');reply(res,200,{rows:rows.map(r=>({...r.data,id:r.id,serial:r.serial,branch,version:r.version}))});return true;
+        await client.query('COMMIT');reply(res,200,{rows:rows.map(r=>({...r.data,id:r.id,serial:r.serial,branch,version:r.version,observation:r.observation,checked_at:r.checked_at}))});return true;
       }
       if(!['POST','PUT','PATCH','DELETE'].includes(req.method))throw fail(405,'Método não permitido.');
       if(membership.role==='reader')throw fail(403,'Usuário somente de leitura.');

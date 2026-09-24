@@ -143,3 +143,9 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Layout conferido contra a composição de configurações em `inventory_dashboard.gd`. Conexões exibem Pendente e zero configuradas, não o estado real do desktop.
 - Nenhuma leitura de cofre, coleta de credenciais, teste remoto ou instalação de atualização. Os botões explicam as integrações pendentes.
 - Chrome: composição e alternância de seções conferidas; 26 testes de regressão passaram. As páginas adaptadas continuam uma prévia, não migração integral de banco e serviços.
+
+## Estado atual: coleta no servidor e menu único
+
+A descrição operacional vigente está em `OPERACAO_WEB.md`, seção Atualização automática. As notas anteriores de demonstração são histórico da migração. `backend/background-sync.mjs`, migrações 006/007 e `tools/schedule-sync.mjs` implementam a coleta persistente. `public/sidebar.js`/`sidebar.css` substituem os menus específicos de cada página. `public/stock-live.js` apresenta as observações sem sobrescrever os cadastros.
+
+Validação desta entrega: 57 testes locais, validação API/portal publicada nas quatro bases, execução real do agendador com posições e chips confirmados. Não foram executadas escritas de teste nas plataformas operacionais.
