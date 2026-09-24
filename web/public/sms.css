@@ -5,3 +5,15 @@ dialog.sms-composer{width:min(1040px,calc(100vw - 32px));max-width:1040px;paddin
 @media(max-width:720px){.sms-compose-layout{grid-template-columns:1fr;padding:18px}.sms-composer .modal-head{padding:20px}.sms-compose-summary{gap:8px}.sms-compose-summary article{padding:12px;gap:8px}.sms-compose-summary strong{font-size:14px}.sms-message-bubble{min-height:130px}.sms-compose-preview{padding:18px}.sms-compose-counter{gap:10px}}
 @media(hover:hover) and (prefers-reduced-motion:no-preference){.sms-compose-summary article{transition:transform .18s ease,box-shadow .18s ease}.sms-compose-summary article:hover{transform:translateY(-3px);box-shadow:0 10px 22px #12385e12}}
 .sms-composer [hidden]{display:none!important}
+.sms-composer[open]{overflow:hidden;max-height:calc(100dvh - 32px)}
+.sms-composer .modal-head{border-radius:23px 23px 0 0}
+.sms-composer .sms-compose-layout{max-height:calc(100dvh - 142px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#9db3cb transparent;border-radius:0 0 23px 23px;margin:0}
+.sms-composer #sms-prepare{padding:24px}
+.sms-presets{display:flex;gap:9px;flex-wrap:wrap;margin:2px 0 10px}
+.sms-presets button{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;min-height:38px;border:1px solid #c3d7eb;border-radius:999px;background:#fff;color:#22577e;font-size:12px;font-weight:650;box-shadow:0 4px 12px #173d6509}
+.sms-presets button span{font-size:16px;line-height:1}
+.sms-presets button[aria-pressed=true]{background:#086bed;border-color:#086bed;color:#fff;box-shadow:0 6px 16px #086bed2b}
+.sms-presets button:focus-visible{outline:3px solid #53a3ff;outline-offset:3px}
+.sms-presets+#sms-preset-note{min-height:20px;margin-bottom:18px}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){.sms-presets button{transition:transform .18s ease,box-shadow .18s ease,background .18s ease}.sms-presets button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 18px #174e7e20}.sms-presets button:active:not(:disabled){transform:translateY(0) scale(.98)}}
+@media(prefers-reduced-motion:reduce){.sms-presets button{transition:none!important;transform:none!important}}
