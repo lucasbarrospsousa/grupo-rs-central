@@ -1,5 +1,7 @@
 # Grupo RS Central Web
 
+> Atualização de 24/09/2026: a homologação SQL foi autorizada e implementada separadamente. Consulte `HOMOLOGACAO_SQL.md` para execução, limites e testes. O restante deste documento registra a etapa visual e continua descrevendo o modo padrão de demonstração.
+
 Data: 24/09/2026. Etapa: preparação anterior à autorização do banco.
 Raiz: subpasta `web/` do repositório Grupo RS Central (`app`). O desktop continua sendo o sistema operacional.
 

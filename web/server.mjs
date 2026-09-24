@@ -2,14 +2,19 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createPool } from './backend/database.mjs';
+import { api } from './backend/api.mjs';
 
-// Development preview only. No proxy, database, credentials or remote requests.
+// Homologation is explicitly enabled. Default remains the isolated demonstration.
+const handleApi = process.env.CENTRAL_MODE === 'homologacao' ? api(createPool()) : null;
 const root = path.resolve(fileURLToPath(new URL('./public/', import.meta.url)));
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml' };
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+  res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ${handleApi ? "'self'" : "'none'"}; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'no-store');
+  if (req.url === '/mode.js') { res.setHeader('Content-Type','text/javascript'); return res.end(`export default ${JSON.stringify(handleApi?'homologacao':'demo')};`); }
+  if (handleApi && await handleApi(req,res)) return;
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   try {
     const requested = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);

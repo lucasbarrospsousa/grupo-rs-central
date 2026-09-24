@@ -1,0 +1,34 @@
+export class SqlRepository {
+  constructor(){this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;}
+  async request(path,{method='GET',body,key}={}){
+    let response;
+    try{response=await fetch('/api/'+path,{method,signal:AbortSignal.timeout(25000),headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrf,...(method!=='GET'?{'Idempotency-Key':key||crypto.randomUUID()}:{})},body:body?JSON.stringify(body):undefined});}
+    catch(error){throw Error(error.name==='TimeoutError'?'O servidor demorou a responder. Tente novamente.':'A conexão com o servidor local foi interrompida. Tente novamente em alguns segundos.');}
+    const data=await response.json();if(!response.ok)throw Error(data.error||'Falha na consulta.');return data;
+  }
+  async session(){this.user=await this.request('session');this.csrf=this.user.csrf;return this.user;}
+  async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
+  async logout(){await this.request('logout',{method:'POST'});this.user=null;this.devices=[];}
+  async load(branch){
+    const encoded=encodeURIComponent(branch);
+    const [devices,history,warehouse]=await Promise.all([this.request('devices?branch='+encoded),this.request('history?branch='+encoded),this.request('warehouse?branch='+encoded)]);
+    this.devices=this.devices.filter(d=>d.branch!==branch).concat(devices.rows.map(d=>({identification:'',model:'',communication:'Não consultado',connectivity:'Não consultado',installed_at:'',updated_at:'',...d})));
+    this.reports=history.rows.filter(r=>r.source_table==='maintenance').map(r=>({...r.data,id:r.id,branch,entry:r.data.opened_at||r.data.created_at||'',currentSerial:r.data.serial||'',installSerial:r.data.replacement_serial||'',medium:r.data.discovery_method||'',notes:r.data.note||''}));
+    this.reports.unshift(...(history.visits||[]).map(r=>({...r.data,id:r.id,branch,version:r.version,editable:true})));
+    this.warehouse=warehouse.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR')}));
+    this.movements=warehouse.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch,type:'Envio',serial:item.serial,at:new Date(m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
+    this.currentBranch=branch;
+  }
+  list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d}));}
+  async saveDevice(branch,values,current){await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',body:{data:values,...(current?{version:current.version}:{})}});await this.load(branch);}
+  async deleteDevice(branch,current){await this.request('devices/'+current.id+'?branch='+encodeURIComponent(branch),{method:'DELETE',body:{version:current.version}});await this.load(branch);}
+  analyze(){throw Error('A baixa depende da integração de consulta da plataforma, ainda em validação.');}
+  applyDischarge(){throw Error('A baixa remota ainda está em validação.');}
+  async addWarehouse(kind,serial){await this.request('warehouse?branch='+this.currentBranch,{method:'POST',body:{kind,serial}});await this.load(this.currentBranch);}
+  async removeWarehouse(id){const row=this.warehouse.find(r=>r.id===id);await this.request('warehouse/'+id+'?branch='+this.currentBranch,{method:'DELETE',body:{version:row.version}});await this.load(this.currentBranch);}
+  async transfer(ids,destination,note){const items=ids.map(id=>{const r=this.warehouse.find(r=>r.id===id);return{id,version:r.version};});await this.request('warehouse-transfer?branch='+this.currentBranch,{method:'POST',body:{items,destination,note}});await this.load(this.currentBranch);}
+  async addBulk(rows){const result=await this.request('bulk?branch='+this.currentBranch,{method:'POST',body:{rows}});await this.load(this.currentBranch);return result;}
+  async saveReport({branch,id,...data}){await this.request('maintenance?branch='+branch,{method:'POST',body:data,key:id});await this.load(branch);}
+  async updateReport(report,status,notes){await this.request('maintenance/'+report.id+'?branch='+report.branch,{method:'PATCH',body:{version:report.version,status,notes}});await this.load(report.branch);}
+  record(){throw Error('Operação ainda não conectada ao servidor.');}
+}
