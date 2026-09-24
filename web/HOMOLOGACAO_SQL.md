@@ -44,8 +44,8 @@ node tools/test-sql.mjs
 
 ## Limitações ainda abertas
 
-- Não declarar todas as funcionalidades migradas: agregação de manutenção nas plataformas e integrações ainda requerem implementação/validação.
-- Baixa e vinculação remota, Arya, consulta de comunicação/localização, histórico/traçado real, SMS/gateway e atualização do desktop não são ativados por esta entrega.
+- Integrações de consulta, baixa SQL e vinculação foram adicionadas em 24/09; ver INTEGRACOES.md para evidências e limites.
+- SMS/gateway permanece pausado por decisão do usuário. Troca automática de aparelho e atualização do desktop permanecem fora desta entrega.
 - Histórico SQL consultável; novos atendimentos podem ser registrados/editados sem executar troca automática de aparelho.
 - Lucas confirmou o login com sua credencial habitual em 24/09/2026.
 - A importação é uma fotografia do backup, não uma sincronização contínua com o desktop.
@@ -60,4 +60,4 @@ A renderização inicial aguardava a consulta de sessão, podendo apresentar bra
 
 ## Validação adicional
 
-Cadastro em massa transacional, entrada/remoção recuperável/envio de aparelhos do armazém, novos atendimentos e edição com controle de versão usam o SQL. Chips continuam exigindo a validação oficial da Arya. A suíte real cobre 33 verificações, além de 28 testes locais. Operações externas pendentes não são contadas como aprovadas.
+Cadastro em massa transacional, entrada/remoção recuperável/envio de aparelhos do armazém, novos atendimentos e edição com controle de versão usam o SQL. Chips continuam exigindo a validação oficial da Arya. A suíte real cobre 33 verificações, além de 42 testes locais e 14 verificações de integração com SQL real e transporte externo simulado. Operações externas pendentes não são contadas como aprovadas.

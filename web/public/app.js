@@ -1,3 +1,4 @@
+import {mountIntegrationActions} from './integration-actions.js';
 import { mountSettings } from './settings-page.js';
 import { mountSms } from './sms-page.js';
 import { styleWarehouse } from './warehouse-page.js';
@@ -81,7 +82,7 @@ function render() {
     if(state.route==='warehouse'&&repo.user.branches.find(b=>b.id===state.branch)?.role!=='admin'){document.querySelectorAll('#new-item,#review-transfer,[data-remove]').forEach(b=>{b.disabled=true;b.title='Escrita no armazém ainda em validação';});}
 
     if(readonly)document.querySelectorAll('#stock-new,[data-edit],[data-delete]').forEach(b=>{b.disabled=true;b.title='Usuário somente de leitura';});
-    if(document.querySelector('#stock-analyze'))document.querySelector('#stock-analyze').onclick=()=>notify('Integração de baixa ainda em validação. Nenhum aparelho será alterado.');
+    mountIntegrationActions({repo,branch:state.branch,route:state.route,showModal,notify,render});
   }
 }
 const page = html => document.querySelector('#page').innerHTML = html;
@@ -160,7 +161,7 @@ function newWarehouseItem() {
   let kind = 'device';
   showModal('Cadastrar no Armazém', `<p class="muted">Entrada manual de aparelhos e chips.</p><div class="segmented">${button('Aparelho','kind-device','primary','phone')}${button('Chip','kind-chip','','chip')}</div><form id="warehouse-form"><label class="field" id="serial-label"><span id="serial-title">Número de série</span><input id="new-serial" name="serial" required inputmode="numeric" maxlength="20" placeholder="9 dígitos • mantenha o zero inicial"></label><div id="chip-validation"></div><p class="muted">Este cadastro usa somente os dados de teste da página.</p><div class="form-actions"><button type="submit" class="primary" id="save-item">Salvar na demonstração</button></div></form>`, 'compact');
   if(repo.real){document.querySelector('#warehouse-form .muted').textContent='Cadastro na cópia SQL de homologação.';document.querySelector('#save-item').textContent='Salvar no SQL';}
-  const validate = () => { document.querySelector('#serial-title').textContent = kind === 'device' ? 'Número de série' : 'ICCID do chip'; const serial = document.querySelector('#new-serial').value.trim(); document.querySelector('#save-item').disabled = kind === 'chip'; document.querySelector('#chip-validation').innerHTML = kind !== 'chip' ? '' : `<div class="gate"><strong>${validIccid(serial) ? 'Consulta à Arya pendente de integração' : 'Informe ICCID de 19 ou 20 dígitos, começando com 89'}</strong><p>O chip não será cadastrado sem confirmação da Arya. Esta prévia não consulta a plataforma.</p></div>`; };
+  const validate = () => { document.querySelector('#serial-title').textContent = kind === 'device' ? 'Número de série' : 'ICCID do chip'; const serial = document.querySelector('#new-serial').value.trim(); document.querySelector('#save-item').disabled = kind === 'chip' && !repo.real; document.querySelector('#chip-validation').innerHTML = kind !== 'chip' ? '' : `<div class="gate"><strong>${validIccid(serial) ? (repo.real?'Arya será consultada ao salvar':'Consulta à Arya pendente de integração') : 'Informe ICCID de 19 ou 20 dígitos, começando com 89'}</strong><p>O chip só será cadastrado após confirmação da Arya pelo servidor.</p></div>`; };
   for (const value of ['device','chip']) on('kind-' + value,'click',() => { kind = value; document.querySelector('#kind-device').classList.toggle('primary',kind === 'device'); document.querySelector('#kind-chip').classList.toggle('primary',kind === 'chip'); document.querySelector('#new-serial').value = ''; document.querySelector('#new-serial').placeholder = kind === 'device' ? 'Série com 9 dígitos' : 'ICCID completo com 19 ou 20 dígitos'; validate(); });
   on('new-serial','input',validate); on('warehouse-form','submit',e => { e.preventDefault(); safe(async () => { await repo.addWarehouse(kind, document.querySelector('#new-serial').value); modal.close(); render(); notify(repo.real?'Aparelho cadastrado no SQL de homologação.':'Aparelho demonstrativo cadastrado.'); }); });
 }

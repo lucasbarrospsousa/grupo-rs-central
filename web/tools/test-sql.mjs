@@ -9,7 +9,7 @@ const admin=createPool({admin:true}),runtime=createPool();
 const suffix=randomBytes(6).toString('hex'),password=randomBytes(24).toString('hex');
 const identities=[{id:randomUUID(),name:'qa-'+suffix,branch:'imperatriz',role:'admin'},
   {id:randomUUID(),name:'qa-reader-'+suffix,branch:'araguaina',role:'reader'}];
-const handler=api(runtime);const server=http.createServer((q,s)=>handler(q,s));
+const handler=api(runtime,{integrationService:{carrier:async()=>({ok:false})}});const server=http.createServer((q,s)=>handler(q,s));
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const origin='http://127.0.0.1:'+server.address().port;
 const baselineDevices=(await admin.query("select count(*)::int as n from central_homologacao.devices where branch_id='imperatriz' and deleted_at is null")).rows[0].n;

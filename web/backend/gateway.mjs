@@ -1,0 +1,4 @@
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+export function gateway(request){return new Promise((resolve,reject)=>{const python=process.env.CENTRAL_PYTHON||path.join(process.env.USERPROFILE,'.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe');const child=spawn(python,[fileURLToPath(new URL('gateway-bridge.py',import.meta.url))],{windowsHide:true,stdio:['pipe','pipe','pipe']});let out='';const timer=setTimeout(()=>{child.kill();reject(Error('Gateway excedeu o tempo de resposta.'));},12000);child.stdout.on('data',d=>{out+=d;if(out.length>32000)child.kill();});child.on('error',()=>{clearTimeout(timer);reject(Error('Serviço do gateway indisponível.'));});child.on('close',()=>{clearTimeout(timer);try{resolve(JSON.parse(out));}catch{reject(Error('Retorno do gateway inválido.'));}});child.stdin.end(JSON.stringify(request));});}

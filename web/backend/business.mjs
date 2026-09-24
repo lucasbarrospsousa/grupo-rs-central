@@ -1,6 +1,7 @@
+import {integrations} from './integrations.mjs';
 import {randomUUID} from 'node:crypto';
 const failure=(status,message)=>Object.assign(Error(message),{status});
-export async function businessMutation(c,{path,method,body,branch,user,role}){
+export async function businessMutation(c,{path,method,body,branch,user,role,service=integrations}){
  const id=randomUUID();
  if(path==='/api/maintenance'&&method==='POST'){
   if(!['Sem comunicação','Localização errada','Troca de aparelho'].includes(body.reason)||typeof body.medium!=='string'||body.medium.length>100||typeof body.notes!=='string'||body.notes.length>2000)throw failure(400,'Dados do atendimento inválidos.');
@@ -31,9 +32,9 @@ export async function businessMutation(c,{path,method,body,branch,user,role}){
  }
  if(role!=='admin')throw failure(403,'Armazém exige permissão administrativa nesta filial.');
  if(path==='/api/warehouse'&&method==='POST'){
-  if(body.kind!=='device')throw failure(422,'Chip exige validação oficial da Arya, ainda indisponível.');
-  if(!/^\d{9}$/.test(body.serial||''))throw failure(400,'Informe a série com nove dígitos.');
-  await c.query("insert into central_homologacao.warehouse_items(id,branch_id,kind,serial,status,received_at) values($1,$2,'device',$3,'Disponível',now())",[id,branch,body.serial]);
+  if(!['device','chip'].includes(body.kind))throw failure(400,'Tipo inválido.');
+  if(body.kind==='chip'){const checked=await service.carrier('arya',body.serial);if(!checked.ok)throw failure(422,'ICCID não confirmado pela Arya.');}else if(!/^\d{9}$/.test(body.serial||''))throw failure(400,'Informe a série com nove dígitos.');
+  await c.query("insert into central_homologacao.warehouse_items(id,branch_id,kind,serial,status,received_at) values($1,$2,$4,$3,'Disponível',now())",[id,branch,body.serial,body.kind]);
   return {id,response:{ok:true,id}};
  }
  if(path.startsWith('/api/warehouse/')&&method==='DELETE'){

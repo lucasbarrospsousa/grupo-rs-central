@@ -2,7 +2,7 @@ export class SqlRepository {
   constructor(){this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;}
   async request(path,{method='GET',body,key}={}){
     let response;
-    try{response=await fetch('/api/'+path,{method,signal:AbortSignal.timeout(25000),headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrf,...(method!=='GET'?{'Idempotency-Key':key||crypto.randomUUID()}:{})},body:body?JSON.stringify(body):undefined});}
+    try{response=await fetch('/api/'+path,{method,signal:AbortSignal.timeout(path.startsWith('integrations/')?120000:25000),headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrf,...(method!=='GET'?{'Idempotency-Key':key||crypto.randomUUID()}:{})},body:body?JSON.stringify(body):undefined});}
     catch(error){throw Error(error.name==='TimeoutError'?'O servidor demorou a responder. Tente novamente.':'A conexão com o servidor local foi interrompida. Tente novamente em alguns segundos.');}
     const data=await response.json();if(!response.ok)throw Error(data.error||'Falha na consulta.');return data;
   }

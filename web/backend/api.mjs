@@ -1,3 +1,4 @@
+import {integrationRoute} from './integration-routes.mjs';
 import { randomUUID } from 'node:crypto';
 import { hash, token, passwordMatches, passwordHash, session, cookies } from './auth.mjs';
 import { businessMutation } from './business.mjs';
@@ -8,7 +9,7 @@ const states=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const reply=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
 const fail=(status,message)=>Object.assign(Error(message),{status});
 async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>32768)throw fail(413,'Solicitação muito grande.');}try{return JSON.parse(raw||'{}');}catch{throw fail(400,'JSON inválido.');}}
-export function api(pool){return async(req,res)=>{
+export function api(pool,{integrationService}={}){return async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(!url.pathname.startsWith('/api/'))return false;
   try{
@@ -37,6 +38,7 @@ export function api(pool){return async(req,res)=>{
       await pool.query('delete from central_homologacao.sessions where token_hash=$1',[hash(cookies(req).central_session)]);
       res.setHeader('Set-Cookie','central_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');reply(res,200,{ok:true});return true;
     }
+    if(await integrationRoute({req,res,url,pool,user,readBody:body,service:integrationService}))return true;
     if(!['/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');
     const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];
@@ -67,7 +69,7 @@ export function api(pool){return async(req,res)=>{
       const previous=(await client.query('select fingerprint,response from central_homologacao.requests where user_id=$1 and request_key=$2',[user.user_id,requestKey])).rows[0];
       if(previous){if(previous.fingerprint!==fingerprint)throw fail(409,'Identificador reutilizado para outra operação.');await client.query('COMMIT');reply(res,200,previous.response);return true;}
       if(!url.pathname.startsWith('/api/devices')){
-        const result=await businessMutation(client,{path:url.pathname,method:req.method,body:b,branch,user,role:membership.role});
+        const result=await businessMutation(client,{service:integrationService,path:url.pathname,method:req.method,body:b,branch,user,role:membership.role});
         await client.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,req.method+' '+url.pathname,result.id,{count:result.response.count||1}]);
         await client.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,requestKey,fingerprint,result.response]);
         await client.query('COMMIT');reply(res,200,result.response);return true;

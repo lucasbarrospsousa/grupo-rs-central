@@ -81,7 +81,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   on('stock-period-apply','click',()=>safe(()=>{const start=document.querySelector('#stock-start').value,end=document.querySelector('#stock-end').value;if(start&&end&&start>end)throw Error('A data final não pode ser anterior à data inicial.');Object.assign(model,{start,end,page:1});draw();}));
   on('stock-period-clear','click',()=>{model.start=model.end='';model.page=1;document.querySelector('#stock-start').value=document.querySelector('#stock-end').value='';draw();});
   document.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{model.direction=model.sort===b.dataset.sort?-model.direction:1;model.sort=b.dataset.sort;model.page=1;draw();});
-  on('stock-analyze','click',analyze);on('stock-new','click',()=>equipmentForm());on('stock-report','click',report);
+  if(!repo.real)on('stock-analyze','click',analyze);on('stock-new','click',()=>equipmentForm());on('stock-report','click',report);
   on('stock-reconnect','click',()=>pending('Reconectar APIs','A reconexão das APIs será habilitada após autorização e configuração das integrações.'));
   on('stock-sms-monitor','click',()=>pending('Acompanhar SMS','A fila e as confirmações de entrega dependem do gateway conectado.'));
   draw();
