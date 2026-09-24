@@ -71,3 +71,11 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Cadastro, edição, remoção e relatório CSV funcionam somente sobre exemplos em memória. SMS, reconexão e localização informam integração pendente.
 - Validado no Chrome: busca em lote, período inválido, paginação, cadastro e relatório; 19 testes automatizados passaram.
 - Layout verificado no viewport real de 1536×674: sem transbordamento horizontal da página, cinco linhas completas na área da tabela (360 px), rolagem vertical da página e paginação abaixo. O painel não comprime a lista para caber na altura da janela.
+
+## Vinculação: adaptação da tela desktop
+
+- `public/link-page.js` e `link.css`: lista à esquerda, editor à direita, busca por série, filtros Reserva/Manutenção, seleção e revisão com titular RS300.
+- Regras conferidas em `docs/vinculacao_estoque.md`, `src/ui/stock_link.gd` e serviço correspondente. Identificação AAA/GRS/XRS com 1 a 6 números; zeros preservados.
+- Cenário isolado com 12 aparelhos fictícios, somente Imperatriz, sem alterar o adaptador de Estoque. Outras filiais exibem a indisponibilidade correspondente ao escopo original.
+- Revisão funciona; confirmação permanece desabilitada até integração autorizada. Atualizar lista não consulta API real.
+- Chrome: filtro Reserva, seleção e resumo revisados; layout com rolagem natural e sem transbordamento horizontal. Teste de identificação e regressão: 20 testes.
