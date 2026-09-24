@@ -116,3 +116,10 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - `route-page.js`/`route.css`: filtros e atalhos, métricas, área de mapa, legenda, reprodução e linha do tempo conforme referência. Reaproveita validação de sete dias do Histórico.
 - Fonte consultada: `src/ui/tracking_route.gd`. Sem API/posições, mapa, reprodução e KML ficam desabilitados. Não desenha percurso fictício nem atribui ausência de dados a ausência de posições reais.
 - Chrome: navegação e composição conferidas; 25 testes de regressão passaram. Integração real, mapa, reprodução e exportação ainda pendentes.
+
+## Armazém: adaptação visual
+
+- `warehouse-page.js` e `warehouse.css` adaptam a tela existente: três cards, abas Aparelhos/Chips/Movimentações, filtros, paginação de 12 itens, seleção e limpeza, remoção com confirmação e painel de envio.
+- Regras conferidas em `src/ui/scanner_inventory.gd`. Preservados cadastro manual, zeros, confirmação de envio, histórico e bloqueio de chip sem Arya.
+- Somente adaptador em memória; não confere chips utilizados no banco real. Indicador de envios refere-se à sessão demonstrativa.
+- Chrome: aparelho selecionado, envio confirmado na simulação e encontrado em Movimentações; cadastro de chip bloqueado; abas e layout conferidos. Testes de regressão: 25 passaram.
