@@ -62,3 +62,12 @@ Não há EXE, instalador ou processo de publicação pública criado para a web.
 ## Próxima etapa
 
 Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migrações SQL revisáveis, autenticação, RLS, conectar ambiente de teste e validar transações/concorrência. Importação de produção e substituição do aplicativo são etapas separadas.
+
+## Estoque: adaptação da tela desktop
+
+- `public/stock-page.js`, `stock-model.js` e `stock.css` isolam a página de Estoque.
+- Busca simples e por séries exatas separadas por ponto e vírgula; resumo de não encontrados, filtros de situação e período, ordenação, seleção e paginação.
+- Período segue a data de atualização/cadastro do desktop; instalação é independente.
+- Cadastro, edição, remoção e relatório CSV funcionam somente sobre exemplos em memória. SMS, reconexão e localização informam integração pendente.
+- Validado no Chrome: busca em lote, período inválido, paginação, cadastro e relatório; 19 testes automatizados passaram.
+- Layout verificado no viewport real de 1536×674: sem transbordamento horizontal da página, cinco linhas completas na área da tabela (360 px), rolagem vertical da página e paginação abaixo. O painel não comprime a lista para caber na altura da janela.

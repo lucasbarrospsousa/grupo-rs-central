@@ -1,3 +1,4 @@
+import { mountStock } from './stock-page.js';
 import { DemoRepository, branches, filterVehicles, generation, validIccid } from './domain.js';
 
 const repo = new DemoRepository();
@@ -31,6 +32,7 @@ function login() {
 }
 const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings']];
 function render() {
+  document.body.classList.toggle('stock-page', state.entered && state.route === 'stock');
   if (!state.entered) return login();
   const route = routes.find(r => r[0] === state.route) || routes[0];
   app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
@@ -73,14 +75,7 @@ function vehicleDetails(id, back) {
   const v = repo.vehicles.find(v => v.id === id);
   showModal('Detalhes do veículo', `<div class="detail-list">${[['Cliente',v.client],['Placa',v.plate],['Série',v.serial],['Tecnologia',generation(v.serial)],['APN',v.apn],['Base',name(v.branch)]].map(([key,val]) => `<div>${key}<b>${escape(val)}</b></div>`).join('')}</div><div class="form-actions">${button('Voltar à lista','back-list')}</div>`, 'medium'); on('back-list','click',back);
 }
-function stock() {
-  page(`<section class="panel"><div class="top"><div><h2>Estoque de equipamentos</h2><p class="muted">Séries preservadas • dados separados por filial</p></div>${button('Analisar baixa', 'analyze', 'primary', 'search')}</div><div class="toolbar"><input id="stock-search" aria-label="Buscar estoque" placeholder="Buscar série, placa ou cliente"><select id="stock-status" aria-label="Situação">${options([['','Todas as situações'],['Estoque','Em estoque'],['Instalado','Instalados'],['Manutenção','Em manutenção']], '')}</select></div><div class="table-wrap" id="stock-table"></div></section>`);
-  const draw = () => {
-    const search = document.querySelector('#stock-search').value.toLowerCase(); const status = document.querySelector('#stock-status').value;
-    const rows = repo.list(state.branch).filter(d => (!status || d.status === status) && `${d.serial} ${d.plate} ${d.client}`.toLowerCase().includes(search));
-    document.querySelector('#stock-table').innerHTML = `<table><thead><tr><th>Número de série</th><th>Placa / identificação</th><th>Cliente</th><th>Tecnologia</th><th>Operadora</th><th>Situação</th></tr></thead><tbody>${rows.map(d => `<tr><td><strong>${d.serial}</strong></td><td>${d.plate}</td><td>${d.client}</td><td><span class="pill">${generation(d.serial)}</span></td><td>${d.carrier}</td><td><span class="pill ${d.status === 'Instalado' ? 'green' : d.status === 'Estoque' ? 'blue' : 'amber'}">${d.status}</span></td></tr>`).join('') || '<tr><td colspan="6" class="empty">Nenhum equipamento encontrado.</td></tr>'}</tbody></table>`;
-  }; on('stock-search', 'input', draw); on('stock-status', 'change', draw); on('analyze', 'click', analyze); draw();
-}
+function stock() { mountStock({ repo, branch: state.branch, branchName: name(state.branch), icon, showModal, notify, analyze, render }); }
 function analyze() {
   const branch = state.branch; const results = repo.analyze(branch); const selected = new Set();
   showModal(`Analisar baixa · ${name(branch)}`, `<div class="stat-row"><span class="pill blue">NA ANÁLISE · ${results.length}</span><span class="pill green">APTOS · ${results.filter(r => r.state === 'eligible').length}</span><span class="pill red">FALHAS · ${results.filter(r => r.state === 'error').length}</span></div><p class="muted" style="margin-top:15px">Simulação de consulta por série. A baixa real exige revalidação no servidor.</p><div class="toolbar">${button('Selecionar aptos','select-eligible')}${button('Limpar seleção','clear-eligible')}</div><div class="table-wrap"><table><thead><tr><th>Selecionar / Série</th><th>Placa</th><th>Cliente</th><th>Resultado</th></tr></thead><tbody>${results.map(r => `<tr><td><label><input type="checkbox" data-discharge="${r.id}" ${r.state !== 'eligible' ? 'disabled' : ''}> ${r.serial}</label></td><td>${escape(r.plate)}</td><td>${escape(r.client)}</td><td><span class="pill ${r.state === 'eligible' ? 'green' : r.state === 'error' ? 'red' : 'blue'}">${r.label}</span></td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nenhum aparelho em estoque.</td></tr>'}</tbody></table></div><div class="form-actions"><span id="selected-count" class="pill">0 selecionados</span>${button('Revisar baixa','review-discharge','primary')}</div>`, '', 'Atualização somente do estoque da Central');
