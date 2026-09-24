@@ -162,3 +162,18 @@ O formulário de Imperatriz pesquisa clientes no portal e exige selecionar o ve�
 A gravação do Configurador agora consome o ICCID exato no Armazém e registra movimentação Utilizado na mesma transação do aparelho. Repetição não cria nova movimentação. Item enviado, filial divergente ou chip associado a múltiplos aparelhos bloqueiam a gravação. Chips externos ao Armazém continuam permitidos. `reconcile-configurator-chip.mjs` permite conferir um caso explícito por filial, série e ICCID completo; `--apply` exige confirmação atual na plataforma e auditoria da gravação original, criando backup privado antes da correção.
 
 Validações focadas: `node --test web/tests/maintenance*.test.mjs web/tests/configurator.test.mjs`; `node web/tools/test-maintenance-sql.mjs`; `node web/tools/test-configurator-warehouse-sql.mjs`. Os dois últimos usam dados sintéticos em transações revertidas, papel SQL de runtime e plataformas simuladas; nunca enviam SMS ou escrevem na plataforma. Conferência visual de formulário, filtros, edição e viewport móvel foi executada em Chrome isolado.
+
+
+## Contatos do chip e apresentação de Manutenções — 24/09/2026
+
+Cadastro e edição incluem ICCID como texto e telefone com DDD. O servidor valida os novos valores e normaliza a pontuação do telefone. O formulário conserva a versão original aberta para impedir sobrescrever uma atualização concorrente.
+
+A migração 011 preenche contatos ausentes a partir de consulta confirmada pela série exata, tanto no ciclo automático quanto na consulta da página. ICCID deve começar com 89 e conter 19 ou 20 dígitos. Telefone inválido também pode ser corrigido quando a consulta confirma o mesmo chip. Valores válidos existentes não são sobrescritos automaticamente. A consulta pode complementar o portal pela API de equipamentos e o telefone pela operadora, sempre com identidade exata. Consulta recusada, antiga ou sem correspondência não preenche dados.
+
+Após confirmar o ICCID, o chip Disponível no Armazém da mesma filial passa a Utilizado e recebe uma movimentação e auditoria, na mesma transação. Repetição não duplica movimento; outra filial, envio anterior ou associação múltipla ficam para conferência. Funções internas não são concedidas ao navegador nem às roles públicas. A função chamada pelo servidor exige usuário operador/admin da filial.
+
+`node web/tools/reconcile-device-contacts.mjs` consulta sem alterar cadastros; `--apply` faz o preenchimento, após snapshot privado dos aparelhos e do Armazém. A conferência usa consultas reais; os resultados detalhados e backups permanecem em `.secrets/homologacao/`. A rotina não exclui registros nem modifica as plataformas externas.
+
+Validações: `node web/tools/test-device-contacts-sql.mjs` e `node web/tools/test-device-contacts-api.mjs` usam transações sempre revertidas e dados sintéticos. Cobrem persistência, repetição, associação ambígua, permissão, versão concorrente e validação dos campos. Os testes de integração com operadoras são simulados em `web/tests/stock-live.test.mjs`.
+
+Manutenções usa indicadores compactos, cards com identidade e aparelhos, busca combinada e paginação de dois atendimentos. Exportação continua abrangendo todos os resultados filtrados; o relatório mostra observações completas. Animações de entrada e hover respeitam a preferência de movimento reduzido. Conferência visual em 1917×991 e 390×844, navegação lateral, paginação, filtros, edição e formulário de atendimento executada com dados sintéticos em Chrome isolado.

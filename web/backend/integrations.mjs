@@ -68,12 +68,14 @@ export class Integrations{
  async stockDetails(branch,serial){
  const capture=async fn=>{try{return await fn();}catch(e){return{ok:false,message:e.message};}};
  const [equipment,location]=await Promise.all([capture(()=>this.equipmentPortal(branch,serial)),capture(()=>this.location(branch,serial))]);
+ if(equipment.serial===serial&&!/^89\d{17,18}$/.test(equipment.iccid||'')){const extra=await capture(()=>this.equipment(branch,serial));if(extra.serial===serial&&/^89\d{17,18}$/.test(extra.iccid||'')){equipment.iccid=extra.iccid;if(!equipment.phone&&extra.phone)equipment.phone=extra.phone;}}
  let chip={ok:false,message:'ICCID não confirmado na plataforma.'};
  if(/^89\d{17,18}$/.test(equipment.iccid||'')){
   const first=await capture(()=>this.carrier('arya',equipment.iccid));
   if(first.ok)chip=first;
   else {const second=await capture(()=>this.carrier('link',equipment.iccid));chip=second.ok?second:{ok:false,message:'Arya: '+first.message+' • Link: '+second.message};}
  }
+ if(chip.ok&&chip.iccid===equipment.iccid&&!/^[0-9]{10,13}$/.test(String(equipment.phone||'').replace(/\D/g,''))&&/^[0-9]{10,13}$/.test(String(chip.phone||'').replace(/\D/g,'')))equipment.phone=chip.phone;
  return{serial,equipment,location,chip,source:ORIGINS[branch],queried_at:new Date().toISOString()};
  }
  async clientVehicles(branch,clientId){

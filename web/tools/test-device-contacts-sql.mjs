@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {createPool} from '../backend/database.mjs';
+const pool=createPool({admin:true}),c=await pool.connect();let checks=0;
+try{
+ await c.query('BEGIN');
+ if(!(await c.query('select 1 from central_homologacao.migrations where version=11')).rowCount)await c.query(readFileSync(new URL('../migrations/011_device_contacts.sql',import.meta.url),'utf8').replace(/^BEGIN;/,'').replace(/COMMIT;\s*$/,''));
+ const id=randomUUID(),chip='899999'+String(Date.now()),serial='999'+String(Date.now()).slice(-6),item=randomUUID();
+ await c.query("insert into central_homologacao.devices(id,branch_id,serial,data) values($1,'imperatriz',$2,$3)",[id,serial,{serial,status:'Manutenção',plate:'TESTE'}]);
+ await c.query("insert into central_homologacao.warehouse_items(id,branch_id,kind,serial,status,received_at) values($1,'imperatriz','chip',$2,'Disponível',now())",[item,chip]);
+ const apply=async(e,at=new Date())=>(await c.query('select central_homologacao.apply_device_contacts($1,$2,$3) as r',[id,e,at])).rows[0].r;
+ const equipment={serial,iccid:chip,phone:'(11) 99999-9999'};
+ assert.equal((await apply({...equipment,serial:'wrong'})).confirmed,false);checks++;
+ assert.equal((await apply(equipment,new Date(Date.now()-7200000))).confirmed,false);checks++;
+ const result=await apply(equipment);assert.equal(result.device.iccid,chip);assert.equal(result.device.phone,'11999999999');assert.ok(result.movementId);assert.equal(result.device.version,2);checks++;
+ const repeat=await apply(equipment);assert.equal(repeat.movementId,null);assert.equal(repeat.device.version,2);checks++;
+ assert.equal((await c.query('select count(*)::int n from central_homologacao.warehouse_movements where items @> $1::jsonb',[JSON.stringify([{serial:chip}])])).rows[0].n,1);checks++;
+ const other=await apply({...equipment,iccid:'899998'+String(Date.now()),phone:'11888888888'});assert.equal(other.device.iccid,chip);assert.equal(other.device.phone,'11999999999');checks++;
+ assert.equal((await c.query('select data->>\'plate\' plate from central_homologacao.devices where id=$1',[id])).rows[0].plate,'TESTE');checks++;
+ await c.query("update central_homologacao.devices set data=data-'phone' where id=$1",[id]);
+ await c.query("insert into central_homologacao.device_observations(device_id,branch_id,cycle,data) values($1,'imperatriz',1,$2)",[id,{equipment}]);
+ assert.equal((await c.query("select data->>'phone' phone from central_homologacao.devices where id=$1",[id])).rows[0].phone,'11999999999');checks++;
+ assert.equal((await c.query("select has_function_privilege('central_homologacao_web','central_homologacao.apply_device_contacts(uuid,jsonb,timestamptz)','EXECUTE') allowed")).rows[0].allowed,false);checks++;
+ await c.query("update central_homologacao.warehouse_items set status='Disponível' where id=$1",[item]);
+ const duplicate=randomUUID();await c.query("insert into central_homologacao.devices(id,branch_id,serial,data) values($1,'imperatriz',$2,$3)",[duplicate,serial+'0',{iccid:chip}]);
+ assert.match((await apply(equipment)).warehouse_note,/mais de um/);checks++;
+ await c.query('delete from central_homologacao.devices where id=$1',[duplicate]);
+ await c.query("update central_homologacao.warehouse_items set status='Enviado' where id=$1",[item]);assert.match((await apply(equipment)).warehouse_note,/movimentação/);checks++;
+ await c.query('ROLLBACK');console.log(JSON.stringify({checks,rolledBack:true,platformWrites:0,sms:0}));
+}finally{await c.query('ROLLBACK');c.release();await pool.end();}

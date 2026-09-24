@@ -87,6 +87,8 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
         const values=b.data;if(!values||typeof values!=='object'||Array.isArray(values)||Object.keys(values).some(k=>!allowedFields.includes(k)))throw fail(400,'Campos inválidos.');
         if(Object.values(values).some(v=>typeof v!=='string'||v.length>500))throw fail(400,'Valor inválido.');
         data=req.method==='PATCH'?{...current.data,...values}:{...values};
+        if(Object.hasOwn(values,'iccid')&&values.iccid&&!/^89[0-9]{17,18}$/.test(values.iccid))throw fail(400,'ICCID deve ter 19 ou 20 dígitos e começar com 89.');
+        if(Object.hasOwn(values,'phone')&&values.phone){const digits=values.phone.replace(/[^0-9]/g,'');if(!/^[0-9]{10,13}$/.test(digits))throw fail(400,'Telefone deve incluir DDD, com 10 a 13 dígitos.');data.phone=digits;}
         if(!/^\d{6,17}$/.test(data.serial||'')||!states.includes(data.status))throw fail(400,'Série ou situação inválida.');
         // Installation/discharge depends on verified platform binding, not free-form CRUD.
         if(data.status==='Instalado'&&(!current||current.data.status!=='Instalado'))throw fail(422,'Instalação exige conferência do vínculo na plataforma.');

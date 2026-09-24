@@ -5,8 +5,9 @@ import {mountLiveTracking} from './tracking-live.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function mountIntegrationActions({repo,branch,route,showModal,notify,render}){
  const query=(action,params={})=>repo.request('integrations/'+action+'?'+new URLSearchParams({branch,...params}));
- const syncNote=document.createElement('div');syncNote.className='sync-status';syncNote.setAttribute('role','status');syncNote.textContent='Verificando atualização automática…';document.querySelector('#page').prepend(syncNote);
+ const syncNote=document.createElement('div');syncNote.className='sync-status';syncNote.setAttribute('role','status');syncNote.textContent='Verificando atualização automática…';(document.querySelector('#visits-sync')||document.querySelector('#page')).prepend(syncNote);
  const updateSync=()=>query('sync-status').then(s=>{if(!syncNote.isConnected)return;syncNote.classList.remove('sync-warning');syncNote.textContent=(s.enabled?'Atualização automática ativa':'Atualização automática pausada')+' • ciclo '+s.cycle+' • '+s.completed+'/'+s.total+' aparelhos • intervalo '+s.interval_minutes+' min entre ciclos'+(s.alerts.length?' • '+s.alerts.length+' integração(ões) pausada(s)':'');
+ syncNote.title=syncNote.textContent;if(route==='maintenance')syncNote.textContent=(s.enabled?(s.completed===s.total?'Consulta concluída':'Consultando '+s.completed+'/'+s.total):'Consulta pausada')+' • ciclo de '+s.interval_minutes+' min';
  if(s.alerts.length){syncNote.classList.add('sync-warning');for(const a of s.alerts){const p=document.createElement('p');p.textContent=a.source+' — '+a.message;syncNote.append(p);}}
  }).catch(e=>{if(syncNote.isConnected)syncNote.textContent='Atualização automática: '+e.message;});
  void updateSync();const syncTimer=setInterval(()=>{if(!syncNote.isConnected){clearInterval(syncTimer);return;}void updateSync();},60000);

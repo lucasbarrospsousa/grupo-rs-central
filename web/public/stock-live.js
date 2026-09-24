@@ -17,7 +17,7 @@ export function createStockLive({repo,branch,draw,showModal}){
  const visible=()=>[...root.querySelectorAll('[data-detail]')].map(b=>b.dataset.detail);
  const progress=()=>{if(root.isConnected)heading.textContent=`Consulta da página • ${queue.pending()} pendente(s) • aparelhos, plataforma e chips`;};
  const fetchRow=async (id,signal)=>{const row=repo.list(branch).find(r=>r.id===id);if(!row)throw Error('Cadastro não encontrado.');return repo.request('integrations/stock?'+new URLSearchParams({branch,serial:row.serial}),{signal});};
- const queue=visibleStockQueue({query:fetchRow,onProgress:progress,onResult:(id,data)=>{samples.set(id,data.error?{location:{ok:false,message:data.error},equipment:{},chip:{ok:false,message:data.error}}:data);if(root.isConnected)draw();}});
+ const queue=visibleStockQueue({query:fetchRow,onProgress:progress,onResult:(id,data)=>{const stored=repo.devices.find(r=>r.id===id);if(stored&&data.contacts?.device&&data.contacts.device.version>=stored.version)Object.assign(stored,data.contacts.device);samples.set(id,data.error?{location:{ok:false,message:data.error},equipment:{},chip:{ok:false,message:data.error}}:data);if(root.isConnected)draw();}});
  function refresh(force=false){if(root.isConnected){queue.set(visible(),force);progress();}}
  const timer=setInterval(()=>{if(root.isConnected&&!document.hidden)refresh();},60000);
  const observer=new MutationObserver(()=>{if(!root.isConnected){queue.close();clearInterval(timer);observer.disconnect();}});observer.observe(document.body,{childList:true,subtree:true});

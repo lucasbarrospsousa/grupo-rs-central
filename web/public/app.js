@@ -78,7 +78,7 @@ function render() {
   ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk })[state.route]();
   mountSidebar({route:state.route,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real)await repo.logout();state.entered=false;state.selected.clear();render();})});
   if(repo.real){
-    for(const selector of ['.visits-demo','.link-demo','.consult-intro']){const el=document.querySelector(selector);if(el)el.textContent='Dados da Central • consulte a plataforma para conferir o estado atual.';}
+    for(const selector of ['.link-demo','.consult-intro']){const el=document.querySelector(selector);if(el)el.textContent='Dados da Central • consulte a plataforma para conferir o estado atual.';}
     if(!document.querySelector('#branch')){
     if(!document.querySelector('.stock-demo')){const label=document.createElement('span');label.className='stock-demo';document.querySelector('.content>.top').append(label);}
     document.querySelector('.stock-demo').innerHTML='<label>Filial <select id="sql-branch">'+branchOptions(state.branch)+'</select></label>';
