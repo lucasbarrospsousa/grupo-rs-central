@@ -1,3 +1,4 @@
+import { mountConsult } from './consult-page.js';
 import { mountMaintenance } from './maintenance-page.js';
 import { mountBulk } from './bulk-page.js';
 import { mountLinking } from './link-page.js';
@@ -35,10 +36,11 @@ function login() {
 }
 const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings']];
 function render() {
-  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance'].includes(state.route));
+  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
   document.body.classList.toggle('bulk-page', state.entered && state.route === 'bulk');
   document.body.classList.toggle('maintenance-page', state.entered && state.route === 'maintenance');
+  document.body.classList.toggle('consult-page', state.entered && state.route === 'tracking');
   if (!state.entered) return login();
   const route = routes.find(r => r[0] === state.route) || routes[0];
   app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
@@ -127,10 +129,7 @@ function reportForm() {
   on('report-reason','change',e => document.querySelector('#replacement-field').hidden = e.target.value !== 'Troca de aparelho');
   on('report-form','submit',e => { e.preventDefault(); safe(() => { repo.saveReport({ ...Object.fromEntries(new FormData(e.target)), branch, id: crypto.randomUUID() }); modal.close(); render(); notify('Relatório salvo na demonstração.'); }); });
 }
-function tracking() {
-  page(`<section class="panel"><h2>Consultar veículo</h2><p class="muted">Consulta demonstrativa por série, placa ou cliente na filial selecionada.</p><div class="toolbar"><input id="tracking-search" aria-label="Buscar veículo" placeholder="Digite a série, placa ou cliente">${button('Buscar','tracking-find','primary','search')}</div><div id="tracking-results"></div></section><div class="gate"><strong>Mapas, posições e trajetos</strong><br>Aguardam a integração de leitura com a plataforma da filial. Não mostramos coordenadas fictícias como localização real.</div>`);
-  on('tracking-find','click',() => { const rows = filterVehicles(repo.vehicles.filter(v => v.branch === state.branch), {search:document.querySelector('#tracking-search').value}); document.querySelector('#tracking-results').innerHTML = rows.slice(0,20).map(v => `<div class="summary-line"><span><b>${v.plate}</b> • ${escape(v.client)} • ${v.serial}</span><button data-track="${v.id}">Detalhes</button></div>`).join('') || '<p class="empty">Nenhum exemplo encontrado.</p>'; document.querySelectorAll('[data-track]').forEach(b => b.onclick = () => vehicleDetails(b.dataset.track, () => modal.close())); });
-}
+function tracking() { mountConsult({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify}); }
 function sms() {
   page(`<div class="grid two"><section class="panel"><h2>Preparar mensagem</h2><p class="muted">Prévia de texto, sem envio.</p><label class="field">Telefone<input id="sms-phone" inputmode="tel" placeholder="DDD + telefone" maxlength="20"></label><label class="field">Mensagem<textarea id="sms-message" rows="6" maxlength="160" placeholder="Escreva a mensagem..."></textarea></label><span id="sms-count">0 / 160</span><div class="form-actions"><button disabled>Enviar SMS • integração pendente</button></div></section><section class="panel"><h2>Prévia do SMS</h2><div class="selected-info"><b id="sms-to">Destinatário não informado</b><p id="sms-preview" style="white-space:pre-wrap;margin-top:20px">Sua mensagem aparecerá aqui.</p></div><div class="gate" style="margin-top:20px">O gateway do celular precisará ser conectado ao servidor antes de liberar os envios.</div></section></div>`);
   const update = () => { document.querySelector('#sms-to').textContent = document.querySelector('#sms-phone').value || 'Destinatário não informado'; const text = document.querySelector('#sms-message').value; document.querySelector('#sms-count').textContent = `${text.length} / 160`; document.querySelector('#sms-preview').textContent = text || 'Sua mensagem aparecerá aqui.'; }; on('sms-phone','input',update); on('sms-message','input',update);

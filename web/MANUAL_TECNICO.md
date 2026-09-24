@@ -95,3 +95,11 @@ Ver `BANCO_PROPOSTO.md`. Somente após autorização explícita: preparar migra�
 - Exportar PDF prepara o recorte filtrado e oferece impressão/salvar PDF do navegador. Não é o gerador PDF operacional do desktop.
 - Regras consultadas em `docs/manutencoes_atendimentos.md`; formulário e baixa demonstrativa existentes preservados. Banco/API real não conectados.
 - Chrome: composição visual, filtro de placa e relatório individual conferidos. 23 testes automatizados passaram, incluindo filtros e regras existentes de relatório/baixa.
+
+## Rastreamento — Consultar veículo
+
+- `consult-page.js` e `consult.css`: menu Rastreamento recolhível com três subitens, consulta explícita, seletor de cliente, cards e tabela paginada; rolagem natural da página.
+- Regras conferidas em `src/ui/equipment_consultation.gd`: busca acionada por botão/Enter, filtros locais e nenhuma escrita automática. Séries numéricas usam correspondência exata.
+- Dados vêm somente do adaptador demonstrativo. Vínculos, comunicação e ausência no banco real não são presumidos; ficam não consultados. Consulta de clientes usa nomes sintéticos da sessão.
+- SMS, edição remota, Histórico de posições e Trajeto mostram pendência de integração; não simulam envio, posição ou gravação. Edição demonstrativa continua disponível na página Estoque.
+- Chrome: digitar manteve 14 resultados; Buscar pela série retornou um; menu expandiu/recolheu. 24 testes passaram.
