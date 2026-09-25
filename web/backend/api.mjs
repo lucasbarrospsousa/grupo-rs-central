@@ -115,5 +115,5 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       await client.query('insert into central_homologacao.requests(user_id,request_key,fingerprint,response) values($1,$2,$3,$4)',[user.user_id,requestKey,fingerprint,response]);
       await client.query('COMMIT');reply(res,200,response);return true;
     }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
-  }catch(e){reply(res,e.status|| (e.code==='23505'?409:503),{error:e.status?e.message:e.code==='23505'?'Série já cadastrada nesta filial.':'Não foi possível concluir a operação. Tente novamente.'});return true;}
+  }catch(e){if(e.code==='23514'&&e.message.startsWith('Chip já associado'))e=fail(409,'Chip já associado a outro aparelho. Confira a vinculação antes de salvar.');reply(res,e.status|| (e.code==='23505'?409:503),{error:e.status?e.message:e.code==='23505'?'Série já cadastrada nesta filial.':'Não foi possível concluir a operação. Tente novamente.'});return true;}
 };}

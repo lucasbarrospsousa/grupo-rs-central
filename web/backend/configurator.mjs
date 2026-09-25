@@ -35,6 +35,7 @@ export async function configuratorOperation(pool,user,p,service=integrations){
  const remote=await service.equipmentPortal(p.branch,p.serial);
  if(remote.serial!==p.serial||digits(remote.iccid)!==p.iccid||phone(remote.phone)!==phone(p.phone))throw fail(409,'Série, chip ou telefone não confirmado na plataforma. Nenhuma gravação realizada.');
  return read(async c=>{
+  await c.query("select set_config('central.chip_source','Configurador RS300',true)");
   // Serialise all Configurador operations, including conflicts on a shared chip.
   await c.query("select pg_advisory_xact_lock(hashtext('central-configurator'))");
   const saved=await replay(c);if(saved)return saved;
