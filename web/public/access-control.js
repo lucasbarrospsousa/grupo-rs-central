@@ -8,8 +8,9 @@ export function accessControl(repo){
  const apply=()=>{
   if(repo.user?.permissions){document.querySelectorAll('[data-nav],[data-route]').forEach(e=>{const r=e.dataset.nav||e.dataset.route;if(r==='users'?!repo.user.permissions.owner:!repo.user.permissions.views.includes(r))e.hidden=true;});if(!repo.user.permissions.owner&&!repo.user.permissions.writes.includes('sms'))document.querySelectorAll('[data-sms]').forEach(e=>{e.hidden=true;});}
   if(!document.body.classList.contains('read-only'))return;
-  document.querySelectorAll(writes).forEach(e=>{e.hidden=true;});
-  document.querySelectorAll('button').forEach(e=>{if(e.closest('.sms-composer')&&repo.user?.permissions?.writes.includes('sms'))return;if(/^(novo |nova |editar|excluir|remover|dar baixa|aplicar baixa|analisar baixa|revisar envio|revisar vinculação|enviar selecionados|enviar mensagem|salvar)/i.test(e.textContent.trim()))e.hidden=true;});
+  const canDischarge=repo.user?.permissions?.owner||repo.user?.permissions?.writes.includes('stock');
+  document.querySelectorAll(writes).forEach(e=>{if(canDischarge&&e.matches('[data-discharge],#stock-analyze'))return;e.hidden=true;});
+  document.querySelectorAll('button').forEach(e=>{if(canDischarge&&(e.closest('.discharge-modal')||/^(dar baixa|aplicar baixa|analisar baixa)/i.test(e.textContent.trim())))return;if(e.closest('.sms-composer')&&repo.user?.permissions?.writes.includes('sms'))return;if(/^(novo |nova |editar|excluir|remover|dar baixa|aplicar baixa|analisar baixa|revisar envio|revisar vinculação|enviar selecionados|enviar mensagem|salvar)/i.test(e.textContent.trim()))e.hidden=true;});
   document.querySelectorAll('[data-vehicle-plate]').forEach(e=>{e.readOnly=true;});
  };
  new MutationObserver(apply).observe(document.querySelector('#app'),{childList:true,subtree:true});
