@@ -19,6 +19,6 @@ export function cookies(req){return Object.fromEntries((req.headers.cookie||'').
 export async function session(pool,req){
   const value=cookies(req).central_session;
   if(!value||!/^[a-f0-9]{64}$/.test(value))return null;
-  return (await pool.query(`select s.user_id,s.csrf_hash,u.username from central_homologacao.sessions s
-    join central_homologacao.users u on u.id=s.user_id where token_hash=$1 and expires_at>now() and u.active`,[hash(value)])).rows[0]||null;
+  return (await pool.query(`select s.user_id,s.csrf_hash,u.username,s.last_activity_at from central_homologacao.sessions s
+    join central_homologacao.users u on u.id=s.user_id where token_hash=$1 and expires_at>now() and last_activity_at>now()-interval '2 hours' and u.active`,[hash(value)])).rows[0]||null;
 }

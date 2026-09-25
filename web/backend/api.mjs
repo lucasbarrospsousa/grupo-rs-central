@@ -34,12 +34,18 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
     if(mutation&&hash(String(req.headers['x-csrf-token']||''))!==user.csrf_hash)throw fail(403,'Sessão de formulário inválida. Atualize a página.');
     if(url.pathname==='/api/session'&&req.method==='GET'){
       const memberships=(await pool.query('select m.branch_id as id,b.name,m.role from central_homologacao.memberships m join central_homologacao.branches b on b.id=m.branch_id where user_id=$1 order by b.name',[user.user_id])).rows;
-      reply(res,200,{username:user.username,branches:memberships,environment:'homologacao',csrf:hash(cookies(req).central_session+':csrf')});return true;
+      reply(res,200,{username:user.username,branches:memberships,lastActivityAt:user.last_activity_at,environment:'homologacao',csrf:hash(cookies(req).central_session+':csrf')});return true;
     }
     if(url.pathname==='/api/logout'&&req.method==='POST'){
       await pool.query('delete from central_homologacao.sessions where token_hash=$1',[hash(cookies(req).central_session)]);
       res.setHeader('Set-Cookie','central_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');reply(res,200,{ok:true});return true;
     }
+    if(url.pathname==='/api/activity'&&req.method==='POST'){
+      const updated=await pool.query("update central_homologacao.sessions set last_activity_at=now() where token_hash=$1 and last_activity_at>now()-interval '2 hours' and expires_at>now() returning last_activity_at",[hash(cookies(req).central_session)]);
+      if(!updated.rowCount)throw fail(401,'Sessão expirada por inatividade.');
+      reply(res,200,{lastActivityAt:updated.rows[0].last_activity_at});return true;
+    }
+    if(mutation){const access=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,url.searchParams.get('branch')])).rows[0];if(!access||access.role==='reader')throw fail(403,'Usuário somente de consulta.');}
     if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
     if(await integrationRoute({req,res,url,pool,user,readBody:body,service:integrationService}))return true;
     if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');

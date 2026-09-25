@@ -1,4 +1,5 @@
 import {mountSidebar} from './sidebar.js';
+import {accessControl,isReader,restrictedRoute} from './access-control.js';
 import {carrierSummary,stockSummary} from './dashboard-model.js';
 import {mountIntegrationActions} from './integration-actions.js';
 import { mountSettings } from './settings-page.js';
@@ -18,6 +19,7 @@ import { SqlRepository } from './sql-repository.js';
 const repo = ['homologacao','production'].includes(mode) ? new SqlRepository() : new DemoRepository();
 const app = document.querySelector('#app');
 const modal = document.querySelector('#modal');
+if(repo.real)accessControl(repo);
 const state = { entered: false, branch: 'imperatriz', route: 'overview', warehouseTab: 'device', selected: new Set() };
 const escape = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const paths = { home: '<path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z"/>', box: '<path d="m3 7 9-5 9 5v10l-9 5-9-5zM3 7l9 5 9-5M12 12v10M7 5l10 5"/>', fork: '<path d="M3 4v12h10V8H7V4zM15 3v15h7M13 16h3"/><circle cx="6" cy="19" r="2"/><circle cx="13" cy="19" r="2"/>', tool: '<path d="M15 3a6 6 0 0 0-7 7L2 17l5 5 7-7a6 6 0 0 0 7-7l-5 4-4-4z"/>', map: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>', mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 5 10 8L22 5"/>', settings: '<path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="9" cy="18" r="2"/>', down: '<path d="m6 9 6 6 6-6"/>', right: '<path d="m9 5 7 7-7 7"/>', close: '<path d="m5 5 14 14M19 5 5 19"/>', refresh: '<path d="M20 7A9 9 0 1 0 21 15M20 2v6h-6"/>', search: '<circle cx="10" cy="10" r="7"/><path d="m15 15 7 7"/>', plus: '<path d="M12 4v16M4 12h16"/>', out: '<path d="M9 3H3v18h6M9 12h13m-5-5 5 5-5 5"/>', phone: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>', chip: '<path d="M8 2h9l4 5v15H3V2z"/><rect x="7" y="9" width="10" height="9" rx="1"/>', file: '<path d="M4 2h11l5 5v15H4zM14 2v6h6M8 12h8M8 16h8"/>' };
@@ -61,6 +63,8 @@ function render() {
   document.body.classList.toggle('warehouse-page', state.entered && state.route === 'warehouse');
   document.body.classList.toggle('sms-page', state.entered && state.route === 'sms');
   document.body.classList.toggle('settings-page', state.entered && state.route === 'settings');
+  document.body.classList.toggle('read-only',repo.real&&isReader(repo.user,state.branch));
+  if(repo.real&&isReader(repo.user,state.branch)&&restrictedRoute(state.route))state.route='stock';
   if (!state.entered) return login();
   if(repo.real)try{localStorage.setItem("central-view:"+repo.user.username,JSON.stringify({branch:state.branch,route:state.route}));}catch{}
   const route = routes.find(r => r[0] === state.route) || routes[0];
