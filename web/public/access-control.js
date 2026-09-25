@@ -1,14 +1,15 @@
 export const IDLE_MS=2*60*60*1000;
-export const isReader=(user,branch)=>user?.branches?.find(b=>b.id===branch)?.role==='reader';
+export const isReader=(user,branch,route)=>user?.permissions?(user.permissions.owner?false:!user.permissions.writes.includes(route)):user?.branches?.find(b=>b.id===branch)?.role==='reader';
 export const restrictedRoute=route=>['link','bulk','settings'].includes(route);
-const writes='[data-edit],[data-delete],[data-remove],[data-discharge],[data-sms],#stock-new,#stock-analyze,#stock-batch,#visits-new,#visit-edit,#warehouse-new,[data-route="link"],[data-route="bulk"],[data-route="settings"]';
+const writes='[data-edit],[data-delete],[data-remove],[data-discharge],#stock-new,#stock-analyze,#stock-batch,#visits-new,#visit-edit,#warehouse-new';
 export function accessControl(repo){
  let deadline=0,username='',lastSent=0,busy=false;
  const expire=()=>{if(!repo.user)return;repo.user=null;document.querySelector('#modal')?.close();location.reload();};
  const apply=()=>{
+  if(repo.user?.permissions){document.querySelectorAll('[data-nav],[data-route]').forEach(e=>{const r=e.dataset.nav||e.dataset.route;if(r==='users'?!repo.user.permissions.owner:!repo.user.permissions.views.includes(r))e.hidden=true;});if(!repo.user.permissions.owner&&!repo.user.permissions.writes.includes('sms'))document.querySelectorAll('[data-sms]').forEach(e=>{e.hidden=true;});}
   if(!document.body.classList.contains('read-only'))return;
   document.querySelectorAll(writes).forEach(e=>{e.hidden=true;});
-  document.querySelectorAll('button,a').forEach(e=>{if(/^(novo |nova |editar|excluir|remover|dar baixa|aplicar baixa|analisar baixa|revisar envio|enviar selecionados|enviar mensagem|vinculação|cadastro em massa|salvar|configurações)/i.test(e.textContent.trim()))e.hidden=true;});
+  document.querySelectorAll('button').forEach(e=>{if(e.closest('.sms-composer')&&repo.user?.permissions?.writes.includes('sms'))return;if(/^(novo |nova |editar|excluir|remover|dar baixa|aplicar baixa|analisar baixa|revisar envio|revisar vinculação|enviar selecionados|enviar mensagem|salvar)/i.test(e.textContent.trim()))e.hidden=true;});
   document.querySelectorAll('[data-vehicle-plate]').forEach(e=>{e.readOnly=true;});
  };
  new MutationObserver(apply).observe(document.querySelector('#app'),{childList:true,subtree:true});

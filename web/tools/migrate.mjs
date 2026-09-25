@@ -5,7 +5,7 @@ const pool = createPool({admin:true});
 try {
   const existing = await pool.query("select to_regnamespace('central_homologacao') as existing");
   if (!existing.rows[0].existing) await pool.query(readFileSync(new URL('../migrations/001_homologacao.sql',import.meta.url),'utf8'));
-  else if (![1,2,3,4,5,6,7,9,10,11,12,13].includes((await pool.query('select max(version) as version from central_homologacao.migrations')).rows[0].version)) throw Error('Unexpected schema version');
+  else if (![1,2,3,4,5,6,7,9,10,11,12,13,14].includes((await pool.query('select max(version) as version from central_homologacao.migrations')).rows[0].version)) throw Error('Unexpected schema version');
   const file=privatePath('runtime-db.json');
   if (!existsSync(file)) {
     if ((await pool.query("select 1 from pg_roles where rolname='central_homologacao_web'")).rowCount) throw Error('Runtime role already exists; credential recovery required');
@@ -21,7 +21,7 @@ try {
     GRANT SELECT,INSERT ON central_homologacao.requests TO central_homologacao_web;
     GRANT INSERT ON central_homologacao.audit_events TO central_homologacao_web;
     GRANT USAGE ON SEQUENCE central_homologacao.audit_events_id_seq TO central_homologacao_web;`);
-  for(const [version,name] of [[2,'002_warehouse.sql'],[3,'003_maintenance.sql'],[4,'004_integrations.sql'],[5,'005_login_limits.sql'],[6,'006_background_sync.sql'],[7,'007_background_panorama.sql'],[9,'009_sms_bridge.sql'],[10,'010_maintenance_history.sql'],[11,'011_device_contacts.sql'],[12,'012_drive_backups.sql'],[13,'013_session_idle.sql']]){
+  for(const [version,name] of [[2,'002_warehouse.sql'],[3,'003_maintenance.sql'],[4,'004_integrations.sql'],[5,'005_login_limits.sql'],[6,'006_background_sync.sql'],[7,'007_background_panorama.sql'],[9,'009_sms_bridge.sql'],[10,'010_maintenance_history.sql'],[11,'011_device_contacts.sql'],[12,'012_drive_backups.sql'],[13,'013_session_idle.sql'],[14,'014_user_permissions.sql']]){
     if(!(await pool.query('select 1 from central_homologacao.migrations where version=$1',[version])).rowCount)await pool.query(readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
   }
   console.log('Migrations ready; runtime role isolated; no public/anon grants.');

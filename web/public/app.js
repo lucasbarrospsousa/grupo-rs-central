@@ -1,3 +1,4 @@
+import {mountUsers} from './users-page.js';
 import {mountSidebar} from './sidebar.js';
 import {accessControl,isReader,restrictedRoute} from './access-control.js';
 import {carrierSummary,stockSummary} from './dashboard-model.js';
@@ -52,7 +53,7 @@ function login() {
   app.innerHTML = `<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>GRUPO RS CENTRAL</small><h1>Uma Central.<br>Todas as bases.</h1><p>Estoque, manutenção e operação em um só lugar.</p></section><section class="login-main"><span class="pill">VERSÃO WEB • PRÉVIA LOCAL</span><h1>Acesse a Central</h1><p>A estrutura web está em preparação. Você pode explorar os fluxos com dados demonstrativos, sem informar senha.</p><label class="field">Filial inicial<select id="login-branch">${branchOptions(state.branch)}</select></label>${button('Explorar demonstração', 'enter', 'primary', 'right')}<div class="gate" style="margin-top:25px"><strong>Conexão com o banco pendente</strong><br>O login real será conectado após sua autorização. Os exemplos são reiniciados ao recarregar a página.</div></section></main>`;
   on('enter', 'click', () => { state.branch = document.querySelector('#login-branch').value; state.entered = true; render(); });
 }
-const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings']];
+const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings']];
 function render() {
   document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route','warehouse','sms','settings'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
@@ -63,8 +64,9 @@ function render() {
   document.body.classList.toggle('warehouse-page', state.entered && state.route === 'warehouse');
   document.body.classList.toggle('sms-page', state.entered && state.route === 'sms');
   document.body.classList.toggle('settings-page', state.entered && state.route === 'settings');
-  document.body.classList.toggle('read-only',repo.real&&isReader(repo.user,state.branch));
-  if(repo.real&&isReader(repo.user,state.branch)&&restrictedRoute(state.route))state.route='stock';
+
+  if(repo.real&&repo.user?.permissions&&!repo.user.permissions.owner&&!repo.user.permissions.views.includes(state.route))state.route=repo.user.permissions.views[0]||'stock';
+  document.body.classList.toggle('read-only',repo.real&&isReader(repo.user,state.branch,state.route));
   if (!state.entered) return login();
   if(repo.real)try{localStorage.setItem("central-view:"+repo.user.username,JSON.stringify({branch:state.branch,route:state.route}));}catch{}
   const route = routes.find(r => r[0] === state.route) || routes[0];
@@ -79,7 +81,7 @@ function render() {
     if(mode==='production'){document.querySelector('.demo-strip').className='release-strip';document.querySelector('.release-strip').innerHTML='<span>Acesso exclusivo • '+escape(repo.user.username)+'</span><span>Dados salvos na Central online</span>';document.querySelector('.footer-note').textContent='Grupo RS Central • versão 1.0';}
     if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
   }
-  ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk })[state.route]();
+  ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk,users:()=>mountUsers({repo,showModal,notify}) })[state.route]();
   mountSidebar({route:state.route,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real)await repo.logout();state.entered=false;state.selected.clear();render();})});
   if(repo.real){
     for(const selector of ['.link-demo','.consult-intro']){const el=document.querySelector(selector);if(el)el.textContent='Dados da Central • consulte a plataforma para conferir o estado atual.';}
@@ -89,7 +91,7 @@ function render() {
     on('sql-branch','change',e=>{const next=e.target.value;safe(async()=>{await repo.load(next);state.branch=next;render();});});
     }
 
-    const readonly=repo.user.branches.find(b=>b.id===state.branch)?.role==='reader';
+    const readonly=isReader(repo.user,state.branch,state.route);
     if(state.route==='warehouse'&&repo.user.branches.find(b=>b.id===state.branch)?.role!=='admin'){document.querySelectorAll('#new-item,#review-transfer,[data-remove]').forEach(b=>{b.disabled=true;b.title='Escrita no armazém ainda em validação';});}
 
     if(readonly)document.querySelectorAll('#stock-new,[data-edit],[data-delete]').forEach(b=>{b.disabled=true;b.title='Usuário somente de leitura';});

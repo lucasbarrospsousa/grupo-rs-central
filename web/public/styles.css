@@ -192,4 +192,4 @@ tbody tr.vehicle:hover,.branch-card:hover{transform:none}
 [hidden]{display:none!important}
 
 @media(max-width:700px){.demo-strip>span{display:block}.demo-strip>span+span{margin-top:5px}}
-.read-only [hidden]{display:none!important}
+[hidden]{display:none!important}

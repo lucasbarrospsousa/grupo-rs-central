@@ -1,5 +1,6 @@
 import {Buffer} from 'node:buffer';
 import {backupStatus} from './backup-status.mjs';
+import {userAccess,permitted,manageUsers} from './user-access.mjs';
 import {integrationRoute} from './integration-routes.mjs';
 import { randomUUID } from 'node:crypto';
 import { hash, token, passwordMatches, passwordHash, session, cookies } from './auth.mjs';
@@ -33,8 +34,9 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
     const user=await session(pool,req);if(!user)throw fail(401,'Entre no sistema para continuar.');
     if(mutation&&hash(String(req.headers['x-csrf-token']||''))!==user.csrf_hash)throw fail(403,'Sessão de formulário inválida. Atualize a página.');
     if(url.pathname==='/api/session'&&req.method==='GET'){
+      const permissions=await userAccess(pool,user);
       const memberships=(await pool.query('select m.branch_id as id,b.name,m.role from central_homologacao.memberships m join central_homologacao.branches b on b.id=m.branch_id where user_id=$1 order by b.name',[user.user_id])).rows;
-      reply(res,200,{username:user.username,branches:memberships,lastActivityAt:user.last_activity_at,environment:'homologacao',csrf:hash(cookies(req).central_session+':csrf')});return true;
+      reply(res,200,{username:user.username,branches:memberships,permissions,lastActivityAt:user.last_activity_at,environment:'homologacao',csrf:hash(cookies(req).central_session+':csrf')});return true;
     }
     if(url.pathname==='/api/logout'&&req.method==='POST'){
       await pool.query('delete from central_homologacao.sessions where token_hash=$1',[hash(cookies(req).central_session)]);
@@ -45,6 +47,9 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       if(!updated.rowCount)throw fail(401,'Sessão expirada por inatividade.');
       reply(res,200,{lastActivityAt:updated.rows[0].last_activity_at});return true;
     }
+    const permissions=await userAccess(pool,user);
+    if(url.pathname==='/api/users'||/^\/api\/users\/[a-f0-9-]{36}$/.test(url.pathname)){if(!permissions.owner)throw fail(403,'Somente lucasabm pode administrar usuários.');reply(res,200,await manageUsers(pool,permissions,req.method,url.pathname.split('/')[3],req.method==='GET'?{}:await body(req)));return true;}
+    if(!permitted(permissions,url.pathname,req.method))throw fail(403,'Seu usuário não tem permissão para esta operação.');
     if(mutation){const access=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,url.searchParams.get('branch')])).rows[0];if(!access||access.role==='reader')throw fail(403,'Usuário somente de consulta.');}
     if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
     if(await integrationRoute({req,res,url,pool,user,readBody:body,service:integrationService}))return true;

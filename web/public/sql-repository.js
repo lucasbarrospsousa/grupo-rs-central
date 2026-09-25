@@ -12,7 +12,8 @@ export class SqlRepository {
   async logout(){await this.request('logout',{method:'POST'});this.user=null;this.devices=[];}
   async load(branch){
     const encoded=encodeURIComponent(branch);
-    const [devices,history,warehouse]=await Promise.all([this.request('devices?branch='+encoded),this.request('history?branch='+encoded),this.request('warehouse?branch='+encoded)]);
+    const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
+    const [devices,history,warehouse]=await Promise.all([allowed(['overview','stock','tracking','records','route','link','bulk','maintenance'])?this.request('devices?branch='+encoded):{rows:[]},allowed(['maintenance'])?this.request('history?branch='+encoded):{rows:[],visits:[]},allowed(['warehouse'])?this.request('warehouse?branch='+encoded):{rows:[],movements:[]}]);
     this.devices=this.devices.filter(d=>d.branch!==branch).concat(devices.rows.map(d=>({identification:'',model:'',communication:'Não consultado',connectivity:'Não consultado',installed_at:'',updated_at:'',...d})));
     this.reports=history.rows.filter(r=>r.source_table==='maintenance').map(r=>({...r.data,id:r.id,branch,legacy:true,entry:r.data.created_at||r.data.opened_at||'',currentSerial:r.data.serial||'',installSerial:r.data.replacement_serial||'',medium:r.data.discovery_method||'',notes:r.data.note||''}));
     this.reports.unshift(...(history.visits||[]).map(r=>({...r.data,id:r.id,branch,version:r.version,editable:true})));
