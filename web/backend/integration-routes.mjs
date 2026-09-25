@@ -29,7 +29,9 @@ export async function integrationRoute({req,res,url,pool,user,readBody,service=i
    else if(action==='clients')data={rows:await service.clients(branch,url.searchParams.get('q'))};
    else if(action==='carrier')data=await service.carrier(url.searchParams.get('provider'),url.searchParams.get('iccid'));
    else if(action==='status'){await service.api(branch,'/endpoints/veiculos.php?skip=0&take=1');await service.maintenance(branch);data={api:true,portal:true,branch,checked_at:new Date().toISOString()};}
-   else throw fail(404,'Consulta não reconhecida.');send(res,data);return true;
+   else throw fail(404,'Consulta não reconhecida.');
+   if(action==='stock'){const fresh=await scoped(pool,user,async c=>(await c.query('select id,serial,branch_id,data,version from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null',[branch,serial])).rows[0]);if(fresh)data.contacts={...(data.contacts||{}),device:{...fresh.data,id:fresh.id,serial:fresh.serial,branch:fresh.branch_id,version:fresh.version}};}
+   send(res,data);return true;
   }
   if(['link','sms','reconcile'].includes(action)&&req.method==='POST'){send(res,await remoteAction({action,body:await readBody(req),branch,user,role:membership.role,pool,service}));return true;}
   if(action!=='discharge'||req.method!=='POST')throw fail(405,'Operação indisponível.');
