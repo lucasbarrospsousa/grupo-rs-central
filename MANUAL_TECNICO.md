@@ -1,3 +1,11 @@
+## Godot arquivado — autorização obrigatória (26/09/2026)
+
+Por determinação expressa do usuário, o projeto Godot deste diretório é apenas referência histórica. Não consultar, pesquisar, ler, usar como exemplo, modificar, testar, executar, importar no editor, exportar ou atualizar o código, cenas, recursos, caches e executáveis Godot sem autorização explícita do usuário para a tarefa em questão. Uma solicitação sobre o site não autoriza consultar o Godot. Não aplicar rotinas automáticas de manutenção ao histórico.
+
+O arquivamento é no local: arquivos e caminhos preservados, sem exclusões. A proteção é uma regra de trabalho e um bloqueio no utilitário compartilhado; não é uma ACL do Windows. Web, backend e serviços atualmente ativos continuam operacionais e fora deste arquivamento. Se um arquivo for compartilhado com o Godot ou seu escopo for incerto, obter autorização antes de consultá-lo ou alterá-lo. A leitura deste aviso e dos metadados de arquivamento é permitida para respeitar a restrição.
+
+Esta regra prevalece sobre os comandos de desenvolvimento Godot descritos abaixo e sobre autorizações genéricas anteriores. Reativação exige pedido explícito do usuário.
+
 # Grupo RS Central — manual técnico
 
 ## Versão web publicada — 24/09/2026

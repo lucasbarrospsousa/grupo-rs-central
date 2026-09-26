@@ -1,0 +1,16 @@
+{
+  "status": "historico_arquivado",
+  "date": "2026-09-26",
+  "scope": "Godot somente; web e backend ativos excluidos",
+  "mode": "preservado_no_local",
+  "explicit_user_permission_required": [
+    "consulta",
+    "pesquisa",
+    "alteracao",
+    "execucao",
+    "teste",
+    "exportacao",
+    "reativacao"
+  ],
+  "os_access_control_changed": false
+}
