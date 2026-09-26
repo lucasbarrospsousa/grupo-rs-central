@@ -1,0 +1,15 @@
+/* Assinatura permanente da desenvolvedora, fora das rotas da aplicação. */
+:root{--developer-credit-height:52px}
+body{padding-bottom:var(--developer-credit-height)}
+.developer-credit{position:fixed;inset:auto 0 0;z-index:40;box-sizing:border-box;height:var(--developer-credit-height);display:flex;align-items:center;justify-content:center;gap:18px;padding:6px 18px;background:#0b263f;border-top:2px solid #f28a13;box-shadow:0 -3px 18px #08233b12;font-family:"Segoe UI",Arial,sans-serif}
+.developer-credit span{color:#c5d9eb;font-size:10px;font-weight:600;letter-spacing:1.1px;text-transform:uppercase;line-height:1.4}
+.developer-credit img{display:block;width:154px;height:36px;object-fit:contain;transition:filter .2s ease,transform .2s ease}
+.developer-credit:hover img{filter:brightness(1.13);transform:translateY(-1px)}
+@media(max-width:480px){.developer-credit{gap:12px;padding-inline:12px}.developer-credit span{font-size:9px;letter-spacing:.7px}.developer-credit img{width:140px}}
+@media(prefers-reduced-motion:reduce){.developer-credit img{transition:none}.developer-credit:hover img{transform:none}}
+@media print{.developer-credit{display:none}body{padding-bottom:0}}
+
+body .central-sidebar{height:calc(100dvh - var(--developer-credit-height))}
+.app-layout,.login{min-height:calc(100dvh - var(--developer-credit-height))}
+#notice{bottom:calc(var(--developer-credit-height) + 16px)}
+.developer-credit{top:calc(100dvh - var(--developer-credit-height));bottom:auto;width:100vw}
