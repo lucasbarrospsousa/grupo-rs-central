@@ -1,3 +1,4 @@
+import {installPageMotion} from './page-motion.js';
 import {mountSystemLogs,installActionJournal} from './system-logs.js';
 import {mountUsers} from './users-page.js';
 import {mountSidebar} from './sidebar.js';
@@ -21,6 +22,7 @@ import { SqlRepository } from './sql-repository.js';
 const repo = ['homologacao','production'].includes(mode) ? new SqlRepository() : new DemoRepository();
 const app = document.querySelector('#app');
 const modal = document.querySelector('#modal');
+installPageMotion(repo);
 if(repo.real){accessControl(repo);installActionJournal(repo);}
 const state = { entered: false, branch: 'imperatriz', route: 'overview', warehouseTab: 'device', selected: new Set() };
 const escape = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

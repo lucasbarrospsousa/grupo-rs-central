@@ -1,0 +1,26 @@
+/* Same shimmer and cascade as System Logs, shared by the other Central pages. */
+.central-motion-surface{position:relative}
+[data-motion-loading=true] .central-motion-surface::after,
+.central-motion-surface[aria-busy=true]::after,
+[aria-busy=true] .loading-card::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:1;background:linear-gradient(105deg,transparent 15%,#8dc7ff40 48%,transparent 80%);background-size:220% 100%;animation:central-shimmer 1.3s linear infinite}
+#page[data-motion-loading=true],.login[data-motion-loading=true]{position:relative}
+#page[data-motion-loading=true]::before,.login[data-motion-loading=true]::before{content:"";position:absolute;right:16px;top:10px;width:15px;height:15px;border:2px solid #c3dff5;border-top-color:#087bc5;border-radius:50%;z-index:3;animation:central-loading-spin .8s linear infinite;pointer-events:none}
+body:not(.logs-page) dialog[open]{animation:central-dialog-arrive .32s cubic-bezier(.2,.8,.2,1)}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+ #page button:not(:disabled):not(.leaflet-control-zoom-in):not(.leaflet-control-zoom-out):hover,#modal button:not(:disabled):hover,.login button:not(:disabled):hover{translate:0 -2px;box-shadow:0 7px 16px #16466b22}
+ #page button,#modal button,.login button{transition:translate .18s,box-shadow .18s,background-color .18s,transform .18s}
+ #page :is(.metric,.branch-card,.visit-metric,.warehouse-stat,.sms-stat,.bulk-stats>article,.health-card){transition:translate .22s,box-shadow .22s}
+ #page :is(.metric,.branch-card,.visit-metric,.warehouse-stat,.sms-stat,.bulk-stats>article,.health-card):hover{translate:0 -3px;box-shadow:0 12px 24px #123f6322}
+}
+#page button:not(:disabled):active,#modal button:not(:disabled):active,.login button:not(:disabled):active{translate:0 0;scale:.97}
+@keyframes central-shimmer{from{background-position:180% 0}to{background-position:-40% 0}}
+@keyframes central-loading-spin{to{transform:rotate(360deg)}}
+@keyframes central-dialog-arrive{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+ .central-motion-surface,[data-motion-loading=true]::before,.central-motion-surface::after,.loading-card::after,body:not(.logs-page) dialog[open]{animation:none!important;transition:none!important}
+ #page button,#modal button,.login button,#page .central-motion-surface{transition:none!important}
+ #page button:hover,#modal button:hover,.login button:hover,#page button:active,#modal button:active,.login button:active,#page .central-motion-surface:hover{translate:none!important;scale:none!important}
+}
+
+[data-motion-loading=true] .central-motion-surface:has(.central-motion-surface)::after{content:none}
+.login:has(#real-login [type=submit]:disabled) .central-motion-surface::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 15%,#8dc7ff40 48%,transparent 80%);background-size:220% 100%;animation:central-shimmer 1.3s linear infinite}
