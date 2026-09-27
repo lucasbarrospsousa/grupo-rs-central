@@ -4,9 +4,9 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const arrow='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 9 7 7 7-7"/></svg>';
 const colors=['#ee3452','#ff880a','#e8af08','#12ae68'];
 const cache=new Map();
-export function mountLiveOverview({repo,showModal,notify}){
+export function mountLiveOverview({repo,showModal,notify,render}){
  const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel" id="stock-panorama"></section><div class="grid chart-grid"><section class="panel"><div class="live-heading"><h2>Veículos em manutenção por base</h2><button id="live-refresh">Atualizar manutenções</button></div><span class="pill" id="live-complete">Consultando bases</span><div class="live-progress" id="base-progress" role="status"></div><p class="muted">Do maior para o menor • clique para ver os veículos</p><div id="base-chart"></div></section><section class="panel live-total"><h3>Total de veículos em manutenção</h3><div class="total" id="base-total">—</div><p class="muted" id="total-note">Aguardando consulta</p></section></div>`;document.querySelector('#page').prepend(p);
- mountStockOverview({repo,host:p.querySelector('#stock-panorama'),showModal});
+ mountStockOverview({repo,host:p.querySelector('#stock-panorama'),showModal,notify,render});
  const results=new Map(),errors=new Map();let running=false;
  function list(base,data){
   let page=0,perPage=8;const collapsed=new Set();
