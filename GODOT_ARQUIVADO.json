@@ -2,7 +2,7 @@
   "status": "historico_arquivado",
   "date": "2026-09-26",
   "scope": "Godot somente; web e backend ativos excluidos",
-  "mode": "preservado_no_local",
+  "mode": "movido_para_subpasta",
   "explicit_user_permission_required": [
     "consulta",
     "pesquisa",
@@ -12,5 +12,6 @@
     "exportacao",
     "reativacao"
   ],
-  "os_access_control_changed": false
+  "os_access_control_changed": false,
+  "archive_path": "C:\\Users\\lugan\\OneDrive\\Documentos\\Sidera Code\\Grupo RS Central\\app\\projetos arquivados"
 }
