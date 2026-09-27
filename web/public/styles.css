@@ -193,3 +193,8 @@ tbody tr.vehicle:hover,.branch-card:hover{transform:none}
 
 @media(max-width:700px){.demo-strip>span{display:block}.demo-strip>span+span{margin-top:5px}}
 [hidden]{display:none!important}
+
+/* Data pending: never present missing values as confirmed zeros. */
+.loading-card{min-height:150px}.loading-placeholder{display:block;width:65%;height:28px;border-radius:8px;background:linear-gradient(90deg,#e6eef7,#c7dff4,#e6eef7);background-size:200% 100%;margin:20px 0;animation:central-loading 1.4s ease-in-out infinite}
+@keyframes central-loading{to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){.loading-placeholder{animation:none}}
