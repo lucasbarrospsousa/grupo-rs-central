@@ -36,13 +36,11 @@ export function installPageMotion(repo){
   schedule();
  });
  for(const node of [document.querySelector('#app'),document.querySelector('#modal')])if(node)observer.observe(node,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-busy','open']});
- // User-driven local filters/pagination get one reveal after the DOM is updated.
- let intentTimer;
+ // Clicks identify explicit requests; they never reset already visible cards.
  const intent=e=>{
   if(!e.isTrusted||!e.target.closest('#page,#modal,.login'))return;
   if(e.type==='input'&&!e.target.matches('input[type=search],input[id*=query],input[id*=search]'))return;
-  lastIntent=performance.now();const root=currentRoot();clearTimeout(intentTimer);
-  intentTimer=setTimeout(()=>{if(!root?.isConnected||excluded(root))return;stateFor(root).seen.clear();schedule();},e.type==='input'?250:40);
+  lastIntent=performance.now();
  };
  for(const type of ['click','change','submit','input'])document.addEventListener(type,intent,true);
  if(repo.real){const request=repo.request;
