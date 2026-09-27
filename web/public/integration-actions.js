@@ -1,3 +1,4 @@
+import {startEconomyPolling} from './usage-control.mjs';
 import {mountSmsLive} from './sms-live.js';
 import {openDischarge} from './discharge-panel.js';
 import {mountLiveOverview} from './overview-live.js';
@@ -11,8 +12,8 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
  const updateSync=()=>query('sync-status').then(s=>{if(!syncNote.isConnected)return;syncNote.classList.remove('sync-warning');syncNote.textContent=(s.enabled?'Atualização automática ativa':'Atualização automática pausada')+' • ciclo '+s.cycle+' • '+s.completed+'/'+s.total+' aparelhos • intervalo '+s.interval_minutes+' min entre ciclos'+(s.alerts.length?' • '+s.alerts.length+' integração(ões) pausada(s)':'');
  syncNote.title=syncNote.textContent;if(route==='maintenance')syncNote.textContent=(s.enabled?(s.completed===s.total?'Consulta concluída':'Consultando '+s.completed+'/'+s.total):'Consulta pausada')+' • ciclo de '+s.interval_minutes+' min';
  if(s.alerts.length){syncNote.classList.add('sync-warning');for(const a of s.alerts){const p=document.createElement('p');p.textContent=a.source+' — '+a.message;syncNote.append(p);}}
- }).catch(e=>{if(syncNote.isConnected)syncNote.textContent='Atualização automática: '+e.message;});
- if(route==='settings')syncNote.remove();else void updateSync();const syncTimer=setInterval(()=>{if(!syncNote.isConnected){clearInterval(syncTimer);return;}void updateSync();},60000);
+ }).catch(e=>{if(syncNote.isConnected)syncNote.textContent='Atualização automática: '+e.message;return false;});
+ if(route==='settings')syncNote.remove();else void updateSync();startEconomyPolling(updateSync,{interval:300000,alive:()=>syncNote.isConnected});
  const run=async(button,fn)=>{button.disabled=true;try{await fn();}catch(e){notify(e.message);}finally{button.disabled=false;}};
  const labels={serial:'Número de série',plate:'Placa / identificação',client:'Cliente',phone:'Telefone do chip',iccid:'ICCID',apn:'APN',lat:'Latitude',lng:'Longitude',speed:'Velocidade',ignition:'Ignição',battery:'Bateria',updated_at:'Última comunicação',gps_at:'Data GPS',source:'Fonte',queried_at:'Consultado em',message:'Resultado',category:'Classificação',provider:'Operadora consultada',status:'Situação',operator:'Operadora'};
  const details=(title,data)=>showModal(title,'<div class="detail-list">'+Object.entries(data).filter(([k,v])=>typeof v!=='object'&&!['ok','vehicle_id'].includes(k)).map(([k,v])=>'<div>'+esc(labels[k]||k)+'<b>'+esc(v===null||v===undefined||v===''?'Não informado':v)+'</b></div>').join('')+'</div>','medium');

@@ -1,3 +1,5 @@
+import {mountUsageControl} from './usage-control.mjs';
+mountUsageControl();
 import {installPageMotion} from './page-motion.js';
 import {mountSystemLogs,installActionJournal} from './system-logs.js';
 import {mountUsers} from './users-page.js';

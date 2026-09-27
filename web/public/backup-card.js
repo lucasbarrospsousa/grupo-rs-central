@@ -1,3 +1,4 @@
+import {startEconomyPolling} from './usage-control.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date=v=>v?new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short',timeZone:'America/Fortaleza'}):'Ainda não realizado';
 export const bytes=v=>v==null?'Não consultado':v>=1e9?(v/1e9).toLocaleString('pt-BR',{maximumFractionDigits:2})+' GB':v>=1e6?(v/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1})+' MB':(v/1e3).toLocaleString('pt-BR',{maximumFractionDigits:1})+' KB';
@@ -28,8 +29,8 @@ export function mountBackupCard({repo}){
  const card=document.createElement('section');card.className='panel backup-card';card.setAttribute('aria-label','Saúde dos backups no Google Drive');card.innerHTML='<p role="status">Conferindo proteção dos dados…</p>';root.append(card);let busy=false;
  async function refresh(){if(busy||!card.isConnected)return;busy=true;const button=card.querySelector('[data-backup-refresh]');if(button)button.disabled=true;
   try{const s=await repo.request('backups/status');if(card.isConnected){card.innerHTML=backupCard(s);card.querySelector('[data-backup-refresh]').onclick=refresh;}}
-  catch(e){if(card.isConnected){card.replaceChildren();const p=document.createElement('p');p.textContent='Não foi possível consultar a saúde dos backups. '+e.message;card.append(p);const b=document.createElement('button');b.textContent='Tentar novamente';b.onclick=refresh;card.append(b);}}
+  catch(e){if(card.isConnected){card.replaceChildren();const p=document.createElement('p');p.textContent='Não foi possível consultar a saúde dos backups. '+e.message;card.append(p);const b=document.createElement('button');b.textContent='Tentar novamente';b.onclick=refresh;card.append(b);}return false;}
   finally{busy=false;}
  }
- void refresh();const timer=setInterval(()=>{if(!card.isConnected){clearInterval(timer);return;}if(!document.hidden)void refresh();},60000);
+ void refresh();startEconomyPolling(refresh,{interval:600000,alive:()=>card.isConnected});
 }
