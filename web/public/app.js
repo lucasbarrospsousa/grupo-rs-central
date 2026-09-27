@@ -1,3 +1,4 @@
+import {mountSystemLogs,installActionJournal} from './system-logs.js';
 import {mountUsers} from './users-page.js';
 import {mountSidebar} from './sidebar.js';
 import {accessControl,isReader,restrictedRoute} from './access-control.js';
@@ -20,7 +21,7 @@ import { SqlRepository } from './sql-repository.js';
 const repo = ['homologacao','production'].includes(mode) ? new SqlRepository() : new DemoRepository();
 const app = document.querySelector('#app');
 const modal = document.querySelector('#modal');
-if(repo.real)accessControl(repo);
+if(repo.real){accessControl(repo);installActionJournal(repo);}
 const state = { entered: false, branch: 'imperatriz', route: 'overview', warehouseTab: 'device', selected: new Set() };
 const escape = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const paths = { home: '<path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z"/>', box: '<path d="m3 7 9-5 9 5v10l-9 5-9-5zM3 7l9 5 9-5M12 12v10M7 5l10 5"/>', fork: '<path d="M3 4v12h10V8H7V4zM15 3v15h7M13 16h3"/><circle cx="6" cy="19" r="2"/><circle cx="13" cy="19" r="2"/>', tool: '<path d="M15 3a6 6 0 0 0-7 7L2 17l5 5 7-7a6 6 0 0 0 7-7l-5 4-4-4z"/>', map: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>', mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 5 10 8L22 5"/>', settings: '<path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="9" cy="18" r="2"/>', down: '<path d="m6 9 6 6 6-6"/>', right: '<path d="m9 5 7 7-7 7"/>', close: '<path d="m5 5 14 14M19 5 5 19"/>', refresh: '<path d="M20 7A9 9 0 1 0 21 15M20 2v6h-6"/>', search: '<circle cx="10" cy="10" r="7"/><path d="m15 15 7 7"/>', plus: '<path d="M12 4v16M4 12h16"/>', out: '<path d="M9 3H3v18h6M9 12h13m-5-5 5 5-5 5"/>', phone: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>', chip: '<path d="M8 2h9l4 5v15H3V2z"/><rect x="7" y="9" width="10" height="9" rx="1"/>', file: '<path d="M4 2h11l5 5v15H4zM14 2v6h6M8 12h8M8 16h8"/>' };
@@ -53,11 +54,12 @@ function login() {
   app.innerHTML = `<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>GRUPO RS CENTRAL</small><h1>Uma Central.<br>Todas as bases.</h1><p>Estoque, manutenção e operação em um só lugar.</p></section><section class="login-main"><span class="pill">VERSÃO WEB • PRÉVIA LOCAL</span><h1>Acesse a Central</h1><p>A estrutura web está em preparação. Você pode explorar os fluxos com dados demonstrativos, sem informar senha.</p><label class="field">Filial inicial<select id="login-branch">${branchOptions(state.branch)}</select></label>${button('Explorar demonstração', 'enter', 'primary', 'right')}<div class="gate" style="margin-top:25px"><strong>Conexão com o banco pendente</strong><br>O login real será conectado após sua autorização. Os exemplos são reiniciados ao recarregar a página.</div></section></main>`;
   on('enter', 'click', () => { state.branch = document.querySelector('#login-branch').value; state.entered = true; render(); });
 }
-const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings']];
+const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings'], ['logs','Logs do sistema','file']];
 let renderVersion=0;
 function render() {
   const version=++renderVersion;
-  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route','warehouse','sms','settings','users'].includes(state.route));
+  document.body.classList.toggle('logs-page',state.entered&&state.route==='logs');
+  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route','warehouse','sms','settings','users','logs'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
   document.body.classList.toggle('bulk-page', state.entered && state.route === 'bulk');
   document.body.classList.toggle('maintenance-page', state.entered && state.route === 'maintenance');
@@ -81,7 +83,7 @@ function render() {
     document.querySelector('.demo-strip').innerHTML='<strong>HOMOLOGAÇÃO SQL</strong><span>Cópia do backup • ações persistem somente nesta área de testes</span>';
     document.querySelector('.bottom small').textContent='Conectado • '+repo.user.username;
     if(mode==='production'){document.querySelector('.demo-strip').className='release-strip';document.querySelector('.release-strip').innerHTML='<span>Acesso exclusivo • '+escape(repo.user.username)+'</span><span>Dados salvos na Central online</span>';document.querySelector('.footer-note').textContent='Grupo RS Central • versão 1.0';}
-    if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms','users'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
+    if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms','users','logs'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
   }
   const mountNavigation=()=>mountSidebar({route:state.route,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real)await repo.logout();state.entered=false;state.selected.clear();render();})});
   if(repo.real){
@@ -99,7 +101,7 @@ function render() {
       return;
     }
   }
-  ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk,users:()=>mountUsers({repo,showModal,notify}) })[state.route]();
+  ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk,logs:()=>mountSystemLogs({repo,showModal}),users:()=>mountUsers({repo,showModal,notify}) })[state.route]();
   mountNavigation();
   if(repo.real){
     for(const selector of ['.link-demo','.consult-intro']){const el=document.querySelector(selector);if(el)el.textContent='Dados da Central • consulte a plataforma para conferir o estado atual.';}
@@ -113,7 +115,7 @@ function render() {
     if(state.route==='warehouse'&&repo.user.branches.find(b=>b.id===state.branch)?.role!=='admin'){document.querySelectorAll('#new-item,#review-transfer,[data-remove]').forEach(b=>{b.disabled=true;b.title='Escrita no armazém ainda em validação';});}
 
     if(readonly)document.querySelectorAll('#stock-new,[data-edit],[data-delete]').forEach(b=>{b.disabled=true;b.title='Usuário somente de leitura';});
-    mountIntegrationActions({repo,branch:state.branch,route:state.route,showModal,notify,render});
+    if(state.route!=='logs')mountIntegrationActions({repo,branch:state.branch,route:state.route,showModal,notify,render});
   }
 }
 const page = html => document.querySelector('#page').innerHTML = html;

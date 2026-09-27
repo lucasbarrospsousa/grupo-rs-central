@@ -95,3 +95,9 @@ Recuperação da ponte: o inicializador resolve o Node pelo caminho instalado, s
 
 ## Assinatura SideraCode
 Faixa fixa compartilhada por todas as abas e login, com logo oficial transparente para fundo escuro e texto Desenvolvido por. Espaço reservado abaixo da página e da barra lateral, movimento reduzido respeitado, oculta na impressão.
+
+## Logs do sistema — 27/09/2026
+
+Acesse **Logs do sistema** no menu lateral, usando lucasabm. A aba reúne todas as filiais, permite pesquisar usuário/registro/ação e filtrar módulo, resultado e período. Os cards refletem o filtro; Detalhes apresenta antes/depois nos campos que foram auditados. Horários são exibidos em Fortaleza.
+
+O novo histórico conserva até 10.000 registros ou 8 MiB de conteúdo, descartando os mais antigos apenas dessa tabela. A auditoria original continua preservada. Senhas e credenciais não são guardadas; ações de interface ficam separadas das gravações transacionais. O quadro de armazenamento informa consumo real, sem inventar espaço livre do plano. Atualizar/Pesquisar relê o histórico. Veja [relatório técnico](../Relatorios/LOGS_DO_SISTEMA_2026-09-27.md).

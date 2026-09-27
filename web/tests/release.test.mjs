@@ -15,7 +15,7 @@ test('warehouse default API checks the carrier before insertion and rejects an u
  const original=integrations.carrier;let confirmed=true,checks=0,inserts=0;
  integrations.carrier=async(provider,serial)=>{assert.equal(provider,'arya');assert.equal(serial,'8955320210000000001');checks++;return{ok:confirmed};};
  const client={release(){},async query(sql){if(sql.startsWith('insert into central_homologacao.warehouse_items'))inserts++;return{rows:[],rowCount:1};}};
- const pool={async connect(){return client;},async query(sql){return{rows:sql.includes('sessions s')?[{user_id:'00000000-0000-4000-8000-000000000001',csrf_hash:hash('test'),username:'test'}]:[{role:'admin'}]};}};
+ const pool={async connect(){return client;},async query(sql){return{rows:sql.includes('user_permissions')?[{views:['warehouse'],writes:['warehouse']}]:sql.includes('sessions s')?[{user_id:'00000000-0000-4000-8000-000000000001',csrf_hash:hash('test'),username:'test'}]:[{role:'admin'}]};}};
  async function call(){let status,result;const req={url:'/api/warehouse?branch=imperatriz',method:'POST',headers:{host:'localhost',origin:'http://localhost',cookie:'central_session='+'a'.repeat(64),'x-csrf-token':'test','idempotency-key':'00000000-0000-4000-8000-000000000002'},async *[Symbol.asyncIterator](){yield JSON.stringify({kind:'chip',serial:'8955320210000000001'});}};await api(pool)(req,{writeHead(code){status=code;},end(text){result=JSON.parse(text);}});return{status,result};}
  try{assert.equal((await call()).status,200);assert.equal(inserts,1);confirmed=false;assert.equal((await call()).status,422);assert.equal(inserts,1);assert.equal(checks,2);}finally{integrations.carrier=original;}
 });

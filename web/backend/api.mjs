@@ -1,4 +1,5 @@
 import {Buffer} from 'node:buffer';
+import {audited,readLogs,appendLog,logModules} from './system-logs.mjs';
 import {backupStatus} from './backup-status.mjs';
 import {userAccess,permitted,manageUsers} from './user-access.mjs';
 import {integrationRoute} from './integration-routes.mjs';
@@ -12,7 +13,7 @@ const states=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const reply=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
 const fail=(status,message)=>Object.assign(Error(message),{status});
 async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>131072)throw fail(413,'Solicitação muito grande.');}try{return JSON.parse(raw||'{}');}catch{throw fail(400,'JSON inválido.');}}
-export function api(pool,{integrationService=integrations}={}){return async(req,res)=>{
+export function api(pool,{integrationService=integrations}={}){return audited(pool,async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(!url.pathname.startsWith('/api/'))return false;
   try{
@@ -25,6 +26,7 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       const b=await body(req);if(typeof b.username!=='string'||typeof b.password!=='string'||b.password.length>256)throw fail(400,'Informe usuário e senha.');
       const u=(await pool.query('select * from central_homologacao.users where username=$1 and active',[b.username.trim().toLowerCase()])).rows[0];
       if(!passwordMatches(b.password,u?.password_hash||dummy)||!u)throw fail(401,'Usuário ou senha inválidos.');
+      req.auditUser={user_id:u.id,username:u.username};
       if(u.password_hash.startsWith('legacy-sha256:'))await pool.query('update central_homologacao.users set password_hash=$2 where id=$1',[u.id,passwordHash(b.password)]);
       const sid=token(),csrf=hash(sid+':csrf');
       await pool.query(`insert into central_homologacao.sessions(token_hash,user_id,csrf_hash,expires_at) values($1,$2,$3,now()+$4::interval)`,[hash(sid),u.id,hash(csrf),b.remember?'30 days':'12 hours']);
@@ -32,6 +34,7 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       reply(res,200,{csrf});return true;
     }
     const user=await session(pool,req);if(!user)throw fail(401,'Entre no sistema para continuar.');
+    req.auditUser=user;
     if(mutation&&hash(String(req.headers['x-csrf-token']||''))!==user.csrf_hash)throw fail(403,'Sessão de formulário inválida. Atualize a página.');
     if(url.pathname==='/api/session'&&req.method==='GET'){
       const permissions=await userAccess(pool,user);
@@ -48,7 +51,13 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       reply(res,200,{lastActivityAt:updated.rows[0].last_activity_at});return true;
     }
     const permissions=await userAccess(pool,user);
-    if(url.pathname==='/api/users'||/^\/api\/users\/[a-f0-9-]{36}$/.test(url.pathname)){if(!permissions.owner)throw fail(403,'Somente lucasabm pode administrar usuários.');reply(res,200,await manageUsers(pool,permissions,req.method,url.pathname.split('/')[3],req.method==='GET'?{}:await body(req)));return true;}
+    if(url.pathname==='/api/logs'&&req.method==='GET'){reply(res,200,await readLogs(pool,permissions,url.searchParams));return true;}
+    if(url.pathname==='/api/ui-event'&&req.method==='POST'){
+      const b=await body(req);
+      if(!logModules.includes(b.module)||!['OPEN','SEARCH','FILTER','EXPORT','DETAIL','CLICK'].includes(b.action)||(!permissions.owner&&!permissions.views.includes(b.module)))throw fail(403,'Evento não permitido.');
+      await appendLog(pool,user,{module:b.module,action:b.action,outcome:'interface',details:{source:'interface'},branch:null});reply(res,200,{ok:true});return true;
+    }
+    if(url.pathname==='/api/users'||/^\/api\/users\/[a-f0-9-]{36}$/.test(url.pathname)){if(!permissions.owner)throw fail(403,'Somente lucasabm pode administrar usuários.');reply(res,200,await manageUsers(pool,permissions,req.method,url.pathname.split('/')[3],req.method==='GET'?{}:await body(req),user));return true;}
     if(!permitted(permissions,url.pathname,req.method))throw fail(403,'Seu usuário não tem permissão para esta operação.');
     if(mutation){const access=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,url.searchParams.get('branch')])).rows[0];if(!access||access.role==='reader')throw fail(403,'Usuário somente de consulta.');}
     if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
@@ -116,4 +125,4 @@ export function api(pool,{integrationService=integrations}={}){return async(req,
       await client.query('COMMIT');reply(res,200,response);return true;
     }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
   }catch(e){if(e.code==='23514'&&e.message.startsWith('Chip já associado'))e=fail(409,'Chip já associado a outro aparelho. Confira a vinculação antes de salvar.');reply(res,e.status|| (e.code==='23505'?409:503),{error:e.status?e.message:e.code==='23505'?'Série já cadastrada nesta filial.':'Não foi possível concluir a operação. Tente novamente.'});return true;}
-};}
+});}
