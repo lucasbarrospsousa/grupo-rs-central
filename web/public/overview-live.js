@@ -1,10 +1,12 @@
+import {mountStockOverview} from './stock-overview.js';
 import {filterVehicles} from './domain.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arrow='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 9 7 7 7-7"/></svg>';
 const colors=['#ee3452','#ff880a','#e8af08','#12ae68'];
 const cache=new Map();
 export function mountLiveOverview({repo,showModal,notify}){
- const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel"><div class="live-heading"><div><h2>Panorama do grupo <span class="pill" id="live-complete">Consultando bases</span></h2><p class="muted">Veículos em manutenção nas plataformas do Grupo RS.</p></div><button id="live-refresh">Atualizar plataformas</button></div><div class="grid four live-grid" id="live-bases"></div><div class="live-progress" id="base-progress" role="status"></div></section><div class="grid chart-grid"><section class="panel"><h2>Veículos em manutenção por base</h2><p class="muted">Do maior para o menor • clique para ver os veículos</p><div id="base-chart"></div></section><section class="panel live-total"><h3>Total de veículos em manutenção</h3><div class="total" id="base-total">—</div><p class="muted" id="total-note">Aguardando consulta</p></section></div>`;document.querySelector('#page').prepend(p);
+ const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel" id="stock-panorama"></section><div class="grid chart-grid"><section class="panel"><div class="live-heading"><h2>Veículos em manutenção por base</h2><button id="live-refresh">Atualizar manutenções</button></div><span class="pill" id="live-complete">Consultando bases</span><div class="live-progress" id="base-progress" role="status"></div><p class="muted">Do maior para o menor • clique para ver os veículos</p><div id="base-chart"></div></section><section class="panel live-total"><h3>Total de veículos em manutenção</h3><div class="total" id="base-total">—</div><p class="muted" id="total-note">Aguardando consulta</p></section></div>`;document.querySelector('#page').prepend(p);
+ mountStockOverview({repo,host:p.querySelector('#stock-panorama'),showModal});
  const results=new Map(),errors=new Map();let running=false;
  function list(base,data){
   let page=0,perPage=8;const collapsed=new Set();
@@ -23,7 +25,6 @@ export function mountLiveOverview({repo,showModal,notify}){
  }
  function paint(){
   const rows=[...results.values()].sort((a,b)=>b.count-a.count),max=Math.max(1,...rows.map(r=>r.count));
-  p.querySelector('#live-bases').innerHTML=repo.user.branches.map(base=>{const r=results.get(base.id),error=errors.get(base.id),rank=rows.findIndex(r=>r.base.id===base.id);return '<button class="branch-card" data-base="'+esc(base.id)+'" style="--color:'+colors[Math.max(0,rank)]+'" '+(!r?'disabled':'')+' aria-busy="'+(!r&&!error)+'"><strong>'+esc(base.name)+'</strong><b class="value">'+(r?r.count.toLocaleString('pt-BR'):error?'Pendente':'—')+'</b><small>'+(r?'veículos em manutenção':error?'Não foi possível consultar':'Consultando plataforma…')+'</small><div class="foot">'+(r?'Ver veículos ›':error?'Use Atualizar para tentar novamente':'Aguarde')+'</div></button>';}).join('');
   p.querySelector('#live-complete').textContent=results.size+' de '+repo.user.branches.length+' bases consultadas';
   p.querySelector('#base-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>repo.user.branches.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando as bases…':'Atualizado às '+new Date().toLocaleTimeString('pt-BR');
   p.querySelector('#base-chart').innerHTML=rows.map((r,i)=>'<button class="chart-row" data-base="'+esc(r.base.id)+'"><span>'+esc(r.base.name)+'</span><span class="track" style="--color:'+colors[i]+';--width:'+r.count/max*100+'%"><i></i></span><b>'+r.count+'</b></button>').join('')||'<p class="empty">Os totais aparecerão após a consulta.</p>';
