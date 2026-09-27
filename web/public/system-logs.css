@@ -3,3 +3,31 @@
 .logs-cards article:first-child small{color:#dbeeff}
 
 @media(max-width:700px){body.logs-page .app-layout,body.logs-page .app-layout:not(.sidebar-collapsed),body.logs-page .app-layout.sidebar-collapsed{grid-template-columns:minmax(0,1fr)}body.logs-page .central-sidebar{position:fixed;top:110px;left:0;height:calc(100dvh - 110px);z-index:20}body.logs-page .content>.top{height:auto;min-height:110px;position:sticky;top:0;z-index:21;flex-wrap:wrap;gap:10px;padding:12px;background:#f8fbfe}body.logs-page .content>.top h1{font-size:21px}body.logs-page .content>.top .actions{display:flex;gap:8px}body.logs-page .content>.top select{max-width:180px}body.logs-page .table-wrap{overflow-x:auto}body.logs-page .logs-results table{min-width:760px}}
+
+/* Animate confirmed data, after the asynchronous request, without freezing hover. */
+.system-logs .logs-cards article{animation:none;position:relative;overflow:hidden;transition:transform .22s ease,box-shadow .22s ease}
+.system-logs .logs-cards.logs-ready article{animation:logs-card-arrive .65s cubic-bezier(.2,.8,.2,1) backwards}
+.system-logs .logs-cards.logs-ready article:nth-child(2){animation-delay:.09s}
+.system-logs .logs-cards.logs-ready article:nth-child(3){animation-delay:.18s}
+.system-logs .logs-cards.logs-ready article:nth-child(4){animation-delay:.27s}
+.system-logs .logs-cards article:hover{transform:translateY(-6px);box-shadow:0 16px 30px #12375522}
+.system-logs[aria-busy=true] .logs-cards article::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 20%,#92c8ff35 48%,transparent 76%);animation:logs-loading 1.25s linear infinite}
+.system-logs[aria-busy=true] .logs-message::before{content:"";display:inline-block;width:12px;height:12px;margin-right:9px;border:2px solid #c6e0f5;border-top-color:#087ac2;border-radius:50%;vertical-align:-2px;animation:logs-spin .8s linear infinite}
+.system-logs .logs-results tbody tr{animation:logs-row-arrive .4s ease-out backwards}
+.system-logs .logs-results tbody tr:nth-child(2){animation-delay:.04s}
+.system-logs .logs-results tbody tr:nth-child(3){animation-delay:.08s}
+.system-logs .logs-results tbody tr:nth-child(n+4){animation-delay:.12s}
+.system-logs button:not(:disabled):hover{transform:translateY(-3px);box-shadow:0 7px 16px #16466b22}
+.system-logs button:not(:disabled):active{transform:translateY(0) scale(.96);box-shadow:none}
+.system-logs button:focus-visible{outline:3px solid #7dc1f3;outline-offset:3px}
+.system-logs .logs-storage[open]>p{animation:logs-row-arrive .35s ease-out backwards}
+body.logs-page dialog[open]:has(.log-detail){animation:logs-dialog-arrive .32s cubic-bezier(.2,.8,.2,1)}
+body.logs-page .log-detail article{animation:logs-card-arrive .4s ease-out backwards}
+body.logs-page .log-detail article:nth-of-type(2){animation-delay:.07s}
+body.logs-page .log-detail article:nth-of-type(n+3){animation-delay:.14s}
+@keyframes logs-card-arrive{from{opacity:0;translate:0 20px;scale:.97}to{opacity:1;translate:0 0;scale:1}}
+@keyframes logs-row-arrive{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}
+@keyframes logs-dialog-arrive{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes logs-loading{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+@keyframes logs-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){body.logs-page .system-logs *,body.logs-page .system-logs *::before,body.logs-page .system-logs *::after,body.logs-page dialog[open]:has(.log-detail),body.logs-page .log-detail *{animation:none!important;transition:none!important}body.logs-page .system-logs button:hover,body.logs-page .logs-cards article:hover{transform:none}}

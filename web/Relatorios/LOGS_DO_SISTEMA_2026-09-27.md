@@ -32,3 +32,6 @@ node tools/test-system-logs-sql.mjs e node tools/test-system-logs-api.mjs desfaz
 node tools/build-hosting.mjs prepara o Site, API e worker de backup. node tools/deploy-backup-worker.mjs atualiza somente o código do worker existente; não muda agendamento nem credenciais.
 
 Dados reais, imagens de clientes, credenciais e arquivos de backup SQL ficam fora do GitHub e da cópia pública de código.
+
+## Ajuste das animações
+Entrada dos cards disparada após a consulta, em sequência; hover livre após a entrada; carregamento com brilho e indicador giratório; linhas e detalhes com transição. Chrome validou animação ativa após resposta, hover, janela e movimento reduzido, além dos filtros e paginação.
