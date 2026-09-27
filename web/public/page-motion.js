@@ -49,7 +49,7 @@ export function installPageMotion(repo){
    const visible=!!root&&!excluded(root)&&kind!=='quiet'&&(kind!=='initial'||!state.reads.has(path)||manual);
    if(visible){state.reads.add(path);clearTimeout(state.timer);if(!state.pending)state.failed=false;state.pending++;root.setAttribute('data-motion-loading','true');schedule();}
    try{return await request.call(this,path,options);}catch(error){if(visible)state.failed=true;throw error;}
-   finally{if(visible){state.pending--;if(!state.pending)state.timer=setTimeout(()=>{if(!root.isConnected||state.pending)return;root.removeAttribute('data-motion-loading');if(!state.failed)state.seen.clear();schedule();},100);}}
+   finally{if(visible){state.pending--;if(!state.pending)state.timer=setTimeout(()=>{if(!root.isConnected||state.pending)return;root.removeAttribute('data-motion-loading');schedule();},100);}}
   };
  }
  reduced.addEventListener('change',()=>{if(reduced.matches)for(const a of active)a.cancel();});schedule();
