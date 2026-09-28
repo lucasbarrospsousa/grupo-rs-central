@@ -101,3 +101,14 @@ Faixa fixa compartilhada por todas as abas e login, com logo oficial transparent
 Acesse **Logs do sistema** no menu lateral, usando lucasabm. A aba reúne todas as filiais, permite pesquisar usuário/registro/ação e filtrar módulo, resultado e período. Os cards refletem o filtro; Detalhes apresenta antes/depois nos campos que foram auditados. Horários são exibidos em Fortaleza.
 
 O novo histórico conserva até 10.000 registros ou 8 MiB de conteúdo, descartando os mais antigos apenas dessa tabela. A auditoria original continua preservada. Senhas e credenciais não são guardadas; ações de interface ficam separadas das gravações transacionais. O quadro de armazenamento informa consumo real, sem inventar espaço livre do plano. Atualizar/Pesquisar relê o histórico. Veja [relatório técnico](../Relatorios/LOGS_DO_SISTEMA_2026-09-27.md).
+
+
+## Controle de consultas automáticas — 28/09/2026
+
+Em Configurações, a administração encontra “Consultas automáticas e consumo”. Permite ligar/desligar o sincronizador das quatro bases e selecionar 5, 10, 30 minutos ou 1 dia. A alteração persiste no servidor, com sessão, permissão de proprietário e CSRF. Consultas das páginas, botões e testes manuais não dependem desse interruptor. Um lote já iniciado pode terminar.
+
+O intervalo passa a valer entre lotes de até 50 aparelhos, além da espera ao terminar a fila. Portanto 1 dia não significa renovar todo o estoque diariamente. O agendador SQL verifica estado, intervalo, próxima execução e trava antes de enviar HTTP à função. O sync_claim também aplica o intervalo, protegendo chamadas diretas. O controle do Portal pode espaçar o cron ainda mais, mas não pode encurtar o mínimo salvo aqui nem reativar a coleta. Reinstalar tools/schedule-sync.mjs preserva preferências.
+
+O gráfico soma requisições HTTP efetivamente tentadas pelas integrações Grupo RS API, portais, Arya/Innova e Link Solutions. Inclui login e repetição; falhas contam separadamente. “Páginas e botões” inclui as consultas disparadas pelas páginas abertas. Não mede GB de logs, banco, Drive, SMS da ponte local ou cobrança Supabase. Sem retroatividade. Guarda apenas agregados diários por origem e integração por 30 dias UTC, sem credenciais, URLs de consulta ou dados de clientes; grava uma vez por atendimento/lote. Falha de telemetria não bloqueia a operação e produz aviso técnico, portanto os totais não equivalem a auditoria financeira garantida.
+
+Migração 019 e ferramenta tools/migrate-automation.mjs validam pausa, intervalos e contadores com rollback dos dados de teste. Não ativar/desativar a operação apenas para testes. Implantação da API via build-hosting/deploy-edge; frontend pelo fluxo Sites. Validação desta entrega: 129 testes Node, testes SQL transacionais e interface sintética em 1440×900 e 390×844, incluindo salvar, desligar, filtro e ausência de erros/overflow. Não houve baixa ou escrita nas plataformas externas.

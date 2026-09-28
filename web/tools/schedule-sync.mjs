@@ -6,12 +6,9 @@ try{
  await pool.query('CREATE EXTENSION IF NOT EXISTS pg_cron; CREATE EXTENSION IF NOT EXISTS pg_net;');
  const existing=(await pool.query("select id from vault.secrets where name='central_sync_token'")).rows[0];
  if(existing)await pool.query('select vault.update_secret($1,$2)',[existing.id,token]);else await pool.query('select vault.create_secret($1,$2,$3)',[token,'central_sync_token','Grupo RS Central: atualização automática somente leitura']);
- // Only the database owner can execute the dispatcher or read its Vault token.
- await pool.query(`CREATE OR REPLACE FUNCTION central_homologacao.dispatch_sync() RETURNS bigint LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog AS $$
- SELECT net.http_post(url:='https://vwiayytzmorcjeaszowg.supabase.co/functions/v1/central-api/internal/sync',headers:=jsonb_build_object('Content-Type','application/json','x-central-sync',(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='central_sync_token')),body:='{}'::jsonb,timeout_milliseconds:=90000)
- $$;REVOKE ALL ON FUNCTION central_homologacao.dispatch_sync() FROM PUBLIC,anon,authenticated,central_homologacao_web;`);
- // A minute dispatcher drains each bounded batch; a complete cycle waits 5 minutes.
+ // The migration owns the dispatcher and protects settings from scheduler reinstalls.
+ const version=Number((await pool.query('select max(version) version from central_homologacao.migrations')).rows[0].version);
+ if(version<19)throw Error('Aplique a migração 019 antes de configurar o agendador.');
  await pool.query("select cron.schedule('central-background-sync','* * * * *','select central_homologacao.dispatch_sync()')");
- await pool.query('update central_homologacao.sync_control set enabled=true,interval_minutes=5 where id');
- console.log('Agendamento ativo: lotes de até 50, sem sobreposição, intervalo de 5 minutos após cada ciclo.');
+ console.log('Agendador instalado; estado e intervalo existentes foram preservados.');
 }finally{await pool.end();}

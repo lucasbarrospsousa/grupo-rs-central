@@ -1,3 +1,4 @@
+import {trackQueries} from './query-usage.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {Integrations} from './integrations.mjs';
 export function guardedIntegrations(pool,service=new Integrations()){
@@ -11,7 +12,8 @@ export function guardedIntegrations(pool,service=new Integrations()){
  for(const method of ['api','portal','carrier']){const original=service[method].bind(service);service[method]=async(first,...args)=>{const credentials=method==='carrier'?(()=>{const s=service.secrets();return first==='arya'?[s.arya_email,s.arya_password]:[s.linksolutions_email,s.linksolutions_password];})():service.credentials(first,method==='api');return guard(method+':'+first,credentials,()=>original(first,...args));};}
  return service;
 }
-export async function syncTick(pool,{service,budgetMs=45000,now=Date.now}={}){
+export function syncTick(pool,options={}){return trackQueries(pool,'automatic',()=>runTick(pool,options));}
+async function runTick(pool,{service,budgetMs=45000,now=Date.now}={}){
  const lease=randomUUID(),batch=(await pool.query('select central_homologacao.sync_claim($1) as batch',[lease])).rows[0].batch;
  if(!batch.rows.length)return{processed:0,complete:!!batch.complete};
  service=service||guardedIntegrations(pool);let processed=0,cursor=0;const start=now();

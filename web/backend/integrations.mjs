@@ -1,3 +1,4 @@
+import {measuredRequest} from './query-usage.mjs';
 import {request as httpsRequest} from 'node:https';
 import {Buffer} from 'node:buffer';
 import {integrationSecrets} from './integration-secrets.mjs';
@@ -47,7 +48,7 @@ function json(text){let data;try{data=JSON.parse(text);}catch{throw err('Integra
 async function authenticate(fn){try{return await fn();}catch(e){if([401,403].includes(e.upstreamStatus)||/não confirmou autenticação|recusou a consulta|não confirmou autenticação/.test(e.message))e.credentialInvalid=true;throw e;}}
 export function connectionState(v){const text=String(v??'').trim().toLowerCase();if(['1','true','online','connected','conectado','on'].includes(text))return 'Online';if(['0','false','offline','disconnected','desconectado','off'].includes(text))return 'Off';return 'Não informado';}
 export class Integrations{
- constructor({secrets=integrationSecrets,request=transport}={}){this.secrets=secrets;this.request=request;this.sessions=new Map();this.health=new Map();}
+ constructor({secrets=integrationSecrets,request=transport}={}){this.secrets=secrets;this.request=(url,options)=>measuredRequest(request,url,options);this.sessions=new Map();this.health=new Map();}
  credentials(branch,api=false){const s=this.secrets(),prefix=branch==='imperatriz'?'grupo_rs_modern':'grupo_rs_legacy_'+branch;const username=(api&&branch==='imperatriz'?s.grupo_rs_api_user:'')||s[prefix+'_user']||s.grupo_rs_legacy_user||s.grupo_rs_modern_user;const password=(api&&branch==='imperatriz'?s.grupo_rs_api_password:'')||s[prefix+'_password']||s.grupo_rs_legacy_password||s.grupo_rs_modern_password;if(!username||!password)throw err('Acesso desta base não configurado.');return{username,password};}
  async session(branch){if(!ORIGINS[branch])throw err('Base inválida.',400);let s=this.sessions.get(branch);if(s&&Date.now()-s.at<15*60*1000)return s;s={at:Date.now(),cookies:new Map(),token:''};this.sessions.set(branch,s);return s;}
  async api(branch,path,retry=true){const s=await this.session(branch);if(!s.token){if(!s.login)s.login=authenticate(async()=>{const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/endpoints/v1/auth/login.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});s.token=tokenOf(json(r.text));if(!s.token)throw err('API não confirmou autenticação.');}).catch(e=>{e.message='Autenticação da API: '+e.message;throw e;}).finally(()=>{s.login=null;});await s.login;}

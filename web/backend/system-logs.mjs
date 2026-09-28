@@ -2,11 +2,11 @@ const fail=(status,message)=>Object.assign(Error(message),{status});
 export const logModules=['overview','stock','maintenance','warehouse','tracking','records','route','sms','link','bulk','settings','users','logs'];
 export function requestEvent(req,status){
  const url=new URL(req.url,'http://localhost'),parts=url.pathname.split('/').filter(Boolean),resource=parts[1];
- if(resource==='backups'&&req.method==='GET')return null;
+ if(['backups','automation'].includes(resource)&&req.method==='GET')return null;
  if(!resource||['activity','session','logs','ui-event'].includes(resource))return null;
  const background=['sync-status','health','operations','gateway','stock','maintenance'];
  if(req.method==='GET'&&resource==='integrations'&&background.includes(parts[2]))return null;
- const module=({login:'access',logout:'access',devices:'stock',history:'maintenance',maintenance:'maintenance',warehouse:'warehouse','warehouse-transfer':'warehouse',install:'stock',users:'users',bulk:'bulk',backups:'settings'})[resource]||'integrations';
+ const module=({login:'access',logout:'access',devices:'stock',history:'maintenance',maintenance:'maintenance',warehouse:'warehouse','warehouse-transfer':'warehouse',install:'stock',users:'users',bulk:'bulk',backups:'settings',automation:'settings'})[resource]||'integrations';
  return {module,action:req.method+' /'+parts.slice(1).map(p=>/^[a-f0-9-]{36}$/.test(p)?':id':p.slice(0,60)).join('/'),outcome:status<400?'success':'failure',entity:/^[a-f0-9-]{36}$/.test(parts.at(-1))?parts.at(-1):'',details:{http_status:status},branch:url.searchParams.get('branch')};
 }
 export async function appendLog(pool,user,event){

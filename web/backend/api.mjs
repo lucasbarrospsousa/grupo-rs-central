@@ -1,3 +1,4 @@
+import {trackQueries,automationInput,automationStatus} from './query-usage.mjs';
 import {Buffer} from 'node:buffer';
 import {audited,readLogs,appendLog,logModules} from './system-logs.mjs';
 import {backupStatus} from './backup-status.mjs';
@@ -13,7 +14,7 @@ const states=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const reply=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
 const fail=(status,message)=>Object.assign(Error(message),{status});
 async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>131072)throw fail(413,'Solicitação muito grande.');}try{return JSON.parse(raw||'{}');}catch{throw fail(400,'JSON inválido.');}}
-export function api(pool,{integrationService=integrations}={}){return audited(pool,async(req,res)=>{
+export function api(pool,{integrationService=integrations}={}){return audited(pool,(req,res)=>trackQueries(pool,'page',async()=>{
   const url=new URL(req.url,'http://localhost');
   if(!url.pathname.startsWith('/api/'))return false;
   try{
@@ -58,6 +59,15 @@ export function api(pool,{integrationService=integrations}={}){return audited(po
       await appendLog(pool,user,{module:b.module,action:b.action,outcome:'interface',details:{source:'interface'},branch:null});reply(res,200,{ok:true});return true;
     }
     if(url.pathname==='/api/users'||/^\/api\/users\/[a-f0-9-]{36}$/.test(url.pathname)){if(!permissions.owner)throw fail(403,'Somente lucasabm pode administrar usuários.');reply(res,200,await manageUsers(pool,permissions,req.method,url.pathname.split('/')[3],req.method==='GET'?{}:await body(req),user));return true;}
+    if(url.pathname==='/api/automation'){
+      if(!permissions.owner)throw fail(403,'Somente a administração pode acessar o controle global.');
+      if(req.method==='POST'){
+        const config=automationInput(await body(req));
+        await pool.query('select central_homologacao.configure_automation($1,$2)',[config.enabled,config.interval_minutes]);
+        await appendLog(pool,user,{module:'settings',action:'AUTOMATION',outcome:'success',details:config,branch:null});
+      }else if(req.method!=='GET')throw fail(405,'Método não permitido.');
+      reply(res,200,await automationStatus(pool));return true;
+    }
     if(!permitted(permissions,url.pathname,req.method))throw fail(403,'Seu usuário não tem permissão para esta operação.');
     if(mutation){const access=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,url.searchParams.get('branch')])).rows[0];if(!access||access.role==='reader')throw fail(403,'Usuário somente de consulta.');}
     if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
@@ -125,4 +135,4 @@ export function api(pool,{integrationService=integrations}={}){return audited(po
       await client.query('COMMIT');reply(res,200,response);return true;
     }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
   }catch(e){if(e.code==='23514'&&e.message.startsWith('Chip já associado'))e=fail(409,'Chip já associado a outro aparelho. Confira a vinculação antes de salvar.');reply(res,e.status|| (e.code==='23505'?409:503),{error:e.status?e.message:e.code==='23505'?'Série já cadastrada nesta filial.':'Não foi possível concluir a operação. Tente novamente.'});return true;}
-});}
+}));}
