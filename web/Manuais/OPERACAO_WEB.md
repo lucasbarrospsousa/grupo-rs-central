@@ -154,3 +154,9 @@ As consultas de páginas agora compartilham a proteção de credenciais do sincr
 Cadastro em massa passou a pedir placa, série ou identificação na busca de titular. A confirmação de vínculo normaliza a identificação e mostra o resultado da prévia antes de permitir escrita; uma prévia que falhou não habilita o botão.
 
 Validação: 147 testes Node, interface sintética no Chrome sem erros, oito consultas de conexão bem-sucedidas (veículos e equipamentos em quatro bases). Escritas externas testadas somente com respostas simuladas. Permanecem pendentes a criação remota com escolha documentada de titular e a classificação de manutenção remota, cuja regra não é fornecida na documentação atual.
+
+## Correção das permissões de backup — 30/09/2026
+
+A migração 022 restabelece leitura de todas as tabelas/sequências privadas para central_backup e políticas SELECT nas tabelas com RLS. query_usage, api_v2_budget e api_v2_leases haviam sido criadas após a configuração inicial, causando SQLSTATE 42501 antes do envio ao Drive. Não concede escrita operacional. Privilégios padrão do proprietário que executa as migrações concedem SELECT às próximas tabelas/sequências; futuras tabelas com RLS ainda devem incluir central_backup_read. Execute a ferramenta de conferência após migrações para verificar os acessos.
+
+`node web/tools/migrate-backup-permissions.mjs` aplica a migração idempotente, verifica leitura e testa privilégios padrão com tabela sintética revertida. O worker é reconstruído com as migrações atualizadas e publicado por deploy-backup-worker.mjs, sem alterar a conta Google, a chave, a pasta, a retenção ou o agendamento. A recuperação executa o worker real, que envia a cópia criptografada ao Drive, baixa e verifica hash e restauração em tabelas temporárias antes de marcar sucesso.
