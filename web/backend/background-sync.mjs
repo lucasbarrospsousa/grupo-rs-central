@@ -20,6 +20,6 @@ async function runTick(pool,{service,budgetMs=45000,now=Date.now}={}){
  if(!batch.rows.length)return{processed:0,complete:!!batch.complete};
  service=service||guardedIntegrations(pool);let processed=0,cursor=0;const start=now();
  try{
-  await Promise.all(Array.from({length:2},async()=>{while(cursor<batch.rows.length&&now()-start<budgetMs){const row=batch.rows[cursor++];let result;try{result=await service.stockDetails(row.branch,row.serial);}catch(e){result={serial:row.serial,equipment:{ok:false,message:e.message},location:{ok:false,message:e.message},chip:{ok:false,message:e.message}};}await pool.query('select central_homologacao.sync_save($1,$2,$3,$4)',[lease,batch.cycle,row.id,result]);processed++;}}));return{processed,cycle:batch.cycle};}
+  await Promise.all(Array.from({length:2},async()=>{while(cursor<batch.rows.length&&now()-start<budgetMs){const row=batch.rows[cursor++];let result;try{result=await service.stockDetails(row.branch,row.serial,row.plate);}catch(e){result={serial:row.serial,equipment:{ok:false,message:e.message},location:{ok:false,message:e.message},chip:{ok:false,message:e.message}};}await pool.query('select central_homologacao.sync_save($1,$2,$3,$4)',[lease,batch.cycle,row.id,result]);processed++;}}));return{processed,cycle:batch.cycle};}
  finally{await pool.query('select central_homologacao.sync_release($1)',[lease]);}
 }

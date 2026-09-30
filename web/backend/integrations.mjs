@@ -96,15 +96,24 @@ export class Integrations{
   try{const result=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});return json(result.text);}
   catch(e){if(e.upstreamStatus===401){session.token='';e.credentialInvalid=true;}throw e;} // Never retry a write; the durable operation reconciles using reads.
  }
- async location(branch,serial){
-  const matches=await this.vehicles(branch,serial);if(matches.length!==1||!/^\d+$/.test(matches[0].vehicle_id))throw err('Vínculo do veículo não confirmado.',422);
+ async location(branch,serial,plateHint=''){
+  let matches=await this.vehicles(branch,serial),fromPlate=false;
+  if(!matches.length&&plateHint){
+   const compact=String(plateHint).toUpperCase().replace(/[\s-]/g,'');
+   if(!/^[A-Z0-9]{3,12}$/.test(compact))throw err('Placa local inválida para conferência.',422);
+   const listed=await this.api(branch,'/veiculos?q='+encodeURIComponent(compact)+'&skip=0&take=50');
+   if(!Array.isArray(listed.veiculos)||listed.paginacao?.temMais!==false||listed.veiculos.length>=50)throw err('Busca por placa não confirmou um veículo único.',422);
+   matches=rows(listed).map(normalize).filter(v=>v.plate.toUpperCase().replace(/[\s-]/g,'')===compact);fromPlate=true;
+  }
+  if(matches.length!==1||!/^[1-9]\d*$/.test(matches[0].vehicle_id))throw err('Vínculo do veículo não confirmado.',422);
   const vehicle=matches[0],d=await this.api(branch,'/veiculos/'+vehicle.vehicle_id+'/comunicacao');
-  if(value(d.veiculo,['codVeiculo'])!==vehicle.vehicle_id||!d.comunicacao||typeof d.comunicacao!=='object'||(serialOf(d.equipamento)&&serialOf(d.equipamento)!==serial))throw err('Comunicação do aparelho não confirmada.');
+  const remoteSerial=serialOf(d.equipamento);
+  if(value(d.veiculo,['codVeiculo'])!==vehicle.vehicle_id||!d.comunicacao||typeof d.comunicacao!=='object'||(remoteSerial&&remoteSerial!==serial)||(fromPlate&&remoteSerial!==serial))throw err('Comunicação não confirmou a série neste veículo. Atualize o cadastro ou confira o vínculo.',422);
   return{...normalize(d.comunicacao),ok:true,serial,plate:vehicle.plate,vehicle_id:vehicle.vehicle_id,client:vehicle.client,source:ORIGINS[branch],queried_at:new Date().toISOString()};
  }
- async stockDetails(branch,serial){
+ async stockDetails(branch,serial,plateHint=''){
  const capture=async fn=>{try{return await fn();}catch(e){return{ok:false,message:e.message};}};
- const [equipment,location]=await Promise.all([capture(()=>this.equipmentPortal(branch,serial)),capture(()=>this.location(branch,serial))]);
+ const [equipment,location]=await Promise.all([capture(()=>this.equipmentPortal(branch,serial)),capture(()=>this.location(branch,serial,plateHint))]);
  let chip={ok:false,message:'ICCID não confirmado na plataforma.'};
  if(/^89\d{17,18}$/.test(equipment.iccid||'')){
   const first=await capture(()=>this.carrier('arya',equipment.iccid));

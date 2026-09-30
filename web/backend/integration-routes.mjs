@@ -17,18 +17,22 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
   const action=url.pathname.split('/').at(-1),serial=url.searchParams.get('serial');
   if(req.method==='GET'){
    let data;
+   const plateHint=async()=>scoped(pool,user,async c=>{
+    const r=await c.query("select data->>'plate' as plate from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null limit 2",[branch,serial]);
+    return r.rows.length===1?r.rows[0].plate||'':'';
+   });
    if(action==='health')data=await integrationHealth(pool,user,branch);
    else if(action==='connection-test')data=await testBranchConnections(service===integrations?guardedIntegrations(pool):service,branch);
    else if(action==='sync-status')data=(await pool.query('select central_homologacao.sync_status() as status')).rows[0].status;
    else if(action==='gateway')data=await scoped(pool,user,c=>bridgeHealth(c,branch));
-   else if(action==='stock'){data=await (service===integrations?guardedIntegrations(pool):service).stockDetails(branch,serial);if(membership.role!=='reader'&&data.equipment?.serial===serial)data.contacts=await scoped(pool,user,async c=>(await c.query('select central_homologacao.save_device_contacts($1,$2,$3) as result',[branch,serial,data.equipment])).rows[0].result);}
+   else if(action==='stock'){data=await (service===integrations?guardedIntegrations(pool):service).stockDetails(branch,serial,await plateHint());if(membership.role!=='reader'&&data.equipment?.serial===serial)data.contacts=await scoped(pool,user,async c=>(await c.query('select central_homologacao.save_device_contacts($1,$2,$3) as result',[branch,serial,data.equipment])).rows[0].result);}
    else if(action==='link-preview'){const preview=await service.prepareLink(branch,serial,url.searchParams.get('plate'));data={ok:true,plate:preview.plate,serial:preview.serial,confirmed:preview.confirmed};}
    else if(action==='equipment')data=await service.equipmentPortal(branch,serial);
    else if(action==='sms-template')data=await prepareStandardSms(service,branch,serial);
    else if(action==='operations'){const kinds=['link','sms'].filter(k=>permissions?.owner||permissions?.views?.includes(k));data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 and kind=any($2::text[]) order by created_at desc limit 100',[branch,kinds])).rows)};}
    else if(action==='maintenance')data=await service.maintenance(branch);
    else if(action==='binding')data=await service.binding(branch,serial);
-   else if(action==='location')data=await service.location(branch,serial);
+   else if(action==='location')data=await service.location(branch,serial,await plateHint());
    else if(action==='history')data=await service.history(branch,serial,url.searchParams.get('start'),url.searchParams.get('end'));
    else if(action==='client-vehicles')data={rows:await service.clientVehicles(branch,url.searchParams.get('client'),url.searchParams.get('name'))};
    else if(action==='clients')data={rows:await service.clients(branch,url.searchParams.get('q'))};
