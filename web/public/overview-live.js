@@ -27,10 +27,21 @@ export function mountLiveOverview({repo,showModal,notify,render}){
   const rows=[...results.values()].sort((a,b)=>b.count-a.count),max=Math.max(1,...rows.map(r=>r.count));
   p.querySelector('#live-complete').textContent=results.size+' de '+repo.user.branches.length+' bases consultadas';
   p.querySelector('#base-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>repo.user.branches.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando as bases…':'Atualizado às '+new Date().toLocaleTimeString('pt-BR');
-  p.querySelector('#base-chart').innerHTML=rows.map((r,i)=>'<button class="chart-row" data-base="'+esc(r.base.id)+'"><span>'+esc(r.base.name)+'</span><span class="track" style="--color:'+colors[i]+';--width:'+r.count/max*100+'%"><i></i></span><b>'+r.count+'</b></button>').join('')||'<p class="empty">Os totais aparecerão após a consulta.</p>';
-  p.querySelector('#base-total').textContent=results.size?rows.reduce((n,r)=>n+r.count,0).toLocaleString('pt-BR'):'—';p.querySelector('#total-note').textContent=results.size===repo.user.branches.length?'Total das '+results.size+' bases.':'Total parcial • bases pendentes não contam como zero.';
+  const chart=p.querySelector('#base-chart');
+  if(rows.length)chart.querySelector('.empty')?.remove();
+  else if(!chart.children.length)chart.innerHTML='<p class="empty">Os totais aparecerão após a consulta.</p>';
+  rows.forEach((r,i)=>{
+   let button=chart.querySelector(`[data-base="${r.base.id}"]`);
+   if(!button){button=document.createElement('button');button.className='chart-row';button.dataset.base=r.base.id;button.innerHTML='<span></span><span class="track"><i></i></span><b></b>';chart.append(button);}
+   button.firstElementChild.textContent=r.base.name;
+   button.querySelector('.track').style.setProperty('--color',colors[i%colors.length]);
+   button.querySelector('.track').style.setProperty('--width',r.count/max*100+'%');
+   button.querySelector('b').textContent=r.count;
+   if(chart.children[i]!==button)chart.insertBefore(button,chart.children[i]||null);
+  });
+  p.querySelector('#base-total').textContent=results.size?rows.reduce((n,r)=>n+r.count,0).toLocaleString('pt-BR'):'—';p.querySelector('#total-note').textContent=errors.size?'Consulta parcial • resultados anteriores preservados quando disponíveis.':results.size===repo.user.branches.length?'Total das '+results.size+' bases.':'Total parcial • bases pendentes não contam como zero.';
   p.querySelectorAll('[data-base]').forEach(b=>b.onclick=()=>{const r=results.get(b.dataset.base);if(r)list(r.base,r);});
  }
- async function refresh(force=false){if(running)return;running=true;p.querySelector('#live-refresh').disabled=true;results.clear();errors.clear();paint();for(const base of repo.user.branches){if(!p.isConnected)break;try{let item=cache.get(base.id);if(force||!item||Date.now()-item.at>60000){item={data:await repo.request('integrations/maintenance?branch='+base.id),at:Date.now()};cache.set(base.id,item);}if(!p.isConnected)break;results.set(base.id,{base,...item.data});}catch(e){errors.set(base.id,e.message);}if(p.isConnected)paint();}running=false;if(p.isConnected){paint();p.querySelector('#live-refresh').disabled=false;}}
+ async function refresh(force=false){if(running)return;running=true;p.querySelector('#live-refresh').disabled=true;errors.clear();paint();for(const base of repo.user.branches){if(!p.isConnected)break;try{let item=cache.get(base.id);if(force||!item||Date.now()-item.at>60000){item={data:await repo.request('integrations/maintenance?branch='+base.id),at:Date.now()};cache.set(base.id,item);}if(!p.isConnected)break;results.set(base.id,{base,...item.data});}catch(e){errors.set(base.id,e.message);}if(p.isConnected)paint();}running=false;if(p.isConnected){paint();p.querySelector('#live-refresh').disabled=false;}}
  p.querySelector('#live-refresh').onclick=()=>refresh(true);refresh();
 }
