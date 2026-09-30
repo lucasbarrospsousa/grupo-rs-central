@@ -56,7 +56,18 @@ export class Integrations{
  async api(branch,path,retry=true){const s=await this.session(branch);if(!s.token){if(!s.login)s.login=authenticate(async()=>{const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});s.token=tokenOf(json(r.text));if(!s.token)throw err('API não confirmou autenticação.');}).catch(e=>{e.message='Autenticação da API: '+e.message;throw e;}).finally(()=>{s.login=null;});await s.login;}
  try{const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{headers:{Authorization:'Bearer '+s.token,Accept:'application/json'}});return json(r.text);}catch(e){if(retry&&e.upstreamStatus===401){s.token='';return this.api(branch,path,false);}if(e.upstreamStatus===401)e.credentialInvalid=true;if(e.upstreamStatus===403)e.message='Permissão recusada para esta consulta da API; as demais rotas permanecem disponíveis.';e.message='Consulta autenticada da API: '+e.message;throw e;}}
  async portal(){throw err('Consulta ao portal desativada: integração exclusiva pela API v2.',501);}
- async vehicles(branch,serial){if(!/^\d{6,17}$/.test(serial))throw err('Informe a série numérica exata.',400);const data=await this.api(branch,'/veiculos?q='+encodeURIComponent(serial)+'&skip=0&take=50');const found=rows(data);if(data.paginacao?.temMais||found.length>=50)throw err('Consulta ampla; vínculo único não confirmado.');return found.filter(r=>serialOf(r)===serial).map(normalize);}
+ async vehicles(branch,serial){
+  if(!/^\d{6,17}$/.test(serial))throw err('Informe a série numérica exata.',400);
+  const data=await this.api(branch,'/veiculos?q='+encodeURIComponent(serial)+'&skip=0&take=50');
+  const found=rows(data);if(data.paginacao?.temMais||found.length>=50)throw err('Consulta ampla; vínculo único não confirmado.');
+  const exact=found.filter(r=>serialOf(r)===serial).map(normalize);
+  if(exact.length||!found.length)return exact;
+  // Summary lists omit the tracker. Confirm the relationship using the exact equipment response.
+  if(found.length!==1||serialOf(found[0]))throw err('Veículo único não confirmado para esta série.',422);
+  const vehicle=normalize(found[0]),equipment=await this.equipment(branch,serial);
+  if(!/^[1-9]\d*$/.test(vehicle.vehicle_id)||equipment.vehicle_id!==vehicle.vehicle_id||!vehicle.plate||equipment.plate!==vehicle.plate)throw err('Vínculo divergente entre aparelho e veículo.',422);
+  return[{...vehicle,serial,equipment_id:equipment.id}];
+ }
  async binding(branch,serial){const found=await this.vehicles(branch,serial);if(found.length!==1)return{ok:false,category:'review',message:found.length?'Mais de um vínculo exato.':'Nenhum vínculo exato retornado.',serial};const row=found[0];if(!row.client||Number(row.owner_count)>1)return{...row,ok:false,category:'review',message:'Titular ausente ou múltiplos clientes vinculados. Confira este vínculo antes da baixa.'};const compact=row.plate.replace(/\W/g,'').toUpperCase();const internal=/^(AAA|GRS|XRS|NOV)/.test(compact);const stock=row.client.toUpperCase()==='RS300'&&(internal||! /^[A-Z]{3}\d[A-Z\d]\d{2}$/.test(compact));const ok=!stock&&!internal&&/^[A-Z]{3}\d[A-Z\d]\d{2}$/.test(compact)&&row.client.toUpperCase()!=='RS300';return{...row,ok,category:stock?'stock':ok?'eligible':'review',message:stock?'Permanece em estoque':ok?'Vínculo confirmado':'Conferir vínculo',source:ORIGINS[branch],queried_at:new Date().toISOString()};}
  async maintenance(){throw err('A API v2 não oferece a lista de veículos em manutenção. Consulta ao portal desativada.',501);}
  async equipment(branch,serial){if(!/^\d{6,17}$/.test(serial))throw err('Série inválida.',400);const d=await this.api(branch,'/equipamentos?q='+encodeURIComponent(serial)+'&skip=0&take=50');const all=rows(d);const matches=all.filter(r=>serialOf(r)===serial);if(!all.length&&!d.paginacao?.temMais)throw err('A série não foi retornada pela API desta base. Confira o cadastro do aparelho e o escopo de acesso.',422);if(d.paginacao?.temMais||all.length>=50||matches.length!==1)throw err('Aparelho único não confirmado na API.',422);const raw=matches[0],id=value(raw,['codEquipamento','idEquipamento','equipment_id','id']);if(!/^\d+$/.test(id)||Number(id)<=0||['I','INATIVO','INACTIVE','0'].includes(value(raw,['status','situacao','ativo']).toUpperCase()))throw err('Aparelho inativo ou sem código confirmado.',422);return{...normalize(raw),id,ok:true,status:value(raw,['ativo','status','situacao']),plate:value(raw.veiculo,['placa']),vehicle_id:value(raw.veiculo,['codVeiculo']),api_version:2};}
@@ -66,7 +77,7 @@ export class Integrations{
   if(!/^(AAA|GRS|XRS)\d{1,6}$/.test(compact))throw err('Informe identificação AAA, GRS ou XRS com um a seis números.',400);
   const plate=compact.slice(0,3)+' - '+compact.slice(3),equipment=await this.equipment(branch,serial);
   const found=new Map();
-  for(const q of [plate,compact]){
+  for(const q of [plate]){
    const d=await this.api(branch,'/veiculos?q='+encodeURIComponent(q)+'&skip=0&take=50');
    if(!Array.isArray(d.veiculos)||typeof d.paginacao?.temMais!=='boolean'||d.paginacao.temMais)throw err('Identificação única não confirmada pela API.',422);
    for(const raw of d.veiculos){const v=normalize(raw);if(v.plate.replace(/\W/g,'').toUpperCase()===compact)found.set(v.vehicle_id,v);}
@@ -101,7 +112,7 @@ export class Integrations{
   if(!matches.length&&plateHint){
    const compact=String(plateHint).toUpperCase().replace(/[\s-]/g,'');
    if(!/^[A-Z0-9]{3,12}$/.test(compact))throw err('Placa local inválida para conferência.',422);
-   const listed=await this.api(branch,'/veiculos?q='+encodeURIComponent(compact)+'&skip=0&take=50');
+   const listed=await this.api(branch,'/veiculos?q='+encodeURIComponent(String(plateHint).trim())+'&skip=0&take=50');
    if(!Array.isArray(listed.veiculos)||listed.paginacao?.temMais!==false||listed.veiculos.length>=50)throw err('Busca por placa não confirmou um veículo único.',422);
    matches=rows(listed).map(normalize).filter(v=>v.plate.toUpperCase().replace(/[\s-]/g,'')===compact);fromPlate=true;
   }

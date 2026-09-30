@@ -166,3 +166,9 @@ A migração 022 restabelece leitura de todas as tabelas/sequências privadas pa
 Quando a pesquisa por série não retorna o veículo, a localização usa a placa salva no cadastro da Central como pista de pesquisa. Exige resultado único e completo por placa e confirma veículo e série exata na resposta de `/veiculos/{id}/comunicacao`. Placa antiga, série ausente ou divergente bloqueiam o resultado. Não usa a rota de detalhe que está retornando lista genérica, nem varre a frota. O comportamento se aplica às consultas de página e à sincronização automática; não altera regras de vinculação.
 
 A migração 023 acrescenta a placa aos lotes de sync_claim preservando a definição existente, permissões e agendamentos. `node tools/migrate-location-hint.mjs` verifica em transação revertida; `--apply` aplica. Validação: 151 testes Node aprovados, migração idempotente e consulta real de aparelho operante em Imperatriz com série confirmada e coordenadas retornadas.
+
+## Compatibilidade com o resumo de veículos da API — 30/09/2026
+
+A busca por série agora aceita o resumo de veículo sem campo de série somente após conferir o equipamento exato, seu código de veículo e a placa vinculada. Isso permite localização, posições e o trajeto construído pela interface nas quatro bases sem depender da placa local. Divergências, múltiplos candidatos e respostas parciais bloqueiam a confirmação. A ausência de titular continua exigindo conferência antes de baixas; o sistema não inventa cliente a partir do resumo.
+
+Buscas por placa preservam espaços e hífen, inclusive no recurso de consulta por placa salva e na prévia de vinculação. Validação local: 154 testes aprovados, incluindo consultas nas quatro bases com respostas simuladas e recusas por divergência de vínculo. As verificações reais são somente de leitura; não criam nem movimentam equipamentos.
