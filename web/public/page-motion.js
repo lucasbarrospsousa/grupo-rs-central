@@ -10,7 +10,7 @@ export function motionRequestKind(path){
 export function installPageMotion(repo){
  const reduced=matchMedia('(prefers-reduced-motion: reduce)'),states=new WeakMap(),active=new Set();let frame=0,lastIntent=-Infinity;
  const currentRoot=()=>document.querySelector('#modal[open]')||document.querySelector('#page')||document.querySelector('.login');
- const stateFor=root=>{if(!states.has(root))states.set(root,{seen:new Set(),reads:new Set(),pending:0,timer:0,failed:false});return states.get(root);};
+ const stateFor=root=>{if(!states.has(root))states.set(root,{seen:new Set(),revealed:new WeakSet(),reads:new Set(),pending:0,timer:0,failed:false});return states.get(root);};
  const excluded=root=>root.matches('#page')&&!!root.querySelector('.system-logs')||root.matches('#modal')&&!!root.querySelector('.log-detail');
  function reveal(root){
   if(!root?.isConnected||excluded(root))return;
@@ -20,10 +20,11 @@ export function installPageMotion(repo){
   let order=0;
   nodes.forEach((el,index)=>{
    if(el.tagName!=='TBODY')el.classList.add('central-motion-surface');
-   if(state.pending||el.closest('[aria-busy="true"]')||!el.getClientRects().length)return;
+   if((state.pending&&!root.querySelector('.live-overview'))||el.closest('[aria-busy="true"]')||!el.getClientRects().length)return;
    // Stable slots suppress replay when polling replaces the same cards/rows.
-   const key=(el.id||el.tagName+':'+[...el.classList].filter(c=>c!=='central-motion-surface').sort().join('.'))+':'+index;
-   if(state.seen.has(key))return;state.seen.add(key);
+   const identity=el.id||(el.dataset.stockBase?'stock:'+el.dataset.stockBase:el.dataset.base?'base:'+el.dataset.base:'');
+   const key=identity|| (el.tagName+':'+[...el.classList].filter(c=>c!=='central-motion-surface').sort().join('.'))+':'+index;
+   if(state.revealed.has(el)||state.seen.has(key))return;state.revealed.add(el);state.seen.add(key);
    if(reduced.matches||order>=32)return;
    const animation=el.animate([{opacity:0,translate:'0 18px',scale:'.98'},{opacity:1,translate:'0 0',scale:'1'}],{duration:520,delay:Math.min(order++*65,260),easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});
    active.add(animation);animation.finished.catch(()=>{}).finally(()=>active.delete(animation));
