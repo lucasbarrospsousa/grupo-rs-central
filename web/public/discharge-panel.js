@@ -1,3 +1,4 @@
+import {pauseStockPolling} from './stock-pause.js';
 import {analyzeBatches} from './discharge-batches.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const selectable=r=>['eligible','stock','review'].includes(r.category);
@@ -7,8 +8,9 @@ export function openDischarge({repo,branch,showModal,notify,render}){
  let rows=[],selected=new Set(),page=1,search='',filter='',busy=false,review=false,controller,closed=false,changed=false,batch=0;
  showModal('Analisar baixa • '+esc(base.toUpperCase()),`<div class="discharge-counts" id="discharge-counts"></div><p id="discharge-progress" role="status"></p><form id="discharge-search" class="discharge-search"><input name="search" aria-label="Buscar série, placa ou cliente" placeholder="Buscar série, placa ou cliente"><select name="filter" aria-label="Filtrar resultados"><option value="">Todos os resultados</option>${Object.entries(labels).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select><button class="primary">Buscar</button></form><div class="discharge-tools"><button id="discharge-select">Selecionar aptos</button><button id="discharge-clear">Limpar seleção</button><button id="discharge-retry">Analisar novamente</button></div><div class="discharge-table"><table><thead><tr><th>Selecionar / Série</th><th>Placa / identificação</th><th>Cliente</th><th>Resultado</th><th>Base</th></tr></thead><tbody id="discharge-rows"></tbody></table></div><div class="discharge-footer"><strong id="discharge-selected"></strong><div><button id="discharge-prev" aria-label="Página anterior">‹</button><span id="discharge-page"></span><button id="discharge-next" aria-label="Próxima página">›</button><button id="discharge-apply" class="primary">Aplicar baixa</button></div></div><p id="discharge-confirm" role="status"></p><small>Somente itens selecionados serão alterados. O vínculo será conferido novamente antes de aplicar.</small>`,'discharge-modal','Conferência da API • atualização somente do estoque da Central');
  const modal=document.querySelector('#modal'),get=id=>modal.querySelector('#discharge-'+id),root=get('counts');
+ const resumeStock=pauseStockPolling();
  const alive=()=>!closed&&modal.open&&root.isConnected;
- function cleanup(){closed=true;controller?.abort();observer.disconnect();modal.removeEventListener('close',onClose);if(changed)render();}
+ function cleanup(){if(closed)return;closed=true;controller?.abort();observer.disconnect();modal.removeEventListener('close',onClose);if(changed)render();resumeStock();}
  // A queued close from the previous modal must not cancel this new analysis.
  const onClose=()=>{if(!modal.open||!root.isConnected)cleanup();};
  const observer=new MutationObserver(()=>{if(!root.isConnected)cleanup();});observer.observe(modal,{childList:true});modal.addEventListener('close',onClose);
