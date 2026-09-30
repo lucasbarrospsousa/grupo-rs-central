@@ -36,7 +36,8 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
    const resultNode=document.querySelector('#remote-link-result'),confirm=document.querySelector('#remote-link-confirm');
    let preview;try{preview=await query('link-preview',{serial,plate});}catch(error){if(resultNode.isConnected)resultNode.textContent=error.message;return;}
    if(!confirm.isConnected||repo.currentBranch!==branch)return;
-   resultNode.textContent=preview.confirmed?'O vínculo já está confirmado na API. Confirme para atualizar o estoque da Central.':'Aparelho e identificação existentes confirmados. A confirmação associa o aparelho ao RS300 e atualiza o estoque, sem substituir outro vínculo.';
+   resultNode.textContent=preview.confirmed?'O vínculo já está confirmado na API. Confirme para atualizar o estoque da Central.':preview.create_required?'A identificação ainda não existe. Ao confirmar, será criada com titular RS300 e vinculada a este aparelho.':'Aparelho e identificação existentes confirmados. A confirmação associa o aparelho ao RS300 e atualiza o estoque, sem substituir outro vínculo.';
+   confirm.textContent=preview.create_required?'Criar identificação e vincular':'Confirmar vínculo na plataforma';
    confirm.disabled=false;
    confirm.onclick=()=>run(confirm,async()=>{
     try{

@@ -40,7 +40,7 @@ export async function tlsRequest(url,{method,headers,body}){
 }
 async function rawTransport(url,{method='GET',headers={},body,allowRedirect=false}={}){
  let r;try{r=headers.Authorization&&Object.values(ORIGINS).includes(new URL(url).origin)?await exactCaseRequest(url,{method,headers,body}):await fetch(url,{method,headers,body,redirect:'manual',signal:AbortSignal.timeout(18000)});}catch{throw err('Integração indisponível ou tempo de consulta excedido.');}
- if(!r.ok&&!(allowRedirect&&[302,303].includes(r.status)))throw Object.assign(err('Integração retornou HTTP '+r.status,r.status===401||r.status===403?502:503),{upstreamStatus:r.status});
+ if(!r.ok&&!(allowRedirect&&[302,303].includes(r.status)))throw Object.assign(err('Integração retornou HTTP '+r.status,r.status===429?429:r.status===401||r.status===403?502:503),{upstreamStatus:r.status});
  const chunks=[];let size=0;for await(const chunk of r.body){size+=chunk.length;if(size>8*1024*1024)throw err('Resposta excedeu o limite seguro. Reduza o período.');chunks.push(chunk);}
  const bytes=Buffer.concat(chunks);let text=new TextDecoder('utf-8').decode(bytes);if(text.includes('\ufffd'))text=new TextDecoder('windows-1252').decode(bytes);
  return {text,headers:r.headers,status:r.status};
@@ -53,7 +53,7 @@ export class Integrations{
  constructor({secrets=integrationSecrets,request=transport}={}){this.secrets=secrets;this.request=(url,options)=>measuredRequest(request,url,options);this.sessions=new Map();this.health=new Map();}
  credentials(branch,api=false){const s=this.secrets(),prefix=branch==='imperatriz'?'grupo_rs_modern':'grupo_rs_legacy_'+branch;const username=(api?s['grupo_rs_api_'+branch+'_user']:'')||(api&&branch==='imperatriz'?s.grupo_rs_api_user:'')||s[prefix+'_user']||s.grupo_rs_legacy_user||s.grupo_rs_modern_user;const password=(api?s['grupo_rs_api_'+branch+'_password']:'')||(api&&branch==='imperatriz'?s.grupo_rs_api_password:'')||s[prefix+'_password']||s.grupo_rs_legacy_password||s.grupo_rs_modern_password;if(!username||!password)throw err('Acesso desta base não configurado.');return{username,password};}
  async session(branch){if(!ORIGINS[branch])throw err('Base inválida.',400);let s=this.sessions.get(branch);if(s&&Date.now()-s.at<15*60*1000)return s;s={at:Date.now(),cookies:new Map(),token:''};this.sessions.set(branch,s);return s;}
- async api(branch,path,retry=true){const s=await this.session(branch);if(!s.token){if(!s.login)s.login=authenticate(async()=>{const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});s.token=tokenOf(json(r.text));if(!s.token)throw err('API não confirmou autenticação.');}).catch(e=>{e.message='Autenticação da API: '+e.message;throw e;}).finally(()=>{s.login=null;});await s.login;}
+ async api(branch,path,retry=true){const s=await this.session(branch);if(!s.token){if(!s.login)s.login=authenticate(async()=>{const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});s.token=tokenOf(json(r.text));if(!s.token)throw err('API não confirmou autenticação.');}).catch(e=>{if(e.status!==429)e.message='Autenticação da API: '+e.message;throw e;}).finally(()=>{s.login=null;});await s.login;}
  try{const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{headers:{Authorization:'Bearer '+s.token,Accept:'application/json'}});return json(r.text);}catch(e){if(retry&&e.upstreamStatus===401){s.token='';return this.api(branch,path,false);}if(e.upstreamStatus===401)e.credentialInvalid=true;if(e.upstreamStatus===403)e.message='Permissão recusada para esta consulta da API; as demais rotas permanecem disponíveis.';e.message='Consulta autenticada da API: '+e.message;throw e;}}
  async portal(){throw err('Consulta ao portal desativada: integração exclusiva pela API v2.',501);}
  async vehicles(branch,serial){
@@ -87,6 +87,12 @@ export class Integrations{
  async maintenance(){throw err('A API v2 não oferece a lista de veículos em manutenção. Consulta ao portal desativada.',501);}
  async equipment(branch,serial){if(!/^\d{6,17}$/.test(serial))throw err('Série inválida.',400);const d=await this.api(branch,'/equipamentos?q='+encodeURIComponent(serial)+'&skip=0&take=50');const all=rows(d);const matches=all.filter(r=>serialOf(r)===serial);if(!all.length&&!d.paginacao?.temMais)throw err('A série não foi retornada pela API desta base. Confira o cadastro do aparelho e o escopo de acesso.',422);if(d.paginacao?.temMais||all.length>=50||matches.length!==1)throw err('Aparelho único não confirmado na API.',422);const raw=matches[0],id=value(raw,['codEquipamento','idEquipamento','equipment_id','id']);if(!/^\d+$/.test(id)||Number(id)<=0||['I','INATIVO','INACTIVE','0'].includes(value(raw,['status','situacao','ativo']).toUpperCase()))throw err('Aparelho inativo ou sem código confirmado.',422);return{...normalize(raw),id,ok:true,status:value(raw,['ativo','status','situacao']),carrier:value(raw,['nomeOperadora','operadora'])||({1:'Vivo',3:'Claro',4:'Tim',6:'Multioperadora'}[Number(raw.codOperadora)]||''),plate:value(raw.veiculo,['placa']),vehicle_id:value(raw.veiculo,['codVeiculo']),api_version:2};}
  async equipmentPortal(branch,serial){return this.equipment(branch,serial);}
+ async linkStockOwner(branch){
+  const d=await this.api(branch,'/associados?q=RS300&take=20');
+  const owners=(d.associados||[]).filter(r=>value(r,['nome','nomeCliente']).toUpperCase()==='RS300');
+  if(owners.length!==1||!/^[1-9]\d*$/.test(value(owners[0],['codCliente','codAssociado']))||!Array.isArray(owners[0].veiculos))throw err('Titular RS300 único não confirmado pela API.',422);
+  return{id:value(owners[0],['codCliente','codAssociado']),vehicles:owners[0].veiculos.map(normalize)};
+ }
  async prepareLink(branch,serial,identification){
   const compact=String(identification||'').trim().toUpperCase().replace(/[\s-]/g,'');
   if(!/^(AAA|GRS|XRS)\d{1,6}$/.test(compact))throw err('Informe identificação AAA, GRS ou XRS com um a seis números.',400);
@@ -98,9 +104,17 @@ export class Integrations{
    for(const raw of d.veiculos){const v=normalize(raw);if(v.plate.replace(/\W/g,'').toUpperCase()===compact)found.set(v.vehicle_id,v);}
    if(found.size)break;
   }
-  if(!found.size)throw err('Identificação não retornada pela API. Cadastre-a com titular RS300 na base ou confira o escopo de acesso; a API não documenta a escolha do titular na criação.',422);
+  if(!found.size){
+   if(equipment.vehicle_id)throw err('O aparelho já está vinculado a outro veículo. Nenhuma identificação será criada.',409);
+   const owner=await this.linkStockOwner(branch);
+   return{plate,serial,confirmed:false,create_required:true,payload:{serial,plate,vehicle_id:'',equipment_id:equipment.id,client_id:owner.id,create_required:true}};
+  }
   if(found.size!==1)throw err('Mais de um veículo possui essa identificação. Confira na base.',422);
-  const target=[...found.values()][0];
+  let target=[...found.values()][0];
+  if(!target.client){const owner=await this.linkStockOwner(branch),matches=owner.vehicles.filter(v=>v.vehicle_id===target.vehicle_id&&v.plate===plate);
+   if(matches.length!==1)throw err('A API não confirmou esta identificação entre os veículos do RS300.',422);
+   target={...matches[0],client:'RS300',client_id:owner.id};
+  }
   if(!/^[1-9]\d*$/.test(target.vehicle_id)||!target.client_id||target.client.toUpperCase()!=='RS300'||Number(target.owner_count)>1)throw err('Titular RS300 único não confirmado para esta identificação.',422);
   if((target.equipment_id&&target.equipment_id!==equipment.id)||(target.serial&&target.serial!==serial))throw err('A identificação já possui outro aparelho. Nenhum vínculo será substituído.',409);
   if(equipment.vehicle_id&&equipment.vehicle_id!==target.vehicle_id)throw err('O aparelho está vinculado a outro veículo. Revise a desvinculação na base antes de continuar.',409);
@@ -110,13 +124,22 @@ export class Integrations{
  }
  async createLink(branch,payload){
   if(!payload||!payload.serial||!payload.plate)throw err('Pedido de vínculo inválido.',400);
-  const fresh=await this.prepareLink(branch,payload.serial,payload.plate);
+  let fresh=await this.prepareLink(branch,payload.serial,payload.plate);
   for(const key of ['vehicle_id','equipment_id','client_id'])if(fresh.payload[key]!==payload[key])throw err('O cadastro remoto mudou. Revise o vínculo antes de continuar.',409);
+  if(!!fresh.create_required!==!!payload.create_required)throw err('A identificação mudou durante a revisão.',409);
   if(fresh.confirmed)return{ok:true};
-  return this.apiPost(branch,'/veiculos/'+payload.vehicle_id+'/equipamento',{codEquipamento:Number(payload.equipment_id),mover:false});
+  if(fresh.create_required){
+   const created=await this.apiPost(branch,'/veiculos',{placa:payload.plate,codCliente:Number(payload.client_id),codEquipamento:Number(payload.equipment_id),moverEquipamento:false});
+   const id=value(created.veiculo,['codVeiculo']);
+   if(!/^[1-9]\d*$/.test(id)||value(created.veiculo,['placa'])!==payload.plate||value(created,['codCliente'])!==payload.client_id||value(created,['nomeCliente']).toUpperCase()!=='RS300')throw err('Criação enviada, mas titular e identificação não foram confirmados. Confira a operação sem reenviar.',409);
+   fresh=await this.prepareLink(branch,payload.serial,payload.plate);
+   if(fresh.create_required||fresh.payload.vehicle_id!==id||fresh.payload.client_id!==payload.client_id||fresh.payload.equipment_id!==payload.equipment_id)throw err('A criação precisa de conferência. Nenhum vínculo foi enviado.',409);
+   if(fresh.confirmed)return{ok:true};
+  }
+  return this.apiPost(branch,'/veiculos/'+fresh.payload.vehicle_id+'/equipamento',{codEquipamento:Number(payload.equipment_id),mover:false});
  }
  async apiPost(branch,path,payload){
-  if(!/^\/veiculos\/[1-9]\d*\/equipamento$/.test(path)||!Number.isSafeInteger(payload.codEquipamento)||payload.codEquipamento<=0||payload.mover!==false)throw err('Escrita da API não autorizada para este fluxo.',400);
+  const creation=path==='/veiculos'&&/^(AAA|GRS|XRS) - \d{1,6}$/.test(payload.placa||'')&&Number.isSafeInteger(payload.codCliente)&&payload.codCliente>0&&payload.moverEquipamento===false&&Object.keys(payload).every(k=>['placa','codCliente','codEquipamento','moverEquipamento'].includes(k));const association=/^\/veiculos\/[1-9]\d*\/equipamento$/.test(path)&&payload.mover===false&&Object.keys(payload).every(k=>['codEquipamento','mover'].includes(k));if((!creation&&!association)||!Number.isSafeInteger(payload.codEquipamento)||payload.codEquipamento<=0)throw err('Escrita da API não autorizada para este fluxo.',400);
   const session=await this.session(branch);
   if(!session.token)await this.api(branch,'/veiculos?skip=0&take=1');
   try{const result=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});return json(result.text);}

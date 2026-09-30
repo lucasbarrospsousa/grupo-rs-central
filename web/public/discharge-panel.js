@@ -31,7 +31,7 @@ export function openDischarge({repo,branch,showModal,notify,render}){
  async function analyze(){
   if(busy)return;busy=true;resetReview();selected.clear();controller=new AbortController();
   rows=repo.list(branch).filter(r=>r.status==='Estoque'||branch!=='imperatriz'&&r.status==='Reserva').map(r=>({...r,plate:'',client:'',category:'pending',ok:false,message:''}));page=1;draw();
-  await analyzeBatches(rows,{signal:controller.signal,onBatch:n=>{batch=n;draw();},query:row=>repo.request('integrations/binding?'+new URLSearchParams({branch,serial:row.serial}),{signal:controller.signal}),onResult:(row,result,error)=>{
+  await analyzeBatches(rows,{signal:controller.signal,onWait:(row,seconds)=>{if(alive()){row.message=`Limite temporário de consultas. Nova tentativa em ${seconds}s…`;draw();}},onBatch:n=>{batch=n;draw();},query:row=>repo.request('integrations/binding?'+new URLSearchParams({branch,serial:row.serial}),{signal:controller.signal}),onResult:(row,result,error)=>{
    if(!alive())return;
    if(error)Object.assign(row,{category:'error',ok:false,message:error.message});
    else Object.assign(row,{plate:result.plate||'',client:result.client||'',association_confirmed:result.association_confirmed===true,ok:result.ok===true,category:result.ok?'eligible':['stock','error','review'].includes(result.category)?result.category:'review',message:result.message||''});

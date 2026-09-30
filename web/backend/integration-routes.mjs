@@ -32,7 +32,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    else if(action==='sync-status')data=(await pool.query('select central_homologacao.sync_status() as status')).rows[0].status;
    else if(action==='gateway')data=await scoped(pool,user,c=>bridgeHealth(c,branch));
    else if(action==='stock'){data=await (service===integrations?guardedIntegrations(pool):service).stockDetails(branch,serial,await plateHint());if(membership.role!=='reader'&&data.equipment?.serial===serial)data.contacts=await scoped(pool,user,async c=>(await c.query('select central_homologacao.save_device_contacts($1,$2,$3) as result',[branch,serial,data.equipment])).rows[0].result);}
-   else if(action==='link-preview'){const preview=await service.prepareLink(branch,serial,url.searchParams.get('plate'));data={ok:true,plate:preview.plate,serial:preview.serial,confirmed:preview.confirmed};}
+   else if(action==='link-preview'){const preview=await service.prepareLink(branch,serial,url.searchParams.get('plate'));data={ok:true,plate:preview.plate,serial:preview.serial,confirmed:preview.confirmed,create_required:preview.create_required===true};}
    else if(action==='equipment')data=await service.equipmentPortal(branch,serial);
    else if(action==='sms-template')data=await prepareStandardSms(service,branch,serial);
    else if(action==='operations'){const kinds=['link','sms'].filter(k=>permissions?.owner||permissions?.views?.includes(k));data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 and kind=any($2::text[]) order by created_at desc limit 100',[branch,kinds])).rows)};}
