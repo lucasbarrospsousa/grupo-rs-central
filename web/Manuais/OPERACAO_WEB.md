@@ -134,3 +134,13 @@ Ao entrar em Estoque ou Armazém, a Central relê o grupo necessário no SQL; re
 Consultas de contatos invalidam o cache do Armazém, e o dado de ICCID/telefone salvo tem prioridade na apresentação sobre amostras antigas. A migração 021 preserva futuras edições explícitas de contatos enquanto a plataforma ainda informa valores diferentes; não grava nem altera o chip no fornecedor. Quando a API confirma os mesmos contatos, a sincronização normal volta a acompanhá-los. A guarda é criada somente pelo servidor; não é um campo editável do navegador. Edições anteriores não são reconstruídas automaticamente.
 
 Testes: suíte local, `node web/tools/migrate-manual-contacts.mjs` (rollback), `node web/tools/test-chip-usage-sql.mjs` (rollback). A flag `--apply` do primeiro aplica a migração após validar e reverter fixtures. Cobertura de baixa do chip cadastrado, troca, telefone, repetição, API divergente e confirmação posterior. O chip desvinculado não retorna automaticamente à disponibilidade; essa regra operacional foi mantida.
+
+## Ajuste final de titulares e acesso API — 30/09/2026
+
+Esta seção atualiza as limitações registradas na primeira migração v2. As quatro bases agora usam credenciais próprias de API, armazenadas somente no cofre/segredo do servidor. Os hosts são imp, arg, acl e mab em ogrupors.com.br; o servidor indicado incorretamente no Swagger de outra base não é utilizado.
+
+A API passou a fornecer `titular.codCliente`, `titular.nomeCliente` e `qtdClientesVinculadosAtivos` nos veículos. A análise de baixa lê esse titular e mantém conferência quando ausente ou com múltiplos vínculos. Nos atendimentos, pesquise por placa, série ou identificação (mínimo três caracteres), selecione o titular e depois o veículo. A busca usa `/veiculos?q=...`; a confirmação usa `/clientes/{codCliente}/veiculos`, com paginação limitada e falha explícita para lista incompleta. Não há consulta a `/associados` nem busca de cliente por nome nesse fluxo. O servidor reconfirma titular, veículo, placa e série ao salvar. O histórico reconhece o campo `data` das posições.
+
+Permanecem indisponíveis a lista remota de manutenção (sem rota documentada) e a criação/associação remota de veículos (escrita ainda não homologada). Não há fallback web. Registros de atendimento e baixas locais continuam separados de alterações na plataforma externa. Mantidos limite compartilhado de chamadas, idempotência, permissões e configurações de automação.
+
+Validação: 138 testes locais; oito verificações SQL transacionais com rollback; consultas reais de veículos/titulares nas quatro bases e confirmação de veículos do cliente em Imperatriz. Nenhum cadastro externo alterado. Credenciais não pertencem ao código, GitHub ou backup público.

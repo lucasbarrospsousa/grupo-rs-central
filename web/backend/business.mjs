@@ -20,13 +20,12 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
   if(branch!=='imperatriz')throw failure(422,'Novo atendimento disponível em Imperatriz.');
   if(!['Sem comunicação','Localização errada','Troca de aparelho'].includes(body.reason)||!['App de rastreamento','Suporte do rastreio','Consultor informou'].includes(body.medium)||typeof body.notes!=='string'||body.notes.length>2000)throw failure(400,'Dados do atendimento inválidos.');
   if(typeof body.clientId!=='string'||typeof body.clientName!=='string'||typeof body.vehicleId!=='string'||typeof body.plate!=='string')throw failure(422,'Selecione cliente e veículo na plataforma.');
-  const clients=await service.clients(branch,body.clientName);
-  const confirmedClient=clients.find(r=>r.id===body.clientId&&r.name===body.clientName);
-  if(!confirmedClient)throw failure(409,'Cliente não confirmado. Consulte novamente.');
   const vehicleRows=await service.clientVehicles(branch,body.clientId,body.clientName);
   const confirmedVehicles=vehicleRows.filter(r=>r.vehicle_id===body.vehicleId&&r.plate===body.plate);
   if(confirmedVehicles.length!==1||!confirmedVehicles[0].serial)throw failure(409,'Vínculo do veículo mudou. Consulte novamente.');
   const confirmedVehicle=confirmedVehicles[0];
+  if(confirmedVehicle.client_id!==body.clientId||confirmedVehicle.client!==body.clientName)throw failure(409,'Titular do veículo mudou. Consulte novamente.');
+  const confirmedClient={id:confirmedVehicle.client_id,name:confirmedVehicle.client};
   const changing=body.reason==='Troca de aparelho';
   if(changing&&!body.replacement)throw failure(422,'Selecione o aparelho de reposição.');
   if(!changing&&body.replacement)throw failure(422,'Reposição permitida somente para troca de aparelho.');
