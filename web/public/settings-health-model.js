@@ -7,7 +7,7 @@ export function syncHealth(sync,now=Date.now()){
  return{label:'Processando no servidor',tone:'good'};
 }
 export function sourceHealth(source,snapshot,manual,now=Date.now()){
- const alert=snapshot?.sync?.alerts?.find(a=>a.source===(['arya','link'].includes(source)?'carrier:'+source:source+':'+snapshot.branch));
+ const alert=snapshot?.sync?.alerts?.find(a=>a.source===(['arya','link'].includes(source)?'carrier:'+source:(source==='equipment'?'api':source)+':'+snapshot.branch));
  if(alert)return{label:'Acesso bloqueado',tone:'error',message:alert.message,at:alert.occurred_at};
  if(manual){if(!fresh(manual.checked_at,now))return{label:'Teste antigo',tone:'warning',at:manual.checked_at,message:'Faça um novo teste para confirmar.'};return{label:manual.ok?'Teste confirmado':'Teste falhou',tone:manual.ok?'good':'error',at:manual.checked_at,message:manual.ok?'Consulta manual respondida com sucesso.':manual.message};}
  const row=snapshot?.sources?.find(r=>r.source===source);

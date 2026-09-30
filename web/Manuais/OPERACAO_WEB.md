@@ -112,3 +112,16 @@ O intervalo passa a valer entre lotes de até 50 aparelhos, além da espera ao t
 O gráfico soma requisições HTTP efetivamente tentadas pelas integrações Grupo RS API, portais, Arya/Innova e Link Solutions. Inclui login e repetição; falhas contam separadamente. “Páginas e botões” inclui as consultas disparadas pelas páginas abertas. Não mede GB de logs, banco, Drive, SMS da ponte local ou cobrança Supabase. Sem retroatividade. Guarda apenas agregados diários por origem e integração por 30 dias UTC, sem credenciais, URLs de consulta ou dados de clientes; grava uma vez por atendimento/lote. Falha de telemetria não bloqueia a operação e produz aviso técnico, portanto os totais não equivalem a auditoria financeira garantida.
 
 Migração 019 e ferramenta tools/migrate-automation.mjs validam pausa, intervalos e contadores com rollback dos dados de teste. Não ativar/desativar a operação apenas para testes. Implantação da API via build-hosting/deploy-edge; frontend pelo fluxo Sites. Validação desta entrega: 129 testes Node, testes SQL transacionais e interface sintética em 1440×900 e 390×844, incluindo salvar, desligar, filtro e ausência de erros/overflow. Não houve baixa ou escrita nas plataformas externas.
+
+
+## Integração exclusiva API v2 — 30/09/2026
+
+Esta seção substitui as descrições anteriores de consultas ao portal. Todas as leituras Grupo RS usam `/api_rest_app/api/v1`, JWT e as rotas do Manual API IMP v2. Foram removidos login web, leitura de HTML, get_data e get_eventos. Equipamentos, veículos, associados, comunicação e posições usam a API. As APIs Arya/Link permanecem. Nenhuma credencial foi trocada nesta migração.
+
+A API observada não fornece o titular na listagem de veículos. Sem titular confirmado, vínculo fica para conferência e não habilita baixa automática. Vinculação remota ficou indisponível: o fluxo anterior criava e associava por uma rota legada, e seu contrato não pode ser presumido na v2. A lista remota de veículos em manutenção não é documentada: retorna indisponibilidade explícita, sem usar o panorama antigo. Atendimentos e estoque registrados na Central permanecem.
+
+Clientes exigem pelo menos três caracteres; veículos de atendimento são reconsultados e confirmados pelo identificador e nome do associado. Histórico aceita até sete dias, pagina por cursor e marca parcial após vinte páginas; distância fica não informada quando não retornada. Resultados ausentes ou fora do escopo não comprovam inexistência na plataforma.
+
+Migração 020 aplica controle compartilhado entre instâncias: mínimo de 1,1 segundo entre chamadas por base (incluindo login), no máximo duas chamadas simultâneas, leases de 25 segundos para transporte limitado a 18 segundos. Espera local limitada a 12 segundos; excesso informa aguardar. Isso limita as chamadas desta Central, não controla outros consumidores da mesma conta/IP. O ciclo agora processa até dois aparelhos em paralelo. Operadoras têm seu controle independente.
+
+Validação: `node --test web/tests/*.test.mjs`; `node web/tools/migrate-api-v2.mjs` testa migração/intervalo/leases/permissões com rollback; `--apply` aplica após testes e reverte apenas os dados sintéticos. Leituras reais em Imperatriz; permissões das outras três bases permanecem pendentes no fornecedor. Nenhuma escrita foi testada nas plataformas.

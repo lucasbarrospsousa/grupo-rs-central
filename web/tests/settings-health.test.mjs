@@ -18,8 +18,8 @@ test('no evidence, partial results, stale records and explicit alerts remain dis
  snapshot.sources[0].checked_at='2026-09-26T00:00:00Z';assert.equal(sourceHealth('api',snapshot,null,now).label,'Registro antigo');
  snapshot.sync.alerts=[{source:'api:imperatriz',message:'Bloqueada'}];assert.equal(sourceHealth('api',snapshot,{ok:true,checked_at:recent},now).label,'Acesso bloqueado');
 });
-test('manual test isolates API and portal failures; does not claim carrier success',async()=>{
- const result=await testBranchConnections({api:async()=>({}),maintenance:async()=>{throw Error('private upstream payload')}},'imperatriz');
+test('manual test isolates vehicle and equipment API failures; does not claim carrier success',async()=>{
+ const result=await testBranchConnections({api:async(b,path)=>{if(path.startsWith('/equipamentos'))throw Error('private upstream payload');return{}}},'imperatriz');
  assert.equal(result.checks[0].ok,true);assert.equal(result.checks[1].ok,false);assert.equal(result.checks.length,2);assert.ok(!JSON.stringify(result).includes('private upstream'));
 });
 test('health endpoint aggregates in user scope and excludes alerts from other branches',async()=>{

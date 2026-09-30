@@ -24,14 +24,14 @@ export async function integrationRoute({req,res,url,pool,user,readBody,service=i
    else if(action==='equipment')data=await service.equipmentPortal(branch,serial);
    else if(action==='sms-template')data=await prepareStandardSms(service,branch,serial);
    else if(action==='operations')data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 order by created_at desc limit 100',[branch])).rows)};
-   else if(action==='maintenance'){const snapshot=(await pool.query('select central_homologacao.sync_panorama($1) as snapshot',[branch])).rows[0].snapshot;if(!snapshot)throw fail(503,'Aguardando a primeira consulta automática desta base.');if(snapshot.data.ok===false)throw fail(503,snapshot.data.message);data={...snapshot.data,checked_at:snapshot.checked_at};}
+   else if(action==='maintenance')data=await service.maintenance(branch);
    else if(action==='binding')data=await service.binding(branch,serial);
    else if(action==='location')data=await service.location(branch,serial);
    else if(action==='history')data=await service.history(branch,serial,url.searchParams.get('start'),url.searchParams.get('end'));
-   else if(action==='client-vehicles')data={rows:await service.clientVehicles(branch,url.searchParams.get('client'))};
+   else if(action==='client-vehicles')data={rows:await service.clientVehicles(branch,url.searchParams.get('client'),url.searchParams.get('name'))};
    else if(action==='clients')data={rows:await service.clients(branch,url.searchParams.get('q'))};
    else if(action==='carrier')data=await service.carrier(url.searchParams.get('provider'),url.searchParams.get('iccid'));
-   else if(action==='status'){await service.api(branch,'/endpoints/veiculos.php?skip=0&take=1');await service.maintenance(branch);data={api:true,portal:true,branch,checked_at:new Date().toISOString()};}
+   else if(action==='status'){await service.api(branch,'/veiculos?skip=0&take=1');data={api:true,portal:false,branch,checked_at:new Date().toISOString()};}
    else throw fail(404,'Consulta não reconhecida.');
    if(action==='stock'){const fresh=await scoped(pool,user,async c=>(await c.query('select id,serial,branch_id,data,version from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null',[branch,serial])).rows[0]);if(fresh)data.contacts={...(data.contacts||{}),device:{...fresh.data,id:fresh.id,serial:fresh.serial,branch:fresh.branch_id,version:fresh.version}};}
    send(res,data);return true;

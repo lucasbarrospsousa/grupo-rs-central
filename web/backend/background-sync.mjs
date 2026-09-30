@@ -1,7 +1,9 @@
+import {setApiBudgetPool} from './api-budget.mjs';
 import {trackQueries} from './query-usage.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {Integrations} from './integrations.mjs';
 export function guardedIntegrations(pool,service=new Integrations()){
+ setApiBudgetPool(pool);
  const blocked=new Set(),checked=new Map();
  const guard=async(key,credentials,fn)=>{
   const fingerprint=createHash('sha256').update(JSON.stringify(credentials)).digest('hex');
@@ -18,12 +20,6 @@ async function runTick(pool,{service,budgetMs=45000,now=Date.now}={}){
  if(!batch.rows.length)return{processed:0,complete:!!batch.complete};
  service=service||guardedIntegrations(pool);let processed=0,cursor=0;const start=now();
  try{
-  if(service.maintenance)for(const branch of [...new Set(batch.rows.map(r=>r.branch))]){
-   const prior=(await pool.query('select central_homologacao.sync_panorama($1) as snapshot',[branch])).rows[0].snapshot;
-   if(prior?.cycle===batch.cycle)continue;
-   let data;try{data=await service.maintenance(branch);}catch(e){data={ok:false,message:e.message};}
-   await pool.query('select central_homologacao.sync_panorama($1,$2,$3)',[branch,batch.cycle,data]);
-  }
-  await Promise.all(Array.from({length:3},async()=>{while(cursor<batch.rows.length&&now()-start<budgetMs){const row=batch.rows[cursor++];let result;try{result=await service.stockDetails(row.branch,row.serial);}catch(e){result={serial:row.serial,equipment:{ok:false,message:e.message},location:{ok:false,message:e.message},chip:{ok:false,message:e.message}};}await pool.query('select central_homologacao.sync_save($1,$2,$3,$4)',[lease,batch.cycle,row.id,result]);processed++;}}));return{processed,cycle:batch.cycle};}
+  await Promise.all(Array.from({length:2},async()=>{while(cursor<batch.rows.length&&now()-start<budgetMs){const row=batch.rows[cursor++];let result;try{result=await service.stockDetails(row.branch,row.serial);}catch(e){result={serial:row.serial,equipment:{ok:false,message:e.message},location:{ok:false,message:e.message},chip:{ok:false,message:e.message}};}await pool.query('select central_homologacao.sync_save($1,$2,$3,$4)',[lease,batch.cycle,row.id,result]);processed++;}}));return{processed,cycle:batch.cycle};}
  finally{await pool.query('select central_homologacao.sync_release($1)',[lease]);}
 }

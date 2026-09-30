@@ -23,7 +23,7 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
   const clients=await service.clients(branch,body.clientName);
   const confirmedClient=clients.find(r=>r.id===body.clientId&&r.name===body.clientName);
   if(!confirmedClient)throw failure(409,'Cliente não confirmado. Consulte novamente.');
-  const vehicleRows=await service.clientVehicles(branch,body.clientId);
+  const vehicleRows=await service.clientVehicles(branch,body.clientId,body.clientName);
   const confirmedVehicles=vehicleRows.filter(r=>r.vehicle_id===body.vehicleId&&r.plate===body.plate);
   if(confirmedVehicles.length!==1||!confirmedVehicles[0].serial)throw failure(409,'Vínculo do veículo mudou. Consulte novamente.');
   const confirmedVehicle=confirmedVehicles[0];
