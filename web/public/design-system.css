@@ -1,0 +1,67 @@
+/* Central design foundation. Loaded last; operational layouts stay in route styles. */
+:root{--ui-font:"Segoe UI",Arial,sans-serif;--ui-bg:#f4f7fb;--ui-surface:#fff;--ui-ink:#153354;--ui-muted:#627b98;--ui-border:#dbe5f0;--ui-blue:#087bd3;--ui-orange:#ff8a0a;--ui-radius:16px;--ui-gap:20px;--ui-shadow:0 3px 14px #183a5c08}
+body{font-family:var(--ui-font);color:var(--ui-ink);background:var(--ui-bg)}
+body.central-ui .content{padding:0;max-width:none;margin:0;min-width:0}
+body.central-ui #page{display:block;height:auto;min-height:0;max-width:1860px;width:100%;margin:0 auto;padding:28px 32px 36px}
+body.central-ui .app-layout:not(.sidebar-collapsed){grid-template-columns:240px minmax(0,1fr)}
+body.central-ui .central-sidebar{width:240px;background:#102e49}
+body.central-ui .content>.top{height:auto;min-height:80px;padding:16px 32px;margin:0;background:white;border-bottom:1px solid var(--ui-border);gap:20px;display:flex;flex-wrap:wrap}
+.central-ui .ui-heading{display:flex;align-items:center;gap:14px;min-width:0}
+.central-ui .ui-heading strong{font-size:16px;font-weight:650;letter-spacing:0;color:var(--ui-ink)}
+.central-ui .ui-heading small{font-size:12px;color:var(--ui-muted);display:block;margin-bottom:2px}
+.central-ui .ui-header-actions{display:flex;align-items:center;gap:12px;margin-left:auto}
+.central-ui .ui-branch{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ui-muted)}
+.central-ui .content>.top select{width:210px;height:42px;font-size:14px}
+body.central-ui #page :is(h1,.logs-heading h2){font:700 30px/1.2 var(--ui-font);letter-spacing:-.6px;color:var(--ui-ink);margin:0 0 8px}
+body.central-ui #page h2{font-family:var(--ui-font);font-size:20px;font-weight:650;line-height:1.3;letter-spacing:-.2px;color:var(--ui-ink)}
+body.central-ui #page h3{font-family:var(--ui-font);font-size:16px;font-weight:650;line-height:1.4;color:var(--ui-ink)}
+body.central-ui #page :is(.stock-heading,.bulk-heading,.visits-heading,.warehouse-heading,.sms-heading,.logs-heading,.link-title,.consult-title,.dashboard-heading){margin:0 0 24px;gap:20px;align-items:center;flex-wrap:wrap}
+body.central-ui #page :is(.stock-eyebrow,.bulk-eyebrow,.link-eyebrow,.consult-eyebrow,.settings-eyebrow,.sms-eyebrow){font:600 11px/1.5 var(--ui-font);letter-spacing:.6px;margin:0 0 12px;color:var(--ui-muted)}
+body.central-ui #page :is(.stock-heading p,.bulk-heading p,.visits-heading p,.warehouse-heading p,.sms-heading p,.logs-heading p,.consult-intro,.link-intro,.settings-subtitle){font:400 14px/1.6 var(--ui-font);color:var(--ui-muted);margin:0 0 4px}
+body.central-ui #page :is(.panel,.stock-card,.bulk-panel,.link-panel,.consult-panel,.settings-panel,.visit-card,.visits-filters,.sms-history,.sms-detail,.backup-card){border:1px solid var(--ui-border);border-radius:var(--ui-radius);background:var(--ui-surface);box-shadow:var(--ui-shadow);padding:20px;min-width:0}
+body.central-ui #page .stock-card{min-height:0;background-image:none}
+body.central-ui #page :is(.grid,.bulk-grid,.link-grid,.records-grid,.settings-grid,.visits-grid){gap:var(--ui-gap)}
+body.central-ui #page :is(.four,.bulk-stats,.visits-stats,.sms-metrics,.records-metrics,.logs-cards,.consult-metrics){gap:16px;margin-bottom:24px}
+body.central-ui #page :is(.metric,.bulk-stats article,.visit-metric,.warehouse-metrics article,.sms-metrics article,.records-metrics article,.logs-cards article,.consult-metrics article){position:relative;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:8px;min-height:148px;padding:20px;border:1px solid var(--ui-border);border-top:3px solid var(--ui-blue);border-radius:var(--ui-radius);background:white;color:var(--ui-ink);box-shadow:var(--ui-shadow);font:500 14px/1.4 var(--ui-font);overflow:hidden}
+body.central-ui #page :is(.metric,.bulk-stats article)::after{display:none}
+body.central-ui #page :is(.metric.orange,.bulk-stats .orange,.visit-metric.orange,.warehouse-metric-1){border-top-color:var(--ui-orange)}
+body.central-ui #page :is(.visit-metric.green,.warehouse-metric-2){border-top-color:#0b9d70}
+body.central-ui #page :is(.metric .value,.bulk-stats strong,.visit-metric strong,.warehouse-metrics .value,.sms-metrics strong,.records-metrics strong,.logs-cards strong,.consult-metrics strong){display:block;font:700 32px/1.15 var(--ui-font);color:var(--ui-ink);margin:8px 0 0;letter-spacing:-.5px}
+body.central-ui #page :is(.metric small,.bulk-stats small,.visit-metric div>span,.warehouse-metrics article,.sms-metrics small,.records-metrics small,.logs-cards small,.consult-metrics small){color:var(--ui-muted);font-size:13px;line-height:1.4}
+body.central-ui #page :is(.metric>.icon,.bulk-stats article .icon,.visit-metric-icon,.warehouse-metrics article>.icon,.sms-metrics article>span,.records-metrics article>span,.consult-metrics .metric-symbol){position:absolute;left:auto;right:18px;top:16px;width:36px;height:36px;padding:8px;border-radius:10px;background:#eaf3fc;color:var(--ui-blue);font-size:19px;display:flex;align-items:center;justify-content:center}
+body.central-ui #page :is(.bulk-stats article>div,.visit-metric>div,.sms-metrics article>div,.records-metrics article>div,.consult-metrics article>div){padding-right:38px;display:block}
+body.central-ui #page :is(.link-editor header){background:#edf5fd;border-radius:10px;padding:16px;color:var(--ui-ink)}
+body.central-ui #page :is(.link-editor header h2,.link-editor header small){color:var(--ui-ink)}
+body.central-ui :is(#page,#modal) :is(button,.button){font-family:var(--ui-font);font-size:14px;font-weight:600;border-radius:10px;min-height:42px;padding:10px 14px;line-height:1.3;white-space:normal}
+body.central-ui :is(#page,#modal) :is(button.primary,.visits-primary,#stock-new,#link-review,#review-transfer,.bulk-orange){background:var(--ui-blue);border-color:var(--ui-blue);color:white}
+body.central-ui :is(#page,#modal) button.danger{background:#d5213e;border-color:#d5213e;color:white}
+body.central-ui :is(#page,#modal) button:disabled{opacity:.48;cursor:not-allowed}
+body.central-ui :is(#page,#modal) :is(input:not([type=checkbox]):not([type=radio]),select,textarea){font-family:var(--ui-font);font-size:14px;line-height:1.4;border:1px solid #ccdceb;border-radius:10px;padding:11px 13px;color:var(--ui-ink);background-color:white;min-height:42px}
+body.central-ui :is(#page,#modal) :is(input,select,button,a,textarea):focus-visible{outline:3px solid #79b6ec;outline-offset:2px}
+body.central-ui :is(#page,#modal) table{font-family:var(--ui-font);font-size:13px;line-height:1.45}
+body.central-ui :is(#page,#modal) th{background:#f0f5fa;color:#496783;font-size:12px;font-weight:650;padding:14px 12px}
+body.central-ui :is(#page,#modal) td{padding:13px 12px;border-bottom:1px solid #e7eef5}
+body.central-ui :is(#page,#modal) td button{min-height:32px;padding:6px 9px;font-size:12px}
+body.central-ui #page :is(.sync-status,.visits-sync .sync-status){font:400 13px/1.5 var(--ui-font);padding:12px 16px;margin:0 0 24px;border:1px solid #cde3f7;border-radius:10px;background:#eaf5ff;color:#285d86}
+body.central-ui #page .sync-warning{background:#fff5e3;border-color:#ffe0aa;color:#8b5100}
+body.central-ui #page .visits-sync .sync-status::before{display:none}
+body.central-ui #page .system-logs{max-width:none}
+body.central-ui #page .logs-heading h2{font-size:30px;font-weight:700}
+body.central-ui #modal{font-family:var(--ui-font);border-radius:20px;padding:24px;border:1px solid var(--ui-border);max-height:calc(100dvh - 32px);box-shadow:0 24px 80px #102e4933}
+body.central-ui #modal #modal-title{font-size:24px;font-weight:700;line-height:1.25}
+body.central-ui #modal .modal-head{border-radius:12px}
+body.central-ui #modal .close{min-height:38px;padding:8px}
+body.central-ui #page .logs-results{padding:0}
+@media(max-width:1100px){body.central-ui #page{padding:24px}body.central-ui #page :is(.four,.bulk-stats,.visits-stats,.sms-metrics,.records-metrics,.logs-cards,.consult-metrics){grid-template-columns:repeat(2,minmax(0,1fr))}body.central-ui .content>.top{padding:14px 24px}}
+@media(max-width:700px){body.central-ui #page{padding:20px 14px}body.central-ui .content>.top{padding:12px 14px;gap:12px}.central-ui .ui-header-actions{width:100%;margin:0}.central-ui .ui-branch{flex:1;justify-content:space-between}.central-ui .content>.top select{width:180px}body.central-ui #page :is(h1,.logs-heading h2){font-size:26px}body.central-ui #page :is(.panel,.stock-card,.bulk-panel,.link-panel,.consult-panel,.settings-panel,.visit-card,.visits-filters,.sms-history,.sms-detail){padding:16px}body.central-ui #modal{padding:16px}body.central-ui #page :is(.four,.bulk-stats,.visits-stats,.sms-metrics,.records-metrics,.logs-cards,.consult-metrics){gap:12px}body.central-ui #page :is(.metric,.bulk-stats article,.visit-metric,.warehouse-metrics article,.sms-metrics article,.records-metrics article,.logs-cards article,.consult-metrics article){padding:16px;min-height:140px}body.central-ui #page :is(.metric .value,.bulk-stats strong,.visit-metric strong,.warehouse-metrics .value,.sms-metrics strong,.records-metrics strong,.logs-cards strong,.consult-metrics strong){font-size:28px}}
+@media(max-width:420px){body.central-ui #page :is(.four,.bulk-stats,.visits-stats,.sms-metrics,.records-metrics,.logs-cards,.consult-metrics){grid-template-columns:1fr}}
+
+body.central-ui #page .visit-search input{padding-left:44px}
+body.central-ui #page #visits-new{background:var(--ui-blue);border-color:var(--ui-blue);color:white}
+body.central-ui #page .settings-api{padding:20px;text-align:left}
+body.central-ui[data-page="users"] #page .panel>.top h2{font-size:30px;font-weight:700;margin:0 0 8px}
+body.central-ui #page .metric{padding-right:58px}
+@media(max-width:700px){body.central-ui .app-layout:not(.sidebar-collapsed){grid-template-columns:0 minmax(0,1fr)}body.central-ui .central-sidebar{position:fixed;z-index:30;left:0;top:0;box-shadow:8px 0 30px #102e4933}body.central-ui .content>.top{position:relative;z-index:31}body.central-ui .central-sidebar{padding-top:130px}body.central-ui .warehouse-metrics{grid-template-columns:1fr}body.central-ui #page :is(.stock-actions,.warehouse-heading>div:last-child){flex-wrap:wrap}}
+body.central-ui .content{grid-column:2;width:100%}
+body.central-ui #page .stock-period input{min-width:155px;width:100%}body.central-ui #page th button{font-size:12px;min-height:32px;padding:4px;white-space:nowrap}body.central-ui[data-page="overview"] #page .dashboard-heading h2{font-size:30px;font-weight:700}body.central-ui #page .backup-card{padding:20px!important}body.central-ui.logs-page .ui-branch{display:none}
+body.central-ui :is(#page,#modal) textarea{min-height:140px}body.central-ui #page button.orange{background:var(--ui-blue);border-color:var(--ui-blue);color:white}
