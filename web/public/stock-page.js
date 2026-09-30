@@ -111,7 +111,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   on('stock-period-clear','click',()=>{model.start=model.end='';model.page=1;document.querySelector('#stock-start').value=document.querySelector('#stock-end').value='';draw();});
   document.querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{model.direction=model.sort===b.dataset.sort?-model.direction:1;model.sort=b.dataset.sort;model.page=1;draw();});
   if(!repo.real)on('stock-analyze','click',analyze);on('stock-new','click',()=>equipmentForm());on('stock-report','click',report);
-  on('stock-reconnect','click',()=>live?live.refresh(true):pending('Reconectar APIs','A reconexão das APIs depende de configuração.'));
+  on('stock-reconnect','click',()=>safe(async()=>{if(repo.real){await repo.load(branch,{route:'stock'});draw();live?.refresh(true);}else pending('Reconectar APIs','A reconexão das APIs depende de configuração.');}));
   on('stock-sms-monitor','click',()=>document.querySelector('[data-route="sms"]')?.click());
   if(repo.real)live=createStockLive({repo,branch,draw,showModal});
   draw();

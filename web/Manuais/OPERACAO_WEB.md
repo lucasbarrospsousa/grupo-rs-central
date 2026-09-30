@@ -125,3 +125,12 @@ Clientes exigem pelo menos três caracteres; veículos de atendimento são recon
 Migração 020 aplica controle compartilhado entre instâncias: mínimo de 1,1 segundo entre chamadas por base (incluindo login), no máximo duas chamadas simultâneas, leases de 25 segundos para transporte limitado a 18 segundos. Espera local limitada a 12 segundos; excesso informa aguardar. Isso limita as chamadas desta Central, não controla outros consumidores da mesma conta/IP. O ciclo agora processa até dois aparelhos em paralelo. Operadoras têm seu controle independente.
 
 Validação: `node --test web/tests/*.test.mjs`; `node web/tools/migrate-api-v2.mjs` testa migração/intervalo/leases/permissões com rollback; `--apply` aplica após testes e reverte apenas os dados sintéticos. Leituras reais em Imperatriz; permissões das outras três bases permanecem pendentes no fornecedor. Nenhuma escrita foi testada nas plataformas.
+
+
+## Consistência AJAX de chips e Armazém — 30/09/2026
+
+Ao entrar em Estoque ou Armazém, a Central relê o grupo necessário no SQL; redesenhos da mesma tela reutilizam os dados. Armazém atualiza tabela e contadores sem reconstruir a página, preservando busca/destino e removendo da seleção itens indisponíveis. A releitura automática usa intervalo-base de 60 segundos, ampliado pelo controle de economia, somente com a aba visível e sem modal aberto. Não consulta APIs externas. O botão de Estoque agora também relê os cadastros SQL.
+
+Consultas de contatos invalidam o cache do Armazém, e o dado de ICCID/telefone salvo tem prioridade na apresentação sobre amostras antigas. A migração 021 preserva futuras edições explícitas de contatos enquanto a plataforma ainda informa valores diferentes; não grava nem altera o chip no fornecedor. Quando a API confirma os mesmos contatos, a sincronização normal volta a acompanhá-los. A guarda é criada somente pelo servidor; não é um campo editável do navegador. Edições anteriores não são reconstruídas automaticamente.
+
+Testes: suíte local, `node web/tools/migrate-manual-contacts.mjs` (rollback), `node web/tools/test-chip-usage-sql.mjs` (rollback). A flag `--apply` do primeiro aplica a migração após validar e reverter fixtures. Cobertura de baixa do chip cadastrado, troca, telefone, repetição, API divergente e confirmação posterior. O chip desvinculado não retorna automaticamente à disponibilidade; essa regra operacional foi mantida.

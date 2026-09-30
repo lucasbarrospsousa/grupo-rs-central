@@ -14,6 +14,7 @@ try{
  const lookup=await call('integrations/stock?branch=imperatriz&serial='+serial);assert.equal(lookup.status,200);assert.equal(lookup.body.contacts.device.iccid,iccid);
  const read=await call(path);assert.equal(read.body.rows[0].phone,'11999999999');assert.equal(read.body.rows[0].iccid,iccid);
  const version=read.body.rows[0].version;const edit=await call(path,'PATCH',{version,data:{iccid,phone:'(11) 98888-8888'}});assert.equal(edit.status,200);assert.equal((await call(path)).body.rows[0].phone,'11988888888');
+ const stale=await call('integrations/stock?branch=imperatriz&serial='+serial);assert.equal(stale.status,200);assert.equal(stale.body.contacts.device.phone,'11988888888');assert.equal((await call(path)).body.rows[0].phone,'11988888888');
  assert.equal((await call(path,'PATCH',{version:edit.body.version,data:{iccid:'123'}})).status,400);
  assert.equal((await call(path,'PATCH',{version:edit.body.version,data:{phone:'123'}})).status,400);
  assert.equal((await call(path,'PATCH',{version:1,data:{phone:'11977777777'}})).status,409);

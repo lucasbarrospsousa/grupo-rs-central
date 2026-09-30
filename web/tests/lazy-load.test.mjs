@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 import {SqlRepository} from '../public/sql-repository.js';
 const data=()=>({rows:[],visits:[],movements:[]});
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject};};
+test('entering warehouse and stock refreshes saved state without refetching on every render',async()=>{
+ const r=repo();r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});
+ r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});assert.equal(r.calls.length,1);
+ r.activate('a','stock');await r.load('a',{route:'stock',force:false});
+ r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});assert.equal(r.calls.length,3);
+});
+test('saving an ICCID invalidates warehouse so the next visit gets the movement',async()=>{
+ const r=repo();r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});
+ await r.saveDevice('a',{serial:'024000001',iccid:'8955000000000000001'});
+ assert.equal(r.ready('a','warehouse'),false);assert.equal(r.ready('a','stock'),true);
+ await r.load('a',{route:'warehouse',force:false});assert.equal(r.calls.at(-1),'warehouse?branch=a');
+});
 function repo(){const r=new SqlRepository();r.user={permissions:{owner:true}};r.calls=[];r.request=async path=>{r.calls.push(path);return data()};return r;}
 test('overview requests only devices; maintenance and warehouse load on demand',async()=>{
  const r=repo();await r.load('a',{route:'overview',force:false});assert.deepEqual(r.calls,['devices?branch=a']);

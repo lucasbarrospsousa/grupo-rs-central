@@ -6,11 +6,11 @@ export class SqlRepository {
     try{response=await fetch('/api/'+path,{method,signal:AbortSignal.any([AbortSignal.timeout(path.startsWith('integrations/')?120000:25000),...(signal?[signal]:[])]),headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrf,...(method!=='GET'?{'Idempotency-Key':key||crypto.randomUUID()}:{})},body:body?JSON.stringify(body):undefined});}
     catch(error){throw Error(error.name==='TimeoutError'?'O servidor demorou a responder. Tente novamente.':'A conexão com o servidor local foi interrompida. Tente novamente em alguns segundos.');}
     if(response.headers.get('X-Central-Audit')==='unavailable')window.dispatchEvent(new Event('central-audit-unavailable'));
-    const data=await response.json();if(response.status===401&&this.user)window.dispatchEvent(new Event('central-session-expired'));if(!response.ok)throw Object.assign(Error(data.error||'Falha na consulta.'),{status:response.status});return data;
+    const data=await response.json();if(response.status===401&&this.user)window.dispatchEvent(new Event('central-session-expired'));if(!response.ok)throw Object.assign(Error(data.error||'Falha na consulta.'),{status:response.status});if(path.startsWith('integrations/stock?')&&data.contacts?.confirmed){const branch=new URLSearchParams(path.split('?')[1]).get('branch');if(branch)this.invalidate(branch,['warehouse']);}return data;
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  async logout(){this.epoch++;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
+  async logout(){this.epoch++;this.activeView=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){
     const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
     const result=[];
@@ -20,8 +20,13 @@ export class SqlRepository {
     return result;
   }
   ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseBranch===branch));}
-  invalidate(branch){
-    for(const group of ['devices','history','warehouse']){const key=branch+':'+group;this.loaded.delete(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
+  invalidate(branch,groups=['devices','history','warehouse']){
+    for(const group of groups){const key=branch+':'+group;this.loaded.delete(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
+  }
+  activate(branch,route){
+    const key=branch+':'+route;
+    if(this.activeView!==key&&['stock','warehouse'].includes(route))this.invalidate(branch,this.groups(route));
+    this.activeView=key;this.currentBranch=branch;this.currentRoute=route;
   }
   async load(branch,{route=this.currentRoute||'overview',force=true}={}){
     if(force)this.invalidate(branch);

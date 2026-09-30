@@ -1,4 +1,4 @@
-import {mountUsageControl} from './usage-control.mjs';
+import {mountUsageControl,startEconomyPolling} from './usage-control.mjs';
 mountUsageControl();
 import {installPageMotion} from './page-motion.js';
 import {mountSystemLogs,installActionJournal} from './system-logs.js';
@@ -91,7 +91,7 @@ function render() {
   }
   const mountNavigation=()=>mountSidebar({route:state.route,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real)await repo.logout();state.entered=false;state.selected.clear();render();})});
   if(repo.real){
-    repo.currentBranch=state.branch;repo.currentRoute=state.route;
+    repo.activate(state.branch,state.route);
     if(!repo.ready(state.branch,state.route)){
       mountNavigation();
       const branch=state.branch,route=state.route;
@@ -176,6 +176,11 @@ function warehouse() {
   styleWarehouse({real:repo.real,icon,navigate:route=>{state.route=route;render();},newItem:newWarehouseItem,refresh:()=>safe(async()=>{if(repo.real)await repo.load(state.branch);render();notify(repo.real?'Armazém recarregado do SQL.':'Lista demonstrativa atualizada. Arya e banco ainda não conectados.');})});
   let customDestination = false; let warehousePage=0; const warehousePageSize=12;
   const draw = () => {
+    const metrics=document.querySelectorAll('.warehouse-metrics .value');
+    for(const [i,kind] of ['device','chip'].entries())if(metrics[i])metrics[i].textContent=repo.warehouse.filter(r=>r.kind===kind&&r.status==='Disponível').length;
+    if(metrics[2])metrics[2].textContent=repo.movements.filter(r=>r.type==='Envio').length;
+    for(const id of state.selected)if(!repo.warehouse.some(r=>r.id===id&&r.status==='Disponível'))state.selected.delete(id);
+
     const text = document.querySelector('#warehouse-search').value.toLowerCase(); const status = document.querySelector('#warehouse-status').value;
     const target = document.querySelector('#warehouse-table');
     if (state.warehouseTab === 'movements') target.innerHTML = movementsTable(repo.movements.filter(m=>[m.serial,m.type,m.destination].some(v=>String(v).toLowerCase().includes(text))).slice(warehousePage*warehousePageSize,(warehousePage+1)*warehousePageSize));
@@ -196,6 +201,12 @@ function warehouse() {
   on('warehouse-search','input',()=>{warehousePage=0;draw();}); on('warehouse-status','change',()=>{warehousePage=0;draw();}); on('warehouse-clear-selection','click',()=>{state.selected.clear();draw();}); on('new-item','click',newWarehouseItem);
   for (const [id, custom] of [['destination-base',false],['destination-other',true]]) on(id,'click',() => { customDestination = custom; document.querySelector('#destination').hidden = custom; document.querySelector('#other-destination').hidden = !custom; document.querySelector('#destination-base').classList.toggle('primary', !custom); document.querySelector('#destination-other').classList.toggle('primary', custom); });
   on('review-transfer','click',() => { const destination = customDestination ? document.querySelector('#other-destination').value.trim() : name(document.querySelector('#destination').value); if (!destination) return notify('Informe o destino.'); const ids = [...state.selected]; const note = document.querySelector('#transfer-note').value; confirmAction('Revisar envio', `${ids.length} itens para ${destination}. ${note}`, async () => { await repo.transfer(ids,destination,note); state.selected.clear(); notify(repo.real?'Envio registrado.':'Envio registrado apenas na demonstração.'); }); }); draw();
+  if(repo.real){
+    const root=document.querySelector('#warehouse-table'),branch=state.branch;
+    const refresh=async()=>{const before=JSON.stringify([repo.warehouse,repo.movements]);repo.invalidate(branch,['warehouse']);await repo.loadGroup(branch,'warehouse');if(root.isConnected&&before!==JSON.stringify([repo.warehouse,repo.movements]))draw();};
+    document.querySelector('#warehouse-refresh').onclick=()=>safe(refresh);
+    startEconomyPolling(refresh,{interval:60000,alive:()=>root.isConnected,active:()=>!document.querySelector('dialog[open]')});
+  }
 }
 function movementsTable(rows) { return `<table><thead><tr><th>Data / detecção</th><th>Movimento</th><th>Série / ICCID</th><th>Aparelho / telefone</th><th>Destino / origem</th></tr></thead><tbody>${rows.map(m => `<tr><td>${m.at}</td><td>${escape(m.type)}</td><td>${escape(m.serial)}</td><td>${escape(m.deviceSerial||'—')}<small style="display:block">${escape(m.phone||'')}</small></td><td>${escape(m.destination)}<small style="display:block">${escape(m.note||'')}</small></td></tr>`).join('') || '<tr><td colspan="5" class="empty">Nenhuma movimentação encontrada.</td></tr>'}</tbody></table>`; }
 function newWarehouseItem() {
