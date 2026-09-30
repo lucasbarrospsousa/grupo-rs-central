@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Integrations} from '../backend/integrations.mjs';
 const serial='024000001';
-test('missing owner never authorizes automatic discharge; portal and link are disabled',async()=>{
+test('missing owner never authorizes automatic discharge; portal and remote maintenance are disabled',async()=>{
  const s=new Integrations();s.vehicles=async()=>[{serial,plate:'ABC1D23',vehicle_id:'7',client:''}];
  assert.equal((await s.binding('imperatriz',serial)).category,'review');
- for(const method of ['portal','maintenance','prepareLink','createLink'])await assert.rejects(s[method](),e=>e.status===501);
+ for(const method of ['portal','maintenance'])await assert.rejects(s[method](),e=>e.status===501);
 });
 test('equipment reads v2 exact nested identity and rejects duplicates/inactive',async()=>{
  const s=new Integrations();let raw={codEquipamento:4,numeroSerie:serial,ativo:'A',veiculo:{codVeiculo:7,placa:'ABC1D23'}};

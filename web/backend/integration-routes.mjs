@@ -7,12 +7,13 @@ import {integrations} from './integrations.mjs';
 import {guardedIntegrations} from './background-sync.mjs';
 const fail=(status,message)=>Object.assign(Error(message),{status});
 const send=(res,data)=>{res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
-const active=new Map();
-export async function integrationRoute({req,res,url,pool,user,readBody,service=integrations}){
+const active=new Map(),services=new WeakMap();
+export async function integrationRoute({req,res,url,pool,user,permissions,readBody,service=integrations}){
  if(!url.pathname.startsWith('/api/integrations/'))return false;
  const branch=url.searchParams.get('branch');const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];if(!membership)throw fail(403,'Sem acesso a esta filial.');
  const count=active.get(user.user_id)||0;if(count>=3)throw fail(429,'Aguarde as consultas em andamento.');active.set(user.user_id,count+1);
  try{
+  if(service===integrations){if(!services.has(pool))services.set(pool,guardedIntegrations(pool));service=services.get(pool);}
   const action=url.pathname.split('/').at(-1),serial=url.searchParams.get('serial');
   if(req.method==='GET'){
    let data;
@@ -21,9 +22,10 @@ export async function integrationRoute({req,res,url,pool,user,readBody,service=i
    else if(action==='sync-status')data=(await pool.query('select central_homologacao.sync_status() as status')).rows[0].status;
    else if(action==='gateway')data=await scoped(pool,user,c=>bridgeHealth(c,branch));
    else if(action==='stock'){data=await (service===integrations?guardedIntegrations(pool):service).stockDetails(branch,serial);if(membership.role!=='reader'&&data.equipment?.serial===serial)data.contacts=await scoped(pool,user,async c=>(await c.query('select central_homologacao.save_device_contacts($1,$2,$3) as result',[branch,serial,data.equipment])).rows[0].result);}
+   else if(action==='link-preview'){const preview=await service.prepareLink(branch,serial,url.searchParams.get('plate'));data={ok:true,plate:preview.plate,serial:preview.serial,confirmed:preview.confirmed};}
    else if(action==='equipment')data=await service.equipmentPortal(branch,serial);
    else if(action==='sms-template')data=await prepareStandardSms(service,branch,serial);
-   else if(action==='operations')data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 order by created_at desc limit 100',[branch])).rows)};
+   else if(action==='operations'){const kinds=['link','sms'].filter(k=>permissions?.owner||permissions?.views?.includes(k));data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 and kind=any($2::text[]) order by created_at desc limit 100',[branch,kinds])).rows)};}
    else if(action==='maintenance')data=await service.maintenance(branch);
    else if(action==='binding')data=await service.binding(branch,serial);
    else if(action==='location')data=await service.location(branch,serial);
@@ -36,7 +38,7 @@ export async function integrationRoute({req,res,url,pool,user,readBody,service=i
    if(action==='stock'){const fresh=await scoped(pool,user,async c=>(await c.query('select id,serial,branch_id,data,version from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null',[branch,serial])).rows[0]);if(fresh)data.contacts={...(data.contacts||{}),device:{...fresh.data,id:fresh.id,serial:fresh.serial,branch:fresh.branch_id,version:fresh.version}};}
    send(res,data);return true;
   }
-  if(['link','sms','reconcile'].includes(action)&&req.method==='POST'){send(res,await remoteAction({action,body:await readBody(req),branch,user,role:membership.role,pool,service}));return true;}
+  if(['link','sms','reconcile'].includes(action)&&req.method==='POST'){const body=await readBody(req);if(action==='reconcile'){const op=await scoped(pool,user,async c=>(await c.query('select kind from central_homologacao.remote_operations where id=$1 and branch_id=$2',[body.id,branch])).rows[0]);if(!op)throw fail(404,'Pedido não encontrado.');if(!permissions?.owner&&!permissions?.writes?.includes(op.kind))throw fail(403,'Sem permissão para conferir este tipo de operação.');}send(res,await remoteAction({action,body,branch,user,role:membership.role,pool,service}));return true;}
   if(action!=='discharge'||req.method!=='POST')throw fail(405,'Operação indisponível.');
   if(membership.role==='reader')throw fail(403,'Usuário somente de leitura.');
   const body=await readBody(req),key=req.headers['idempotency-key'];if(!/^[a-f0-9-]{36}$/.test(key||'')||typeof body.id!=='string'||!Number.isInteger(body.version))throw fail(400,'Identificador ou versão inválidos.');

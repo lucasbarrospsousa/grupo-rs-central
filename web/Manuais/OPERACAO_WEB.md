@@ -144,3 +144,13 @@ A API passou a fornecer `titular.codCliente`, `titular.nomeCliente` e `qtdClient
 Permanecem indisponíveis a lista remota de manutenção (sem rota documentada) e a criação/associação remota de veículos (escrita ainda não homologada). Não há fallback web. Registros de atendimento e baixas locais continuam separados de alterações na plataforma externa. Mantidos limite compartilhado de chamadas, idempotência, permissões e configurações de automação.
 
 Validação: 138 testes locais; oito verificações SQL transacionais com rollback; consultas reais de veículos/titulares nas quatro bases e confirmação de veículos do cliente em Imperatriz. Nenhum cadastro externo alterado. Credenciais não pertencem ao código, GitHub ou backup público.
+
+## Vinculação e revisão dos acessos — 30/09/2026
+
+A confirmação de vínculo voltou a funcionar exclusivamente pela API para aparelhos e identificações existentes. A prévia confere série exata, identificação AAA/GRS/XRS, titular RS300, ausência de outro aparelho e ausência de vínculo do aparelho com outro veículo. O envio usa POST `/veiculos/{id}/equipamento` com `mover:false`, após nova conferência. A operação durável continua impedindo reenvio automático; leitura posterior confirma a associação antes de atualizar Estoque. Não cria veículo, cliente ou equipamento e não transfere aparelhos entre veículos. Ausência na resposta é apresentada como cadastro/escopo não confirmado, sem afirmar inexistência no fornecedor.
+
+As consultas de páginas agora compartilham a proteção de credenciais do sincronizador. HTTP 403 de uma rota Grupo RS não pausa todas as rotas da filial; login recusado e HTTP 401 persistente continuam protegidos. As quatro bases usam a conta específica de API já atualizada no cofre; veículos e equipamentos foram conferidos em cada base. Não foram modificados usuários ou permissões externas. O acesso à prévia e às operações de vínculo respeita o módulo Vinculação.
+
+Cadastro em massa passou a pedir placa, série ou identificação na busca de titular. A confirmação de vínculo normaliza a identificação e mostra o resultado da prévia antes de permitir escrita; uma prévia que falhou não habilita o botão.
+
+Validação: 147 testes Node, interface sintética no Chrome sem erros, oito consultas de conexão bem-sucedidas (veículos e equipamentos em quatro bases). Escritas externas testadas somente com respostas simuladas. Permanecem pendentes a criação remota com escolha documentada de titular e a classificação de manutenção remota, cuja regra não é fornecida na documentação atual.

@@ -72,7 +72,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     if(!permitted(permissions,url.pathname,req.method))throw fail(403,'Seu usuário não tem permissão para esta operação.');
     if(mutation){const access=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,url.searchParams.get('branch')])).rows[0];if(!access||access.role==='reader')throw fail(403,'Usuário somente de consulta.');}
     if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
-    if(await integrationRoute({req,res,url,pool,user,readBody:body,service:integrationService}))return true;
+    if(await integrationRoute({req,res,url,pool,user,permissions,readBody:body,service:integrationService}))return true;
     if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');
     const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];
