@@ -26,7 +26,7 @@ export function mountMaintenance({repo,branch,showModal,reportForm,render}){
   document.querySelector('#visits-range').textContent=current.length?`Exibindo ${page*size+1}–${Math.min((page+1)*size,current.length)} de ${current.length} atendimentos`:'Nenhum atendimento para exibir';
   const indexes=[...new Set([0,page-1,page,page+1,pages-1].filter(n=>n>=0&&n<pages))].sort((a,b)=>a-b);
   document.querySelector('#visits-pages').innerHTML=`<button data-page="${page-1}" aria-label="Página anterior" ${page===0?'disabled':''}>${glyph('left')}</button>`+indexes.map((n,i)=>(i&&n>indexes[i-1]+1?'<span>…</span>':'')+`<button data-page="${n}" ${n===page?'aria-current="page"':''} aria-label="Página ${n+1}">${n+1}</button>`).join('')+`<button data-page="${page+1}" aria-label="Próxima página" ${page===pages-1?'disabled':''}>${glyph('right')}</button>`;
-  document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{const next=Number(b.dataset.page);if(next<0||next>=pages||next===page)return;page=next;draw();document.querySelector(`[data-page="${page}"][aria-current]`)?.focus({preventScroll:true});});
+  document.querySelectorAll('#visits-pages button[data-page]').forEach(b=>b.onclick=()=>{const next=Number(b.dataset.page);if(!Number.isInteger(next)||next<0||next>=pages||next===page)return;page=next;draw();document.querySelector(`[data-page="${page}"][aria-current]`)?.focus({preventScroll:true});});
  };
  for(const id of ['visits-search','visits-status','visits-since'])document.getElementById(id).addEventListener('input',()=>{page=0;draw();});
  document.querySelector('#visits-new').onclick=()=>repo.real?openVisitForm({repo,branch,showModal,render}):reportForm();

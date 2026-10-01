@@ -14,3 +14,7 @@ Todas as abas e novos componentes devem seguir `public/design-system.css`, carre
 Não adicionar novas fontes, sombras, gradientes ou medidas independentes por aba. Alterar a base compartilhada quando a necessidade for global. Manter particularidades funcionais de mapas, tabelas e formulários.
 
 Validação: navegar pelas abas, abrir uma janela, conferir menu e seleção de filial; verificar desktop e celular. Dados demonstrativos são apenas fixtures visuais, não prova de integração com APIs.
+
+## Estoque compacto
+A superfície de estoque usa a variante densa em stock-compact.css: cabeçalho de 58 px, ações de 36 px e linhas compactas. No desktop a página ocupa a janela; a tabela mantém rolagem interna e paginação visível. Conectividade vem após Série. Período fica em Filtros e consultas em Integrações. No celular o conteúdo pode rolar normalmente.
+Paginação deve usar seletores locais e atributos próprios. A identificação da tela usa data-view; nunca capturar cliques da página inteira como troca de página.

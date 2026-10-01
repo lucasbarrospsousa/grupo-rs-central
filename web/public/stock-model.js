@@ -48,3 +48,8 @@ export function csvText(rows) {
   const cell = v => { let s = String(v ?? ''); if (/^[=+@\-\t\r]/.test(s)) s = "'" + s; return '"' + s.replaceAll('"','""') + '"'; };
   return '\ufeff' + [['Série','Identificação','Veículo','Tipo','Operadora','Status','Conectividade','Instalação'], ...rows.map(r => [r.serial,r.identification,r.plate,r.model,r.carrier,r.status,r.connectivity,r.installed_at])].map(row => row.map(cell).join(';')).join('\r\n');
 }
+
+export function stockPageNumber(value,total,perPage=10){
+ const page=Number(value),last=Math.max(1,Math.ceil(total/perPage));
+ return Number.isInteger(page)&&page>0?Math.min(page,last):1;
+}

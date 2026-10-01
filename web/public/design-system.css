@@ -59,9 +59,9 @@ body.central-ui #page .logs-results{padding:0}
 body.central-ui #page .visit-search input{padding-left:44px}
 body.central-ui #page #visits-new{background:var(--ui-blue);border-color:var(--ui-blue);color:white}
 body.central-ui #page .settings-api{padding:20px;text-align:left}
-body.central-ui[data-page="users"] #page .panel>.top h2{font-size:30px;font-weight:700;margin:0 0 8px}
+body.central-ui[data-view="users"] #page .panel>.top h2{font-size:30px;font-weight:700;margin:0 0 8px}
 body.central-ui #page .metric{padding-right:58px}
 @media(max-width:700px){body.central-ui .app-layout:not(.sidebar-collapsed){grid-template-columns:0 minmax(0,1fr)}body.central-ui .central-sidebar{position:fixed;z-index:30;left:0;top:0;box-shadow:8px 0 30px #102e4933}body.central-ui .content>.top{position:relative;z-index:31}body.central-ui .central-sidebar{padding-top:130px}body.central-ui .warehouse-metrics{grid-template-columns:1fr}body.central-ui #page :is(.stock-actions,.warehouse-heading>div:last-child){flex-wrap:wrap}}
 body.central-ui .content{grid-column:2;width:100%}
-body.central-ui #page .stock-period input{min-width:155px;width:100%}body.central-ui #page th button{font-size:12px;min-height:32px;padding:4px;white-space:nowrap}body.central-ui[data-page="overview"] #page .dashboard-heading h2{font-size:30px;font-weight:700}body.central-ui #page .backup-card{padding:20px!important}body.central-ui.logs-page .ui-branch{display:none}
+body.central-ui #page .stock-period input{min-width:155px;width:100%}body.central-ui #page th button{font-size:12px;min-height:32px;padding:4px;white-space:nowrap}body.central-ui[data-view="overview"] #page .dashboard-heading h2{font-size:30px;font-weight:700}body.central-ui #page .backup-card{padding:20px!important}body.central-ui.logs-page .ui-branch{display:none}
 body.central-ui :is(#page,#modal) textarea{min-height:140px}body.central-ui #page button.orange{background:var(--ui-blue);border-color:var(--ui-blue);color:white}

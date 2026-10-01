@@ -64,7 +64,7 @@ let renderVersion=0;
 function render() {
   const version=++renderVersion;
   document.body.classList.toggle('central-ui',state.entered);
-  document.body.dataset.page=state.route;
+  document.body.dataset.view=state.route;
   document.body.classList.toggle('logs-page',state.entered&&state.route==='logs');
   document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route','warehouse','sms','settings','users','logs'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
@@ -124,7 +124,7 @@ function render() {
     if(readonly)document.querySelectorAll('#stock-new,[data-edit],[data-delete]').forEach(b=>{b.disabled=true;b.title='Usuário somente de leitura';});
     if(state.route!=='logs')mountIntegrationActions({repo,branch:state.branch,route:state.route,showModal,notify,render});
   }
-  unifyPageHeader(({records:'Histórico de posições',route:'Trajeto'})[state.route]||route[1]);
+  unifyPageHeader(({stock:'Estoque de equipamentos',records:'Histórico de posições',route:'Trajeto'})[state.route]||route[1]);
 }
 const page = html => document.querySelector('#page').innerHTML = html;
 const colors = ['#f32c4d', '#ff8808', '#edb20b', '#13b468'];

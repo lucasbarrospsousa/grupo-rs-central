@@ -1,0 +1,59 @@
+/* Compact working surface: stock only. Shared colours/type remain in design-system.css. */
+body.central-ui[data-view="stock"]{--developer-credit-height:28px}
+body.central-ui[data-view="stock"] .developer-credit{padding:2px 12px;gap:10px;border-top-width:1px}
+body.central-ui[data-view="stock"] .developer-credit img{height:22px;width:104px}
+body.central-ui[data-view="stock"] .developer-credit span{font-size:9px}
+body.central-ui[data-view="stock"] .content>.top{min-height:58px;padding:8px 20px;flex-wrap:nowrap}
+body.central-ui[data-view="stock"] .ui-heading small{display:none}
+body.central-ui[data-view="stock"] .ui-heading strong{font-size:20px}
+body.central-ui[data-view="stock"] #page{padding:12px 18px;display:flex;flex-direction:column;gap:10px}
+body.central-ui[data-view="stock"] #page .sync-status{padding:7px 12px;margin:0;font-size:12px;max-height:64px;overflow:auto;flex-shrink:0}
+body.central-ui[data-view="stock"] #page .sync-status p{margin:4px 0}
+body.central-ui[data-view="stock"] #page .stock-heading{margin:0;min-height:0;display:block;flex-shrink:0}
+body.central-ui[data-view="stock"] .stock-main-actions{max-width:none;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+body.central-ui[data-view="stock"] #page .stock-main-actions button{height:36px;min-height:36px;padding:7px 12px;font-size:14px}
+body.central-ui[data-view="stock"] #page .stock-card{padding:12px;border-radius:14px;min-height:0;gap:10px;background:white;flex:1;overflow:hidden;margin:0}
+body.central-ui[data-view="stock"] .stock-search-row{flex-shrink:0;gap:8px}
+body.central-ui[data-view="stock"] #page .stock-search-row :is(button,input){min-height:38px;height:38px;padding:8px 12px;font-size:14px}
+body.central-ui[data-view="stock"] #page .stock-search input{padding-right:36px}
+body.central-ui[data-view="stock"] .stock-search>.icon{top:9px;right:12px}
+body.central-ui[data-view="stock"] .stock-filter-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;flex-wrap:wrap}
+body.central-ui[data-view="stock"] .stock-status-filters{margin:0;gap:6px}
+body.central-ui[data-view="stock"] #page .stock-status-filters button{min-height:34px;padding:7px 10px;font-size:14px}
+body.central-ui[data-view="stock"] .stock-card-heading{margin:0;min-width:0}
+body.central-ui[data-view="stock"] .stock-card-heading small{font-size:12px;max-width:none;font-weight:400;margin:0;text-align:right}
+.stock-visually-hidden{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+body.central-ui[data-view="stock"] #stock-period[hidden]{display:none}
+body.central-ui[data-view="stock"] #stock-period{margin:0;padding:10px;background:#f4f8fc;flex-shrink:0;max-height:170px;overflow:auto;border-radius:10px}
+body.central-ui[data-view="stock"] #stock-period label{border:0;padding:0;align-items:flex-start;gap:4px;font-size:12px}
+body.central-ui[data-view="stock"] #stock-period label>.icon{display:none}
+body.central-ui[data-view="stock"] #stock-period input{min-height:36px;height:36px;font-size:14px;padding:6px 10px;width:160px;font-weight:400}
+body.central-ui[data-view="stock"] #page .stock-table-wrap{flex:1;min-height:0;max-height:none;margin:0;overflow:auto;overscroll-behavior:contain}
+body.central-ui[data-view="stock"] #page .stock-table{table-layout:auto;min-width:1120px;width:100%}
+body.central-ui[data-view="stock"] #page .stock-table th{height:36px;padding:5px 8px;white-space:nowrap;width:auto;min-width:0;font-size:12px}
+body.central-ui[data-view="stock"] #page .stock-table th button{min-height:26px;padding:0;font-size:12px;white-space:nowrap}
+body.central-ui[data-view="stock"] #page .stock-table td{height:48px;padding:5px 8px;font-size:14px;white-space:nowrap;text-align:left}
+body.central-ui[data-view="stock"] #page .stock-table td:first-child{width:30px}
+body.central-ui[data-view="stock"] .stock-series{gap:8px;min-width:136px}
+body.central-ui[data-view="stock"] .stock-series>div{text-align:left}
+body.central-ui[data-view="stock"] #page .stock-pin{height:28px;min-height:28px;width:26px;padding:3px;border-radius:6px;flex-shrink:0}
+body.central-ui[data-view="stock"] #page .stock-series-link{padding:0;min-height:20px;margin:0;font-size:14px;font-weight:600;white-space:nowrap}
+body.central-ui[data-view="stock"] .stock-series small{font-size:12px;line-height:16px}
+body.central-ui[data-view="stock"] #page .stock-vehicle-plate{height:30px;min-height:30px;width:112px;max-width:112px;padding:5px 8px;font-size:13px}
+body.central-ui[data-view="stock"] .stock-connect{min-width:90px;max-width:116px;padding:5px 7px;font-size:13px;line-height:18px;white-space:normal;font-weight:600}
+body.central-ui[data-view="stock"] .stock-connect.green{background:#e0f8eb;color:#078352}
+body.central-ui[data-view="stock"] .stock-connect.red{background:#ffebee;color:#b71f38}
+body.central-ui[data-view="stock"] .stock-connect.neutral{background:#edf1f6;color:#5f738b}
+body.central-ui[data-view="stock"] .stock-badge{padding:5px 7px;font-size:13px;font-weight:600}
+body.central-ui[data-view="stock"] .stock-badge .icon{display:none}
+body.central-ui[data-view="stock"] .stock-row-actions{flex-wrap:nowrap;gap:4px;min-width:180px;justify-content:flex-end}
+body.central-ui[data-view="stock"] #page .stock-row-actions button{height:30px;min-height:30px;width:30px;padding:5px;flex-shrink:0;border-radius:7px;white-space:nowrap}
+body.central-ui[data-view="stock"] #page .stock-row-actions .stock-discharge{width:auto;min-width:78px;flex-basis:auto;font-size:12px;padding:5px 8px}
+body.central-ui[data-view="stock"] .stock-discharge .icon{display:none}
+body.central-ui[data-view="stock"] .stock-row-actions .icon{width:18px;height:18px}
+body.central-ui[data-view="stock"] #page .stock-pagination{flex-shrink:0;justify-content:flex-end;font-size:13px;font-weight:400;padding:0;gap:6px}
+body.central-ui[data-view="stock"] .stock-pagination>span:first-child{margin-right:auto}
+body.central-ui[data-view="stock"] #page .stock-pagination button{min-height:32px;min-width:32px;padding:5px 10px;font-size:13px}
+body.central-ui[data-view="stock"] .stock-batch,body.central-ui[data-view="stock"] .stock-selection{margin:0;font-size:12px;max-height:64px;overflow:auto;flex-shrink:0}
+@media(min-width:1001px){body.central-ui[data-view="stock"]{height:100dvh;overflow:hidden}body.central-ui[data-view="stock"] .app-layout{height:calc(100dvh - var(--developer-credit-height));min-height:0}body.central-ui[data-view="stock"] .content{height:calc(100dvh - var(--developer-credit-height));display:flex;flex-direction:column;min-height:0;overflow:hidden}body.central-ui[data-view="stock"] .content>.top{flex-shrink:0}body.central-ui[data-view="stock"] #page{flex:1;min-height:0;height:auto}body.central-ui[data-view="stock"] .central-sidebar{padding-top:20px}body.central-ui[data-view="stock"] .central-sidebar .brand{margin-bottom:18px}body.central-ui[data-view="stock"] .central-sidebar .central-nav a{padding-block:10px}}
+@media(max-width:1000px){body.central-ui[data-view="stock"] #page .stock-table-wrap{height:440px;max-height:60dvh;flex:auto}body.central-ui[data-view="stock"] .stock-card-heading small{text-align:left}body.central-ui[data-view="stock"] .stock-main-actions{justify-content:flex-start}body.central-ui[data-view="stock"] .content>.top{flex-wrap:wrap}body.central-ui[data-view="stock"] #page{padding:12px}body.central-ui[data-view="stock"] #page .stock-search-row{flex-wrap:wrap}body.central-ui[data-view="stock"] #page .stock-search{flex-basis:100%}body.central-ui[data-view="stock"] .stock-pagination{flex-wrap:wrap}}
