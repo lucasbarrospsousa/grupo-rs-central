@@ -5,3 +5,14 @@ test('owner requires API association matching client, vehicle, exact plate, equi
 test('same client shares in-flight query only within same branch; discharge always refreshes',async()=>{const s=new Integrations();let calls=0;s.api=async()=>{calls++;await new Promise(r=>setTimeout(r,2));return response();};await Promise.all([s.associationOwner('imperatriz',v),s.associationOwner('imperatriz',v)]);assert.equal(calls,1);await s.associationOwner('araguaina',v);assert.equal(calls,2);await s.associationOwner('imperatriz',v,'RS300',{fresh:true});assert.equal(calls,3);});
 test('duplicate associations and absent vehicle never invent owner',async()=>{const s=new Integrations();s.api=async()=>{const d=response();d.associados.push(d.associados[0]);return d;};assert.equal(await s.associationOwner('imperatriz',v),null);});
 test('pause aborts page batch, rejects late results and resumes once after last modal closes',async()=>{let resolve,signal,results=0,resumes=0,paused=false;const q=pageBatch({query:(_,s)=>{signal=s;return new Promise(r=>resolve=r)},onStart(){},onResult:()=>results++});const stop=watchStockPause(value=>{const before=paused;paused=value;if(value)q.invalidate();else if(before)resumes++;});const pending=q.run(['one']);const release=pauseStockPolling(),release2=pauseStockPolling();assert.equal(signal.aborted,true);resolve({});await pending;assert.equal(results,0);release();release();assert.equal(paused,true);release2();assert.equal(paused,false);assert.equal(resumes,1);stop();q.close();});
+
+// Flat client fields are documented by the current API alongside nested titular.
+for(const branch of ['imperatriz','acailandia','araguaina','maraba'])test('documented flat owner works for ordinary clients: '+branch,async()=>{
+ const s=new Integrations();let calls=0;s.api=async()=>{calls++;return{veiculos:[{codVeiculo:7,placa:'ABC - 1D23',codCliente:9,nomeCliente:'Cliente de teste',equipamento:{codEquipamento:8,numeroSerie:'024000001'}}]};};
+ const r=await s.binding(branch,'024000001');assert.equal(r.client,'Cliente de teste');assert.equal(r.client_id,'9');assert.equal(r.category,'eligible');assert.equal(calls,1);
+});
+test('flat owner without client ID and multiple active owners remain review',async()=>{
+ for(const fields of [{nomeCliente:'Cliente de teste'},{codCliente:9,nomeCliente:'Cliente de teste',qtdClientesVinculadosAtivos:2}]){
+ const s=new Integrations();s.api=async(_b,path)=>path.startsWith('/associados')?{associados:[]}:{veiculos:[{codVeiculo:7,placa:'ABC - 1D23',equipamento:{codEquipamento:8,numeroSerie:'024000001'},...fields}]};
+ assert.equal((await s.binding('imperatriz','024000001')).category,'review');}
+});
