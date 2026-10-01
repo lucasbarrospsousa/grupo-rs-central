@@ -2,7 +2,8 @@ import {library,download} from './libraries.js';
 export async function makePdf({title,subtitle='',columns,rows,landscape=true},deps){
  const {PDFLib,fontkit,fontBytes}=deps;
  if(!Array.isArray(rows)||rows.length>20000)throw Error('Relatório excede 20.000 linhas. Reduza os filtros.');
- const doc=await PDFLib.PDFDocument.create();doc.registerFontkit(fontkit);const font=await doc.embedFont(fontBytes,{subset:true});
+ const doc=await PDFLib.PDFDocument.create();doc.registerFontkit(fontkit);// Keep the complete font: subset glyph remapping drops characters in exported reports.
+ const font=await doc.embedFont(fontBytes,{subset:false});
  const {rgb}=PDFLib,blue=rgb(.08,.22,.36),muted=rgb(.35,.44,.54),line=rgb(.82,.88,.94),white=rgb(1,1,1);
  const width=landscape?842:595,height=landscape?595:842,margin=32,usable=width-margin*2,size=8.3,leading=12;
  const weights=columns.map(c=>c.width||1),sum=weights.reduce((a,b)=>a+b,0),widths=weights.map(w=>usable*w/sum);let page,y;
