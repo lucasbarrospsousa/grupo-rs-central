@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { hash, token, passwordMatches, passwordHash, session, cookies } from './auth.mjs';
 import { businessMutation } from './business.mjs';
 import { integrations } from './integrations.mjs';
+import {readSourceSettings,saveSourceSettings} from './read-sources.mjs';
 const dummy=passwordHash('non-account-'+randomUUID());
 const allowedFields=['serial','identification','plate','client','carrier','model','status','iccid','phone','apn','installed_at'];
 const states=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
@@ -60,6 +61,14 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       await appendLog(pool,user,{module:b.module,action:b.action,outcome:'interface',details:{source:'interface'},branch:null});reply(res,200,{ok:true});return true;
     }
     if(url.pathname==='/api/users'||/^\/api\/users\/[a-f0-9-]{36}$/.test(url.pathname)){if(!permissions.owner)throw fail(403,'Somente lucasabm pode administrar usuários.');reply(res,200,await manageUsers(pool,permissions,req.method,url.pathname.split('/')[3],req.method==='GET'?{}:await body(req),user));return true;}
+    if(url.pathname==='/api/read-sources'){
+      if(!permissions.owner)throw fail(403,'Somente a administração pode configurar as fontes.');
+      if(req.method==='GET'){reply(res,200,{branches:await readSourceSettings(pool)});return true;}
+      if(req.method!=='POST')throw fail(405,'Método não permitido.');
+      const branches=await saveSourceSettings(pool,await body(req));
+      await appendLog(pool,user,{module:'settings',action:'READ_SOURCES',outcome:'success',details:{branches},branch:null});
+      reply(res,200,{branches});return true;
+    }
     if(url.pathname==='/api/automation'){
       if(!permissions.owner)throw fail(403,'Somente a administração pode acessar o controle global.');
       if(req.method==='POST'){
