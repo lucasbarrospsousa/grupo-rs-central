@@ -6,4 +6,4 @@ Análise indicativa da última comunicação confirmada, sem consultas históric
 
 Validação: oito testes focados de GPS e integração; renderização em navegador com dados sintéticos, sem gravações em estoque nem vínculos.
 
-Publicação: Site versão 55 publicado. Backend preparado e testado, mas deploy do campo gps_signal pendente: credencial administrativa Supabase recusada com HTTP 401 em 01/10/2026. Até a renovação, o diagnóstico usa datas/coordenadas e identifica sinal não informado. Não apresentar a normalização do novo campo como ativa no servidor.
+Publicação: Site versão 55 publicado. Backend central-api publicado pelo editor autenticado do Supabase em 01/10/2026, com confirmação visual de atualização concluída. Campo gps_signal incluído na normalização. A credencial de CLI recusada não foi alterada; publicação realizada pela sessão administrativa existente.
