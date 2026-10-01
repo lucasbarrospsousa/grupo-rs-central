@@ -1,27 +1,25 @@
 import {positionMap} from './maps.js';
 import {validPoint} from './tracking-model.js';
+import {gpsStatus} from './gps-status.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const paths={user:'M20 21v-2a7 7 0 0 0-14 0v2M17 7a5 5 0 1 1-10 0 5 5 0 0 1 10 0',car:'M4 10l2-6h12l2 6M3 10h18v8H3zM6 18v3m12-3v3M6 14h2m8 0h2',chip:'M6 6h12v12H6zM9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4',gps:'M12 22S4 15 4 9a8 8 0 0 1 16 0c0 6-8 13-8 13ZM15 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0',power:'M12 2v10M6 5a9 9 0 1 0 12 0',battery:'M2 6h18v12H2zM20 10h2v4h-2M6 12h6m-3-3v6'};
+const icon=k=>'<span class="location-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="'+paths[k]+'"/></svg></span>';
+const card=(label,value,k,tone='',detail='')=>'<article class="location-card '+tone+'">'+icon(k)+'<div><span>'+label+'</span><strong>'+esc(value===undefined||value===null||value===''?'Não informado':value)+'</strong>'+(detail?'<small>'+esc(detail)+'</small>':'')+'</div></article>';
 export function showStockLocation({row,data,showModal,query,onData}){
- showModal('Localização do veículo',`<section class="stock-location"><p>Última posição e informações do rastreador • ${esc(row.serial)}</p><div class="stock-location-grid"><div><div class="detail-list" id="position-owner"></div><div id="position-map" class="stock-location-map"></div><div class="toolbar"><button id="position-plus" aria-label="Aumentar zoom">+</button><button id="position-minus" aria-label="Diminuir zoom">−</button><button id="position-center">Centralizar</button><a id="position-external" target="_blank" rel="noopener noreferrer" hidden>Abrir no Maps</a></div><p id="position-state" role="status"></p></div><aside><h3>Última comunicação</h3><div id="position-info" class="detail-list"></div></aside></div><div class="toolbar"><button id="position-refresh" class="primary">Atualizar localização</button><button id="position-copy">Copiar coordenadas</button><button id="position-close">Fechar</button></div></section>`,'');
+ showModal('Localização do aparelho','<section class="stock-location"><div class="location-identity" id="position-owner"></div><div class="stock-location-grid"><div id="position-map" class="stock-location-map"></div><aside id="position-info" aria-label="Comunicação do aparelho"></aside></div><footer class="location-footer"><button id="position-center">Centralizar</button><a id="position-external" target="_blank" rel="noopener noreferrer" hidden>Abrir no Maps</a><button id="position-refresh" aria-label="Atualizar localização">↻ Atualizar</button><span id="position-state" role="status"></span></footer></section>','location-dialog');
  const modal=document.querySelector('#modal'),host=modal.querySelector('.stock-location');let map=null,point=null,busy=false,revision=0;
  const el=id=>host.querySelector('#position-'+id);
- const field=(label,value)=>`<div>${label}<b>${esc(value===undefined||value===null||value===''?'Não informado':value)}</b></div>`;
  async function display(sample){
-  const version=++revision,loc=sample?.location||{},equipment=sample?.equipment||{};
-  el('owner').innerHTML=field('Cliente',loc.client||equipment.client||row.client)+field('Placa / identificação',loc.plate||equipment.plate||row.plate);
-  el('info').innerHTML=field('Recebida em',loc.updated_at)+field('Data GPS',loc.gps_at)+field('Ignição',/^(1|true|on|ligad[oa])$/i.test(String(loc.ignition))?'Ligada':/^(0|false|off|desligad[oa])$/i.test(String(loc.ignition))?'Desligada':loc.ignition)+field('Bateria',loc.battery)+field('Velocidade',loc.speed)+field('Fonte',loc.source||sample?.source)+field('Consultado em',sample?.queried_at);
-  point=loc.ok&&validPoint(loc)?loc:null;
-  for(const name of ['plus','minus','center','copy'])el(name).disabled=!point;
-  el('external').hidden=!point;el('external').removeAttribute('href');
+  const version=++revision,loc=sample?.location||{},equipment=sample?.equipment||{},gps=gpsStatus(loc);
+  el('owner').innerHTML=card('Nome',loc.client||equipment.client||row.client,'user')+card('Placa',loc.plate||equipment.plate||row.plate,'car')+card('Número de série',row.serial,'chip');
+  const ignition=/^(1|true|on|ligad[oa])$/i.test(String(loc.ignition))?'Ligada':/^(0|false|off|desligad[oa])$/i.test(String(loc.ignition))?'Desligada':'Não informada';
+  el('info').innerHTML=card('Status de GPS',gps.label,'gps',gps.tone,gps.detail)+card('Ignição',ignition,'power',ignition==='Ligada'?'success':'neutral')+card('Bateria',loc.battery,'battery');
+  point=loc.ok&&validPoint(loc)?loc:null;el('center').disabled=!point;el('external').hidden=!point;el('external').removeAttribute('href');
   if(map){map.dispose();map=null;}el('map').replaceChildren();
-  if(!point){el('map').textContent='Coordenadas não disponíveis para este aparelho.';el('state').textContent=loc.message||'A plataforma ainda não confirmou uma posição válida.';return;}
-  el('external').href=`https://www.google.com/maps?q=${+point.lat},${+point.lng}`;
-  el('state').textContent='Última posição recebida • arraste para mover e use a roda do mouse para ampliar.';
+  if(!point){el('map').textContent='Coordenadas não disponíveis para este aparelho.';el('state').textContent=loc.message||'';return;}
+  el('external').href='https://www.google.com/maps?q='+Number(point.lat)+','+Number(point.lng);el('state').textContent='';
   try{const result=await positionMap(el('map'),[point],{pin:true,isCurrent:()=>version===revision&&modal.open});if(version!==revision||!host.isConnected||!modal.open){result?.dispose();return;}map=result;}catch(error){if(host.isConnected)el('state').textContent='Mapa indisponível: '+error.message;}
  }
- async function refresh(){if(busy)return;busy=true;el('refresh').disabled=true;el('state').textContent='Consultando plataforma e chip…';try{const result=await query();onData(result);if(host.isConnected&&modal.open)await display(result);}catch(error){if(host.isConnected)el('state').textContent='Consulta pendente: '+error.message;}finally{busy=false;if(host.isConnected)el('refresh').disabled=false;}}
- el('refresh').onclick=refresh;el('plus').onclick=()=>map?.map.zoomIn();el('minus').onclick=()=>map?.map.zoomOut();el('center').onclick=()=>map?.fit();el('close').onclick=()=>modal.close();
- el('copy').onclick=async()=>{if(!point)return;try{await navigator.clipboard.writeText(`${+point.lat}, ${+point.lng}`);el('state').textContent='Coordenadas copiadas.';}catch{el('state').textContent=`Coordenadas: ${+point.lat}, ${+point.lng}`;}};
- modal.addEventListener('close',()=>{revision++;map?.dispose();map=null;},{once:true});
- void display(data);void refresh();
+ async function refresh(){if(busy)return;busy=true;el('refresh').disabled=true;el('state').textContent='Consultando comunicação…';try{const result=await query();onData(result);if(host.isConnected&&modal.open)await display(result);}catch(error){if(host.isConnected)el('state').textContent='Consulta pendente: '+error.message;}finally{busy=false;if(host.isConnected)el('refresh').disabled=false;}}
+ el('refresh').onclick=refresh;el('center').onclick=()=>map?.fit();modal.addEventListener('close',()=>{revision++;map?.dispose();map=null;},{once:true});void display(data);void refresh();
 }

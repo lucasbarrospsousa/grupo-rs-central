@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {gpsStatus} from '../public/gps-status.js';import {normalize} from '../backend/integrations.mjs';
+const now=Date.parse('2026-10-01T14:33:00Z'),base={ok:true,updated_at:'2026-10-01 11:32:35.043',gps_at:'2026-10-01 11:32:23.000',gps_signal:'1',lat:'-5.5',lng:'-47.4'};
+test('recent GPS signal and Fortaleza timestamps',()=>assert.equal(gpsStatus(base,now).tone,'success'));
+test('old communication is not diagnosed as GPS failure',()=>assert.equal(gpsStatus({...base,updated_at:'2026-10-01 10:00:00',gps_signal:'0'},now).label,'Comunicação antiga'));
+test('signal, delayed GPS and missing data are distinguished',()=>{assert.equal(gpsStatus({...base,gps_signal:'0'},now).label,'Possível perda de GPS');assert.equal(gpsStatus({...base,gps_at:'2026-10-01 10:00:00'},now).label,'GPS desatualizado');assert.equal(gpsStatus({...base,gps_signal:''},now).label,'Posição disponível');assert.equal(gpsStatus({...base,gps_at:''},now).label,'Dados insuficientes');assert.equal(gpsStatus({...base,lat:''},now).label,'Posição inválida');assert.equal(gpsStatus({...base,ok:false},now).label,'Sem análise');});
+test('API preserves zero signal and zero battery',()=>{const n=normalize({sinalGps:0,bateria:0});assert.equal(n.gps_signal,'0');assert.equal(n.battery,'0');});
