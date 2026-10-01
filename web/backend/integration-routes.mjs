@@ -41,7 +41,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    else if(action==='location')data=await service.location(branch,serial,await plateHint());
    else if(action==='history')data=await service.history(branch,serial,url.searchParams.get('start'),url.searchParams.get('end'));
    else if(action==='client-vehicles')data={rows:await service.clientVehicles(branch,url.searchParams.get('client'),url.searchParams.get('name'))};
-   else if(action==='clients')data={rows:await service.clients(branch,url.searchParams.get('q'))};
+   else if(action==='clients')data={rows:await service.clients(branch,url.searchParams.get('q'),url.searchParams.get('mode')||'vehicle')};
    else if(action==='carrier')data=await service.carrier(url.searchParams.get('provider'),url.searchParams.get('iccid'));
    else if(action==='status'){await service.api(branch,'/veiculos?skip=0&take=1');data={api:true,portal:false,branch,checked_at:new Date().toISOString()};}
    else throw fail(404,'Consulta não reconhecida.');

@@ -179,8 +179,21 @@ export class Integrations{
  if(chip.ok&&chip.iccid===equipment.iccid&&!/^[0-9]{10,13}$/.test(String(equipment.phone||'').replace(/\D/g,''))&&/^[0-9]{10,13}$/.test(String(chip.phone||'').replace(/\D/g,'')))equipment.phone=chip.phone;
  return{api_version:2,serial,equipment,location,chip,source:ORIGINS[branch],queried_at:new Date().toISOString()};
  }
- async clients(branch,q){
-  if(typeof q!=='string'||q.trim().length<3||q.length>120)throw err('Informe ao menos três caracteres da placa, série ou identificação.',400);
+ async clients(branch,q,mode='vehicle'){
+  if(!['name','vehicle'].includes(mode))throw err('Tipo de busca inválido.',400);
+  if(typeof q!=='string'||q.trim().length<3||q.length>120)throw err('Informe ao menos três caracteres para pesquisar.',400);
+  if(mode==='name'){
+   const data=await this.api(branch,'/associados?q='+encodeURIComponent(q.trim())+'&take=20');
+   if(data.ok===false||!Array.isArray(data.associados))throw err('Lista de titulares não confirmada na API.');
+   if(data.associados.length>=20||data.paginacao?.temMais)throw err('Muitos titulares encontrados. Refine o nome.',422);
+   const clients=new Map();
+   for(const raw of data.associados){const id=value(raw,['codCliente'])||value(raw,['codAssociado']),associated=value(raw,['codAssociado']),name=value(raw,['nome','nomeCliente','nomeAssociado']);
+    if(!/^[1-9]\d*$/.test(id)||!name||(associated&&associated!==id))throw err('Identidade do titular não confirmada na API.',422);
+    if(clients.has(id)&&clients.get(id).name!==name)throw err('Titular divergente na API.',422);
+    clients.set(id,{id,name});
+   }
+   return [...clients.values()];
+  }
   const data=await this.api(branch,'/veiculos?q='+encodeURIComponent(q.trim())+'&skip=0&take=50');
   if(!Array.isArray(data.veiculos)||typeof data.paginacao?.temMais!=='boolean')throw err('Lista de veículos não confirmada na API.');
   if(data.paginacao.temMais)throw err('Muitos veículos encontrados. Refine a placa, série ou identificação.',422);
@@ -197,6 +210,7 @@ export class Integrations{
   for(let page=0;page<10;page++){
    const data=await this.api(branch,'/clientes/'+clientId+'/veiculos?skip='+skip+'&take=50');
    if(!Array.isArray(data.veiculos)||typeof data.paginacao?.temMais!=='boolean')throw err('Veículos do cliente não confirmados na API.',422);
+   if(data.veiculos.some(raw=>!normalize(raw).client_id))return this.associatedVehicles(branch,clientId,clientName);
    for(const raw of data.veiculos){const v=normalize(raw),key=v.plate.replace(/\W/g,'').toUpperCase();
     if(v.client_id!==clientId||v.client!==clientName||Number(v.owner_count)>1)throw err('Titular do veículo mudou. Consulte novamente.',422);
     if(!key||!v.vehicle_id||seen.has(key)||ids.has(v.vehicle_id))throw err('Vínculo ambíguo na API.',422);
@@ -206,6 +220,20 @@ export class Integrations{
    const next=data.paginacao.proximoSkip;if(!Number.isInteger(next)||next<=skip)throw err('Paginação dos veículos inválida.');skip=next;
   }
   throw err('Lista extensa de veículos; confirmação completa indisponível.',422);
+ }
+ async associatedVehicles(branch,clientId,clientName){
+  if(typeof clientName!=='string'||clientName.length<3||clientName.length>120)throw err('Nome do titular inválido.',422);
+  const data=await this.api(branch,'/associados?q='+encodeURIComponent(clientName)+'&take=20');
+  if(data.ok===false||!Array.isArray(data.associados)||data.associados.length>=20||data.paginacao?.temMais)throw err('Lista de titulares incompleta. Refine a consulta.',422);
+  const matches=data.associados.filter(r=>(value(r,['codCliente'])||value(r,['codAssociado']))===clientId);
+  if(matches.length!==1)throw err('Titular único não confirmado na API.',422);
+  const owner=matches[0],associated=value(owner,['codAssociado']);
+  if(value(owner,['nome','nomeCliente','nomeAssociado'])!==clientName||(associated&&associated!==clientId)||!Array.isArray(owner.veiculos)||owner.paginacao?.temMais)throw err('Titular ou veículos não confirmados na API.',422);
+  const seen=new Set(),ids=new Set();
+  return owner.veiculos.map(raw=>{const v=normalize(raw),key=v.plate.replace(/\W/g,'').toUpperCase();
+   if(!key||!v.vehicle_id||seen.has(key)||ids.has(v.vehicle_id)||Number(v.owner_count)>1||(v.client_id&&v.client_id!==clientId)||(v.client&&v.client!==clientName))throw err('Vínculo ambíguo na API.',422);
+   seen.add(key);ids.add(v.vehicle_id);return {...v,client_id:clientId,client:clientName,model:value(raw,['modelo'])};
+  });
  }
  async history(branch,serial,start,end){
   if(![start,end].every(v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(v)))throw err('Informe data e horário válidos de até sete dias.',400);
