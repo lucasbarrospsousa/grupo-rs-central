@@ -31,18 +31,11 @@ Armazém: cadastro, seleção, envio por destino, auditoria e consulta de chips.
 
 ## Validação e comandos
 
-Em `web`, 
-ode --test tests/*.test.mjs` executa os testes locais. 
-ode tools/test-sql.mjs` e 
-ode tools/test-integration-sql.mjs` usam identidades e registros descartáveis no schema de homologação. O segundo simula os serviços externos. 
-ode tools/test-edge.mjs` testa login, isolamento, CRUD descartável e logout pela API publicada. Os scripts removem somente os registros pertencentes às identidades criadas por eles.
+Em `web`, `node --test tests/*.test.mjs` executa os testes locais. `node tools/test-sql.mjs` e `node tools/test-integration-sql.mjs` usam identidades e registros descartáveis no schema de homologação. O segundo simula os serviços externos. `node tools/test-edge.mjs` testa login, isolamento, CRUD descartável e logout pela API publicada. Os scripts removem somente os registros pertencentes às identidades criadas por eles.
 
+`node tools/migrate.mjs` aplica migrações versionadas faltantes. Não rodar importadores de backup sobre uma operação em uso sem reconciliação.
 
-ode tools/migrate.mjs` aplica migrações versionadas faltantes. Não rodar importadores de backup sobre uma operação em uso sem reconciliação.
-
-
-ode tools/build-hosting.mjs` prepara o checkout sanitizado em `.sites-runtime/central` e o pacote da API em `.sites-runtime/edge`. 
-ode tools/deploy-edge.mjs` publica a API usando o token administrativo local; nunca publica o token nem a senha SQL administrativa. O token de publicação pode ser revogado após a entrega.
+`node tools/build-hosting.mjs` prepara o checkout sanitizado em `.sites-runtime/central` e o pacote da API em `.sites-runtime/edge`. `node tools/deploy-edge.mjs` publica a API usando o token administrativo local; nunca publica o token nem a senha SQL administrativa. O token de publicação pode ser revogado após a entrega.
 
 A publicação do Site usa o workflow do plugin Sites no checkout sanitizado. No Windows, o empacotador requer Git Bash no PATH e `TAR_OPTIONS=--force-local`. O fonte da Central permanece no repositório GitHub original; a hospedagem recebe apenas a seleção sanitizada.
 
@@ -56,8 +49,7 @@ URL: https://grupo-rs-central.lucasbarrosp.chatgpt.site
 
 O painel inicial lê os totais confirmados pela sincronização do servidor e exibe falhas como pendências. Atualizar plataformas relê o resultado salvo; a coleta não depende da abertura da tela. Os gráficos da filial usam os cadastros SQL e agrupam variações do nome da operadora. Cards, barras e janelas respeitam movimento reduzido.
 
-
-ode tools/backup-sql.mjs` salva uma cópia privada de todas as tabelas da Central, com migrações e SHA-256. Restaura os dados em tabelas temporárias com a estrutura e restrições atuais, compara os conteúdos e desfaz a transação. Não restaura sobre produção. Credenciais, hashes de login e dados privados nesse pacote impedem sua inclusão no Git ou backup público de código. Para recuperação após desastre, aplicar as migrações num banco isolado, importar na ordem das dependências e conferir antes de qualquer troca de destino; a verificação temporária não simula indisponibilidade total do provedor.
+`node tools/backup-sql.mjs` salva uma cópia privada de todas as tabelas da Central, com migrações e SHA-256. Restaura os dados em tabelas temporárias com a estrutura e restrições atuais, compara os conteúdos e desfaz a transação. Não restaura sobre produção. Credenciais, hashes de login e dados privados nesse pacote impedem sua inclusão no Git ou backup público de código. Para recuperação após desastre, aplicar as migrações num banco isolado, importar na ordem das dependências e conferir antes de qualquer troca de destino; a verificação temporária não simula indisponibilidade total do provedor.
 
 `tools/reconcile-snapshot.mjs` é ferramenta de virada, não sincronização. Exige backup SQL recente verificado, snapshot local e baseline privados; bloqueia conflitos com edições web, remoções e operações remotas pendentes. Não executar após começar a registrar operações no site. O relatório privado registra hash e diferenças aplicadas.
 
@@ -71,8 +63,7 @@ A coleta consulta cadastro/ICCID, localização/comunicação e operadoras Arya 
 
 Tokens expirados recebem uma renovação e uma repetição de leitura. Credencial rejeitada interrompe as tentativas dessa integração e gera aviso persistente no site. A mudança do segredo no servidor libera nova validação. Recusa de acesso após renovar a sessão também pausa a integração, com motivo diferente; falha de rede não é senha inválida. Os demais provedores continuam funcionando.
 
-Migrações 006 e 007 adicionam fila, bloqueio de execução simultânea, observações, alertas e panorama. As funções SQL são restritas ao servidor. O endpoint interno exige segredo próprio, mantido no Vault e no ambiente da função; não aceita o login do navegador como autorização. 
-ode tools/schedule-sync.mjs` instala/atualiza o job idempotente `central-background-sync` e habilita o intervalo de cinco minutos. Não expõe o segredo nos logs.
+Migrações 006 e 007 adicionam fila, bloqueio de execução simultânea, observações, alertas e panorama. As funções SQL são restritas ao servidor. O endpoint interno exige segredo próprio, mantido no Vault e no ambiente da função; não aceita o login do navegador como autorização. `node tools/schedule-sync.mjs` instala/atualiza o job idempotente `central-background-sync` e habilita o intervalo de cinco minutos. Não expõe o segredo nos logs.
 
 O PHP das plataformas diferencia `Authorization` de `authorization`. Na hospedagem, o transporte TLS usa HTTP/1 e preserva essa grafia, com validação TLS padrão, limite de resposta e timeout. As quatro APIs e os quatro portais foram conferidos na hospedagem após a correção. Referência do agendamento: https://supabase.com/docs/guides/functions/schedule-functions.
 
@@ -94,8 +85,7 @@ Validação: 65 testes automatizados, fluxo sintético no navegador e cadastro t
 
 ## Ponte SMS do computador
 
-
-ode web/tools/sms-bridge.mjs` mantém uma conexão de saída com o SQL e consulta o Galaxy com o certificado e o token já pareados no desktop, sem escrever na fila SQLite. A configuração privada fica em `.secrets/homologacao/sms-bridge.json`. O computador precisa permanecer ligado, com a sessão Windows iniciada, e o Gateway ativo na mesma rede. A inicialização automática usa um atalho na pasta Inicializar do usuário, executando `web/tools/run-sms-bridge.ps1` oculto. Não abre portas de entrada. Se o endereço do Galaxy mudar, atualizar a configuração privada após conferir o celular; nunca desativar a validação do certificado.
+`node web/tools/sms-bridge.mjs` mantém uma conexão de saída com o SQL e consulta o Galaxy com o certificado e o token já pareados no desktop, sem escrever na fila SQLite. A configuração privada fica em `.secrets/homologacao/sms-bridge.json`. O computador precisa permanecer ligado, com a sessão Windows iniciada, e o Gateway ativo na mesma rede. A inicialização automática usa um atalho na pasta Inicializar do usuário, executando `web/tools/run-sms-bridge.ps1` oculto. Não abre portas de entrada. Se o endereço do Galaxy mudar, atualizar a configuração privada após conferir o celular; nunca desativar a validação do certificado.
 
 A API aceita comandos revisados somente para séries 024 de Imperatriz, conferindo o telefone novamente na plataforma. Registra a fila antes do envio. A ponte grava a tentativa antes do PUT; reinícios, timeouts e retornos ausentes geram apenas consultas ao mesmo pedido. Pedidos antigos sem marca da ponte não são enviados. Há trava de instância e índice de exclusividade por aparelho. Retornos de entrega são acompanhados por até 24 horas após a criação. A indisponibilidade não é confirmação de falha.
 
@@ -134,9 +124,7 @@ Clientes exigem pelo menos três caracteres; veículos de atendimento são recon
 
 Migração 020 aplica controle compartilhado entre instâncias: mínimo de 1,1 segundo entre chamadas por base (incluindo login), no máximo duas chamadas simultâneas, leases de 25 segundos para transporte limitado a 18 segundos. Espera local limitada a 12 segundos; excesso informa aguardar. Isso limita as chamadas desta Central, não controla outros consumidores da mesma conta/IP. O ciclo agora processa até dois aparelhos em paralelo. Operadoras têm seu controle independente.
 
-Validação: 
-ode --test web/tests/*.test.mjs`; 
-ode web/tools/migrate-api-v2.mjs` testa migração/intervalo/leases/permissões com rollback; `--apply` aplica após testes e reverte apenas os dados sintéticos. Leituras reais em Imperatriz; permissões das outras três bases permanecem pendentes no fornecedor. Nenhuma escrita foi testada nas plataformas.
+Validação: `node --test web/tests/*.test.mjs`; `node web/tools/migrate-api-v2.mjs` testa migração/intervalo/leases/permissões com rollback; `--apply` aplica após testes e reverte apenas os dados sintéticos. Leituras reais em Imperatriz; permissões das outras três bases permanecem pendentes no fornecedor. Nenhuma escrita foi testada nas plataformas.
 
 
 ## Consistência AJAX de chips e Armazém — 30/09/2026
@@ -145,9 +133,7 @@ Ao entrar em Estoque ou Armazém, a Central relê o grupo necessário no SQL; re
 
 Consultas de contatos invalidam o cache do Armazém, e o dado de ICCID/telefone salvo tem prioridade na apresentação sobre amostras antigas. A migração 021 preserva futuras edições explícitas de contatos enquanto a plataforma ainda informa valores diferentes; não grava nem altera o chip no fornecedor. Quando a API confirma os mesmos contatos, a sincronização normal volta a acompanhá-los. A guarda é criada somente pelo servidor; não é um campo editável do navegador. Edições anteriores não são reconstruídas automaticamente.
 
-Testes: suíte local, 
-ode web/tools/migrate-manual-contacts.mjs` (rollback), 
-ode web/tools/test-chip-usage-sql.mjs` (rollback). A flag `--apply` do primeiro aplica a migração após validar e reverter fixtures. Cobertura de baixa do chip cadastrado, troca, telefone, repetição, API divergente e confirmação posterior. O chip desvinculado não retorna automaticamente à disponibilidade; essa regra operacional foi mantida.
+Testes: suíte local, `node web/tools/migrate-manual-contacts.mjs` (rollback), `node web/tools/test-chip-usage-sql.mjs` (rollback). A flag `--apply` do primeiro aplica a migração após validar e reverter fixtures. Cobertura de baixa do chip cadastrado, troca, telefone, repetição, API divergente e confirmação posterior. O chip desvinculado não retorna automaticamente à disponibilidade; essa regra operacional foi mantida.
 
 ## Ajuste final de titulares e acesso API — 30/09/2026
 
@@ -173,15 +159,13 @@ Validação: 147 testes Node, interface sintética no Chrome sem erros, oito con
 
 A migração 022 restabelece leitura de todas as tabelas/sequências privadas para central_backup e políticas SELECT nas tabelas com RLS. query_usage, api_v2_budget e api_v2_leases haviam sido criadas após a configuração inicial, causando SQLSTATE 42501 antes do envio ao Drive. Não concede escrita operacional. Privilégios padrão do proprietário que executa as migrações concedem SELECT às próximas tabelas/sequências; futuras tabelas com RLS ainda devem incluir central_backup_read. Execute a ferramenta de conferência após migrações para verificar os acessos.
 
-
-ode web/tools/migrate-backup-permissions.mjs` aplica a migração idempotente, verifica leitura e testa privilégios padrão com tabela sintética revertida. O worker é reconstruído com as migrações atualizadas e publicado por deploy-backup-worker.mjs, sem alterar a conta Google, a chave, a pasta, a retenção ou o agendamento. A recuperação executa o worker real, que envia a cópia criptografada ao Drive, baixa e verifica hash e restauração em tabelas temporárias antes de marcar sucesso.
+`node web/tools/migrate-backup-permissions.mjs` aplica a migração idempotente, verifica leitura e testa privilégios padrão com tabela sintética revertida. O worker é reconstruído com as migrações atualizadas e publicado por deploy-backup-worker.mjs, sem alterar a conta Google, a chave, a pasta, a retenção ou o agendamento. A recuperação executa o worker real, que envia a cópia criptografada ao Drive, baixa e verifica hash e restauração em tabelas temporárias antes de marcar sucesso.
 
 ## Consulta de localização com resumo de veículos — 30/09/2026
 
 Quando a pesquisa por série não retorna o veículo, a localização usa a placa salva no cadastro da Central como pista de pesquisa. Exige resultado único e completo por placa e confirma veículo e série exata na resposta de `/veiculos/{id}/comunicacao`. Placa antiga, série ausente ou divergente bloqueiam o resultado. Não usa a rota de detalhe que está retornando lista genérica, nem varre a frota. O comportamento se aplica às consultas de página e à sincronização automática; não altera regras de vinculação.
 
-A migração 023 acrescenta a placa aos lotes de sync_claim preservando a definição existente, permissões e agendamentos. 
-ode tools/migrate-location-hint.mjs` verifica em transação revertida; `--apply` aplica. Validação: 151 testes Node aprovados, migração idempotente e consulta real de aparelho operante em Imperatriz com série confirmada e coordenadas retornadas.
+A migração 023 acrescenta a placa aos lotes de sync_claim preservando a definição existente, permissões e agendamentos. `node tools/migrate-location-hint.mjs` verifica em transação revertida; `--apply` aplica. Validação: 151 testes Node aprovados, migração idempotente e consulta real de aparelho operante em Imperatriz com série confirmada e coordenadas retornadas.
 
 ## Compatibilidade com o resumo de veículos da API — 30/09/2026
 
@@ -201,5 +185,7 @@ Validação: 159 testes automatizados; gravação SQL sintética revertida (quat
 Novo atendimento oferece Nome do titular (padrão) via /associados?q=...&take=20 e Placa, série ou identificação via /veiculos. A documentação confirma codAssociado = codCliente. IDs divergentes, resposta incompleta e limite de resultados exigem refinar a busca. A seleção continua consultando /clientes/{codCliente}/veiculos e o servidor reconfirma a identidade ao salvar. Mensagens de consulta ficam junto da busca. Substitui a restrição anterior de busca somente por veículo.
 Quando a rota de veículos por cliente retorna veículos sem titular, o fluxo confirma novamente o associado pelo ID e nome exatos e usa exclusivamente os veículos aninhados nesse associado. Não atribui a lista genérica ao cliente. Duplicidades e conflitos bloqueiam a confirmação. Teste de leitura real em 01/10 confirmou um titular, um veículo e a série, sem salvar atendimento.
 
+
 ## Correção dos PDFs — 01/10/2026
-O gerador compartilhado incorpora a fonte Noto Sans completa. A redução da fonte por subconjunto causava desaparecimento visual de letras e números, apesar de o texto extraído estar correto. Estoque, manutenções e histórico de posições usam a mesma correção em todas as bases. Validação: reprodução antes/depois com PDFium, 90 linhas em cinco páginas, acentos, placas e zeros iniciais; três testes de completion aprovados. Para futuras alterações, conferir a renderização: extrair texto ou reabrir o PDF não detectava este defeito.
+
+O gerador compartilhado incorpora a fonte Noto Sans completa. A redução por subconjunto causava desaparecimento visual de letras e números, apesar de o texto extraído estar correto. Estoque, manutenções e histórico de posições usam a mesma correção em todas as bases. Validação: reprodução antes/depois com PDFium, 90 linhas em cinco páginas, acentos, placas e zeros iniciais; três testes de completion aprovados. Conferir sempre a renderização, pois extrair texto ou reabrir o PDF não detectava este defeito.
