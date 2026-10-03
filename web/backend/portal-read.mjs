@@ -14,10 +14,17 @@ export function portalVehicles(html){
  if(!/<th[^>]*>\s*PLACA\s*<\/th>/i.test(html)||!html.includes('veiculos'))throw fail('Formato de veículos web não confirmado.');
  return table(html).filter(r=>r.cells.length>=8).map(({cells:c,html:h})=>({plate:c[0],model:c[1],serial:/^\d{6,17}$/.test(c[4])?c[4]:'',client:c[5],vehicle_id:h.match(/veiculos_editar\.php\?id=(\d+)/)?.[1]||'',status:c[6]}));
 }
+export function activeFleetTotal(html){
+ const matches=[...html.matchAll(/<h5\b[^>]*>\s*Ve[ií]culos\s*<\/h5>\s*<p\b[^>]*>\s*([\d.]+)\s*<\/p>\s*<small\b[^>]*>\s*Ativos na frota\s*<\/small>/gi)];
+ if(matches.length!==1)throw fail('Total de veículos ativos não confirmado.');
+ const total=Number(matches[0][1].replaceAll('.',''));
+ if(!Number.isSafeInteger(total)||total<0)throw fail('Total de veículos ativos inválido.');
+ return total;
+}
 export class PortalRead{
  constructor(api){this.api=api;this.sessions=new Map();}
  async request(branch,path,fields){
-  if(!ORIGINS[branch]||!path.startsWith('/')||path.startsWith('//')||(!fields&&!/^\/(?:cadastro\/(?:veiculos_listar|equipamentos_listar|equipamentos_editar)\.php|get_data\.php|get_eventos\.php|get_bateria\.php|get_veiculos_intervalo\.php)/.test(path))||(fields&&path!=='/login.php'))throw fail('Rota web de consulta não autorizada.',400);
+  if(!ORIGINS[branch]||!path.startsWith('/')||path.startsWith('//')||(!fields&&!/^\/(?:cadastro\/(?:veiculos_listar|equipamentos_listar|equipamentos_editar)\.php|get_data\.php|get_eventos\.php|get_bateria\.php|get_veiculos_intervalo\.php|home_adm\.php)/.test(path))||(fields&&path!=='/login.php'))throw fail('Rota web de consulta não autorizada.',400);
   const s=this.sessions.get(branch),r=await this.api.request(ORIGINS[branch]+path,{method:fields?'POST':'GET',allowRedirect:!!fields,headers:{Cookie:[...s.cookies].map(([k,v])=>k+'='+v).join('; '),...(fields?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:fields?new URLSearchParams(fields).toString():undefined});
   for(const v of r.headers.getSetCookie()){const p=v.split(';')[0],i=p.indexOf('=');if(i>0)s.cookies.set(p.slice(0,i),p.slice(i+1));}return r.text;
  }
@@ -61,5 +68,5 @@ export class PortalRead{
   if(!Array.isArray(d.eventos))throw fail('Histórico web não confirmado.');
   return{ok:true,rows:d.eventos.map(r=>{const n=normalize(r);if(value(r,['CodVeiculo','veiculo_id'])&&value(r,['CodVeiculo','veiculo_id'])!==context.vehicle_id)throw fail('Histórico de outro veículo.');return{id:value(r,['id','codPosicao']),gps_at:stamp(n.gps_at),server_at:stamp(n.updated_at),lat:n.lat,lng:n.lng,speed:n.speed,ignition:n.ignition,battery:n.battery,memory:false};}),partial:true,distance:null,context,message:'A web não informa garantia de completude do histórico.',...this.meta(branch)};
  }
- async maintenance(branch){const html=await this.page(branch,'/get_veiculos_intervalo.php?intervalo=Manutencao'),expected=plain(html).match(/Ve[ií]culos\s*\(\s*([\d.]+)\s*\)/i);if(!expected)throw fail('Total de manutenção web não confirmado.');const rows=table(html).filter(r=>r.cells.length>=6).map(({cells:c})=>({client:c[0],plate:c[1],serial:c[2],apn:c[3],phone:c[4],updated_at:c[5],branch}));if(rows.length!==Number(expected[1].replaceAll('.','')))throw fail('Lista de manutenção web incompleta.');return{rows,count:rows.length,...this.meta(branch)};}
+ async maintenance(branch){const html=await this.page(branch,'/get_veiculos_intervalo.php?intervalo=Manutencao'),expected=plain(html).match(/Ve[ií]culos\s*\(\s*([\d.]+)\s*\)/i);if(!expected)throw fail('Total de manutenção web não confirmado.');const rows=table(html).filter(r=>r.cells.length>=6).map(({cells:c})=>({client:c[0],plate:c[1],serial:c[2],apn:c[3],phone:c[4],updated_at:c[5],branch}));if(rows.length!==Number(expected[1].replaceAll('.','')))throw fail('Lista de manutenção web incompleta.');let fleet_total=null,fleet_warning='';try{fleet_total=activeFleetTotal(await this.page(branch,'/home_adm.php'));}catch(e){fleet_warning=e.message;}return{rows,count:rows.length,fleet_total,fleet_warning,...this.meta(branch)};}
 }

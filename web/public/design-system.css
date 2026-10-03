@@ -63,3 +63,5 @@ body.central-ui #page .metric{padding-right:58px}
 body.central-ui .content{grid-column:2;width:100%}
 body.central-ui #page .stock-period input{min-width:155px;width:100%}body.central-ui #page th button{font-size:12px;min-height:32px;padding:4px;white-space:nowrap}body.central-ui[data-view="overview"] #page .dashboard-heading h2{font-size:30px;font-weight:700}body.central-ui #page .backup-card{padding:20px!important}body.central-ui.logs-page .ui-branch{display:none}
 body.central-ui :is(#page,#modal) textarea{min-height:140px}body.central-ui #page button.orange{background:var(--ui-blue);border-color:var(--ui-blue);color:white}
+
+body.central-ui #base-chart .chart-row{grid-template-columns:125px minmax(0,1fr) 130px;gap:12px}body.central-ui #base-chart .chart-row>b{text-align:right;font-size:13px}@media(max-width:700px){body.central-ui #base-chart .chart-row{grid-template-columns:90px minmax(0,1fr) 108px;gap:6px}}

@@ -1,3 +1,4 @@
+import {maintenanceShare} from './maintenance-share.js';
 import {mountStockOverview} from './stock-overview.js';
 import {filterVehicles} from './domain.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -5,7 +6,7 @@ const arrow='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke=
 const colors=['#ee3452','#ff880a','#e8af08','#12ae68'];
 const cache=new Map();
 export function mountLiveOverview({repo,showModal,notify,render}){
- const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel" id="stock-panorama"></section><div class="grid chart-grid"><section class="panel"><div class="live-heading"><h2>Veículos em manutenção por base</h2><button id="live-refresh">Atualizar manutenções</button></div><span class="pill" id="live-complete">Consultando bases</span><div class="live-progress" id="base-progress" role="status"></div><p class="muted">Do maior para o menor • clique para ver os veículos</p><div id="base-chart"></div></section><section class="panel live-total"><h3>Total de veículos em manutenção</h3><div class="total" id="base-total">—</div><p class="muted" id="total-note">Aguardando consulta</p></section></div>`;document.querySelector('#page').prepend(p);
+ const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel" id="stock-panorama"></section><div class="grid chart-grid"><section class="panel"><div class="live-heading"><h2>Veículos em manutenção por base</h2><button id="live-refresh">Atualizar manutenções</button></div><span class="pill" id="live-complete">Consultando bases</span><div class="live-progress" id="base-progress" role="status"></div><p class="muted">Percentual da frota ativa • do maior para o menor • clique para ver os veículos</p><div id="base-chart"></div></section><section class="panel live-total"><h3>Total de veículos em manutenção</h3><div class="total" id="base-total">—</div><p class="muted" id="total-note">Aguardando consulta</p></section></div>`;document.querySelector('#page').prepend(p);
  mountStockOverview({repo,host:p.querySelector('#stock-panorama'),showModal,notify,render});
  const results=new Map(),errors=new Map();let running=false;
  function list(base,data){
@@ -24,7 +25,7 @@ export function mountLiveOverview({repo,showModal,notify,render}){
   for(const id of ['live-search','live-apn','live-generation'])$(id).oninput=()=>{page=0;draw();};$('live-size').onchange=e=>{perPage=+e.target.value;page=0;draw();};$('live-prev').onclick=()=>{page--;draw();};$('live-next').onclick=()=>{page++;draw();};draw();
  }
  function paint(){
-  const rows=[...results.values()].sort((a,b)=>b.count-a.count),max=Math.max(1,...rows.map(r=>r.count));
+  const rows=[...results.values()].map(r=>({...r,share:maintenanceShare(r.count,r.fleet_total)})).sort((a,b)=>(b.share??-1)-(a.share??-1));
   p.querySelector('#live-complete').textContent=results.size+' de '+repo.user.branches.length+' bases consultadas';
   p.querySelector('#base-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>repo.user.branches.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando as bases…':'Atualizado às '+new Date().toLocaleTimeString('pt-BR');
   const chart=p.querySelector('#base-chart');
@@ -35,8 +36,10 @@ export function mountLiveOverview({repo,showModal,notify,render}){
    if(!button){button=document.createElement('button');button.className='chart-row';button.dataset.base=r.base.id;button.innerHTML='<span></span><span class="track"><i></i></span><b></b>';chart.append(button);}
    button.firstElementChild.textContent=r.base.name;
    button.querySelector('.track').style.setProperty('--color',colors[i%colors.length]);
-   button.querySelector('.track').style.setProperty('--width',r.count/max*100+'%');
-   button.querySelector('b').textContent=r.count;
+   button.querySelector('.track').style.setProperty('--width',(r.share??0)+'%');
+   button.querySelector('b').textContent=r.share===null?'Aguardando total':r.share.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'% da base';
+   button.title=r.count.toLocaleString('pt-BR')+' veículos em manutenção'+(r.share===null?' • '+(r.fleet_warning||'Total ativo não confirmado'): ' de '+r.fleet_total.toLocaleString('pt-BR')+' veículos ativos');
+   button.setAttribute('aria-label',r.base.name+': '+button.querySelector('b').textContent+'; '+button.title);
    if(chart.children[i]!==button)chart.insertBefore(button,chart.children[i]||null);
   });
   p.querySelector('#base-total').textContent=results.size?rows.reduce((n,r)=>n+r.count,0).toLocaleString('pt-BR'):'—';p.querySelector('#total-note').textContent=errors.size?'Consulta parcial • resultados anteriores preservados quando disponíveis.':results.size===repo.user.branches.length?'Total das '+results.size+' bases.':'Total parcial • bases pendentes não contam como zero.';
