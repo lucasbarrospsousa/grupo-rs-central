@@ -1,8 +1,4 @@
 /* Compact working surface: stock only. Shared colours/type remain in design-system.css. */
-body.central-ui[data-view="stock"]{--developer-credit-height:28px}
-body.central-ui[data-view="stock"] .developer-credit{padding:2px 12px;gap:10px;border-top-width:1px}
-body.central-ui[data-view="stock"] .developer-credit img{height:22px;width:104px}
-body.central-ui[data-view="stock"] .developer-credit span{font-size:9px}
 body.central-ui[data-view="stock"] .content>.top{min-height:58px;padding:8px 20px;flex-wrap:nowrap}
 body.central-ui[data-view="stock"] .ui-heading small{display:none}
 body.central-ui[data-view="stock"] .ui-heading strong{font-size:20px}
@@ -55,5 +51,5 @@ body.central-ui[data-view="stock"] #page .stock-pagination{flex-shrink:0;justify
 body.central-ui[data-view="stock"] .stock-pagination>span:first-child{margin-right:auto}
 body.central-ui[data-view="stock"] #page .stock-pagination button{min-height:32px;min-width:32px;padding:5px 10px;font-size:13px}
 body.central-ui[data-view="stock"] .stock-batch,body.central-ui[data-view="stock"] .stock-selection{margin:0;font-size:12px;max-height:64px;overflow:auto;flex-shrink:0}
-@media(min-width:1001px){body.central-ui[data-view="stock"]{height:100dvh;overflow:hidden}body.central-ui[data-view="stock"] .app-layout{height:calc(100dvh - var(--developer-credit-height));min-height:0}body.central-ui[data-view="stock"] .content{height:calc(100dvh - var(--developer-credit-height));display:flex;flex-direction:column;min-height:0;overflow:hidden}body.central-ui[data-view="stock"] .content>.top{flex-shrink:0}body.central-ui[data-view="stock"] #page{flex:1;min-height:0;height:auto}body.central-ui[data-view="stock"] .central-sidebar{padding-top:20px}body.central-ui[data-view="stock"] .central-sidebar .brand{margin-bottom:18px}body.central-ui[data-view="stock"] .central-sidebar .central-nav a{padding-block:10px}}
 @media(max-width:1000px){body.central-ui[data-view="stock"] #page .stock-table-wrap{height:440px;max-height:60dvh;flex:auto}body.central-ui[data-view="stock"] .stock-card-heading small{text-align:left}body.central-ui[data-view="stock"] .stock-main-actions{justify-content:flex-start}body.central-ui[data-view="stock"] .content>.top{flex-wrap:wrap}body.central-ui[data-view="stock"] #page{padding:12px}body.central-ui[data-view="stock"] #page .stock-search-row{flex-wrap:wrap}body.central-ui[data-view="stock"] #page .stock-search{flex-basis:100%}body.central-ui[data-view="stock"] .stock-pagination{flex-wrap:wrap}}
+@media(min-width:1001px){body.central-ui[data-view="stock"]{height:100dvh;overflow:hidden}body.central-ui[data-view="stock"] .app-layout{height:calc(100dvh - var(--developer-credit-height));min-height:0}body.central-ui[data-view="stock"] .content{height:calc(100dvh - var(--developer-credit-height));display:flex;flex-direction:column;min-height:0;overflow:hidden}body.central-ui[data-view="stock"] .content>.top{flex-shrink:0}body.central-ui[data-view="stock"] #page{flex:1;min-height:0;height:auto}}

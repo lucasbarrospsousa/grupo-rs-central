@@ -3,8 +3,6 @@
 body{font-family:var(--ui-font);color:var(--ui-ink);background:var(--ui-bg)}
 body.central-ui .content{padding:0;max-width:none;margin:0;min-width:0}
 body.central-ui #page{display:block;height:auto;min-height:0;max-width:1860px;width:100%;margin:0 auto;padding:28px 32px 36px}
-body.central-ui .app-layout:not(.sidebar-collapsed){grid-template-columns:240px minmax(0,1fr)}
-body.central-ui .central-sidebar{width:240px;background:#102e49}
 body.central-ui .content>.top{height:auto;min-height:80px;padding:16px 32px;margin:0;background:white;border-bottom:1px solid var(--ui-border);gap:20px;display:flex;flex-wrap:wrap}
 .central-ui .ui-heading{display:flex;align-items:center;gap:14px;min-width:0}
 .central-ui .ui-heading strong{font-size:16px;font-weight:650;letter-spacing:0;color:var(--ui-ink)}
@@ -61,7 +59,7 @@ body.central-ui #page #visits-new{background:var(--ui-blue);border-color:var(--u
 body.central-ui #page .settings-api{padding:20px;text-align:left}
 body.central-ui[data-view="users"] #page .panel>.top h2{font-size:30px;font-weight:700;margin:0 0 8px}
 body.central-ui #page .metric{padding-right:58px}
-@media(max-width:700px){body.central-ui .app-layout:not(.sidebar-collapsed){grid-template-columns:0 minmax(0,1fr)}body.central-ui .central-sidebar{position:fixed;z-index:30;left:0;top:0;box-shadow:8px 0 30px #102e4933}body.central-ui .content>.top{position:relative;z-index:31}body.central-ui .central-sidebar{padding-top:130px}body.central-ui .warehouse-metrics{grid-template-columns:1fr}body.central-ui #page :is(.stock-actions,.warehouse-heading>div:last-child){flex-wrap:wrap}}
+@media(max-width:700px){body.central-ui .content>.top{position:relative;z-index:31}body.central-ui .warehouse-metrics{grid-template-columns:1fr}body.central-ui #page :is(.stock-actions,.warehouse-heading>div:last-child){flex-wrap:wrap}}
 body.central-ui .content{grid-column:2;width:100%}
 body.central-ui #page .stock-period input{min-width:155px;width:100%}body.central-ui #page th button{font-size:12px;min-height:32px;padding:4px;white-space:nowrap}body.central-ui[data-view="overview"] #page .dashboard-heading h2{font-size:30px;font-weight:700}body.central-ui #page .backup-card{padding:20px!important}body.central-ui.logs-page .ui-branch{display:none}
 body.central-ui :is(#page,#modal) textarea{min-height:140px}body.central-ui #page button.orange{background:var(--ui-blue);border-color:var(--ui-blue);color:white}

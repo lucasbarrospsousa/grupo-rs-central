@@ -1,7 +1,6 @@
-let collapsed=false,expandedGroup,scrollTop=0,lastMountedRoute;
+let collapsed=false,expandedGroup,scrollTop=0;
 const groups = {equipment:[['stock','Estoque','box'],['link','Vinculação','box'],['bulk','Cadastro em massa','file']],tracking:[['tracking','Consultar veículo','search'],['records','Histórico de posições','file'],['route','Trajeto','map']]};
 export function mountSidebar({route,icon,navigate,logout,username}) {
- if(route==='logs'&&lastMountedRoute!==route&&matchMedia('(max-width:700px)').matches)collapsed=true;lastMountedRoute=route;
  const sidebar=document.querySelector('.sidebar'); sidebar.className='sidebar central-sidebar';
  sidebar.id='central-navigation';
  const layout=sidebar.closest('.app-layout'),header=document.querySelector('.content>.top');

@@ -2,7 +2,7 @@
 
 .logs-cards article:first-child small{color:#dbeeff}
 
-@media(max-width:700px){body.logs-page .app-layout,body.logs-page .app-layout:not(.sidebar-collapsed),body.logs-page .app-layout.sidebar-collapsed{grid-template-columns:minmax(0,1fr)}body.logs-page .central-sidebar{position:fixed;top:110px;left:0;height:calc(100dvh - 110px);z-index:20}body.logs-page .content>.top{height:auto;min-height:110px;position:sticky;top:0;z-index:21;flex-wrap:wrap;gap:10px;padding:12px;background:#f8fbfe}body.logs-page .content>.top h1{font-size:21px}body.logs-page .content>.top .actions{display:flex;gap:8px}body.logs-page .content>.top select{max-width:180px}body.logs-page .table-wrap{overflow-x:auto}body.logs-page .logs-results table{min-width:760px}}
+@media(max-width:700px){body.logs-page .app-layout{grid-template-columns:minmax(0,1fr)}body.logs-page .content>.top{height:auto;min-height:110px;position:sticky;top:0;z-index:21;flex-wrap:wrap;gap:10px;padding:12px;background:#f8fbfe}body.logs-page .content>.top h1{font-size:21px}body.logs-page .content>.top .actions{display:flex;gap:8px}body.logs-page .content>.top select{max-width:180px}body.logs-page .table-wrap{overflow-x:auto}body.logs-page .logs-results table{min-width:760px}}
 
 /* Animate confirmed data, after the asynchronous request, without freezing hover. */
 .system-logs .logs-cards article{animation:none;position:relative;overflow:hidden;transition:transform .22s ease,box-shadow .22s ease}
