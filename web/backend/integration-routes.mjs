@@ -16,7 +16,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
  try{
   if(service===integrations){if(!services.has(pool))services.set(pool,guardedIntegrations(pool));service=services.get(pool);}
   const action=url.pathname.split('/').at(-1),serial=url.searchParams.get('serial');
-  if(action==='stock-page'&&req.method==='GET'){send(res,await stockBatch({pool,user,branch,service,ids:(url.searchParams.get('ids')||'').split(','),kind:['locations','chips'].includes(url.searchParams.get('kind'))?url.searchParams.get('kind'):null}));return true;}
+  if(action==='stock-page'&&req.method==='GET'){send(res,await stockBatch({pool,user,branch,service,ids:(url.searchParams.get('ids')||'').split(','),kind:['locations','chips','identity'].includes(url.searchParams.get('kind'))?url.searchParams.get('kind'):null}));return true;}
   if(action==='equipment-refresh'&&req.method==='POST'){
    if(membership.role==='reader'||(!permissions?.owner&&!permissions?.writes?.includes('stock')))throw fail(403,'Sem permissão para atualizar aparelhos.');
    const body=await readBody(req);send(res,await stockBatch({pool,user,branch,service,ids:body.ids,kind:'equipment'}));return true;

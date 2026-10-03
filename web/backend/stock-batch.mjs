@@ -4,11 +4,13 @@ export function batchIds(input){const ids=Array.isArray(input)?input:[];if(!ids.
 export async function mapTwo(items,fn){const result=new Array(items.length);let cursor=0;await Promise.all(Array.from({length:Math.min(2,items.length)},async()=>{while(cursor<items.length){const index=cursor++;try{result[index]={id:items[index].id,ok:true,...await fn(items[index])};}catch(e){result[index]={id:items[index].id,ok:false,message:e.message};}}}));return result;}
 export function equipmentPatch(e,serial){if(!e.ok||e.serial!==serial)throw fail(422,'Série não confirmada.');const rawPhone=String(e.phone??'').trim(),phone=rawPhone.replace(/[\s().+\-]/g,'');if(!/^89\d{17,18}$/.test(e.iccid||'')||!/^\+?[\d\s().\-]+$/.test(rawPhone)||!/^\d{10,13}$/.test(phone)||!e.apn||!e.carrier)throw fail(422,'ICCID, telefone, operadora ou APN não confirmados. Cadastro preservado.');return{iccid:e.iccid,phone,apn:e.apn,carrier:e.carrier};}
 export async function stockBatch({pool,user,branch,service,ids,kind}){
- ids=batchIds(ids);if(!['locations','chips','equipment'].includes(kind))throw fail(400,'Consulta inválida.');
+ ids=batchIds(ids);if(!['locations','chips','equipment','identity'].includes(kind))throw fail(400,'Consulta inválida.');
+ if(kind==='identity'&&ids.length!==1)throw fail(400,'Consulte o titular de um aparelho por vez.');
  const devices=await scoped(pool,user,async c=>(await c.query('select id,serial,data,version from central_homologacao.devices where branch_id=$1 and id=any($2::uuid[]) and deleted_at is null',[branch,ids])).rows);
  if(devices.length!==ids.length)throw fail(403,'Aparelho indisponível nesta filial.');
  const results=await mapTwo(devices,async row=>{
-  if(kind==='locations')return{location:await service.equipmentLocation(branch,row.serial)};
+  if(kind==='locations')return{location:await (service.stockCommunication||service.equipmentLocation).call(service,branch,row.serial)};
+  if(kind==='identity')return{identity:await service.locationIdentity(branch,row.serial)};
   if(kind==='chips'){const iccid=row.data.iccid;if(!/^89\d{17,18}$/.test(iccid||''))throw fail(422,'ICCID salvo inválido. Use Atualizar aparelhos.');let chip;try{chip=await service.carrier('arya',iccid);}catch(e){chip={ok:false,message:e.message};}if(!chip.ok)chip=await service.carrier('link',iccid);if(!chip.ok||chip.iccid!==iccid)throw fail(422,chip.message||'Chip não confirmado.');return{chip};}
   const equipment=await service.equipment(branch,row.serial),patch=equipmentPatch(equipment,row.serial);
   const device=await scoped(pool,user,async c=>{

@@ -32,6 +32,19 @@ export function sourceIntegrations(api,getMode,web=new PortalRead(api)){
   return mergeConfirmed(a,w);
  }
  const facade=new Proxy(api,{get(target,method){
+  // The visible list needs telemetry, not the slower identity enrichment.
+  if(method==='stockCommunication')return async(branch,serial)=>{
+   if(!ORIGINS[branch])throw fail('Base inválida.');
+   return await getMode(branch)==='web'?web.location(branch,serial):api.equipmentLocation(branch,serial);
+  };
+  if(method==='locationIdentity')return async(branch,serial)=>{
+   if(!ORIGINS[branch])throw fail('Base inválida.');
+   if(await getMode(branch)==='api')return{ok:true,skipped:true,message:'Complemento web desativado: somente API.'};
+   const rows=await web.vehicles(branch,serial);
+   if(rows.length!==1||rows[0].serial!==serial||!rows[0].client||!/^\d+$/.test(rows[0].vehicle_id))throw fail('Titular e vínculo únicos não confirmados na web.');
+   const {client,plate,vehicle_id}=rows[0];
+   return{ok:true,serial,client,plate,vehicle_id,data_source:'web',queried_at:new Date().toISOString()};
+  };
   if(method==='binding')return async(branch,serial,hint,options)=>{const mode=await getMode(branch);if(mode==='api')return api.binding(branch,serial,hint,options);const found=await read('vehicles',branch,[serial],mode);if(found.length>1)throw fail('Mais de um vínculo exato.');return classifyBinding(found[0],serial);};
   if(method==='stockDetails')return async(branch,serial,plate)=>{const capture=async fn=>{try{return await fn();}catch(e){return{ok:false,message:e.message}}};const [equipment,location]=await Promise.all([capture(()=>facade.equipmentPortal(branch,serial)),capture(()=>facade.location(branch,serial,plate))]);let chip={ok:false,message:'ICCID não confirmado.'};if(/^89\d{17,18}$/.test(equipment.iccid||'')){chip=await capture(()=>api.carrier('arya',equipment.iccid));if(!chip.ok)chip=await capture(()=>api.carrier('link',equipment.iccid));}return{serial,equipment,location,chip,source:ORIGINS[branch],queried_at:new Date().toISOString()};};
   if(method in methods)return async(branch,...args)=>read(method,branch,args,await getMode(branch));
