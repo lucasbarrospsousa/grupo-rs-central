@@ -1,3 +1,4 @@
+import {centralTokenStatus,saveCentralToken} from './deployment-credential.mjs';
 import {setApiBudgetPool} from './api-budget.mjs';
 import {trackQueries,automationInput,automationStatus} from './query-usage.mjs';
 import {Buffer} from 'node:buffer';
@@ -54,6 +55,17 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       reply(res,200,{lastActivityAt:updated.rows[0].last_activity_at});return true;
     }
     const permissions=await userAccess(pool,user);
+    if(url.pathname==='/api/deployment-token'){
+      if(!permissions.owner)throw fail(403,'Somente o administrador principal pode renovar o token.');
+      res.setHeader('Cache-Control','no-store');
+      if(req.method==='GET'){reply(res,200,await centralTokenStatus(pool));return true;}
+      if(req.method!=='POST')throw fail(405,'Método não permitido.');
+      const b=await body(req),limit=(await pool.query("insert into central_homologacao.login_limits(key_hash,attempts,until_at) values($1,1,now()+interval '1 minute') on conflict(key_hash) do update set attempts=case when login_limits.until_at<now() then 1 else login_limits.attempts+1 end,until_at=case when login_limits.until_at<now() then now()+interval '1 minute' else login_limits.until_at end returning attempts",[hash('deploy:'+user.user_id)])).rows[0];
+      if(limit.attempts>5)throw fail(429,'Aguarde um minuto antes de tentar novamente.');
+      const account=(await pool.query('select password_hash from central_homologacao.users where id=$1',[user.user_id])).rows[0];
+      if(typeof b.password!=='string'||b.password.length>256||!passwordMatches(b.password,account?.password_hash||dummy))throw fail(403,'Confirme sua senha de administrador.');
+      reply(res,200,await saveCentralToken(pool,b.token,process.env.CENTRAL_BRIDGE_TOKEN));return true;
+    }
     if(url.pathname==='/api/logs'&&req.method==='GET'){reply(res,200,await readLogs(pool,permissions,url.searchParams));return true;}
     if(url.pathname==='/api/ui-event'&&req.method==='POST'){
       const b=await body(req);

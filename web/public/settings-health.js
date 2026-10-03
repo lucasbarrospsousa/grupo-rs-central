@@ -1,3 +1,4 @@
+import {mountDeploymentToken} from './settings-token.js';
 import {mountAutomation} from './settings-automation.js';
 import {mountSources} from './settings-sources.js';
 import {startEconomyPolling} from './usage-control.mjs';
@@ -9,6 +10,7 @@ export function mountSettingsHealth(ctx){
  const root=document.querySelector('#page');root.innerHTML=`<div class="settings-eyebrow">GRUPO RS CENTRAL / ${esc(ctx.branchName)}</div><h1 class="settings-title">Configurações</h1><p class="settings-subtitle">Estado registrado no servidor, horários e verificações das integrações.</p><div class="settings-health-toolbar"><span id="health-updated" role="status">Consultando o servidor…</span><button id="health-refresh">Atualizar painel</button></div><p id="health-error" role="alert"></p><div class="settings-grid"><section class="settings-panel"><div class="settings-health-tabs"><button id="settings-connections" aria-pressed="true">Conexões</button><button id="settings-updates" aria-pressed="false">Sincronização</button></div><div id="settings-content"></div></section><aside class="settings-panel settings-environment"><h2>Operação da filial</h2><p>${esc(ctx.branchName)}</p><div id="health-gateway">Consultando a ponte SMS…</div><p>O painel relê o estado a cada 2 minutos, sujeito ao orçamento local de consultas enquanto estiver aberto. A sincronização é executada pelo servidor; esta tela não inicia ciclos.</p><p>Consultas manuais não alteram estoque nem enviam SMS.</p></aside></div>`;
  const sources=document.createElement('section');sources.className='settings-panel';root.querySelector(".settings-grid").before(sources);mountSources(ctx,sources);
  const automation=document.createElement('section');automation.className='settings-panel automation-panel';root.append(automation);mountAutomation(ctx,automation);
+ const tokenPanel=document.createElement('section');root.append(tokenPanel);mountDeploymentToken(ctx,tokenPanel);
  let snapshot=null,manual={},tab='connections',busy=false,testing=false,error='';
  const content=root.querySelector('#settings-content'),active=()=>root.isConnected&&content.isConnected;
  const query=action=>ctx.repo.request('integrations/'+action+'?branch='+encodeURIComponent(ctx.branch));

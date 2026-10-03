@@ -1,8 +1,9 @@
+import {loadDeploymentToken} from './deployment-token.mjs';
 import {readFile,writeFile} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import {privatePath} from '../backend/database.mjs';
 import {integrationSecrets} from '../backend/integration-secrets.mjs';
-const access=(await readFile(privatePath('supabase-access-token.txt'),'utf8')).trim();
+const access=await loadDeploymentToken();
 if(!/^sbp_[A-Za-z0-9]+$/.test(access))throw Error('Token de acesso Supabase inválido.');
 const runtime=JSON.parse(await readFile(privatePath('runtime-db.json'),'utf8'));
 let bridge;try{bridge=(await readFile(privatePath('bridge-token.txt'),'utf8')).trim();}catch{bridge=randomBytes(32).toString('hex');await writeFile(privatePath('bridge-token.txt'),bridge,{mode:0o600});}

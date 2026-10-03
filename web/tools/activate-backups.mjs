@@ -1,3 +1,4 @@
+import {loadDeploymentToken} from './deployment-token.mjs';
 import {readFile,writeFile,readdir} from 'node:fs/promises';
 import pg from 'pg';
 import {privatePath,createPool,connectionOptions} from '../backend/database.mjs';
@@ -12,7 +13,7 @@ try{
  if(!folder){const created=await drive.createFolder();folder=created.id;await admin.query('update central_homologacao.backup_control set folder_id=$1 where id',[folder]);}
  await drive.health(folder);
  const config={google,db};await writeFile(privatePath('backup-config.json'),JSON.stringify(config),{mode:0o600});
- const access=(await readFile(privatePath('supabase-access-token.txt'),'utf8')).trim(),base='https://api.supabase.com/v1/projects/vwiayytzmorcjeaszowg';
+ const access=await loadDeploymentToken(),base='https://api.supabase.com/v1/projects/vwiayytzmorcjeaszowg';
  const secrets=await fetch(base+'/secrets',{method:'POST',headers:{Authorization:'Bearer '+access,'Content-Type':'application/json'},body:JSON.stringify([{name:'CENTRAL_BACKUP_CONFIG',value:JSON.stringify(config)},{name:'CENTRAL_BACKUP_KEY',value:key},{name:'CENTRAL_BACKUP_TOKEN',value:token}]),signal:AbortSignal.timeout(30000)});if(!secrets.ok)throw Error('Backup secret deployment failed: '+secrets.status);
  const form=new FormData();form.set('metadata',JSON.stringify({name:'central-backup',entrypoint_path:'index.ts',verify_jwt:false}));form.append('file',new Blob([await readFile(new URL('../.sites-runtime/backup/index.ts',import.meta.url))],{type:'application/typescript'}),'index.ts');
  const deployed=await fetch(base+'/functions/deploy?slug=central-backup',{method:'POST',headers:{Authorization:'Bearer '+access},body:form,signal:AbortSignal.timeout(120000)});if(!deployed.ok)throw Error('Backup worker deployment failed: '+deployed.status);
