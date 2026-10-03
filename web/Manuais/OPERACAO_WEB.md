@@ -189,3 +189,13 @@ Quando a rota de veículos por cliente retorna veículos sem titular, o fluxo co
 ## Correção dos PDFs — 01/10/2026
 
 O gerador compartilhado incorpora a fonte Noto Sans completa. A redução por subconjunto causava desaparecimento visual de letras e números, apesar de o texto extraído estar correto. Estoque, manutenções e histórico de posições usam a mesma correção em todas as bases. Validação: reprodução antes/depois com PDFium, 90 linhas em cinco páginas, acentos, placas e zeros iniciais; três testes de completion aprovados. Conferir sempre a renderização, pois extrair texto ou reabrir o PDF não detectava este defeito.
+
+## Cadastros nas quatro filiais — 03/10/2026
+
+- Estoque oferece Novo equipamento em Imperatriz, Araguaína, Açailândia e Marabá, respeitando as permissões existentes. O formulário não oferece uma instalação nova pelo CRUD: usar Dar baixa ou Analisar baixa.
+- Cadastro em massa confere as séries da filial antes da confirmação e identifica as já cadastradas. Retirar séries já cadastradas é uma ação explícita, com possibilidade de desfazer; erros de leitura continuam bloqueando a lista. O limite de envio é 500 equipamentos por lote.
+- A filial revisada e a chave da operação são preservadas durante o envio e a repetição da mesma confirmação. Se a gravação concluir e a atualização da lista falhar, a tela informa cadastro salvo e pede atualização, sem repetir a gravação.
+- O servidor e as restrições transacionais/uniqueness por filial permanecem os mesmos. Nenhuma integração externa é utilizada para criar equipamentos de teste.
+- Evidência da investigação: duas recusas POST /bulk de Araguaína em 02/10, HTTP 409, compatíveis com série já cadastrada (a rota não possuía outra regra de conflito aplicável ao formulário). Não houve gravação de teste em produção.
+- Validação: testes locais de cadastro, lote, cache, estoque, permissões e servidor; formulários e detecção/retirada de duplicados conferidos no navegador nas quatro bases, em demonstração isolada.
+- Prévia local: servidor também serve módulos .mjs, exigidos pela interface atual.

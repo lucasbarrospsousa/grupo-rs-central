@@ -8,7 +8,7 @@ import { api } from './backend/api.mjs';
 // Homologation is explicitly enabled. Default remains the isolated demonstration.
 const handleApi = process.env.CENTRAL_MODE === 'homologacao' ? api(createPool()) : null;
 const root = path.resolve(fileURLToPath(new URL('./public/', import.meta.url)));
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf':'font/ttf' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml', '.ttf':'font/ttf' };
 const server = http.createServer(async (req, res) => {
   res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');

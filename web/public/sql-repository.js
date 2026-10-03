@@ -59,14 +59,14 @@ export class SqlRepository {
     try{await pending;}finally{if(this.pending.get(key)===pending)this.pending.delete(key);}
   }
   list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d,...(d.observation?{communication:communication(d.observation.location),connectivity:d.observation.chip?.ok?d.observation.chip.connectivity||'Não informado':'Consulta pendente'}:{})}));}
-  async saveDevice(branch,values,current){await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',body:{data:values,...(current?{version:current.version}:{})}});await this.load(branch,{route:'stock'});}
+  async saveDevice(branch,values,current,{key}={}){const result=await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',key,body:{data:values,...(current?{version:current.version}:{})}});try{await this.load(branch,{route:'stock'});}catch{return {...result,refreshPending:true};}return result;}
   async deleteDevice(branch,current){await this.request('devices/'+current.id+'?branch='+encodeURIComponent(branch),{method:'DELETE',body:{version:current.version}});await this.load(branch,{route:'stock'});}
   analyze(){throw Error('A baixa depende da integração de consulta da plataforma, ainda em validação.');}
   applyDischarge(){throw Error('A baixa remota ainda está em validação.');}
   async addWarehouse(kind,serial){await this.request('warehouse?branch='+this.currentBranch,{method:'POST',body:{kind,serial}});await this.load(this.currentBranch,{route:'warehouse'});}
   async removeWarehouse(id){const row=this.warehouse.find(r=>r.id===id);await this.request('warehouse/'+id+'?branch='+this.currentBranch,{method:'DELETE',body:{version:row.version}});await this.load(this.currentBranch,{route:'warehouse'});}
   async transfer(ids,destination,note){const items=ids.map(id=>{const r=this.warehouse.find(r=>r.id===id);return{id,version:r.version};});await this.request('warehouse-transfer?branch='+this.currentBranch,{method:'POST',body:{items,destination,note}});await this.load(this.currentBranch,{route:'warehouse'});}
-  async addBulk(rows){const result=await this.request('bulk?branch='+this.currentBranch,{method:'POST',body:{rows}});await this.load(this.currentBranch,{route:'bulk'});return result;}
+  async addBulk(rows,{branch=this.currentBranch,key}={}){const result=await this.request('bulk?branch='+encodeURIComponent(branch),{method:'POST',key,body:{rows}});try{await this.load(branch,{route:'bulk'});}catch{return {...result,refreshPending:true};}return result;}
   async saveReport({branch,id,...data}){await this.request('maintenance?branch='+branch,{method:'POST',body:data,key:id});await this.load(branch,{route:'maintenance'});}
   async updateReport(report,values){await this.request('maintenance/'+report.id+'?branch='+report.branch,{method:'PATCH',body:{version:report.version,...values}});await this.load(report.branch,{route:'maintenance'});}
   record(){throw Error('Operação ainda não conectada ao servidor.');}

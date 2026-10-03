@@ -10,7 +10,7 @@ test('preview serves only public assets and never accepts writes or outbound API
   const output = await Promise.race([once(child.stdout,'data'), once(child,'error').then(([e]) => {throw e;}), once(child,'exit').then(([code]) => {throw Error(`Server exited before ready: ${code}`);})]);
   const url = output[0].toString().match(/http:\/\/127\.0\.0\.1:\d+/)?.[0];
   assert.ok(url);
-  for (const file of ['/', '/app.js', '/domain.js', '/styles.css', '/logo.png']) {
+  for (const file of ['/', '/app.js', '/usage-control.mjs', '/domain.js', '/styles.css', '/logo.png']) {
     const response = await fetch(url + file); assert.equal(response.status,200,file);
     assert.match(response.headers.get('content-security-policy'),/connect-src 'none'/);
   }
