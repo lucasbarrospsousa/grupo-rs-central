@@ -15,7 +15,7 @@ export function communication(sample,now=Date.now()){
 export function createStockLive({repo,branch,draw,showModal}){
  const root=document.querySelector('#stock-body'),heading=document.querySelector('.stock-card-heading small');
  const samples=new Map();let paused=false;
- const observed=row=>samples.get(row?.id)||row?.observation;
+ const observed=row=>{const data=samples.get(row?.id)||row?.observation;return data?{...data,equipment:{...localEquipment(row.id),...data.equipment}}:null;};
  const visible=()=>[...root.querySelectorAll('[data-detail]')].map(b=>b.dataset.detail);
  const progress=()=>{if(root.isConnected)heading.textContent=`Localização: página de até 10 • a cada 1 min • chips independentes`;};
  const localEquipment=id=>{const r=repo.list(branch).find(x=>x.id===id)||{};return{serial:r.serial,iccid:r.iccid,phone:r.phone,apn:r.apn,plate:r.plate,carrier:r.carrier};};

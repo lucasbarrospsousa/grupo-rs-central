@@ -198,3 +198,12 @@ tbody tr.vehicle:hover,.branch-card:hover{transform:none}
 .loading-card{min-height:150px}.loading-placeholder{display:block;width:65%;height:28px;border-radius:8px;background:linear-gradient(90deg,#e6eef7,#c7dff4,#e6eef7);background-size:200% 100%;margin:20px 0;animation:central-loading 1.4s ease-in-out infinite}
 @keyframes central-loading{to{background-position:-200% 0}}
 @media(prefers-reduced-motion:reduce){.loading-placeholder{animation:none}}
+/* Independent stock monitor: a sibling request must not dim these ready controls. */
+[data-motion-loading=true] #stock-panorama .central-motion-surface::after{content:none!important}
+.monitor-card{background:#fff;border:1px solid #c6dafa;border-radius:13px;min-width:0}
+.monitor-card a{color:inherit;text-decoration:none}.monitor-card a:hover{text-decoration:underline}
+.monitor-card>.value,.monitor-card>small{display:block}.monitor-statuses{display:grid;gap:7px;margin-top:14px}
+.monitor-status{display:flex;align-items:center;justify-content:space-between;gap:8px;border-radius:9px;padding:8px 10px;font-size:13px;background:#f3f6fa;color:#526580;border:1px solid #dbe4ef}
+.monitor-card .monitor-status strong{font-size:14px;border:0;margin:0;padding:0;color:inherit}
+.monitor-status.on{background:#edfaf3;color:#087d49;border-color:#c5edda}.monitor-status.off{background:#fff3f4;color:#cb2944;border-color:#f8d7dd}.monitor-status.stale,.monitor-status.gps{background:#fff8e9;color:#996000;border-color:#f4dfaf}
+.monitor-tabs{display:flex;flex-wrap:wrap;gap:10px}.monitor-tabs [aria-pressed=true]{outline:2px solid currentColor;outline-offset:1px}

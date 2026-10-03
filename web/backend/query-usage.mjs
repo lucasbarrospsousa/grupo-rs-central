@@ -21,7 +21,7 @@ export async function trackQueries(pool,mode,run){
  }});
 }
 export function automationInput(body){
- if(typeof body.enabled!=='boolean'||![5,10,30,1440].includes(body.interval_minutes))throw Object.assign(Error('Escolha 5, 10, 30 minutos ou 1 dia e informe o estado da automação.'),{status:400});
+ if(typeof body.enabled!=='boolean'||![5,10,15,30,1440].includes(body.interval_minutes))throw Object.assign(Error('Escolha 5, 10, 15, 30 minutos ou 1 dia e informe o estado da automação.'),{status:400});
  return {enabled:body.enabled,interval_minutes:body.interval_minutes};
 }
 export async function automationStatus(pool){

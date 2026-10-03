@@ -21,6 +21,25 @@ async function runTick(pool,{service,budgetMs=45000,now=Date.now}={}){
  if(!batch.rows.length)return{processed:0,complete:!!batch.complete};
  service=service||guardedIntegrations(pool);let processed=0,cursor=0;const start=now();
  try{
-  await Promise.all(Array.from({length:2},async()=>{while(cursor<batch.rows.length&&now()-start<budgetMs){const row=batch.rows[cursor++];let result;try{result=await service.stockDetails(row.branch,row.serial,row.plate);}catch(e){result={serial:row.serial,equipment:{ok:false,message:e.message},location:{ok:false,message:e.message},chip:{ok:false,message:e.message}};}await pool.query('select central_homologacao.sync_save($1,$2,$3,$4)',[lease,batch.cycle,row.id,result]);processed++;}}));return{processed,cycle:batch.cycle};}
+  await Promise.all(Array.from({length:2},async()=>{while(cursor<batch.rows.length&&now()-start<budgetMs){const row=batch.rows[cursor++];let result;try{result=await monitorStock(service,row);}catch(e){result={serial:row.serial,equipment:{ok:false,message:e.message},location:{ok:false,message:e.message},chip:{ok:false,message:e.message}};}await pool.query('select central_homologacao.sync_save($1,$2,$3,$4)',[lease,batch.cycle,row.id,result]);processed++;}}));return{processed,cycle:batch.cycle};}
  finally{await pool.query('select central_homologacao.sync_release($1)',[lease]);}
+}
+
+// Read only telemetry and SIM status; no owner, history or consumption queries.
+export async function monitorStock(service,row){
+ const capture=async fn=>{try{return await fn();}catch(e){return{ok:false,message:e.message};}};
+ const at=new Date().toISOString();
+ const raw=await capture(()=>service.stockCommunication(row.branch,row.serial));
+ const location=Object.fromEntries(['ok','message','updated_at','gps_at','ignition','data_source'].filter(k=>raw[k]!==undefined).map(k=>[k,raw[k]]));
+ let chip=row.chip||{ok:false,message:'Chip ainda não consultado.'},chip_checked_at=row.chip_checked_at||null;
+ if(row.chip_due){
+  chip_checked_at=at;
+  if(!/^89\d{17,18}$/.test(row.iccid||''))chip={ok:false,message:'ICCID não cadastrado no estoque.'};
+  else {
+   let found=await capture(()=>service.carrier(row.provider==='link'?'link':'arya',row.iccid));
+   if(!found.ok)found=await capture(()=>service.carrier(row.provider==='link'?'arya':'link',row.iccid));
+   chip=Object.fromEntries(['ok','message','iccid','status','connectivity','provider'].filter(k=>found[k]!==undefined).map(k=>[k,found[k]]));
+  }
+ }
+ return{location,chip,chip_checked_at,monitor_iccid:row.iccid||'',queried_at:at};
 }

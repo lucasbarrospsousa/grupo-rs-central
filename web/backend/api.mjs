@@ -111,7 +111,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       if(req.method==='GET'){
         if(!url.pathname.startsWith('/api/devices'))throw fail(405,'Método não permitido.');
         const deviceId=url.pathname==='/api/devices'?null:url.pathname.split('/').at(-1);
-        const rows=(await client.query('select d.id,d.serial,d.data,d.version,o.data as observation,o.checked_at from central_homologacao.devices d left join central_homologacao.device_observations o on o.device_id=d.id where d.branch_id=$1 and d.deleted_at is null and ($2::uuid is null or d.id=$2::uuid) order by d.serial',[branch,deviceId])).rows;
+        const rows=(await client.query('select d.id,d.serial,d.data,d.version,o.data as observation,o.checked_at from central_homologacao.devices d left join central_homologacao.device_observations o on o.device_id=d.id where d.branch_id=$1 and d.deleted_at is null and ($2::uuid is null or d.id=$2::uuid) and (not $3::boolean or central_homologacao.is_monitored_stock(d.branch_id,d.data)) order by d.serial',[branch,deviceId,url.searchParams.get('scope')==='stock'])).rows;
         if(deviceId&&!rows.length)throw fail(404,'Cadastro não encontrado.');
         await client.query('COMMIT');reply(res,200,{rows:rows.map(r=>({...r.data,id:r.id,serial:r.serial,branch,version:r.version,observation:r.observation,checked_at:r.checked_at}))});return true;
       }

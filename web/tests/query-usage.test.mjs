@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {automationInput,measuredRequest,trackQueries,querySource} from '../backend/query-usage.mjs';
 test('only supported intervals and explicit boolean are accepted',()=>{
- for(const interval_minutes of [5,10,30,1440])for(const enabled of [true,false])assert.deepEqual(automationInput({enabled,interval_minutes}),{enabled,interval_minutes});
+ for(const interval_minutes of [5,10,15,30,1440])for(const enabled of [true,false])assert.deepEqual(automationInput({enabled,interval_minutes}),{enabled,interval_minutes});
  for(const body of [{enabled:true,interval_minutes:1},{enabled:'false',interval_minutes:5},{enabled:false,interval_minutes:'30'}])assert.throws(()=>automationInput(body),{status:400});
 });
 test('actual requests, retries and errors are aggregated once and isolated across concurrent origins',async()=>{

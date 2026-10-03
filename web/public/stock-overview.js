@@ -1,25 +1,21 @@
-import {openDischarge} from './discharge-panel.js';
-import {isReader} from './access-control.js';
 import {visibleStatus} from './stock-model.js';
+import {basePlatforms,monitorLabels,monitorState,monitorCounts} from './stock-monitor.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colors=['#e8af08','#ff880a','#ee3452','#12ae68'];
-export function mountStockOverview({repo,host,showModal,notify,render}){
- const bases=repo.user.branches,results=new Map(),errors=new Map();let running=false;
- host.innerHTML='<div class="live-heading"><div><h2>Estoque por base <span class="pill" id="stock-bases-complete"></span></h2><p class="muted">Aparelhos em estoque cadastrados na Central.</p></div><button id="stock-bases-refresh">Atualizar estoques</button></div><div class="grid four live-grid" id="stock-bases"></div><div class="live-progress" id="stock-bases-progress" role="status"></div>';
- function list(base,rows){
-  const canDischarge=!isReader(repo.user,base.id,'stock');
-  let page=0;showModal('Estoque · '+base.name,'<div class="live-heading"><p class="muted">Aparelhos disponíveis no estoque da Central.</p>'+ (canDischarge?'<button id="base-stock-analyze" data-discharge class="primary">Analisar baixa</button>':'')+'</div><input id="base-stock-search" type="search" placeholder="Buscar série, identificação ou placa" aria-label="Buscar aparelhos"><div class="table-wrap modal-body-scroll" id="base-stock-table"></div><div class="pager"><span id="base-stock-count"></span><button id="base-stock-prev">Anterior</button><button id="base-stock-next">Próxima</button></div>');
-  const $=id=>document.getElementById(id);
-  if(canDischarge)$('base-stock-analyze').onclick=async e=>{
-   const button=e.currentTarget;button.disabled=true;button.textContent='Carregando estoque…';
-   try{
-    await repo.load(base.id,{route:'stock'});
-    if(!button.isConnected||!document.querySelector('#modal').open)return;
-    openDischarge({repo,branch:base.id,showModal,notify,render});
-   }catch(error){notify(error.message);}finally{if(button.isConnected){button.disabled=false;button.textContent='Analisar baixa';}}
-  };
-  function draw(){const q=$('base-stock-search').value.trim().toLocaleLowerCase('pt-BR'),found=rows.filter(r=>[r.serial,r.identification,r.plate,r.model,r.carrier].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q)));page=Math.min(page,Math.max(0,Math.ceil(found.length/10)-1));
-   $('base-stock-table').innerHTML='<table><thead><tr><th>Série</th><th>Identificação</th><th>Veículo / placa</th><th>Modelo</th><th>Operadora</th></tr></thead><tbody>'+ (found.slice(page*10,page*10+10).map(r=>'<tr>'+[r.serial,r.identification,r.plate,r.model,r.carrier].map(v=>'<td>'+esc(v||'—')+'</td>').join('')+'</tr>').join('')||'<tr><td colspan="5" class="empty">Nenhum aparelho em estoque para esta consulta.</td></tr>')+'</tbody></table>';
+const date=v=>v?new Date(v).toLocaleString('pt-BR'):'Não consultado';
+export function mountStockOverview({repo,host,showModal}){
+ const bases=repo.user.branches,results=new Map(),errors=new Map(),pending=new Set();let running=false;
+ host.dataset.independent='true';
+ host.innerHTML='<div class="live-heading"><div><h2>Estoque por base <span class="pill" id="stock-bases-complete"></span></h2><p class="muted">Comunicação e status do chip • somente aparelhos em estoque.</p></div><button id="stock-bases-refresh">Atualizar estoques</button></div><div class="grid four live-grid" id="stock-bases"></div><div class="live-progress" id="stock-bases-progress" role="status"></div>';
+ function list(base,selected){
+  let page=0;
+  showModal('Estoque · '+base.name,'<div class="monitor-tabs" id="monitor-tabs"></div><p class="muted">Classificação conforme a regra da aba Estoque. Falha de consulta não significa aparelho desligado.</p><input id="base-stock-search" type="search" placeholder="Buscar série ou identificação" aria-label="Buscar aparelhos"><div class="table-wrap modal-body-scroll" id="base-stock-table"></div><div class="pager"><span id="base-stock-count"></span><button id="base-stock-prev">Anterior</button><button id="base-stock-next">Próxima</button></div>');
+  const $=id=>document.getElementById(id),rows=results.get(base.id)||[],now=Date.now(),counts=monitorCounts(rows,now);
+  function draw(){
+   $('monitor-tabs').innerHTML=Object.entries(counts).filter(([key,n])=>['on','off','stale'].includes(key)||n).map(([key,n])=>'<button data-monitor-tab="'+key+'" class="monitor-status '+key+'" aria-pressed="'+(selected===key)+'">'+monitorLabels[key]+' <strong>'+n+'</strong></button>').join('');
+   $('monitor-tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{selected=b.dataset.monitorTab;page=0;draw();});
+   const q=$('base-stock-search').value.trim().toLocaleLowerCase('pt-BR'),found=rows.filter(r=>monitorState(r,now)===selected&&[r.serial,r.identification].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q)));page=Math.min(page,Math.max(0,Math.ceil(found.length/10)-1));
+   $('base-stock-table').innerHTML='<table><thead><tr><th>Aparelho</th><th>Identificação</th><th>Comunicação</th><th>Chip</th><th>Última consulta</th></tr></thead><tbody>'+ (found.slice(page*10,page*10+10).map(r=>{const chip=r.observation?.chip,valid=chip?.ok&&chip.iccid===r.iccid;return '<tr><td>'+esc(r.serial)+'</td><td>'+esc(r.identification||'—')+'</td><td><span class="monitor-status '+selected+'">'+esc(({on:'Ligado',off:'Desligado',stale:'Desatualizado',unknown:'Não verificado',gps:'Possível GPS'})[selected])+'</span></td><td title="'+esc('Consulta do chip: '+date(r.observation?.chip_checked_at))+'">'+esc(valid?(chip.connectivity||chip.status||'Não informado'):'Não verificado')+'</td><td>'+esc(date(r.checked_at))+'</td></tr>';}).join('')||'<tr><td colspan="5" class="empty">Nenhum aparelho neste status.</td></tr>')+'</tbody></table>';
    $('base-stock-count').textContent=`${found.length?page*10+1:0}–${Math.min(found.length,page*10+10)} de ${found.length} aparelhos`;$('base-stock-prev').disabled=!page;$('base-stock-next').disabled=(page+1)*10>=found.length;
   }
   $('base-stock-search').oninput=()=>{page=0;draw();};$('base-stock-prev').onclick=()=>{page--;draw();};$('base-stock-next').onclick=()=>{page++;draw();};draw();
@@ -28,20 +24,20 @@ export function mountStockOverview({repo,host,showModal,notify,render}){
   const container=host.querySelector('#stock-bases');
   for(const [i,base] of bases.entries()){
    let card=container.querySelector(`[data-stock-base="${base.id}"]`);
-   if(!card){card=document.createElement('button');card.className='branch-card';card.dataset.stockBase=base.id;card.style.setProperty('--color',colors[i%colors.length]);card.innerHTML='<strong></strong><b class="value"></b><small></small><div class="foot"></div>';card.querySelector('strong').textContent=base.name;card.onclick=()=>list(base,results.get(base.id));container.append(card);}
-   const rows=results.get(base.id),error=errors.get(base.id);
-   card.disabled=!rows;card.setAttribute('aria-busy',String(!rows&&!error));
-   card.querySelector('.value').textContent=rows?rows.length.toLocaleString('pt-BR'):error?'Pendente':'—';
-   card.querySelector('small').textContent=error?(rows?'Último resultado • falha ao atualizar':'Não foi possível consultar'):rows?'aparelhos em estoque':'Consultando estoque…';
-   card.querySelector('.foot').textContent=error?'Use Atualizar estoques para tentar novamente':rows?'Ver estoque ›':'Aguarde';
+   if(!card){card=document.createElement('article');card.className='branch-card monitor-card';card.dataset.stockBase=base.id;card.style.setProperty('--color',colors[i%colors.length]);const link=basePlatforms[base.id];card.innerHTML='<strong>'+(link?'<a href="'+link+'" target="_blank" rel="noopener noreferrer">'+esc(base.name)+' ↗</a>':esc(base.name))+'</strong><b class="value"></b><small></small><div class="monitor-statuses"></div><div class="foot">'+(link?'<a href="'+link+'" target="_blank" rel="noopener noreferrer">Abrir plataforma ↗</a>':'Plataforma não configurada')+'</div>';container.append(card);}
+   const rows=results.get(base.id),error=errors.get(base.id);card.setAttribute('aria-busy',String(!rows&&!error));
+   card.querySelector('.value').textContent=rows?rows.length.toLocaleString('pt-BR'):error?'Pendente':'—';card.querySelector('small').textContent=error?(rows?'Último resultado • falha ao atualizar':'Não foi possível consultar'):rows?(pending.has(base.id)?'aparelhos • atualizando…':'aparelhos em estoque'):'Consultando estoque…';
+   card.querySelector('.monitor-statuses').innerHTML=rows?Object.entries(monitorCounts(rows)).filter(([key,n])=>['on','off','stale'].includes(key)||n).map(([key,n])=>'<button class="monitor-status '+key+'" data-monitor="'+key+'" aria-label="'+esc(base.name+' · '+monitorLabels[key]+': '+n)+'"><span>'+monitorLabels[key]+'</span><strong>'+n+' ›</strong></button>').join(''):'';
+   card.querySelectorAll('[data-monitor]').forEach(b=>b.onclick=()=>list(base,b.dataset.monitor));
   }
   host.querySelector('#stock-bases-complete').textContent=results.size+' de '+bases.length+' bases consultadas';
-  host.querySelector('#stock-bases-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>bases.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando estoques…':'Estoque da Central consultado às '+new Date().toLocaleTimeString('pt-BR');
-  host.querySelectorAll('[data-stock-base]').forEach(b=>b.onclick=()=>list(bases.find(base=>base.id===b.dataset.stockBase),results.get(b.dataset.stockBase)));
+  host.querySelector('#stock-bases-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>bases.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando estoques • bases prontas já disponíveis':'Resultados salvos no servidor • tela atualizada às '+new Date().toLocaleTimeString('pt-BR');
  }
- async function refresh(){if(running)return;running=true;errors.clear();host.querySelector('#stock-bases-refresh').disabled=true;paint();
-  await Promise.all(bases.map(async base=>{try{const data=await repo.request('devices?branch='+encodeURIComponent(base.id));if(!Array.isArray(data.rows))throw Error('Resposta de estoque incompleta.');if(host.isConnected)results.set(base.id,data.rows.filter(r=>!r.deleted_at&&visibleStatus(r,base.id)==='Estoque'));}catch(e){if(host.isConnected)errors.set(base.id,e.message);}if(host.isConnected)paint();}));
+ async function refresh(){if(running||!host.isConnected)return;running=true;errors.clear();bases.forEach(b=>pending.add(b.id));host.querySelector('#stock-bases-refresh').disabled=true;paint();
+  await Promise.all(bases.map(async base=>{try{const data=await repo.request('devices?branch='+encodeURIComponent(base.id)+'&scope=stock');if(!Array.isArray(data.rows))throw Error('Resposta de estoque incompleta.');if(host.isConnected)results.set(base.id,data.rows.filter(r=>!r.deleted_at&&visibleStatus(r,base.id)==='Estoque'));}catch(e){if(host.isConnected)errors.set(base.id,e.message);}finally{pending.delete(base.id);}if(host.isConnected)paint();}));
   running=false;if(host.isConnected){paint();host.querySelector('#stock-bases-refresh').disabled=false;}
  }
  host.querySelector('#stock-bases-refresh').onclick=refresh;void refresh();
+ // Only read saved summaries while visible; never trigger remote polling from the page.
+ const timer=setInterval(()=>{if(!host.isConnected){clearInterval(timer);return;}if(document.visibilityState!=='hidden')void refresh();},120000);
 }

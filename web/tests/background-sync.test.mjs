@@ -3,7 +3,7 @@ import {syncTick,guardedIntegrations} from '../backend/background-sync.mjs';
 import {Integrations} from '../backend/integrations.mjs';
 test('background worker honors batch limit and releases lease even when upstream fails',async()=>{
  const saved=[],queries=[];const pool={query:async(sql,args)=>{queries.push(sql);if(sql.includes('sync_claim'))return{rows:[{batch:{cycle:2,rows:Array.from({length:50},(_,i)=>({id:String(i),branch:'maraba',serial:'024'+String(i).padStart(6,'0')}))}}]};if(sql.includes('sync_save'))saved.push(args);return{rows:[]};}};
- const out=await syncTick(pool,{service:{stockDetails:async()=>{throw Error('offline');}}});assert.equal(out.processed,50);assert.equal(saved.length,50);assert.equal(saved[0][3].chip.ok,false);assert.match(queries.at(-1),/sync_release/);
+ const out=await syncTick(pool,{service:{stockCommunication:async()=>{throw Error('offline');}}});assert.equal(out.processed,50);assert.equal(saved.length,50);assert.equal(saved[0][3].chip.ok,false);assert.match(queries.at(-1),/sync_release/);
 });
 test('invalid credentials open a persistent circuit and later calls do not retry',async()=>{
  let calls=0,alerts=0;const pool={query:async(sql,args)=>{if(args?.length===3)alerts++;return{rows:[{blocked:false}]};}};const service={credentials:()=>({username:'test',password:'test'}),api:async()=>{calls++;throw Object.assign(Error('rejected'),{credentialInvalid:true});},portal:async()=>{},carrier:async()=>{}};const s=guardedIntegrations(pool,service);
