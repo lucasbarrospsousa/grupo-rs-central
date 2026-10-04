@@ -1,8 +1,8 @@
 import {visibleStatus} from './stock-model.js';
-import {basePlatforms,monitorLabels,monitorState,monitorCounts} from './stock-monitor.js';
+import {basePlatforms,monitorLabels,monitorState,monitorCounts,monitorDate} from './stock-monitor.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colors=['#e8af08','#ff880a','#ee3452','#12ae68'];
-const date=v=>v?new Date(v).toLocaleString('pt-BR'):'Não consultado';
+const date=v=>monitorDate(v,'Não consultado');
 export function mountStockOverview({repo,host,showModal}){
  const bases=repo.user.branches,results=new Map(),errors=new Map(),pending=new Set();let running=false;
  host.dataset.independent='true';
@@ -15,7 +15,7 @@ export function mountStockOverview({repo,host,showModal}){
    $('monitor-tabs').innerHTML=Object.entries(counts).filter(([key,n])=>['on','off','stale'].includes(key)||n).map(([key,n])=>'<button data-monitor-tab="'+key+'" class="monitor-status '+key+'" aria-pressed="'+(selected===key)+'">'+monitorLabels[key]+' <strong>'+n+'</strong></button>').join('');
    $('monitor-tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{selected=b.dataset.monitorTab;page=0;draw();});
    const q=$('base-stock-search').value.trim().toLocaleLowerCase('pt-BR'),found=rows.filter(r=>monitorState(r,now)===selected&&[r.serial,r.identification].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q)));page=Math.min(page,Math.max(0,Math.ceil(found.length/10)-1));
-   $('base-stock-table').innerHTML='<table><thead><tr><th>Aparelho</th><th>Identificação</th><th>Comunicação</th><th>Chip</th><th>Última consulta</th></tr></thead><tbody>'+ (found.slice(page*10,page*10+10).map(r=>{const chip=r.observation?.chip,valid=chip?.ok&&chip.iccid===r.iccid;return '<tr><td>'+esc(r.serial)+'</td><td>'+esc(r.identification||'—')+'</td><td><span class="monitor-status '+selected+'">'+esc(({on:'Ligado',off:'Desligado',stale:'Desatualizado',unknown:'Não verificado',gps:'Possível GPS'})[selected])+'</span></td><td title="'+esc('Consulta do chip: '+date(r.observation?.chip_checked_at))+'">'+esc(valid?(chip.connectivity||chip.status||'Não informado'):'Não verificado')+'</td><td>'+esc(date(r.checked_at))+'</td></tr>';}).join('')||'<tr><td colspan="5" class="empty">Nenhum aparelho neste status.</td></tr>')+'</tbody></table>';
+   $('base-stock-table').innerHTML='<table><thead><tr><th>Aparelho</th><th>Identificação</th><th>Comunicação</th><th>Chip</th><th>Última comunicação</th></tr></thead><tbody>'+ (found.slice(page*10,page*10+10).map(r=>{const chip=r.observation?.chip,valid=chip?.ok&&chip.iccid===r.iccid;return '<tr><td>'+esc(r.serial)+'</td><td>'+esc(r.identification||'—')+'</td><td><span class="monitor-status '+selected+'">'+esc(({on:'Ligado',off:'Desligado',stale:'Desatualizado',unknown:'Não verificado',gps:'Possível GPS'})[selected])+'</span></td><td title="'+esc('Consulta do chip: '+date(r.observation?.chip_checked_at))+'">'+esc(valid?(chip.connectivity||chip.status||'Não informado'):'Não verificado')+'</td><td><div>'+esc(monitorDate(r.observation?.location?.updated_at))+'</div><small class="muted">Consultado pela Central em '+esc(date(r.checked_at))+'</small></td></tr>';}).join('')||'<tr><td colspan="5" class="empty">Nenhum aparelho neste status.</td></tr>')+'</tbody></table>';
    $('base-stock-count').textContent=`${found.length?page*10+1:0}–${Math.min(found.length,page*10+10)} de ${found.length} aparelhos`;$('base-stock-prev').disabled=!page;$('base-stock-next').disabled=(page+1)*10>=found.length;
   }
   $('base-stock-search').oninput=()=>{page=0;draw();};$('base-stock-prev').onclick=()=>{page--;draw();};$('base-stock-next').onclick=()=>{page++;draw();};draw();

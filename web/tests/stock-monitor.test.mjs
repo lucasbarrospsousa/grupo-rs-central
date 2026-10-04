@@ -1,6 +1,12 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {monitorStock} from '../backend/background-sync.mjs';
-import {monitorState,monitorCounts,basePlatforms} from '../public/stock-monitor.js';
+import {monitorState,monitorCounts,basePlatforms,monitorDate} from '../public/stock-monitor.js';
+test('communication and query dates use Fortaleza, including API milliseconds and missing dates',()=>{
+ assert.equal(monitorDate('2026-08-25 21:42:02.613'),'25/08/2026, 21:42:02');
+ assert.equal(monitorDate('2026-10-04T16:45:11Z'),'04/10/2026, 13:45:11');
+ assert.equal(monitorDate('2026-10-02T18:27:44-03:00'),'02/10/2026, 18:27:44');
+ assert.equal(monitorDate(null),'Não informado');assert.equal(monitorDate('invalid'),'Não informado');
+});
 const at=Date.parse('2026-10-03T19:00:00Z');
 const row=(ignition,age,ok=true)=>({observation:{location:{ok,ignition,updated_at:new Date(at-age).toISOString(),gps_at:new Date(at-age).toISOString()}}});
 test('shared stock thresholds and mutually exclusive counts include missing data',()=>{
