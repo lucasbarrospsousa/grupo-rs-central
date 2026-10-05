@@ -207,3 +207,6 @@ tbody tr.vehicle:hover,.branch-card:hover{transform:none}
 .monitor-card .monitor-status strong{font-size:14px;border:0;margin:0;padding:0;color:inherit}
 .monitor-status.on{background:#edfaf3;color:#087d49;border-color:#c5edda}.monitor-status.off{background:#fff3f4;color:#cb2944;border-color:#f8d7dd}.monitor-status.stale,.monitor-status.gps{background:#fff8e9;color:#996000;border-color:#f4dfaf}
 .monitor-tabs{display:flex;flex-wrap:wrap;gap:10px}.monitor-tabs [aria-pressed=true]{outline:2px solid currentColor;outline-offset:1px}
+
+[data-motion-loading=true] #maintenance-panorama .central-motion-surface::after{content:none!important}
+#maintenance-panorama .toolbar{justify-content:flex-start;gap:12px}#maintenance-panorama .toolbar select{width:auto;min-width:180px}

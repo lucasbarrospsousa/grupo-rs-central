@@ -1,4 +1,5 @@
 import {syncTick} from '../backend/background-sync.mjs';
+import {maintenanceTick} from '../backend/maintenance-monitor.mjs';
 import {configuratorFetch} from '../backend/configurator.mjs';
 import {Buffer} from 'node:buffer';
 import {api} from '../backend/api.mjs';
@@ -9,10 +10,10 @@ const pool=createPool(),handler=api(pool);
 // are still validated by the ordinary API. No database administrative key is used.
 export async function edgeFetch(request){
  if(new URL(request.url).pathname.endsWith('/internal/configurator'))return configuratorFetch(request,pool);
- if(new URL(request.url).pathname.endsWith('/internal/sync')){
+ if(['/internal/sync','/internal/maintenance'].some(p=>new URL(request.url).pathname.endsWith(p))){
   const expected=process.env.CENTRAL_SYNC_TOKEN||'',actual=request.headers.get('x-central-sync')||'';
   if(request.method!=='POST'||!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});
-  try{return Response.json(await syncTick(pool));}catch{return Response.json({error:'Atualização automática pendente.'},{status:503});}
+  try{return Response.json(await (new URL(request.url).pathname.endsWith('/internal/maintenance')?maintenanceTick(pool):syncTick(pool)));}catch{return Response.json({error:'Atualização automática pendente.'},{status:503});}
  }
  const expected=process.env.CENTRAL_BRIDGE_TOKEN||'',actual=request.headers.get('x-central-bridge')||'';
  if(!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});

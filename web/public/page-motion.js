@@ -3,8 +3,8 @@ export const motionSurfaces='article,.panel,.metric,.branch-card,.stock-card,.li
 export function motionRequestKind(path){
  const u=new URL(path,'https://central.invalid/'),p=u.pathname.replace(/^\//,'');
  if(['session','activity','ui-event','logout'].includes(p)||p.startsWith('logs'))return 'quiet';
- if(/^integrations\/(stock|sync-status)$/.test(p))return 'quiet';
- if(/^integrations\/(health|maintenance|operations|gateway)$/.test(p)||p==='backups/status')return 'initial';
+ if(/^integrations\/(stock|sync-status|maintenance)$/.test(p))return 'quiet';
+ if(/^integrations\/(health|operations|gateway)$/.test(p)||p==='backups/status')return 'initial';
  return 'foreground';
 }
 export function installPageMotion(repo){

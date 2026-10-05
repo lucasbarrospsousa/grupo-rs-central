@@ -1,4 +1,5 @@
 import {stockBatch} from './stock-batch.mjs';
+import {maintenanceSnapshot} from './maintenance-monitor.mjs';
 import {integrationHealth,testBranchConnections} from './integration-health.mjs';
 import {bridgeHealth} from './sms-queue.mjs';
 import {prepareStandardSms} from './sms-template.mjs';
@@ -36,7 +37,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    else if(action==='equipment')data=await service.equipmentPortal(branch,serial);
    else if(action==='sms-template')data=await prepareStandardSms(service,branch,serial);
    else if(action==='operations'){const kinds=['link','sms'].filter(k=>permissions?.owner||permissions?.views?.includes(k));data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 and kind=any($2::text[]) order by created_at desc limit 100',[branch,kinds])).rows)};}
-   else if(action==='maintenance')data=await service.maintenance(branch);
+   else if(action==='maintenance')data=await maintenanceSnapshot(pool,service,branch,url.searchParams.get('refresh')==='1');
    else if(action==='binding'){const hint=await scoped(pool,user,async c=>(await c.query("select data->>'client' as client from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null limit 2",[branch,serial])).rows);data=await service.binding(branch,serial,hint.length===1?hint[0].client:'');}
    else if(action==='location')data=await service.location(branch,serial,await plateHint());
    else if(action==='history')data=await service.history(branch,serial,url.searchParams.get('start'),url.searchParams.get('end'));
