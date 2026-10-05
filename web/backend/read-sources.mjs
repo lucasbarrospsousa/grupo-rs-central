@@ -45,6 +45,19 @@ export function sourceIntegrations(api,getMode,web=new PortalRead(api)){
    const {client,plate,vehicle_id}=rows[0];
    return{ok:true,serial,client,plate,vehicle_id,data_source:'web',queried_at:new Date().toISOString()};
   };
+  if(method==='dischargeBinding')return async(branch,serial)=>{
+   if(!ORIGINS[branch]||!/^\d{6,17}$/.test(serial||''))throw fail('Base ou série inválida.');
+   const code=await api.savedEquipmentCode(branch,serial);
+   const equipment=code?await api.equipmentByCode(branch,serial,code):await api.equipment(branch,serial);
+   if(!equipment?.ok||equipment.serial!==serial||!/^[1-9]\d*$/.test(equipment.id||''))throw fail('Aparelho não confirmado pela API.');
+   if(!equipment.vehicle_id){if(equipment.binding_known!==true||equipment.plate)throw fail('Vínculo não confirmado pela API.');return{ok:false,category:'review',serial,message:'Aparelho sem veículo vinculado na API.',source:ORIGINS[branch]};}
+   if(!/^[1-9]\d*$/.test(equipment.vehicle_id)||!equipment.plate)throw fail('Placa atual não confirmada pela API.');
+   const found=await web.vehiclesByPlate(branch,equipment.plate);
+   if(found.length!==1)throw fail('Titular web não confirmado: placa ausente ou duplicada.');
+   const owner=found[0];
+   if(key(owner.plate)!==key(equipment.plate)||owner.serial!==serial||owner.vehicle_id!==equipment.vehicle_id)throw fail('Vínculo diverge entre API e web. Confira antes de dar baixa.');
+   return classifyBinding({serial,plate:equipment.plate,vehicle_id:equipment.vehicle_id,equipment_id:equipment.id,client:empty(owner.client)?'':owner.client,association_confirmed:true,data_source:'api_equipment_web_plate',source:ORIGINS[branch],queried_at:new Date().toISOString()},serial);
+  };
   if(method==='binding')return async(branch,serial,hint,options)=>{const mode=await getMode(branch);if(mode==='api')return api.binding(branch,serial,hint,options);const found=await read('vehicles',branch,[serial],mode);if(found.length>1)throw fail('Mais de um vínculo exato.');return classifyBinding(found[0],serial);};
   if(method==='stockDetails')return async(branch,serial,plate)=>{const capture=async fn=>{try{return await fn();}catch(e){return{ok:false,message:e.message}}};const [equipment,location]=await Promise.all([capture(()=>facade.equipmentPortal(branch,serial)),capture(()=>facade.location(branch,serial,plate))]);let chip={ok:false,message:'ICCID não confirmado.'};if(/^89\d{17,18}$/.test(equipment.iccid||'')){chip=await capture(()=>api.carrier('arya',equipment.iccid));if(!chip.ok)chip=await capture(()=>api.carrier('link',equipment.iccid));}return{serial,equipment,location,chip,source:ORIGINS[branch],queried_at:new Date().toISOString()};};
   if(method in methods)return async(branch,...args)=>read(method,branch,args,await getMode(branch));

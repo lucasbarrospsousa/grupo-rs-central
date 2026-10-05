@@ -37,6 +37,12 @@ export class PortalRead{
  async json(branch,path){let data;try{data=JSON.parse(await this.page(branch,path));}catch(e){if(e.status)throw e;throw fail('Resposta web inválida.',502);}if(data?.error||data?.erro||data?.success===false)throw fail('Consulta web recusada.',502);return data;}
  meta(branch){return{source:ORIGINS[branch],data_source:'web',queried_at:new Date().toISOString()};}
  async vehicles(branch,serial){serialCheck(serial);const html=await this.page(branch,'/cadastro/veiculos_listar.php?'+new URLSearchParams({busca:serial,status:'Todos'}));if(/Pagina\s+\d+\s+de\s+(?:[2-9]|\d{2,})/i.test(plain(html)))throw fail('Lista web incompleta. Refine a série.');return portalVehicles(html).filter(r=>r.serial===serial).map(r=>({...r,...this.meta(branch)}));}
+ async vehiclesByPlate(branch,plate){
+  if(!/^[A-Z0-9]{3,12}$/.test(compact(plate)))throw fail('Placa inválida para consulta web.',400);
+  const html=await this.page(branch,'/cadastro/veiculos_listar.php?'+new URLSearchParams({busca:plate,status:'Todos'}));
+  if(/Pagina\s+\d+\s+de\s+(?:[2-9]|\d{2,})/i.test(plain(html)))throw fail('Lista web incompleta. Placa única não confirmada.');
+  return portalVehicles(html).filter(r=>compact(r.plate)===compact(plate)).map(r=>({...r,...this.meta(branch)}));
+ }
  async lookupEquipment(branch,q){
   if(typeof q!=='string'||q.length<3||q.length>80)throw fail('Busca inválida.',400);
   if(/^\d{9}$/.test(q))return this.equipment(branch,q);

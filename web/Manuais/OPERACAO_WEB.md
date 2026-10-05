@@ -250,3 +250,13 @@ A janela Analisar baixa guarda resultados válidos por até cinco minutos em mem
 Aplicar baixa continua passando pela confirmação explícita e pela consulta fresca do vínculo no servidor; nenhuma resposta em cache autoriza a escrita. O cache do item é invalidado antes da tentativa de baixa. A primeira análise continua usando as fontes configuradas e consultando o titular necessário à classificação.
 
 Testes: `node --test web/tests/discharge-cache.test.mjs web/tests/discharge-batches.test.mjs web/tests/manual-discharge.test.mjs`. `web/tools/test-discharge-cache-ui.mjs` valida abrir/reabrir, falhas, atualização forçada e confirmação com dados sintéticos; nenhuma baixa real é executada.
+
+## Baixa por código de equipamento e titular web — 05/10/2026
+
+Fluxo aprovado: código salvo → `GET /equipamentos/{codEquipamento}` → placa atual da resposta → busca dessa placa em `cadastro/veiculos_listar.php` na mesma base → titular. A API deve confirmar código, série e equipamento ativo; o portal deve retornar uma única placa exata com a mesma série e `codVeiculo`. Placa antiga e titular local não são usados como pistas. Ausência, duplicidade ou divergência não são elegibilidade automática.
+
+`dischargeBinding` é exclusivo da análise/baixa e usa API+web explicitamente, independentemente da preferência geral das outras consultas. Sem código salvo, resolve o equipamento pela série uma vez; não varre a frota. `binding_device_code` lê somente cadastro ativo com a mesma série. O fluxo não altera vínculos nas plataformas. No POST de baixa, a mesma sequência é refeita e comparada com placa/cliente apresentados; versão e idempotência permanecem protegidos. As regras existentes de baixa manual explicitamente confirmada continuam aplicáveis.
+
+A otimização de cinco minutos da reabertura permanece; Analisar novamente força o novo fluxo. Teste real somente leitura em Imperatriz confirmou série, placa atual e titular web, sem executar baixa. A sonda permanece pausada conforme ação do usuário.
+
+Migração: `node web/tools/migrate-discharge-code.mjs` (schema 32/33). Testes: `node --test web/tests/discharge-code-flow.test.mjs web/tests/discharge-cache.test.mjs web/tests/discharge-batches.test.mjs web/tests/manual-discharge.test.mjs web/tests/read-sources.test.mjs web/tests/cached-location.test.mjs`.

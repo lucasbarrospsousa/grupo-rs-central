@@ -155,6 +155,13 @@ export class Integrations{
   try{const result=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});return json(result.text);}
   catch(e){if(e.upstreamStatus===401){session.token='';e.credentialInvalid=true;}throw e;} // Never retry a write; the durable operation reconciles using reads.
  }
+ async equipmentByCode(branch,serial,id){
+  if(!/^\d{6,17}$/.test(serial)||!/^[1-9]\d*$/.test(String(id)))throw err('Código ou série inválidos.',400);
+  const data=await this.api(branch,'/equipamentos/'+id),raw=data.equipamento;
+  if(data.ok===false||!raw||value(raw,['codEquipamento'])!==String(id)||serialOf(raw)!==serial)throw err('Código salvo não confirmou este aparelho. Atualize aparelhos antes de analisar.',422);
+  if(['0','FALSE','I','INATIVO','INACTIVE'].includes(value(raw,['ativo','status']).toUpperCase()))throw err('Aparelho inativo na API.',422);
+  return{...normalize(raw),ok:true,id:String(id),binding_known:Object.hasOwn(raw,'veiculo'),vehicle_id:value(raw.veiculo,['codVeiculo']),plate:value(raw.veiculo,['placa'])};
+ }
  async equipmentLocation(branch,serial,codes=null){
   const e=codes||await this.equipment(branch,serial);
   if(!/^[1-9]\d*$/.test(e.vehicle_id))throw err('Aparelho sem veículo confirmado.',422);
