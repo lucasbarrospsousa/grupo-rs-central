@@ -155,12 +155,12 @@ export class Integrations{
   try{const result=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});return json(result.text);}
   catch(e){if(e.upstreamStatus===401){session.token='';e.credentialInvalid=true;}throw e;} // Never retry a write; the durable operation reconciles using reads.
  }
- async equipmentLocation(branch,serial){
-  const e=await this.equipment(branch,serial);
+ async equipmentLocation(branch,serial,codes=null){
+  const e=codes||await this.equipment(branch,serial);
   if(!/^[1-9]\d*$/.test(e.vehicle_id))throw err('Aparelho sem veículo confirmado.',422);
   const d=await this.api(branch,'/veiculos/'+e.vehicle_id+'/comunicacao');
-  if(value(d.veiculo,['codVeiculo'])!==e.vehicle_id||serialOf(d.equipamento)!==serial||!d.comunicacao||typeof d.comunicacao!=='object')throw err('Comunicação não confirmou este aparelho.',422);
-  return{...normalize(d.comunicacao),ok:true,serial,plate:e.plate,vehicle_id:e.vehicle_id,source:ORIGINS[branch],queried_at:new Date().toISOString()};
+  if(value(d.veiculo,['codVeiculo'])!==e.vehicle_id||serialOf(d.equipamento)!==serial||(e.equipment_id&&value(d.equipamento,['codEquipamento'])!==String(e.equipment_id))||!d.comunicacao||typeof d.comunicacao!=='object')throw err('Comunicação não confirmou este aparelho. Atualize aparelhos para conferir os códigos salvos.',422);
+  return{...normalize(d.comunicacao),ok:true,serial,plate:value(d.veiculo,['placa']),vehicle_id:e.vehicle_id,source:ORIGINS[branch],queried_at:new Date().toISOString()};
  }
  async location(branch,serial,plateHint=''){
   let matches=await this.vehicles(branch,serial),fromPlate=false;
