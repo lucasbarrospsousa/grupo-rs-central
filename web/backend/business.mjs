@@ -1,3 +1,4 @@
+import {verifyWarehouseChip} from './warehouse-chip.mjs';
 import {trackerClassification} from '../public/tracker-classification.js';
 import {integrations} from './integrations.mjs';
 import {randomUUID} from 'node:crypto';
@@ -79,8 +80,9 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
  if(role!=='admin')throw failure(403,'Armazém exige permissão administrativa nesta filial.');
  if(path==='/api/warehouse'&&method==='POST'){
   if(!['device','chip'].includes(body.kind))throw failure(400,'Tipo inválido.');
-  if(body.kind==='chip'){const checked=await service.carrier('arya',body.serial);if(!checked.ok)throw failure(422,'ICCID não confirmado pela Arya.');}else if(!/^\d{9}$/.test(body.serial||''))throw failure(400,'Informe a série com nove dígitos.');
-  await c.query("insert into central_homologacao.warehouse_items(id,branch_id,kind,serial,status,received_at) values($1,$2,$4,$3,'Disponível',now())",[id,branch,body.serial,body.kind]);
+  const chip=body.kind==='chip'?await verifyWarehouseChip(service,body.serial,body.provider??'arya'):null;
+  if(body.kind==='device'&&!/^\d{9}$/.test(body.serial||''))throw failure(400,'Informe a série com nove dígitos.');
+  await c.query("insert into central_homologacao.warehouse_items(id,branch_id,kind,serial,status,received_at,chip_provider,chip_operator,chip_phone) values($1,$2,$4,$3,'Disponível',now(),$5,$6,$7)",[id,branch,body.serial,body.kind,chip?.provider??null,chip?.operator??null,chip?.phone??null]);
   return {id,response:{ok:true,id}};
  }
  if(path.startsWith('/api/warehouse/')&&method==='DELETE'){

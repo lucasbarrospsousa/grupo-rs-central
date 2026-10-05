@@ -63,7 +63,7 @@ export class SqlRepository {
   async deleteDevice(branch,current){await this.request('devices/'+current.id+'?branch='+encodeURIComponent(branch),{method:'DELETE',body:{version:current.version}});await this.load(branch,{route:'stock'});}
   analyze(){throw Error('A baixa depende da integração de consulta da plataforma, ainda em validação.');}
   applyDischarge(){throw Error('A baixa remota ainda está em validação.');}
-  async addWarehouse(kind,serial){await this.request('warehouse?branch='+this.currentBranch,{method:'POST',body:{kind,serial}});await this.load(this.currentBranch,{route:'warehouse'});}
+  async addWarehouse(kind,serial,provider='arya'){await this.request('warehouse?branch='+this.currentBranch,{method:'POST',body:{kind,serial,...(kind==='chip'?{provider}:{})}});await this.load(this.currentBranch,{route:'warehouse'});}
   async removeWarehouse(id){const row=this.warehouse.find(r=>r.id===id);await this.request('warehouse/'+id+'?branch='+this.currentBranch,{method:'DELETE',body:{version:row.version}});await this.load(this.currentBranch,{route:'warehouse'});}
   async transfer(ids,destination,note){const items=ids.map(id=>{const r=this.warehouse.find(r=>r.id===id);return{id,version:r.version};});await this.request('warehouse-transfer?branch='+this.currentBranch,{method:'POST',body:{items,destination,note}});await this.load(this.currentBranch,{route:'warehouse'});}
   async addBulk(rows,{branch=this.currentBranch,key}={}){const result=await this.request('bulk?branch='+encodeURIComponent(branch),{method:'POST',key,body:{rows}});try{await this.load(branch,{route:'bulk'});}catch{return {...result,refreshPending:true};}return result;}
