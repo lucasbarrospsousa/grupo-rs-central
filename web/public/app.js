@@ -80,6 +80,7 @@ function render() {
   document.body.classList.toggle('warehouse-page', state.entered && state.route === 'warehouse');
   document.body.classList.toggle('sms-page', state.entered && state.route === 'sms');
   document.body.classList.toggle('settings-page', state.entered && state.route === 'settings');
+  document.querySelector('#page')?.classList.remove('compact-settings');
 
   document.body.classList.toggle('read-only',repo.real&&isReader(repo.user,state.branch,state.route));
   if (!state.entered) return login();

@@ -1,9 +1,10 @@
+import {codeResult} from './code-scan.mjs';
 import {setApiBudgetPool} from './api-budget.mjs';
 import {trackQueries} from './query-usage.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {Integrations} from './integrations.mjs';
 import {sourceIntegrations} from './read-sources.mjs';
-export function guardedIntegrations(pool,service=new Integrations()){
+export function guardedIntegrations(pool,service=new Integrations(),{captureCodes=true,apiOnly=false}={}){
  setApiBudgetPool(pool);
  const blocked=new Set(),checked=new Map();
  const guard=async(key,credentials,fn)=>{
@@ -13,6 +14,8 @@ export function guardedIntegrations(pool,service=new Integrations()){
   try{return await fn();}catch(e){if(e.credentialInvalid||e.upstreamStatus===401||(key.startsWith('carrier:')&&e.upstreamStatus===403)){blocked.add(key);await pool.query('select central_homologacao.sync_auth_state($1,$2,$3)',[key,fingerprint,e.credentialInvalid?'Credencial rejeitada. Atualize o acesso desta integração para retomar.':'Acesso recusado após renovar a sessão. Integração pausada; confira a permissão da plataforma.']);}throw e;}
  };
  for(const method of ['api','apiPost','carrier']){if(typeof service[method]!=='function')continue;const original=service[method].bind(service);service[method]=async(first,...args)=>{const credentials=method==='carrier'?(()=>{const s=service.secrets();return first==='arya'?[s.arya_email,s.arya_password]:[s.linksolutions_email,s.linksolutions_password];})():service.credentials(first,method==='api'||method==='apiPost');return guard((method==='apiPost'?'api':method)+':'+first,credentials,()=>original(first,...args));};}
+ if(captureCodes&&typeof service.equipment==='function'){const equipment=service.equipment.bind(service);service.equipment=async(branch,serial)=>{const result=await equipment(branch,serial);if(branch==='imperatriz')try{await pool.query('select central_homologacao.capture_device_codes($1,$2)',[serial,codeResult({serial,plate:result.plate},result)]);}catch{ /* Capture failure never prevents the original consultation. */ }return result;};}
+ if(apiOnly)return service;
  return sourceIntegrations(service,async branch=>{const r=await pool.query('select mode from central_homologacao.read_sources where branch_id=$1',[branch]);if(!r.rows.length)throw Error('Fonte de consulta não configurada para esta base.');return r.rows[0].mode;});
 }
 export function syncTick(pool,options={}){return trackQueries(pool,'automatic',()=>runTick(pool,options));}

@@ -1,3 +1,4 @@
+import {mountCodeScan} from './settings-codes.js';
 import {mountDeploymentToken} from './settings-token.js';
 import {mountAutomation} from './settings-automation.js';
 import {mountSources} from './settings-sources.js';
@@ -11,6 +12,15 @@ export function mountSettingsHealth(ctx){
  const sources=document.createElement('section');sources.className='settings-panel';root.querySelector(".settings-grid").before(sources);mountSources(ctx,sources);
  const automation=document.createElement('section');automation.className='settings-panel automation-panel';root.append(automation);mountAutomation(ctx,automation);
  const tokenPanel=document.createElement('section');root.append(tokenPanel);mountDeploymentToken(ctx,tokenPanel);
+ root.classList.add('compact-settings');
+ root.querySelector('.settings-eyebrow')?.remove();root.querySelector('.settings-subtitle')?.remove();
+ const tabs=document.createElement('nav');tabs.className='settings-main-tabs';tabs.setAttribute('aria-label','Seções das configurações');
+ const panels={};for(const [id,label] of [['monitor','Monitor de lotes'],['connections','Conexões e fontes'],['consumption','Consumo'],['token','Token de publicação']]){const b=document.createElement('button');b.textContent=label;b.dataset.settingsTab=id;tabs.append(b);const panel=document.createElement('div');panel.dataset.settingsPanel=id;panels[id]=panel;root.append(panel);}
+ root.querySelector('.settings-title').after(tabs);
+ panels.connections.id='settings-connections-panel';panels.connections.append(sources,root.querySelector('.settings-grid'));const querySlot=document.createElement('div');querySlot.id='settings-query-slot';panels.connections.querySelector('aside').append(querySlot);panels.consumption.append(automation);panels.token.append(tokenPanel);tokenPanel.querySelector('details')?.setAttribute('open','');
+ const scan=mountCodeScan(ctx,panels.monitor);
+ const select=id=>{for(const [key,panel] of Object.entries(panels))panel.hidden=key!==id;tabs.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.settingsTab===id)));};
+ tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>select(b.dataset.settingsTab));root.addEventListener('settings-tab',e=>select(e.detail));select('monitor');
  let snapshot=null,manual={},tab='connections',busy=false,testing=false,error='';
  const content=root.querySelector('#settings-content'),active=()=>root.isConnected&&content.isConnected;
  const query=action=>ctx.repo.request('integrations/'+action+'?branch='+encodeURIComponent(ctx.branch));
@@ -32,7 +42,7 @@ export function mountSettingsHealth(ctx){
   }
  }
  async function refresh(){if(busy||!active())return;busy=true;paint();try{const next=await query('health');if(active()){snapshot=next;error='';}}catch(e){if(active())error='Não foi possível atualizar o painel: '+e.message+(snapshot?' Os horários abaixo pertencem à última leitura.':'');return false;}finally{busy=false;paint();}}
- root.querySelector('#settings-connections').onclick=()=>{tab='connections';paint();};root.querySelector('#settings-updates').onclick=()=>{tab='updates';paint();};root.querySelector('#health-refresh').onclick=refresh;
+ root.querySelector('#settings-connections').onclick=()=>{tab='connections';paint();};root.querySelector('#settings-updates').onclick=()=>{tab='updates';paint();};root.querySelector('#health-refresh').onclick=()=>{void refresh();scan.refresh();};
  root.addEventListener('central-carrier-result',e=>{manual[e.detail.source]={...e.detail.result,checked_at:new Date().toISOString()};paint();});
  startEconomyPolling(refresh,{interval:120000,alive:active});
  void refresh();

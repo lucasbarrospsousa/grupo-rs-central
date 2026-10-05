@@ -1,3 +1,4 @@
+import {scanConfig} from './code-scan.mjs';
 import {centralTokenStatus,saveCentralToken} from './deployment-credential.mjs';
 import {setApiBudgetPool} from './api-budget.mjs';
 import {trackQueries,automationInput,automationStatus} from './query-usage.mjs';
@@ -80,6 +81,14 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       const branches=await saveSourceSettings(pool,await body(req));
       await appendLog(pool,user,{module:'settings',action:'READ_SOURCES',outcome:'success',details:{branches},branch:null});
       reply(res,200,{branches});return true;
+    }
+    if(url.pathname==='/api/code-scan'){
+      if(!permissions.owner)throw fail(403,'Somente a administração pode acessar esta carga.');
+      if(req.method==='POST'){const config=scanConfig(await body(req));await pool.query('select central_homologacao.code_scan_configure($1,$2)',[config.enabled,config.interval_seconds]);await appendLog(pool,user,{module:'settings',action:'CODE_SCAN',outcome:'success',details:{enabled:config.enabled,interval_seconds:config.interval_seconds},branch:'imperatriz'});}
+      else if(req.method!=='GET')throw fail(405,'Método não permitido.');
+      const state=url.searchParams.get('state');if(state&&!['confirmed','divergent','unlinked','error'].includes(state))throw fail(400,'Filtro inválido.');
+      const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fail(400,'Página inválida.');
+      reply(res,200,(await pool.query('select central_homologacao.code_scan_status($1,$2) as data',[state,offset])).rows[0].data);return true;
     }
     if(url.pathname==='/api/automation'){
       if(!permissions.owner)throw fail(403,'Somente a administração pode acessar o controle global.');
