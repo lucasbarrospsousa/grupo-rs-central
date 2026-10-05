@@ -242,3 +242,11 @@ Cadastros antigos sem APN e sem coleta anterior entram nos lotes de dez, prioriz
 Na página de estoque e no monitor do servidor, o ICCID e a APN vêm do banco: `hinova.br` → Arya/Hinova; `linksolutions.br` → Link. São aceitos também os rótulos exatos `hinova` e `linksolutions`, ignorando maiúsculas e espaços externos. Não se infere operadora por substring nem se tenta outra operadora em falha. APN ausente/desconhecida fica pendente sem chamada externa. A resposta deve confirmar o mesmo ICCID. Alteração de APN invalida o prazo do chip no próximo ciclo do monitor.
 
 Validação SQL com rollback: `node web/tools/migrate-probe-apn.mjs`. Para aplicar, acrescentar `--apply` (schema 31/32). Testes: `node --test web/tests/chip-status.test.mjs web/tests/code-scan.test.mjs web/tests/stock-batch.test.mjs web/tests/stock-monitor.test.mjs web/tests/cached-location.test.mjs web/tests/background-sync.test.mjs`. A sonda permanece restrita a Imperatriz; as demais bases usam a APN já cadastrada ou Atualizar aparelhos.
+
+## Reaproveitamento da análise de baixa — 05/10/2026
+
+A janela Analisar baixa guarda resultados válidos por até cinco minutos em memória da sessão. Ao reabrir, consulta apenas itens novos, alterados, vencidos ou com falha; chave inclui filial, id, série, versão, situação, placa e cliente locais. Respostas não substituem id/versão locais. O botão Analisar novamente invalida os resultados anteriores e força a leitura completa. Logout limpa o cache. Não há armazenamento persistente de clientes no navegador.
+
+Aplicar baixa continua passando pela confirmação explícita e pela consulta fresca do vínculo no servidor; nenhuma resposta em cache autoriza a escrita. O cache do item é invalidado antes da tentativa de baixa. A primeira análise continua usando as fontes configuradas e consultando o titular necessário à classificação.
+
+Testes: `node --test web/tests/discharge-cache.test.mjs web/tests/discharge-batches.test.mjs web/tests/manual-discharge.test.mjs`. `web/tools/test-discharge-cache-ui.mjs` valida abrir/reabrir, falhas, atualização forçada e confirmação com dados sintéticos; nenhuma baixa real é executada.
