@@ -129,18 +129,25 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
         await client.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,requestKey,fingerprint,result.response]);
         await client.query('COMMIT');reply(res,200,result.response);return true;
       }
-      const id=req.method==='POST'?randomUUID():url.pathname.split('/').at(-1);
+      let id=req.method==='POST'?randomUUID():url.pathname.split('/').at(-1);
       if(req.method!=='POST'&&url.pathname==='/api/devices')throw fail(405,'Informe o cadastro para esta operação.');
       if(req.method==='POST'&&url.pathname!=='/api/devices')throw fail(405,'Método não permitido.');
-      const current=req.method==='POST'?null:(await client.query('select * from central_homologacao.devices where id=$1 and branch_id=$2 and deleted_at is null for update',[id,branch])).rows[0];
+      let current=req.method==='POST'?null:(await client.query('select * from central_homologacao.devices where id=$1 and branch_id=$2 and deleted_at is null for update',[id,branch])).rows[0];
+      if(req.method==='POST'){
+        const v=b.data||{};
+        await client.query('select pg_advisory_xact_lock(hashtext($1))',['device-save:'+branch]);
+        const matches=(await client.query("select * from central_homologacao.devices where branch_id=$1 and deleted_at is null and (serial=$2 or ($3<>'' and data->>'iccid'=$3)) order by id for update",[branch,String(v.serial||''),String(v.iccid||'')])).rows;
+        if(matches.length>1)throw fail(409,'Série e chip apontam para cadastros diferentes. Confira antes de salvar.');
+        if(matches.length){current=matches[0];id=current.id;if(current.serial!==v.serial)throw fail(409,'Este chip pertence a outro aparelho. Busque pelo ICCID para atualizar o cadastro existente.');}
+      }
       if(req.method!=='POST'&&!current)throw fail(404,'Cadastro não encontrado.');
-      if(current&&b.version!==current.version)throw fail(409,'Cadastro alterado por outra sessão. Atualize antes de salvar.');
+      if(current&&req.method!=='POST'&&b.version!==current.version)throw fail(409,'Cadastro alterado por outra sessão. Atualize antes de salvar.');
       let data;
       if(req.method==='DELETE')await client.query('update central_homologacao.devices set deleted_at=now(),version=version+1,updated_at=now() where id=$1',[id]);
       else{
         const values=b.data;if(!values||typeof values!=='object'||Array.isArray(values)||Object.keys(values).some(k=>!allowedFields.includes(k)))throw fail(400,'Campos inválidos.');
         if(Object.values(values).some(v=>typeof v!=='string'||v.length>500))throw fail(400,'Valor inválido.');
-        data=req.method==='PATCH'?{...current.data,...values}:{...values};
+        data=current?{...current.data,...Object.fromEntries(Object.entries(values).filter(([,v])=>req.method!=='POST'||v!==''))}:{...values};if(current&&req.method==='POST')data.status=current.data.status;
         if(Object.hasOwn(values,'iccid')&&values.iccid&&!/^89[0-9]{17,18}$/.test(values.iccid))throw fail(400,'ICCID deve ter 19 ou 20 dígitos e começar com 89.');
         if(Object.hasOwn(values,'phone')&&values.phone){const digits=values.phone.replace(/[^0-9]/g,'');if(!/^[0-9]{10,13}$/.test(digits))throw fail(400,'Telefone deve incluir DDD, com 10 a 13 dígitos.');data.phone=digits;}
         if(!/^\d{6,17}$/.test(data.serial||'')||!states.includes(data.status))throw fail(400,'Série ou situação inválida.');

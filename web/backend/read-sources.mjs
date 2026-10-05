@@ -18,13 +18,13 @@ export function classifyBinding(row,serial){
  return{...row,ok,category:stock?'stock':ok?'eligible':'review',message:stock?'Permanece em estoque':ok?'Vínculo confirmado':'Conferir vínculo'};
 }
 export function sourceIntegrations(api,getMode,web=new PortalRead(api)){
- const methods={equipment:'equipment',equipmentPortal:'equipment',vehicles:'vehicles',location:'location',equipmentLocation:'location',maintenance:'maintenance',clients:'clients',clientVehicles:'clientVehicles',history:'history'};
+ const methods={lookupEquipment:'lookupEquipment',equipment:'equipment',equipmentPortal:'equipment',vehicles:'vehicles',location:'location',equipmentLocation:'location',maintenance:'maintenance',clients:'clients',clientVehicles:'clientVehicles',history:'history'};
  async function read(method,branch,args,mode){
   if(!ORIGINS[branch])throw fail('Base inválida.');
   if(mode==='web')return web[methods[method]](branch,...args);
   if(mode==='api')return api[method](branch,...args);
   let a;try{a=await api[method](branch,...args);}catch(e){if(e.status===400||e.status===429||/diverg|amb[ií]gu|m[úu]ltipl|mudou|outro ve[ií]culo|não confirmou a série/i.test(e.message))throw e;return web[methods[method]](branch,...args);}
-  const needs=Array.isArray(a)?!a.length||a.some(x=>empty(x.client)&&!x.name):method==='maintenance'||a?.ok===false||['equipment','equipmentPortal'].includes(method)&&['iccid','phone','apn','carrier','client'].some(k=>empty(a?.[k]))||['location','equipmentLocation'].includes(method)&&['client','battery','ignition','gps_signal'].some(k=>empty(a?.[k]));
+  const needs=Array.isArray(a)?!a.length||a.some(x=>empty(x.client)&&!x.name):method==='maintenance'||a?.ok===false||['equipment','equipmentPortal','lookupEquipment'].includes(method)&&['iccid','phone','apn','carrier','client'].some(k=>empty(a?.[k]))||['location','equipmentLocation'].includes(method)&&['client','battery','ignition','gps_signal'].some(k=>empty(a?.[k]));
   if(!needs)return a;
   let w;try{w=await web[methods[method]](branch,...args);}catch(e){if(Array.isArray(a))throw fail('Complemento web não confirmado: '+e.message);return{...a,source_warning:'Complemento web não confirmado: '+e.message};}
   if(Array.isArray(a)){if(!a.length)return w;return a.map(row=>{const matches=w.filter(x=>row.serial?x.serial===row.serial:x.id===row.id);if(matches.length!==1)throw fail('Correspondência única entre API e web não confirmada.');return mergeConfirmed(row,matches[0]);});}

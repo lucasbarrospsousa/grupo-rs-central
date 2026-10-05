@@ -1,3 +1,4 @@
+import {lookupEquipment,inventoryCounts} from './inventory-tools.mjs';
 import {stockBatch} from './stock-batch.mjs';
 import {maintenanceSnapshot} from './maintenance-monitor.mjs';
 import {integrationHealth,testBranchConnections} from './integration-health.mjs';
@@ -28,7 +29,9 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
     const r=await c.query("select data->>'plate' as plate from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null limit 2",[branch,serial]);
     return r.rows.length===1?r.rows[0].plate||'':'';
    });
-   if(action==='health')data=await integrationHealth(pool,user,branch);
+   if(action==='inventory-counts')data=await scoped(pool,user,c=>inventoryCounts(c,branch,permissions));
+   else if(action==='equipment-lookup')data=await scoped(pool,user,c=>lookupEquipment(c,service,branch,url.searchParams.get('q')));
+   else if(action==='health')data=await integrationHealth(pool,user,branch);
    else if(action==='connection-test')data=await testBranchConnections(service===integrations?guardedIntegrations(pool):service,branch);
    else if(action==='sync-status')data=(await pool.query('select central_homologacao.sync_status() as status')).rows[0].status;
    else if(action==='gateway')data=await scoped(pool,user,c=>bridgeHealth(c,branch));

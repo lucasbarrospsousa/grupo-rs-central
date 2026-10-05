@@ -16,7 +16,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   const model = {query:'',status:'Todos',start:'',end:'',sort:'default',direction:-1,page:1};
   const plateDrafts = new Map();
   const viewKey='central-stock-view:'+(repo.user?.username||'demo')+':'+branch;
-  try{const saved=JSON.parse(localStorage.getItem(viewKey)||'{}');if(statuses.includes(saved.status))model.status=saved.status;if(Number.isInteger(saved.page)&&saved.page>0)model.page=saved.page;}catch{}
+  try{const saved=JSON.parse(localStorage.getItem(viewKey)||'{}');for(const k of ['query','start','end','sort'])if(typeof saved[k]==='string')model[k]=saved[k];if([1,-1].includes(saved.direction))model.direction=saved.direction;if(statuses.includes(saved.status))model.status=saved.status;if(Number.isInteger(saved.page)&&saved.page>0)model.page=saved.page;}catch{}
   const selected = new Set(); const perPage = 10; let current = [];
   const regional = branch !== 'imperatriz';
   let live=null;
@@ -56,7 +56,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     document.querySelectorAll('[data-location]').forEach(b=>b.onclick=()=>details(b.dataset.location,true));
     document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>details(b.dataset.detail,false));
     document.querySelector('#stock-all').onchange=e=>{rows.forEach(r=>e.target.checked?selected.add(r.id):selected.delete(r.id));draw();};
-    try{localStorage.setItem(viewKey,JSON.stringify({status:model.status,page:model.page}));}catch{}
+    try{localStorage.setItem(viewKey,JSON.stringify(model));}catch{}
     syncSelection(rows);
     if(focused){const input=[...document.querySelectorAll("[data-vehicle-plate]")].find(el=>el.dataset.vehiclePlate===focused);if(input){input.focus({preventScroll:true});input.setSelectionRange(caret,caret);}}
     if(live)queueMicrotask(()=>live.refresh());
@@ -90,9 +90,22 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     let requestKey=null,requestPayload='';
     const original=id?{...repo.devices.find(d=>d.id===id&&d.branch===branch)}:null;
     const r=id?refreshRows().find(r=>r.id===id):{serial:'',identification:'',plate:'',model:'',carrier:'',status:'Estoque'};
-    showModal(id?'Editar equipamento':'Novo equipamento',`<p class="muted">Alteração somente no cenário demonstrativo desta filial.</p><form id="stock-equipment-form"><div class="form-grid">${[['serial','Série',r.serial],['identification','Identificação',r.identification],['plate','Veículo / placa',r.plate],['model','Tipo / versão',r.model],['carrier','Operadora',r.carrier],['iccid','ICCID do chip',r.iccid||''],['phone','Telefone do chip',r.phone||'']].map(([key,label,value])=>`<label class="field">${label}<input name="${key}" value="${escape(value)}" maxlength="${key==='iccid'?20:key==='phone'?20:80}" ${['iccid','phone'].includes(key)?'inputmode="tel"':''} ${key==='serial'?`required pattern="[0-9]{9}" inputmode="numeric" ${id?'readonly':''}`:''}></label>`).join('')}<label class="field">Status<select name="status">${statuses.slice(1).filter(s=>s!=='Instalado'||original?.status==='Instalado').map(s=>`<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select></label></div><div class="form-actions"><button class="primary" type="submit">Salvar demonstração</button></div></form>`,'medium');
+    showModal(id?'Editar equipamento':'Novo equipamento',`<p class="muted">Alteração somente no cenário demonstrativo desta filial.</p><form id="stock-equipment-form"><div class="form-grid">${[['serial','Série',r.serial],['identification','Identificação',r.identification],['plate','Veículo / placa',r.plate],['model','Tipo / versão',r.model],['carrier','Operadora',r.carrier],['iccid','ICCID do chip',r.iccid||''],['phone','Telefone do chip',r.phone||'']].map(([key,label,value])=>`<label class="field">${label}<input name="${key}" value="${escape(value)}" maxlength="${key==='iccid'?20:key==='phone'?20:80}" ${['iccid','phone'].includes(key)?'inputmode="tel"':''} ${key==='serial'?`required pattern="[0-9]{9}" inputmode="numeric" ${id?'readonly':''}`:''}></label>`).join('')}<label class="field">Status<select name="status">${statuses.slice(1).filter(s=>s!=='Instalado'||original?.status==='Instalado').map(s=>`<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select></label></div><p id="equipment-lookup-status" role="status"></p><div class="form-actions"><button type="button" id="equipment-lookup">Buscar dados preenchidos</button><button class="primary" type="submit">Salvar demonstração</button></div></form>`,'medium');
     if(repo.real){modal.querySelector('.muted').textContent='Alteração no cadastro desta filial.';modal.querySelector('[type=submit]').textContent='Salvar';}
-    on('stock-equipment-form','submit',e=>{e.preventDefault();safe(async()=>{const values=Object.fromEntries([...new FormData(e.target)].map(([key,value])=>[key,value.trim()]));if(!/^\d{9}$/.test(values.serial))throw Error('Informe a série com 9 dígitos.');if(!id&&repo.devices.some(d=>d.branch===branch&&d.serial===values.serial))throw Error('Série já cadastrada nesta filial.');
+    const equipmentForm=document.querySelector('#stock-equipment-form');
+    equipmentForm.elements.identification.addEventListener('input',()=>{equipmentForm.elements.model.value=trackerClassification(equipmentForm.elements.identification.value,equipmentForm.elements.model.value);});
+    on('equipment-lookup','click',()=>safe(async()=>{
+      const button=document.querySelector('#equipment-lookup'),out=document.querySelector('#equipment-lookup-status');
+      const q=['serial','iccid','identification','phone'].map(k=>equipmentForm.elements[k].value.trim()).find(Boolean);
+      if(!q)throw Error('Preencha série, ICCID, identificação ou telefone para buscar.');
+      button.disabled=true;out.textContent='Consultando dados…';
+      try{const result=repo.real?await repo.request('integrations/equipment-lookup?branch='+branch+'&q='+encodeURIComponent(q)):{data:repo.list(branch).find(r=>[r.serial,r.iccid,r.identification].includes(q))};
+       if(!equipmentForm.isConnected)return;if(!result.data)throw Error('Nenhum cadastro encontrado.');
+       for(const [k,v] of Object.entries(result.data))if(equipmentForm.elements[k]&&v&&!(id&&k==='serial'))equipmentForm.elements[k].value=v;
+       out.textContent=result.warning||'Dados preenchidos. Confira e salve. Cadastros existentes serão atualizados.';
+      }catch(e){out.textContent=e.message;}finally{button.disabled=false;}
+    }));
+    on('stock-equipment-form','submit',e=>{e.preventDefault();safe(async()=>{const values=Object.fromEntries([...new FormData(e.target)].map(([key,value])=>[key,value.trim()]));if(!/^\d{9}$/.test(values.serial))throw Error('Informe a série com 9 dígitos.');if(!repo.real&&!id&&repo.devices.some(d=>d.branch===branch&&d.serial===values.serial))throw Error('Série já cadastrada nesta filial.');
       if(repo.real){const submit=e.target.querySelector('[type=submit]');submit.disabled=true;try{const payload=JSON.stringify(values);if(payload!==requestPayload){requestPayload=payload;requestKey=crypto.randomUUID();}const done=await repo.saveDevice(branch,values,original,{key:requestKey});modal.close();draw();notify('Cadastro salvo em '+branchName+'.'+(done?.refreshPending?' Atualize a tela para carregar a lista.':''));}finally{submit.disabled=false;}return;}
       if(id){const item=repo.devices.find(d=>d.id===id&&d.branch===branch);if(!item)throw Error('Cadastro não encontrado.');Object.assign(item,values,{version:item.version+1,updated_at:new Date().toISOString()});}
       else repo.devices.push({...values,id:crypto.randomUUID(),branch,client:'',version:1,communication:'Não consultado',connectivity:'Não consultado',installed_at:'',updated_at:new Date().toISOString()});
@@ -122,5 +135,6 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   on('stock-reconnect','click',()=>safe(async()=>{if(repo.real){await repo.load(branch,{route:'stock'});draw();live?.refresh(true);}else pending('Reconectar APIs','A reconexão das APIs depende de configuração.');}));
   on('stock-sms-monitor','click',()=>document.querySelector('[data-route="sms"]')?.click());
   if(repo.real)live=createStockLive({repo,branch,draw,showModal});
+  for(const k of ['query','start','end'])document.querySelector('#stock-'+k).value=model[k];
   draw();
 }
