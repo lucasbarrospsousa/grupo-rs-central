@@ -1,6 +1,12 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {validateConfigurator,configuredData,configuratorFetch} from '../backend/configurator.mjs';
 const payload={action:'save',branch:'imperatriz',serial:'024999991',iccid:'8955000000000000001',phone:'99999999999',operator:'CLARO',version:0,key:'11111111-1111-1111-1111-111111111111'};
+test('configurator preserves Link APN and legacy Hinova while rejecting unknown profiles',()=>{
+ for(const apn of ['hinova.br','linksolutions.br']){validateConfigurator({...payload,apn});assert.equal(configuredData(null,{...payload,apn}).apn,apn);}
+ assert.equal(configuredData(null,payload).apn,'hinova.br');
+ assert.throws(()=>validateConfigurator({...payload,apn:'unknown'}));
+ assert.equal(configuredData({data:{apn:'hinova.br'}},{...payload,apn:'linksolutions.br'}).apn,'linksolutions.br');
+});
 test('configurator preserves identifiers and branch-specific stock rules',()=>{
  validateConfigurator(payload);assert.equal(configuredData(null,payload).status,'Reserva');
  for(const branch of ['araguaina','acailandia','maraba'])assert.equal(configuredData(null,{...payload,branch}).status,'Estoque');

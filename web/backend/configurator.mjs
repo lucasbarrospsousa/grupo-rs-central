@@ -10,6 +10,7 @@ const phone=v=>digits(v).replace(/^55(?=\d{10,11}$)/,'');
 export function validateConfigurator(p){
  if(!branches.includes(p.branch)||!/^024\d{6}$/.test(p.serial||''))throw fail(400,'Filial ou série RS300 inválida.');
  if(p.action==='preflight')return;
+ if(!['hinova.br','linksolutions.br'].includes(p.apn??'hinova.br'))throw fail(400,'APN do Configurador inválida.');
  if(p.action!=='save'||!/^89\d{17,18}$/.test(p.iccid||'')||!/^\d{10,13}$/.test(p.phone||'')||!['VIVO','TIM','CLARO','MULTIOPERADORA','MULTI OPERADORA'].includes(p.operator)||!Number.isInteger(p.version)||p.version<0||!/^[a-f0-9-]{36}$/.test(p.key||''))throw fail(400,'Dados de sincronização inválidos.');
 }
 async function inspect(c,p){
@@ -20,11 +21,11 @@ async function inspect(c,p){
 }
 export function configuredData(old,p){
  const status=p.branch!=='imperatriz'?'Estoque':old?'Manutenção':'Reserva';
- return{...(old?.data||{}),serial:p.serial,iccid:p.iccid,phone:p.phone,carrier:p.operator,model:'RS300',apn:'hinova.br',status,quantity:status==='Estoque'?1:0,stock:status==='Estoque'?1:0,installed_at:'',updated_at:new Date().toISOString(),remote_registration_status:'confirmado_configurador_rs300',...(old?{}:{plate:'',client:'',identification:''})};
+ return{...(old?.data||{}),serial:p.serial,iccid:p.iccid,phone:p.phone,carrier:p.operator,model:'RS300',apn:p.apn??'hinova.br',status,quantity:status==='Estoque'?1:0,stock:status==='Estoque'?1:0,installed_at:'',updated_at:new Date().toISOString(),remote_registration_status:'confirmado_configurador_rs300',...(old?{}:{plate:'',client:'',identification:''})};
 }
 export async function configuratorOperation(pool,user,p,service=integrations){
  validateConfigurator(p);
- const fingerprint=createHash('sha256').update(JSON.stringify([p.branch,p.serial,p.iccid,p.phone,p.operator,p.version])).digest('hex');
+ const fingerprint=createHash('sha256').update(JSON.stringify([p.branch,p.serial,p.iccid,p.phone,p.operator,p.version,...(p.apn==='linksolutions.br'?[p.apn]:[])])).digest('hex');
  const read=fn=>scoped(pool,user,fn);
  const member=await read(async c=>(await c.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,p.branch])).rows[0]);
  if(!member||!['operator','admin'].includes(member.role))throw fail(403,'Filial não autorizada para o Configurador.');
@@ -41,7 +42,7 @@ export async function configuratorOperation(pool,user,p,service=integrations){
   const saved=await replay(c);if(saved)return saved;
   const old=await inspect(c,p);if((old?.version||0)!==p.version)throw fail(409,'Cadastro mudou durante a conferência.');
   const conflict=await c.query("select id from central_homologacao.devices where data->>'iccid'=$1 and serial<>$2 and deleted_at is null limit 1",[p.iccid,p.serial]);if(conflict.rowCount)throw fail(409,'Chip associado a outro aparelho na Central.');
-  const same=old&&old.data.iccid===p.iccid&&phone(old.data.phone)===phone(p.phone)&&old.data.carrier===p.operator&&old.data.apn==='hinova.br'&&old.data.remote_registration_status==='confirmado_configurador_rs300'&&(p.branch==='imperatriz'?['Reserva','Manutenção'].includes(old.data.status):old.data.status==='Estoque');
+  const same=old&&old.data.iccid===p.iccid&&phone(old.data.phone)===phone(p.phone)&&old.data.carrier===p.operator&&old.data.apn===(p.apn??'hinova.br')&&old.data.remote_registration_status==='confirmado_configurador_rs300'&&(p.branch==='imperatriz'?['Reserva','Manutenção'].includes(old.data.status):old.data.status==='Estoque');
   const id=old?.id||randomUUID();let version=old?.version||1,status=old?.data.status;
   if(!same){const data=configuredData(old,p);status=data.status;
    if(old){const changed=await c.query('update central_homologacao.devices set data=$1,version=version+1,updated_at=now() where id=$2 and version=$3 and deleted_at is null returning version',[data,id,p.version]);if(!changed.rowCount)throw fail(409,'Cadastro mudou durante a gravação.');version=changed.rows[0].version;}
