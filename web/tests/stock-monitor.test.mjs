@@ -15,9 +15,9 @@ test('shared stock thresholds and mutually exclusive counts include missing data
 });
 test('worker skips chip until due and drops unnecessary telemetry and private identity',async()=>{
  let chipCalls=0;const service={stockCommunication:async()=>({ok:true,ignition:true,updated_at:'now',gps_at:'now',lat:1,client:'private'}),carrier:async()=>{chipCalls++;return{ok:true,iccid:'8955000000000000001',connectivity:'Online',phone:'private'};}};
- const a=await monitorStock(service,{branch:'imperatriz',serial:'024000001',iccid:'8955000000000000001',chip_due:false,chip:{ok:true},chip_checked_at:'earlier'});assert.equal(chipCalls,0);assert.equal(a.chip_checked_at,'earlier');assert.equal(a.location.client,undefined);assert.equal(a.location.lat,undefined);
- const b=await monitorStock(service,{branch:'imperatriz',serial:'024000001',iccid:'8955000000000000001',chip_due:true});assert.equal(chipCalls,1);assert.equal(b.chip.phone,undefined);assert.equal(b.chip.connectivity,'Online');
+ const a=await monitorStock(service,{branch:'imperatriz',serial:'024000001',iccid:'8955000000000000001',apn:'hinova.br',chip_due:false,chip:{ok:true},chip_checked_at:'earlier'});assert.equal(chipCalls,0);assert.equal(a.chip_checked_at,'earlier');assert.equal(a.location.client,undefined);assert.equal(a.location.lat,undefined);
+ const b=await monitorStock(service,{branch:'imperatriz',serial:'024000001',iccid:'8955000000000000001',apn:'hinova.br',chip_due:true});assert.equal(chipCalls,1);assert.equal(b.chip.phone,undefined);assert.equal(b.chip.connectivity,'Online');
 });
 test('communication failure is explicit and does not prevent independent chip read',async()=>{
- const out=await monitorStock({stockCommunication:async()=>{throw Error('unreachable');},carrier:async()=>({ok:true,status:'Ativo'})},{iccid:'8955000000000000001',chip_due:true});assert.equal(out.location.ok,false);assert.equal(out.chip.ok,true);
+ const out=await monitorStock({stockCommunication:async()=>{throw Error('unreachable');},carrier:async()=>({ok:true,iccid:'8955000000000000001',status:'Ativo'})},{iccid:'8955000000000000001',apn:'hinova.br',chip_due:true});assert.equal(out.location.ok,false);assert.equal(out.chip.ok,true);
 });

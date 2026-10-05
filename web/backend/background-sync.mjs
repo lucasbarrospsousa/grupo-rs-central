@@ -1,3 +1,4 @@
+import {savedChipStatus} from './chip-status.mjs';
 import {codeResult} from './code-scan.mjs';
 import {setApiBudgetPool} from './api-budget.mjs';
 import {trackQueries} from './query-usage.mjs';
@@ -38,12 +39,8 @@ export async function monitorStock(service,row){
  let chip=row.chip||{ok:false,message:'Chip ainda não consultado.'},chip_checked_at=row.chip_checked_at||null;
  if(row.chip_due){
   chip_checked_at=at;
-  if(!/^89\d{17,18}$/.test(row.iccid||''))chip={ok:false,message:'ICCID não cadastrado no estoque.'};
-  else {
-   let found=await capture(()=>service.carrier(row.provider==='link'?'link':'arya',row.iccid));
-   if(!found.ok)found=await capture(()=>service.carrier(row.provider==='link'?'arya':'link',row.iccid));
-   chip=Object.fromEntries(['ok','message','iccid','status','connectivity','provider'].filter(k=>found[k]!==undefined).map(k=>[k,found[k]]));
-  }
+  const found=await savedChipStatus(service,row);
+  chip=Object.fromEntries(['ok','message','iccid','status','connectivity','provider'].filter(k=>found[k]!==undefined).map(k=>[k,found[k]]));
  }
- return{location,chip,chip_checked_at,monitor_iccid:row.iccid||'',queried_at:at};
+ return{location,chip,chip_checked_at,monitor_iccid:row.iccid||'',monitor_apn:row.apn||'',queried_at:at};
 }

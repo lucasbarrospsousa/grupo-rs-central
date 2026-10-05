@@ -1,3 +1,4 @@
+import {savedChipStatus} from './chip-status.mjs';
 import {scoped} from './remote-actions.mjs';
 const fail=(status,message)=>Object.assign(Error(message),{status});
 export function batchIds(input){const ids=Array.isArray(input)?input:[];if(!ids.length||ids.length>10||new Set(ids).size!==ids.length||ids.some(x=>typeof x!=='string'||!/^[a-f0-9-]{36}$/.test(x)))throw fail(400,'Informe até dez aparelhos distintos da página.');return ids;}
@@ -11,7 +12,7 @@ export async function stockBatch({pool,user,branch,service,ids,kind}){
  const results=await mapTwo(devices,async row=>{
   if(kind==='locations')return{location:await (service.stockCommunication||service.equipmentLocation).call(service,branch,row.serial)};
   if(kind==='identity')return{identity:await service.locationIdentity(branch,row.serial)};
-  if(kind==='chips'){const iccid=row.data.iccid;if(!/^89\d{17,18}$/.test(iccid||''))throw fail(422,'ICCID salvo inválido. Use Atualizar aparelhos.');let chip;try{chip=await service.carrier('arya',iccid);}catch(e){chip={ok:false,message:e.message};}if(!chip.ok)chip=await service.carrier('link',iccid);if(!chip.ok||chip.iccid!==iccid)throw fail(422,chip.message||'Chip não confirmado.');return{chip};}
+  if(kind==='chips'){const chip=await savedChipStatus(service,row.data);if(!chip.ok)throw fail(422,chip.message);return{chip};}
   const equipment=await service.equipment(branch,row.serial),patch=equipmentPatch(equipment,row.serial);
   const device=await scoped(pool,user,async c=>{
    await c.query("select pg_advisory_xact_lock(hashtext($1))",['contact-chip:'+patch.iccid]);

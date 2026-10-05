@@ -3,7 +3,7 @@ import {trackQueries} from './query-usage.mjs';
 const compact=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 export function codeResult(row,result){
  if(!result?.ok||result.serial!==row.serial||!/^[1-9]\d*$/.test(result.id||''))throw Error('Série ou código do aparelho não confirmado.');
- const common={equipment_id:result.id,vehicle_id:result.vehicle_id||null,api_plate:result.plate||null};
+ const common={equipment_id:result.id,vehicle_id:result.vehicle_id||null,api_plate:result.plate||null,apn:String(result.apn||'').trim().toLowerCase().slice(0,200),iccid:String(result.iccid||'').trim()};
  if(!result.vehicle_id){if(result.binding_known!==true||result.plate)throw Error('Resposta sem confirmação do vínculo.');return{...common,state:'unlinked'};}
  if(!/^[1-9]\d*$/.test(result.vehicle_id)||!result.plate)throw Error('Código ou placa do veículo não confirmado.');
  return{...common,state:compact(row.plate)===compact(result.plate)?'confirmed':'divergent'};
