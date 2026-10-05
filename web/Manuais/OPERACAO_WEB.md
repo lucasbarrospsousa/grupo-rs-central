@@ -260,3 +260,15 @@ Fluxo aprovado: código salvo → `GET /equipamentos/{codEquipamento}` → placa
 A otimização de cinco minutos da reabertura permanece; Analisar novamente força o novo fluxo. Teste real somente leitura em Imperatriz confirmou série, placa atual e titular web, sem executar baixa. A sonda permanece pausada conforme ação do usuário.
 
 Migração: `node web/tools/migrate-discharge-code.mjs` (schema 32/33). Testes: `node --test web/tests/discharge-code-flow.test.mjs web/tests/discharge-cache.test.mjs web/tests/discharge-batches.test.mjs web/tests/manual-discharge.test.mjs web/tests/read-sources.test.mjs web/tests/cached-location.test.mjs`.
+
+## Sessões compartilhadas entre lotes — 05/10/2026
+
+Clientes criados por `guardedIntegrations` compartilham somente tokens/cookies e autenticações em andamento no mesmo pool/instância do backend. Isso atende aos lotes da sonda, estoque e manutenção e às consultas interativas; resultados operacionais e controles de cada lote não são compartilhados. As chaves separam API, portal, operadora e base, com impressão SHA-256 das credenciais para invalidar a sessão quando o acesso muda. Nenhum token é enviado ao navegador ou gravado em banco/log.
+
+Mantém o prazo local de 15 minutos, renovação única da API/portal e limites existentes. Resposta atrasada de sessão expirada não invalida uma autenticação API/portal recém-renovada. Timeout não é convertido em expiração do login da Central. A proteção de credencial rejeitada passa a distinguir a impressão do acesso corrigido. O login pessoal permanece independente.
+
+Limite: outra instância ou reinício do servidor exige novo login. Persistência criptografada entre instâncias fica para uma etapa posterior, condicionada a medição real. Esta entrega não muda intervalos, agenda ou estado habilitado/pausado da sonda.
+
+Validação offline: 41 testes focados (sessões, sincronização, sonda, baixa por código, fontes e localização). Dez clientes/lotes simulados fizeram um login API e um web, mantendo vinte leituras; também foram testados concorrência, credenciais/base/pool diferentes, expiração, timeout e troca de credencial. Isso comprova o reaproveitamento na mesma instância, não uma redução percentual de latência em produção.
+
+Comando: `node --test web/tests/integration-sessions.test.mjs web/tests/background-sync.test.mjs web/tests/code-scan.test.mjs web/tests/discharge-code-flow.test.mjs web/tests/read-sources.test.mjs web/tests/cached-location.test.mjs`.

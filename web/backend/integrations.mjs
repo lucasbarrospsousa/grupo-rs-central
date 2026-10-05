@@ -1,3 +1,4 @@
+import {CredentialSessions} from './integration-sessions.mjs';
 import {withApiBudget} from './api-budget.mjs';
 import {measuredRequest} from './query-usage.mjs';
 import {request as httpsRequest} from 'node:https';
@@ -50,11 +51,18 @@ function json(text){let data;try{data=JSON.parse(text);}catch{throw err('Integra
 async function authenticate(fn){try{return await fn();}catch(e){if([401,403].includes(e.upstreamStatus)||/não confirmou autenticação|recusou a consulta|não confirmou autenticação/.test(e.message))e.credentialInvalid=true;throw e;}}
 export function connectionState(v){const text=String(v??'').trim().toLowerCase();if(['1','true','online','connected','conectado','on'].includes(text))return 'Online';if(['0','false','offline','disconnected','desconectado','off'].includes(text))return 'Off';return 'Não informado';}
 export class Integrations{
- constructor({secrets=integrationSecrets,request=transport}={}){this.secrets=secrets;this.request=(url,options)=>measuredRequest(request,url,options);this.sessions=new Map();this.health=new Map();}
+ constructor({secrets=integrationSecrets,request=transport,sessionStore={api:new Map(),web:new Map()}}={}){
+  this.secrets=secrets;this.request=(url,options)=>measuredRequest(request,url,options);
+  this.sessions=new CredentialSessions(sessionStore.api,key=>{
+   if(key.startsWith('carrier-')){const s=this.secrets();return key==='carrier-arya'?[s.arya_email,s.arya_password]:[s.linksolutions_email,s.linksolutions_password];}
+   return this.credentials(key,true);
+  });
+  this.portalSessions=new CredentialSessions(sessionStore.web,branch=>this.credentials(branch));this.health=new Map();
+ }
  credentials(branch,api=false){const s=this.secrets(),prefix=branch==='imperatriz'?'grupo_rs_modern':'grupo_rs_legacy_'+branch;const username=(api?s['grupo_rs_api_'+branch+'_user']:'')||(api&&branch==='imperatriz'?s.grupo_rs_api_user:'')||s[prefix+'_user']||s.grupo_rs_legacy_user||s.grupo_rs_modern_user;const password=(api?s['grupo_rs_api_'+branch+'_password']:'')||(api&&branch==='imperatriz'?s.grupo_rs_api_password:'')||s[prefix+'_password']||s.grupo_rs_legacy_password||s.grupo_rs_modern_password;if(!username||!password)throw err('Acesso desta base não configurado.');return{username,password};}
  async session(branch){if(!ORIGINS[branch])throw err('Base inválida.',400);let s=this.sessions.get(branch);if(s&&Date.now()-s.at<15*60*1000)return s;s={at:Date.now(),cookies:new Map(),token:''};this.sessions.set(branch,s);return s;}
  async api(branch,path,retry=true){const s=await this.session(branch);if(!s.token){if(!s.login)s.login=authenticate(async()=>{const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});s.token=tokenOf(json(r.text));if(!s.token)throw err('API não confirmou autenticação.');}).catch(e=>{if(e.status!==429)e.message='Autenticação da API: '+e.message;throw e;}).finally(()=>{s.login=null;});await s.login;}
- try{const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{headers:{Authorization:'Bearer '+s.token,Accept:'application/json'}});return json(r.text);}catch(e){if(retry&&e.upstreamStatus===401){s.token='';return this.api(branch,path,false);}if(e.upstreamStatus===401)e.credentialInvalid=true;if(e.upstreamStatus===403)e.message='Permissão recusada para esta consulta da API; as demais rotas permanecem disponíveis.';e.message='Consulta autenticada da API: '+e.message;throw e;}}
+ const usedToken=s.token;try{const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{headers:{Authorization:'Bearer '+usedToken,Accept:'application/json'}});return json(r.text);}catch(e){if(retry&&e.upstreamStatus===401){if(s.token===usedToken)s.token='';return this.api(branch,path,false);}if(e.upstreamStatus===401)e.credentialInvalid=true;if(e.upstreamStatus===403)e.message='Permissão recusada para esta consulta da API; as demais rotas permanecem disponíveis.';e.message='Consulta autenticada da API: '+e.message;throw e;}}
  async portal(){throw err('Consulta ao portal desativada: integração exclusiva pela API v2.',501);}
  async vehicles(branch,serial){
   if(!/^\d{6,17}$/.test(serial))throw err('Informe a série numérica exata.',400);

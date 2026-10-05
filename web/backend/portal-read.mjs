@@ -22,7 +22,7 @@ export function activeFleetTotal(html){
  return total;
 }
 export class PortalRead{
- constructor(api){this.api=api;this.sessions=new Map();}
+ constructor(api){this.api=api;this.sessions=api.portalSessions||new Map();}
  async request(branch,path,fields){
   if(!ORIGINS[branch]||!path.startsWith('/')||path.startsWith('//')||(!fields&&!/^\/(?:cadastro\/(?:veiculos_listar|equipamentos_listar|equipamentos_editar)\.php|get_data\.php|get_eventos\.php|get_bateria\.php|get_veiculos_intervalo\.php|home_adm\.php)/.test(path))||(fields&&path!=='/login.php'))throw fail('Rota web de consulta não autorizada.',400);
   const s=this.sessions.get(branch),r=await this.api.request(ORIGINS[branch]+path,{method:fields?'POST':'GET',allowRedirect:!!fields,headers:{Cookie:[...s.cookies].map(([k,v])=>k+'='+v).join('; '),...(fields?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:fields?new URLSearchParams(fields).toString():undefined});
@@ -30,9 +30,9 @@ export class PortalRead{
  }
  async page(branch,path,retry=true){
   let s=this.sessions.get(branch);if(!s||Date.now()-s.at>900000){s={cookies:new Map(),at:Date.now(),ready:false};this.sessions.set(branch,s);}
-  if(!s.ready){if(!s.login)s.login=(async()=>{const c=this.api.credentials(branch);await this.request(branch,'/login.php',{usuario:c.username,senha:c.password});s.ready=true;})().finally(()=>{s.login=null;});await s.login;}
-  const html=await this.request(branch,path);
-  if(/(?:<form[^>]*(?:loginForm|login\.php)|<title>\s*GRUPO RS\s*<\/title>)/i.test(html)){s.ready=false;if(retry)return this.page(branch,path,false);throw fail('Sessão web recusada nesta base.',502);}return html;
+  if(!s.ready){if(!s.login)s.login=(async()=>{const c=this.api.credentials(branch);await this.request(branch,'/login.php',{usuario:c.username,senha:c.password});s.ready=true;s.generation=(s.generation||0)+1;})().finally(()=>{s.login=null;});await s.login;}
+  const generation=s.generation,html=await this.request(branch,path);
+  if(/(?:<form[^>]*(?:loginForm|login\.php)|<title>\s*GRUPO RS\s*<\/title>)/i.test(html)){if(s.generation===generation)s.ready=false;if(retry)return this.page(branch,path,false);throw fail('Sessão web recusada nesta base.',502);}return html;
  }
  async json(branch,path){let data;try{data=JSON.parse(await this.page(branch,path));}catch(e){if(e.status)throw e;throw fail('Resposta web inválida.',502);}if(data?.error||data?.erro||data?.success===false)throw fail('Consulta web recusada.',502);return data;}
  meta(branch){return{source:ORIGINS[branch],data_source:'web',queried_at:new Date().toISOString()};}

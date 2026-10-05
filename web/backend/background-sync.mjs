@@ -1,3 +1,4 @@
+import {integrationSessions} from './integration-sessions.mjs';
 import {savedChipStatus} from './chip-status.mjs';
 import {codeResult} from './code-scan.mjs';
 import {setApiBudgetPool} from './api-budget.mjs';
@@ -5,14 +6,14 @@ import {trackQueries} from './query-usage.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {Integrations} from './integrations.mjs';
 import {sourceIntegrations} from './read-sources.mjs';
-export function guardedIntegrations(pool,service=new Integrations(),{captureCodes=true,apiOnly=false}={}){
+export function guardedIntegrations(pool,service=new Integrations({sessionStore:integrationSessions(pool)}),{captureCodes=true,apiOnly=false}={}){
  setApiBudgetPool(pool);
  const blocked=new Set(),checked=new Map();
  const guard=async(key,credentials,fn)=>{
-  const fingerprint=createHash('sha256').update(JSON.stringify(credentials)).digest('hex');
-  if(!checked.has(key))checked.set(key,pool.query('select central_homologacao.sync_auth_state($1,$2) as blocked',[key,fingerprint]));
-  if(blocked.has(key)||(await checked.get(key)).rows[0].blocked)throw Object.assign(Error('Credencial inválida: integração pausada até corrigir o acesso.'),{credentialInvalid:true});
-  try{return await fn();}catch(e){if(e.credentialInvalid||e.upstreamStatus===401||(key.startsWith('carrier:')&&e.upstreamStatus===403)){blocked.add(key);await pool.query('select central_homologacao.sync_auth_state($1,$2,$3)',[key,fingerprint,e.credentialInvalid?'Credencial rejeitada. Atualize o acesso desta integração para retomar.':'Acesso recusado após renovar a sessão. Integração pausada; confira a permissão da plataforma.']);}throw e;}
+  const fingerprint=createHash('sha256').update(JSON.stringify(credentials)).digest('hex'),guardKey=key+':'+fingerprint;
+  if(!checked.has(guardKey))checked.set(guardKey,pool.query('select central_homologacao.sync_auth_state($1,$2) as blocked',[key,fingerprint]));
+  if(blocked.has(guardKey)||(await checked.get(guardKey)).rows[0].blocked)throw Object.assign(Error('Credencial inválida: integração pausada até corrigir o acesso.'),{credentialInvalid:true});
+  try{return await fn();}catch(e){if(e.credentialInvalid||e.upstreamStatus===401||(key.startsWith('carrier:')&&e.upstreamStatus===403)){blocked.add(guardKey);await pool.query('select central_homologacao.sync_auth_state($1,$2,$3)',[key,fingerprint,e.credentialInvalid?'Credencial rejeitada. Atualize o acesso desta integração para retomar.':'Acesso recusado após renovar a sessão. Integração pausada; confira a permissão da plataforma.']);}throw e;}
  };
  for(const method of ['api','apiPost','carrier']){if(typeof service[method]!=='function')continue;const original=service[method].bind(service);service[method]=async(first,...args)=>{const credentials=method==='carrier'?(()=>{const s=service.secrets();return first==='arya'?[s.arya_email,s.arya_password]:[s.linksolutions_email,s.linksolutions_password];})():service.credentials(first,method==='api'||method==='apiPost');return guard((method==='apiPost'?'api':method)+':'+first,credentials,()=>original(first,...args));};}
  if(captureCodes&&typeof service.equipment==='function'){const equipment=service.equipment.bind(service);service.equipment=async(branch,serial)=>{const result=await equipment(branch,serial);if(branch==='imperatriz')try{await pool.query('select central_homologacao.capture_device_codes($1,$2)',[serial,codeResult({serial,plate:result.plate},result)]);}catch{ /* Capture failure never prevents the original consultation. */ }return result;};}
