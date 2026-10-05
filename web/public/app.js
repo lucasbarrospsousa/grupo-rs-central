@@ -1,3 +1,4 @@
+import {branchRouteVisible} from './branch-navigation.js';
 import {wireWarehouseRegistration} from './warehouse-register.js';
 import {mountInventoryAlerts,stopInventoryAlerts} from './inventory-alerts.js';
 import {unifyPageHeader} from './design-system.js';
@@ -65,6 +66,8 @@ const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'
 let renderVersion=0;
 function render() {
   const version=++renderVersion;
+  const allowedRoute=id=>branchRouteVisible(state.branch,id)&&(!repo.real||!repo.user?.permissions||repo.user.permissions.owner||repo.user.permissions.views.includes(id));
+  if(!allowedRoute(state.route))state.route=routes.find(([id])=>allowedRoute(id))?.[0]||'overview';
   document.body.classList.toggle('central-ui',state.entered);
   document.body.dataset.view=state.route;
   document.body.classList.toggle('logs-page',state.entered&&state.route==='logs');
@@ -78,12 +81,11 @@ function render() {
   document.body.classList.toggle('sms-page', state.entered && state.route === 'sms');
   document.body.classList.toggle('settings-page', state.entered && state.route === 'settings');
 
-  if(repo.real&&repo.user?.permissions&&!repo.user.permissions.owner&&!repo.user.permissions.views.includes(state.route))state.route=repo.user.permissions.views[0]||'stock';
   document.body.classList.toggle('read-only',repo.real&&isReader(repo.user,state.branch,state.route));
   if (!state.entered) return login();
   if(repo.real)try{localStorage.setItem("central-view:"+repo.user.username,JSON.stringify({branch:state.branch,route:state.route}));}catch{}
   const route = routes.find(r => r[0] === state.route) || routes[0];
-  app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
+  app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.filter(([id])=>branchRouteVisible(state.branch,id)).map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
   app.querySelectorAll('[data-route]').forEach(a => a.onclick = e => { e.preventDefault(); state.route = a.dataset.route; state.selected.clear(); render(); });
   on('exit', 'click', e => { e.preventDefault();safe(async()=>{if(repo.real){stopInventoryAlerts();await repo.logout();}state.entered = false; state.selected.clear(); render();}); });
   on('branch', 'change', e => { state.branch=e.target.value;state.selected.clear();render(); });
@@ -94,7 +96,8 @@ function render() {
     if(mode==='production'){document.querySelector('.demo-strip').className='release-strip';document.querySelector('.release-strip').innerHTML='<span>Acesso exclusivo • '+escape(repo.user.username)+'</span><span>Dados salvos na Central online</span>';document.querySelector('.footer-note').textContent='Grupo RS Central • versão 1.0';}
     if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms','users','logs'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
   }
-  const mountNavigation=()=>{mountInventoryAlerts({repo,showModal,navigate:(route,branch)=>{state.route=route;state.branch=branch;render();}});return mountSidebar({route:state.route,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real){stopInventoryAlerts();await repo.logout();}state.entered=false;state.selected.clear();render();})});};
+  const mountNavigation=()=>{mountInventoryAlerts({repo,showModal,navigate:(route,branch)=>{state.route=route;state.branch=branch;render();}});return mountSidebar({route:state.route,branch:state.branch,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real){stopInventoryAlerts();await repo.logout();}state.entered=false;state.selected.clear();render();})});};
+  if(!allowedRoute(state.route)){page('<section class="panel"><p>Nenhum módulo disponível nesta filial para seu usuário. Selecione outra filial.</p></section>');mountNavigation();return;}
   if(repo.real){
     repo.activate(state.branch,state.route);
     if(state.route!=='overview'&&!repo.ready(state.branch,state.route)){
@@ -245,6 +248,7 @@ async function enterSql(){
  const alertParams=new URLSearchParams(location.search),alertBranch=alertParams.get('alertBranch'),alertRoute=alertParams.get('alertRoute');
  if(repo.user.branches.some(b=>b.id===alertBranch)&&['stock','warehouse'].includes(alertRoute)){state.branch=alertBranch;state.route=alertRoute;history.replaceState(null,'',location.pathname);}
  state.entered=true;render();
+ void repo.preloadImperatriz();
 }
 async function restoreSession(){
  app.innerHTML='<main class="login-main"><h1>Grupo RS Central</h1><p role="status">Restaurando sua sessão e carregando a última página…</p></main>';

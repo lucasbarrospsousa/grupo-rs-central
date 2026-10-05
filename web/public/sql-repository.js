@@ -1,6 +1,6 @@
 import {communication} from './stock-live.js';
 export class SqlRepository {
-  constructor(){this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;}
+  constructor(){this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
   async request(path,{method='GET',body,key,signal}={}){
     let response;
     try{response=await fetch('/api/'+path,{method,signal:AbortSignal.any([AbortSignal.timeout(path.startsWith('integrations/')?120000:25000),...(signal?[signal]:[])]),headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrf,...(method!=='GET'?{'Idempotency-Key':key||crypto.randomUUID()}:{})},body:body?JSON.stringify(body):undefined});}
@@ -10,7 +10,7 @@ export class SqlRepository {
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  async logout(){this.epoch++;this.activeView=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
+  async logout(){this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){
     const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
     const result=[];
@@ -19,14 +19,20 @@ export class SqlRepository {
     if(route==='warehouse'&&allowed(['warehouse']))result.push('warehouse');
     return result;
   }
-  ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseBranch===branch));}
+  ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseCache.has(branch)));}
   invalidate(branch,groups=['devices','history','warehouse']){
     for(const group of groups){const key=branch+':'+group;this.loaded.delete(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
   }
   activate(branch,route){
     const key=branch+':'+route;
-    if(this.activeView!==key&&['stock','warehouse'].includes(route))this.invalidate(branch,this.groups(route));
     this.activeView=key;this.currentBranch=branch;this.currentRoute=route;
+    const cached=this.warehouseCache.get(branch);
+    this.warehouse=cached?.rows||[];this.movements=cached?.movements||[];this.warehouseBranch=cached?branch:null;
+  }
+  async preloadImperatriz(){
+    if(!this.user?.branches?.some(b=>b.id==='imperatriz'))return [];
+    const groups=new Set(['stock','maintenance','warehouse'].flatMap(route=>this.groups(route)));
+    return Promise.allSettled([...groups].map(group=>this.loadGroup('imperatriz',group)));
   }
   async load(branch,{route=this.currentRoute||'overview',force=true}={}){
     if(force)this.invalidate(branch);
@@ -34,7 +40,7 @@ export class SqlRepository {
   }
   async loadGroup(branch,group){
     const key=branch+':'+group;
-    if(this.loaded.has(key)&&(group!=='warehouse'||this.warehouseBranch===branch))return;
+    if(this.loaded.has(key)&&(group!=='warehouse'||this.warehouseCache.has(branch)))return;
     if(this.pending.has(key))return this.pending.get(key);
     const generation=this.generations.get(key)||0,epoch=this.epoch;
     const pending=(async()=>{
@@ -46,12 +52,12 @@ export class SqlRepository {
         this.reports=this.reports.filter(r=>r.branch!==branch).concat((data.visits||[]).map(r=>({...r.data,id:r.id,branch,version:r.version,editable:true})),legacy);
       }
       if(group==='warehouse'){
-        if(this.currentBranch&&this.currentBranch!==branch)return;
-        this.warehouse=data.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR')}));
-        this.movements=data.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch,type:item.action||'Envio',serial:item.serial,deviceSerial:item.device_serial||'',phone:item.phone||'',note:m.note||'',detected:item.time_basis==='detection',at:new Date(item.detected_at||m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
-        const moved=new Set(this.movements.map(r=>r.serial));
-        this.movements.push(...this.warehouse.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch,type:r.status,serial:r.serial,at:r.received,destination:'Registro importado • destino não informado'})));
-        this.warehouseBranch=branch;
+        const rows=data.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR')}));
+        const movements=data.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch,type:item.action||'Envio',serial:item.serial,deviceSerial:item.device_serial||'',phone:item.phone||'',note:m.note||'',detected:item.time_basis==='detection',at:new Date(item.detected_at||m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
+        const moved=new Set(movements.map(r=>r.serial));
+        movements.push(...rows.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch,type:r.status,serial:r.serial,at:r.received,destination:'Registro importado • destino não informado'})));
+        this.warehouseCache.set(branch,{rows,movements});
+        if(!this.currentBranch||this.currentBranch===branch){this.warehouse=rows;this.movements=movements;this.warehouseBranch=branch;}
       }
       this.loaded.add(key);
     })();
