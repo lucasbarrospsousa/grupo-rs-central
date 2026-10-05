@@ -15,9 +15,9 @@ export function codeTick(pool,{service,budgetMs=45000,now=Date.now}={}){return t
  const start=now();let processed=0,backoff=0;
  try{for(const row of batch.rows){if(now()-start>=budgetMs)break;let result;
   try{result=codeResult(row,await service.equipment('imperatriz',row.serial));}
-  catch(e){result={state:'error',message:e.message};backoff=e.credentialInvalid?900:e.status===429||e.upstreamStatus===429?120:60;}
+  catch(e){if(e.automaticDeferred)return{processed,batch:batch.batch,deferred:e.reason};result={state:'error',message:e.message};backoff=e.credentialInvalid?900:e.status===429||e.upstreamStatus===429?120:60;}
   await pool.query('select central_homologacao.code_scan_save($1,$2,$3,$4)',[lease,row.id,row.serial,result]);processed++;
   if(backoff)break;
  }return{processed,batch:batch.batch,backoff};}
  finally{await pool.query('select central_homologacao.code_scan_release($1,$2,$3)',[lease,Math.round(now()-start),backoff]);}
- });}
+ },'codes');}

@@ -23,10 +23,10 @@ export function sourceIntegrations(api,getMode,web=new PortalRead(api)){
   if(!ORIGINS[branch])throw fail('Base inválida.');
   if(mode==='web')return web[methods[method]](branch,...args);
   if(mode==='api')return api[method](branch,...args);
-  let a;try{a=await api[method](branch,...args);}catch(e){if(e.status===400||e.status===429||/diverg|amb[ií]gu|m[úu]ltipl|mudou|outro ve[ií]culo|não confirmou a série/i.test(e.message))throw e;return web[methods[method]](branch,...args);}
+  let a;try{a=await api[method](branch,...args);}catch(e){if(e.automaticDeferred)throw e;if(e.status===400||e.status===429||/diverg|amb[ií]gu|m[úu]ltipl|mudou|outro ve[ií]culo|não confirmou a série/i.test(e.message))throw e;return web[methods[method]](branch,...args);}
   const needs=Array.isArray(a)?!a.length||a.some(x=>empty(x.client)&&!x.name):method==='maintenance'||a?.ok===false||['equipment','equipmentPortal','lookupEquipment'].includes(method)&&['iccid','phone','apn','carrier','client'].some(k=>empty(a?.[k]))||['location','equipmentLocation'].includes(method)&&['client','battery','ignition','gps_signal'].some(k=>empty(a?.[k]));
   if(!needs)return a;
-  let w;try{w=await web[methods[method]](branch,...args);}catch(e){if(Array.isArray(a))throw fail('Complemento web não confirmado: '+e.message);return{...a,source_warning:'Complemento web não confirmado: '+e.message};}
+  let w;try{w=await web[methods[method]](branch,...args);}catch(e){if(e.automaticDeferred)throw e;if(Array.isArray(a))throw fail('Complemento web não confirmado: '+e.message);return{...a,source_warning:'Complemento web não confirmado: '+e.message};}
   if(Array.isArray(a)){if(!a.length)return w;return a.map(row=>{const matches=w.filter(x=>row.serial?x.serial===row.serial:x.id===row.id);if(matches.length!==1)throw fail('Correspondência única entre API e web não confirmada.');return mergeConfirmed(row,matches[0]);});}
   if(a?.ok===false)return w;
   return mergeConfirmed(a,w);
@@ -59,7 +59,7 @@ export function sourceIntegrations(api,getMode,web=new PortalRead(api)){
    return classifyBinding({serial,plate:equipment.plate,vehicle_id:equipment.vehicle_id,equipment_id:equipment.id,client:empty(owner.client)?'':owner.client,association_confirmed:true,data_source:'api_equipment_web_plate',source:ORIGINS[branch],queried_at:new Date().toISOString()},serial);
   };
   if(method==='binding')return async(branch,serial,hint,options)=>{const mode=await getMode(branch);if(mode==='api')return api.binding(branch,serial,hint,options);const found=await read('vehicles',branch,[serial],mode);if(found.length>1)throw fail('Mais de um vínculo exato.');return classifyBinding(found[0],serial);};
-  if(method==='stockDetails')return async(branch,serial,plate)=>{const capture=async fn=>{try{return await fn();}catch(e){return{ok:false,message:e.message}}};const [equipment,location]=await Promise.all([capture(()=>facade.equipmentPortal(branch,serial)),capture(()=>facade.location(branch,serial,plate))]);let chip={ok:false,message:'ICCID não confirmado.'};if(/^89\d{17,18}$/.test(equipment.iccid||'')){chip=await capture(()=>api.carrier('arya',equipment.iccid));if(!chip.ok)chip=await capture(()=>api.carrier('link',equipment.iccid));}return{serial,equipment,location,chip,source:ORIGINS[branch],queried_at:new Date().toISOString()};};
+  if(method==='stockDetails')return async(branch,serial,plate)=>{const capture=async fn=>{try{return await fn();}catch(e){if(e.automaticDeferred)throw e;return{ok:false,message:e.message}}};const [equipment,location]=await Promise.all([capture(()=>facade.equipmentPortal(branch,serial)),capture(()=>facade.location(branch,serial,plate))]);let chip={ok:false,message:'ICCID não confirmado.'};if(/^89\d{17,18}$/.test(equipment.iccid||'')){chip=await capture(()=>api.carrier('arya',equipment.iccid));if(!chip.ok)chip=await capture(()=>api.carrier('link',equipment.iccid));}return{serial,equipment,location,chip,source:ORIGINS[branch],queried_at:new Date().toISOString()};};
   if(method in methods)return async(branch,...args)=>read(method,branch,args,await getMode(branch));
   const value=target[method];return typeof value==='function'?value.bind(target):value;
  }});return facade;

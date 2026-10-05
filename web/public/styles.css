@@ -210,3 +210,5 @@ tbody tr.vehicle:hover,.branch-card:hover{transform:none}
 
 [data-motion-loading=true] #maintenance-panorama .central-motion-surface::after{content:none!important}
 #maintenance-panorama .toolbar{justify-content:flex-start;gap:12px}#maintenance-panorama .toolbar select{width:auto;min-width:180px}
+
+.queue-layout{display:grid;grid-template-columns:minmax(340px,.85fr) minmax(500px,1.4fr);gap:20px}.queue-layout form{display:grid;gap:14px}.queue-layout form>label{display:flex;align-items:center;justify-content:space-between;gap:12px}.queue-layout input[type=number]{width:86px}.queue-layout fieldset{border:1px solid #d4e3f2;border-radius:12px;display:grid;gap:10px;padding:12px}.queue-layout fieldset label{display:flex;align-items:center;gap:10px}.queue-layout td,.queue-layout th{padding:14px 8px}.queue-layout input[type=checkbox]{width:18px;height:18px}@media(max-width:1100px){.queue-layout{grid-template-columns:1fr}.queue-layout table{font-size:13px}}

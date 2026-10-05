@@ -1,0 +1,31 @@
+import {readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {createPool} from '../backend/database.mjs';
+const pool=createPool({admin:true}),c=await pool.connect();
+const source=await readFile(new URL('../migrations/034_query_priority.sql',import.meta.url),'utf8');
+try{
+ const before=(await c.query('select (select enabled from central_homologacao.code_scan_control) codes,(select enabled from central_homologacao.sync_control) stock,(select enabled from central_homologacao.maintenance_control) maintenance')).rows[0];
+ const version=Number((await c.query('select max(version) v from central_homologacao.migrations')).rows[0].v);assert.ok([33,34].includes(version));
+ await c.query('begin');if(version===33)await c.query(source.replace(/^BEGIN;/,'').replace(/COMMIT;\s*$/,''));
+ const q=(sql,args=[])=>c.query(sql,args),branch='maraba';
+ await q("select central_homologacao.query_policy_configure(true,1,5,0,true,true,true)");
+ await q("delete from central_homologacao.api_v2_leases where branch=$1",[branch]);await q('delete from central_homologacao.query_waiters where branch=$1',[branch]);
+ await q("insert into central_homologacao.api_v2_budget(branch) values($1) on conflict do nothing",[branch]);
+ const reset=()=>q("update central_homologacao.api_v2_budget set next_at='-infinity',manual_until='-infinity',automatic_at='-infinity' where branch=$1",[branch]);
+ const claim=async(id,mode='automatic',routine='stock')=>(await q('select central_homologacao.query_claim($1,$2,$3,$4) d',[branch,id,mode,routine])).rows[0].d;
+ const release=id=>q('select central_homologacao.api_v2_release($1,$2)',[branch,id]);
+ await reset();const auto=randomUUID();assert.equal((await claim(auto)).wait_ms,0);await reset();assert.equal((await claim(randomUUID())).reason,'capacity');
+ const manual=randomUUID();assert.equal((await claim(manual,'page','')).wait_ms,0);await release(auto);await reset();assert.equal((await claim(randomUUID())).reason,'manual');
+ await release(manual);assert.equal((await claim(randomUUID())).reason,'manual');await reset();const resumed=randomUUID();assert.equal((await claim(resumed)).wait_ms,0);await release(resumed);
+ await q("update central_homologacao.sync_control set enabled=false");assert.equal((await claim(randomUUID())).reason,'paused');await q('update central_homologacao.sync_control set enabled=true');
+ await q("update central_homologacao.api_v2_budget set manual_until=clock_timestamp()+interval '5 seconds' where branch=$1",[branch]);assert.equal((await claim(randomUUID())).reason,'manual');
+ await reset();await q("update central_homologacao.api_v2_budget set automatic_at=clock_timestamp()+interval '5 seconds' where branch=$1",[branch]);assert.equal((await claim(randomUUID())).reason,'interval');
+ await reset();await q("insert into central_homologacao.query_waiters values($1,$2,clock_timestamp()+interval '10 seconds')",[randomUUID(),branch]);assert.equal((await claim(randomUUID())).reason,'manual');
+ await q("update central_homologacao.query_waiters set expires_at=clock_timestamp()-interval '1 second' where branch=$1",[branch]);assert.equal((await claim(randomUUID())).wait_ms,0);
+ const grant=(await q("select has_function_privilege('central_homologacao_web','central_homologacao.query_claim(text,uuid,text,text)','execute') ok")).rows[0];assert.equal(grant.ok,true);
+ await c.query('rollback');
+ if(process.argv.includes('--apply')&&version===33)await c.query(source);
+ const after=(await c.query('select (select enabled from central_homologacao.code_scan_control) codes,(select enabled from central_homologacao.sync_control) stock,(select enabled from central_homologacao.maintenance_control) maintenance')).rows[0];assert.deepEqual(after,before);
+ console.log(JSON.stringify({sql:'priority, shared cap, manual slot, resume, pause, gap, waiters, expiry and permission verified with rollback',applied:process.argv.includes('--apply'),controlsPreserved:after}));
+}finally{await c.query('rollback').catch(()=>{});c.release();await pool.end();}

@@ -1,6 +1,6 @@
 import {scanConfig} from './code-scan.mjs';
 import {centralTokenStatus,saveCentralToken} from './deployment-credential.mjs';
-import {setApiBudgetPool} from './api-budget.mjs';
+import {setApiBudgetPool,queryPolicyInput} from './api-budget.mjs';
 import {trackQueries,automationInput,automationStatus} from './query-usage.mjs';
 import {Buffer} from 'node:buffer';
 import {audited,readLogs,appendLog,logModules} from './system-logs.mjs';
@@ -89,6 +89,16 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       const state=url.searchParams.get('state');if(state&&!['confirmed','divergent','unlinked','error'].includes(state))throw fail(400,'Filtro inválido.');
       const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fail(400,'Página inválida.');
       reply(res,200,(await pool.query('select central_homologacao.code_scan_status($1,$2) as data',[state,offset])).rows[0].data);return true;
+    }
+    if(url.pathname==='/api/query-policy'){
+      if(!permissions.owner)throw fail(403,'Somente a administração pode configurar a fila.');
+      if(req.method==='POST'){
+        const c=queryPolicyInput(await body(req));
+        const data=(await pool.query('select central_homologacao.query_policy_configure($1,$2,$3,$4,$5,$6,$7) as data',Object.values(c))).rows[0].data;
+        await appendLog(pool,user,{module:'settings',action:'AUTOMATION',outcome:'success',details:c,branch:null});reply(res,200,data);return true;
+      }
+      if(req.method!=='GET')throw fail(405,'Método não permitido.');
+      reply(res,200,(await pool.query('select central_homologacao.query_policy_status() as data')).rows[0].data);return true;
     }
     if(url.pathname==='/api/automation'){
       if(!permissions.owner)throw fail(403,'Somente a administração pode acessar o controle global.');

@@ -9,12 +9,14 @@ export function querySource(address){
 }
 export async function measuredRequest(request,address,options){
  const counters=context.getStore();if(!counters)return request(address,options);
- const source=querySource(address);let ok=false;
+ const source=querySource(address);let ok=false,deferred=false;
  try{const result=await request(address,options);ok=true;return result;}
- finally{const row=counters.get(source)||{source,total:0,failed:0};row.total++;if(!ok)row.failed++;counters.set(source,row);}
+ catch(e){deferred=!!e.automaticDeferred;throw e;}
+ finally{if(!deferred){const row=counters.get(source)||{source,total:0,failed:0};row.total++;if(!ok)row.failed++;counters.set(source,row);}}
 }
-export async function trackQueries(pool,mode,run){
- const counters=new Map();
+export function queryContext(){return context.getStore()?.queryContext||{mode:'page',routine:''};}
+export async function trackQueries(pool,mode,run,routine='stock'){
+ const counters=new Map();counters.queryContext={mode,routine:mode==='automatic'?routine:''};
  return context.run(counters,async()=>{try{return await run();}finally{
   if(counters.size)try{await pool.query('select central_homologacao.record_query_usage($1,$2::jsonb)',[mode,JSON.stringify([...counters.values()])]);}
   catch{console.warn('Contagem de consultas não persistida nesta execução.');}
