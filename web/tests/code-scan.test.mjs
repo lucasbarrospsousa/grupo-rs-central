@@ -12,3 +12,11 @@ function fixture(){const saved=[],queries=[];const pool={query:async(sql,args)=>
 test('one batch processes ten sequentially and releases its lease',async()=>{const f=fixture();let inFlight=0,max=0;const r=await codeTick(f.pool,{service:{equipment:async()=>{max=Math.max(max,++inFlight);await Promise.resolve();inFlight--;return valid;}}});assert.equal(r.processed,10);assert.equal(max,1);assert.equal(f.saved.length,10);assert.match(f.queries.at(-1),/code_scan_release/);});
 test('throttling saves pending failure and defers remaining items',async()=>{const f=fixture();const r=await codeTick(f.pool,{service:{equipment:async()=>{throw Object.assign(Error('HTTP 429'),{status:429});}}});assert.equal(r.processed,1);assert.equal(r.backoff,120);assert.equal(f.saved[0][3].state,'error');});
 test('expired budget leaves unsaved items eligible for next batch',async()=>{const f=fixture();let time=0;const r=await codeTick(f.pool,{now:()=>time,budgetMs:45,service:{equipment:async()=>{time+=30;return valid;}}});assert.equal(r.processed,2);});
+
+test('four bases run independent sequential lots concurrently; one failure does not stop peers',async()=>{
+ const bases=['imperatriz','araguaina','acailandia','maraba'],running={},peak={},seen=[];let active=0,max=0;
+ const service={equipment:async(branch,serial)=>{seen.push(branch);running[branch]=(running[branch]||0)+1;peak[branch]=Math.max(peak[branch]||0,running[branch]);max=Math.max(max,++active);await new Promise(r=>setTimeout(r,2));running[branch]--;active--;if(branch==='araguaina')throw Object.assign(Error('429'),{status:429});return valid;}};
+ const results=await Promise.all(bases.map(branch=>codeTick(fixture().pool,{branch,service})));
+ assert.equal(max,4);assert.ok(Object.values(peak).every(n=>n===1));assert.deepEqual(results.map(r=>r.processed),[10,1,10,10]);assert.equal(seen.filter(b=>b==='maraba').length,10);
+ await assert.rejects(codeTick(fixture().pool,{branch:'invalid',service}),/Base inválida/);
+});

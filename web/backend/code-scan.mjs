@@ -1,5 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {trackQueries} from './query-usage.mjs';
+export const CODE_BASES=['imperatriz','araguaina','acailandia','maraba'];
+export function scanBranch(value='imperatriz'){if(!CODE_BASES.includes(value))throw Object.assign(Error('Base inválida.'),{status:400});return value;}
 const compact=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 export function codeResult(row,result){
  if(!result?.ok||result.serial!==row.serial||!/^[1-9]\d*$/.test(result.id||''))throw Error('Série ou código do aparelho não confirmado.');
@@ -19,12 +21,13 @@ export function scanConfig(body){
  }
  return out;
 }
-export function codeTick(pool,{service,budgetMs=45000,now=Date.now}={}){return trackQueries(pool,'automatic',async()=>{
- const lease=randomUUID(),batch=(await pool.query('select central_homologacao.code_scan_claim($1) as data',[lease])).rows[0].data;
+export function codeTick(pool,{service,branch='imperatriz',budgetMs=45000,now=Date.now}={}){return trackQueries(pool,'automatic',async()=>{
+ scanBranch(branch);
+ const lease=randomUUID(),batch=(await pool.query('select central_homologacao.code_scan_claim($1,$2) as data',[branch,lease])).rows[0].data;
  if(!batch.rows.length)return{processed:0,complete:!!batch.complete};
  const start=now();let processed=0,backoff=0;
  try{for(const row of batch.rows){if(now()-start>=budgetMs)break;let result;
-  try{result=codeResult(row,await service.equipment('imperatriz',row.serial));}
+  try{result=codeResult(row,await service.equipment(branch,row.serial));}
   catch(e){if(e.automaticDeferred)return{processed,batch:batch.batch,deferred:e.reason};result={state:'error',message:e.message};backoff=e.credentialInvalid?900:e.status===429||e.upstreamStatus===429?120:60;}
   await pool.query('select central_homologacao.code_scan_save($1,$2,$3,$4)',[lease,row.id,row.serial,result]);processed++;
   if(backoff)break;

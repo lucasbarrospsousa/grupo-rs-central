@@ -16,6 +16,6 @@ test('server cache lookup is branch scoped; both mode never enriches telemetry w
  const queries=[],received=[],pool={query:async(sql,args)=>{queries.push({sql,args});return{rows:sql.includes('location_device_codes')?[{codes}]:[{mode:'both'}]};}};
  const service=guardedIntegrations(pool,{equipmentLocation:async(...args)=>{received.push(args);return{ok:true};}},{captureCodes:false});
  await service.stockCommunication('imperatriz',serial);await service.stockCommunication('maraba',serial);
- assert.deepEqual(received,[['imperatriz',serial,codes],['maraba',serial,null]]);assert.equal(queries.filter(q=>q.sql.includes('location_device_codes')).length,1);
+ assert.deepEqual(received,[['imperatriz',serial,codes],['maraba',serial,codes]]);assert.equal(queries.filter(q=>q.sql.includes('location_device_codes')).length,2);
 });
 test('GPS/server presentation handles milliseconds and explicit UTC in Fortaleza',()=>{assert.match(locationTime('2026-10-05 10:00:03.517'),/10:00:03/);assert.match(locationTime('2026-10-05T13:00:03Z'),/10:00:03/);assert.equal(locationTime(''),'Não informado');});

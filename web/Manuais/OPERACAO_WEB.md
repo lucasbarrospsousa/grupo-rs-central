@@ -310,3 +310,14 @@ Prévia aprovada aplicada ao estoque: ações em duas linhas, tipografia azul-es
 O campo de placa mantém edição para a baixa, com borda ao focar/passagem do mouse e indicação de preenchimento. O status do chip continua independente da comunicação. A alteração é visual, sem novos intervalos/consultas ou alterações de backend.
 
 Validação local isolada com dados fictícios: tela 1828×864 sem rolagem externa, busca e limpeza, filtros de período, seleção, colagem de séries, relatório filtrado, abertura do cadastro, atualização da lista, paginação e preenchimento de placa até a confirmação (sem efetivar baixa). Nove testes de busca/modelo/paginação passaram. Tabela mantém rolagem própria em telas pequenas e com muitas linhas.
+
+
+## Sondagem nas quatro bases — 07/10/2026
+
+A migração 036 amplia códigos, vínculos e APN para Imperatriz, Araguaína, Açailândia e Marabá. Cada base tem trava de lote, intervalo, pausa, janela noturna e ciclo próprios em code_scan_branches. O cron existente despacha uma chamada autenticada por base; não cria cron adicional. Até 10 aparelhos por lote, sequenciais dentro da base, com os quatro lotes executados em paralelo. O orçamento API existente (prioridade manual, espaçamento e limite automático por base) continua obrigatório. 429/credencial/timeout adiam apenas a base afetada; itens adiados por prioridade não contam como falha.
+
+Monitor geral mostra progresso das quatro bases e seletor da programação; Lotes e pendências filtra detalhes e comandos pela base selecionada. AJAX e formulários em edição são preservados. Captura oportunista e reaproveitamento de códigos de localização também respeitam a base. Leituras com APN vazia/erro não apagam o último valor; não há alteração automática de placas ou vínculos. Bases novas herdam a programação atual de Imperatriz; o controle global de fila pausa/retoma todas, mas alterar só a prioridade preserva pausas individuais.
+
+Validação: 40 consultas reais de leitura (10 por base), quatro lotes em paralelo e uma consulta por vez em cada base: 40 confirmadas, com APN e vínculo, em 15,6 s no total; Imperatriz 15,2 s, Araguaína 14,0 s, Açailândia 13,7 s e Marabá 13,7 s. Isso é evidência da amostra, não comprovação de um limite contratual das APIs nem garantia de latência futura. Rotas API v2 imp/arg/acl/mab.
+
+Teste SQL sem consultas externas: node web/tools/migrate-multibase-codes.mjs; dados sintéticos e alterações revertidos. Aplicação: acrescentar --apply. Teste de leitura real somente com autorização: node web/tools/probe-code-bases.mjs (máximo de 10 por base, saída agregada sem identificadores).

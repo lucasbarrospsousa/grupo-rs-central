@@ -1,4 +1,4 @@
-import {scanConfig} from './code-scan.mjs';
+import {scanConfig,scanBranch} from './code-scan.mjs';
 import {centralTokenStatus,saveCentralToken} from './deployment-credential.mjs';
 import {setApiBudgetPool,queryPolicyInput} from './api-budget.mjs';
 import {trackQueries,automationInput,automationStatus} from './query-usage.mjs';
@@ -89,14 +89,15 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     }
     if(url.pathname==='/api/code-scan'){
       if(!permissions.owner)throw fail(403,'Somente a administração pode acessar esta carga.');
+      const scanBase=scanBranch(url.searchParams.get('branch')||'imperatriz');
       if(req.method==='POST'){const config=scanConfig(await body(req));
-        if(config.nightly_enabled!==undefined)await pool.query('select central_homologacao.code_scan_schedule($1,$2,$3,$4,$5,$6,$7)',[config.enabled,config.interval_seconds,config.nightly_enabled,config.night_start,config.night_end,config.batch_limit,config.priority]);
-        else await pool.query('select central_homologacao.code_scan_configure($1,$2)',[config.enabled,config.interval_seconds]);
-        await appendLog(pool,user,{module:'settings',action:'CODE_SCAN',outcome:'success',details:config,branch:'imperatriz'});}
+        if(config.nightly_enabled!==undefined)await pool.query('select central_homologacao.code_scan_schedule($1,$2,$3,$4,$5,$6,$7,$8)',[scanBase,config.enabled,config.interval_seconds,config.nightly_enabled,config.night_start,config.night_end,config.batch_limit,config.priority]);
+        else await pool.query('select central_homologacao.code_scan_configure($1,$2,$3)',[scanBase,config.enabled,config.interval_seconds]);
+        await appendLog(pool,user,{module:'settings',action:'CODE_SCAN',outcome:'success',details:config,branch:scanBase});}
       else if(req.method!=='GET')throw fail(405,'Método não permitido.');
       const state=url.searchParams.get('state');if(state&&!['confirmed','divergent','unlinked','error'].includes(state))throw fail(400,'Filtro inválido.');
       const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fail(400,'Página inválida.');
-      reply(res,200,(await pool.query('select central_homologacao.code_scan_status($1,$2) as data',[state,offset])).rows[0].data);return true;
+      reply(res,200,(await pool.query('select central_homologacao.code_scan_status($1,$2,$3) as data',[scanBase,state,offset])).rows[0].data);return true;
     }
     if(url.pathname==='/api/query-policy'){
       if(!permissions.owner)throw fail(403,'Somente a administração pode configurar a fila.');
