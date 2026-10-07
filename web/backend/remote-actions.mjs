@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {bridgeHealth} from './sms-queue.mjs';
-import {prepareStandardSms} from './sms-template.mjs';
+import {prepareStandardSms,SMS_BASES} from './sms-template.mjs';
 const fail=(status,message)=>Object.assign(Error(message),{status});
 export async function scoped(pool,user,fn){const c=await pool.connect();try{await c.query('BEGIN');await c.query("select set_config('central.user_id',$1,true)",[user.user_id]);const result=await fn(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
 export async function remoteAction({action,body,branch,user,role,pool,service}){
@@ -18,13 +18,13 @@ export async function remoteAction({action,body,branch,user,role,pool,service}){
   if(!['Reserva','Manutenção'].includes(device.data.status))throw fail(409,'Selecione um aparelho em Reserva ou Manutenção.');
   const prepared=await service.prepareLink(branch,device.serial,String(body.plate||''));payload={...prepared,device_id:device.id,version:device.version};
  }else{
-  if(branch!=='imperatriz'||!/^024\d{6}$/.test(device.serial))throw fail(422,'SMS disponível para aparelhos 024 de Imperatriz.');
+  if(!SMS_BASES.includes(branch)||!/^024\d{6}$/.test(device.serial))throw fail(422,'SMS disponível para aparelhos com série 024 nas bases autorizadas.');
   if(typeof body.command!=='string'||!/^[\x20-\x7e]{1,160}$/.test(body.command)||!body.command.trim())throw fail(400,'Use texto simples com até 160 caracteres.');
   const remote=await service.equipmentPortal(branch,device.serial);const digits=String(remote.phone||'').replace(/\D/g,''),phone='+'+(digits.startsWith('55')?digits:'55'+digits);if(!/^\+55[1-9]\d{9,10}$/.test(phone)||body.phone!==phone)throw fail(409,'Telefone não confirmado ou mudou. Consulte novamente.');
   const health=await scoped(pool,user,c=>bridgeHealth(c,branch));if(!health.ok)throw fail(503,health.error||'Galaxy indisponível.');const now=Math.floor(Date.now()/1000);payload={version:2,branch,serial:device.serial,phone,command:body.command,command_mode:'custom',source_phone_snapshot:phone,apn_snapshot:'',standard_command_snapshot:'',status_snapshot:device.data.status,created_at:now,expires_at:now+7200};
  }
  if(action==='sms'&&body.command_mode==='standard'){
-  const template=await prepareStandardSms(service,branch,device.serial);
+  const template=await scoped(pool,user,c=>prepareStandardSms(c,branch,device.serial));
   if(template.command!==body.command||template.apn!==body.apn)throw fail(409,'A APN mudou. Consulte a configuração padrão novamente antes de enviar.');
   Object.assign(payload,{command_mode:'standard',apn_snapshot:template.apn,standard_command_snapshot:template.command});
  }

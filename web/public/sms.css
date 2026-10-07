@@ -17,3 +17,16 @@ dialog.sms-composer{width:min(1040px,calc(100vw - 32px));max-width:1040px;paddin
 .sms-presets+#sms-preset-note{min-height:20px;margin-bottom:18px}
 @media(hover:hover) and (prefers-reduced-motion:no-preference){.sms-presets button{transition:transform .18s ease,box-shadow .18s ease,background .18s ease}.sms-presets button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 18px #174e7e20}.sms-presets button:active:not(:disabled){transform:translateY(0) scale(.98)}}
 @media(prefers-reduced-motion:reduce){.sms-presets button{transition:none!important;transform:none!important}}
+
+/* Keep the SMS review controls visible on desktop, with responsive scrolling on small screens. */
+@media(min-width:1000px) and (min-height:700px){
+ dialog.sms-composer{width:min(1180px,calc(100vw - 40px));max-width:1180px}
+ .sms-composer .modal-head{padding:17px 24px}.sms-composer .modal-head h2{font-size:23px;margin-bottom:4px}
+ .sms-composer .sms-compose-layout{padding:20px 24px;gap:20px;max-height:calc(100dvh - 125px);grid-template-columns:minmax(0,1fr) 290px}
+ .sms-compose-summary{margin-bottom:16px}.sms-compose-summary article{padding:12px}.sms-compose-summary small{margin-bottom:4px}
+ .sms-composer .field{gap:5px}.sms-composer .field input{padding:11px 14px}
+ .sms-compose-hint{margin:6px 0 13px;line-height:1.45}.sms-composer .sms-presets{gap:8px}.sms-composer .sms-presets button{padding:10px 12px}
+ .sms-compose-label{margin-bottom:7px}.sms-composer textarea{min-height:90px;height:90px;padding:12px;line-height:1.5;resize:vertical}
+ .sms-compose-counter{margin:6px 0 12px}.sms-compose-actions .primary{padding:11px 18px}.sms-consent{padding:10px;margin-bottom:10px}
+ .sms-compose-main #sms-compose-result{margin-top:8px;line-height:1.4}.sms-message-bubble{min-height:170px;padding:18px}.sms-preview-footer{margin-top:18px}
+}

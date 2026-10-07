@@ -187,3 +187,13 @@ Equipamentos, armazém e manutenções podem ser restaurados de sessionStorage p
 O pré-carregamento não consulta plataformas externas nem inicia localização, chip, mapas, detalhes ou sondagens. As rotinas existentes desses módulos mantêm seu próprio controle. Não mantém todas as telas montadas nem duplica seus temporizadores.
 
 Validação: `node --test web/tests/*.test.mjs` (287 testes); `node web/tools/test-page-preload-ui.mjs` com Playwright/Chrome disponível por PLAYWRIGHT_MODULE. Teste de navegador usa a interface real e respostas sintéticas, cobrindo navegação sem consultas SQL repetidas, reload com atualização posterior, preservação de formulário e troca de base.
+
+## SMS multibase e APN cadastrada — 07/10/2026
+
+Envio e acompanhamento SMS habilitados nas quatro bases: Imperatriz, Araguaína, Açailândia e Marabá. Mantém permissões por usuário/base, série 024 e revalidação do telefone antes do envio. Armazém e vinculação mantêm suas regras anteriores de visibilidade.
+
+Configuração padrão lê somente devices.data.apn do cadastro ativo por base e série exata, dentro do escopo SQL do usuário. Não consulta API/web para obter a APN. Perfis explícitos Hinova e Link; ausência, ambiguidade ou perfil desconhecido impedem gerar o comando. APN é relida ao registrar o pedido; comando, APN e versão do cadastro são conferidos. A janela indica a origem e mantém revisão/consentimento.
+
+Gateway Android 0.5.0 anuncia capacidade multibase em consultas e retornos. Servidor restringe acesso às memberships administrativas existentes; clientes anteriores continuam em Imperatriz. Lote único de até 10 pedidos por consulta, preservando UUID/base e bloqueio da ponte local. Sinal individual por base, sem duplicar SMS.
+
+Validação: 299 testes Node, SQL com tabelas temporárias e rollback para isolamento por base, teste visual das quatro bases a 1917x913 sem rolagem na revisão. Galaxy validado em diagnóstico, sem SMS real. Frontend publicado pelo Sites e backend central-api atualizado.
