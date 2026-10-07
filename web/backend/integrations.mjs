@@ -49,7 +49,7 @@ async function rawTransport(url,{method='GET',headers={},body,allowRedirect=fals
 async function transport(url,options){const branch=Object.keys(ORIGINS).find(b=>new URL(url).origin===ORIGINS[b]);return branch?withApiBudget(branch,()=>rawTransport(url,options)):rawTransport(url,options);}
 function json(text){let data;try{data=JSON.parse(text);}catch{throw err('Integração retornou um formato inválido.');}if(data?.ok===false||data?.success===false||data?.status===false||data?.error||data?.erro)throw err('Integração recusou a consulta.');return data;}
 async function authenticate(fn){try{return await fn();}catch(e){if([401,403].includes(e.upstreamStatus)||/não confirmou autenticação|recusou a consulta|não confirmou autenticação/.test(e.message))e.credentialInvalid=true;throw e;}}
-export function connectionState(v){const text=String(v??'').trim().toLowerCase();if(['1','true','online','connected','conectado','on'].includes(text))return 'Online';if(['0','false','offline','disconnected','desconectado','off'].includes(text))return 'Off';return 'Não informado';}
+export function connectionState(v){const text=String(v??'').trim().toLowerCase();if(['1','true','online','connected','conectado','on'].includes(text))return 'Online';if(['0','false','offline','disconnected','desconectado','off'].includes(text))return 'Off';if(['standby','stand-by','stand by'].includes(text))return 'Standby';return 'Não informado';}
 export class Integrations{
  constructor({secrets=integrationSecrets,request=transport,sessionStore={api:new Map(),web:new Map()}}={}){
   this.secrets=secrets;this.request=(url,options)=>measuredRequest(request,url,options);

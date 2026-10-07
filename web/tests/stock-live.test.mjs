@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Integrations,connectionState} from '../backend/integrations.mjs';
 import {communication} from '../public/stock-live.js';
+test('Link preserves Standby from connectivity and fallback status fields',async()=>{
+ const service=new Integrations(),iccid='8955000000000000001';
+ service.secrets=()=>({});service.sessions.set('carrier-link',{token:'test-only',at:Date.now()});
+ for(const record of [{connection_status:' standby '},{connectionStatus:'STANDBY'},{status__name:'standby'}]){
+  service.request=async()=>({text:JSON.stringify([{iccid,...record}])});
+  const result=await service.carrier('link',iccid);
+  assert.equal(result.ok,true);assert.equal(result.connectivity,'Standby');
+ }
+ for(const variant of ['standby','Stand-by','stand by'])assert.equal(connectionState(variant),'Standby');
+ assert.equal(connectionState('offline'),'Off');assert.equal(connectionState('unknown'),'Não informado');
+});
 test('API contacts use exact carrier ICCID without duplicate equipment queries',async()=>{
  const s=new Integrations(),serial='024000001',iccid='8955000000000000001';let reads=0;
  s.equipment=async()=>{reads++;return{serial,iccid,phone:''}};s.location=async()=>({ok:false});s.carrier=async()=>({ok:true,iccid,phone:'11999999999'});
