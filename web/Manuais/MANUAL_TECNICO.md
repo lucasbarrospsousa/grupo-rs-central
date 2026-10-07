@@ -177,3 +177,13 @@ Após confirmar o ICCID, o chip Disponível no Armazém da mesma filial passa a 
 Validações: `node web/tools/test-device-contacts-sql.mjs` e `node web/tools/test-device-contacts-api.mjs` usam transações sempre revertidas e dados sintéticos. Cobrem persistência, repetição, associação ambígua, permissão, versão concorrente e validação dos campos. Os testes de integração com operadoras são simulados em `web/tests/stock-live.test.mjs`.
 
 Manutenções usa indicadores compactos, cards com identidade e aparelhos, busca combinada e paginação de dois atendimentos. Exportação continua abrangendo todos os resultados filtrados; o relatório mostra observações completas. Animações de entrada e hover respeitam a preferência de movimento reduzido. Conferência visual em 1917×991 e 390×844, navegação lateral, paginação, filtros, edição e formulário de atendimento executada com dados sintéticos em Chrome isolado.
+
+## Pré-carregamento das páginas — 07/10/2026
+
+Após validar a sessão, a interface carrega gradualmente os dados SQL da filial selecionada: equipamentos, armazém (somente Imperatriz) e manutenções, conforme as permissões. Os módulos compartilham os mesmos dados e requisições em andamento. Para administradores, o painel inicial de configurações, usuários e primeira página de logs também são preparados; resultados desses GETs ficam em memória por até 60 segundos e são consumidos uma vez. Trocar de filial interrompe os próximos passos da fila anterior.
+
+Equipamentos, armazém e manutenções podem ser restaurados de sessionStorage por até cinco minutos, após confirmação da mesma sessão, usuário, filiais e permissões no servidor. O limite é de dois milhões de caracteres; se ultrapassado ou se o navegador bloquear armazenamento, o sistema segue funcionando com o cache em memória. A cópia é identificada como temporária e atualizada por AJAX. Falhas mostram atualização pendente; Atualizar permite nova tentativa. Formulários abertos não são substituídos pela atualização de fundo. Sair, expiração detectada e mutações descartam os snapshots correspondentes ou a cópia persistida.
+
+O pré-carregamento não consulta plataformas externas nem inicia localização, chip, mapas, detalhes ou sondagens. As rotinas existentes desses módulos mantêm seu próprio controle. Não mantém todas as telas montadas nem duplica seus temporizadores.
+
+Validação: `node --test web/tests/*.test.mjs` (287 testes); `node web/tools/test-page-preload-ui.mjs` com Playwright/Chrome disponível por PLAYWRIGHT_MODULE. Teste de navegador usa a interface real e respostas sintéticas, cobrindo navegação sem consultas SQL repetidas, reload com atualização posterior, preservação de formulário e troca de base.

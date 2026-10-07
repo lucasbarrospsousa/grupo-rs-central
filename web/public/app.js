@@ -64,7 +64,12 @@ function login() {
   on('enter', 'click', () => { state.branch = document.querySelector('#login-branch').value; state.entered = true; render(); });
 }
 const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings'], ['logs','Logs do sistema','file']];
-let renderVersion=0;
+let renderVersion=0,cacheRenderTimer;
+if(repo.real)repo.onDataUpdate=(branch,group)=>{
+ if(!state.entered||state.branch!==branch||!repo.groups(state.route).includes(group))return;
+ clearTimeout(cacheRenderTimer);const route=state.route;
+ const update=()=>{if(!state.entered||state.branch!==branch||state.route!==route)return;if(modal.open||document.activeElement?.matches('input,textarea,select')){cacheRenderTimer=setTimeout(update,500);return;}render();};cacheRenderTimer=setTimeout(update,100);
+};
 function render() {
   document.body.dataset.route=state.route;
   const version=++renderVersion;
@@ -103,6 +108,8 @@ function render() {
   if(!allowedRoute(state.route)){page('<section class="panel"><p>Nenhum módulo disponível nesta filial para seu usuário. Selecione outra filial.</p></section>');mountNavigation();return;}
   if(repo.real){
     repo.activate(state.branch,state.route);
+    const restored=repo.groups(state.route).map(g=>state.branch+':'+g).filter(k=>repo.restored.has(k));
+    if(restored.length){const banner=document.querySelector('.release-strip span:last-child');if(banner)banner.textContent=restored.some(k=>repo.refreshErrors.has(k))?'Cópia temporária • atualização pendente. Use Atualizar para tentar novamente.':'Cópia temporária da sessão • atualizando dados salvos…';}
     if(state.route!=='overview'&&!repo.ready(state.branch,state.route)){
       mountNavigation();
       const branch=state.branch,route=state.route;
@@ -251,7 +258,7 @@ async function enterSql(){
  const alertParams=new URLSearchParams(location.search),alertBranch=alertParams.get('alertBranch'),alertRoute=alertParams.get('alertRoute');
  if(repo.user.branches.some(b=>b.id===alertBranch)&&['stock','warehouse'].includes(alertRoute)){state.branch=alertBranch;state.route=alertRoute;history.replaceState(null,'',location.pathname);}
  state.entered=true;render();
- void repo.preloadImperatriz();
+
 }
 async function restoreSession(){
  app.innerHTML='<main class="login-main"><h1>Grupo RS Central</h1><p role="status">Restaurando sua sessão e carregando a última página…</p></main>';

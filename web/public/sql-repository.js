@@ -1,16 +1,27 @@
+import {PagePreloadCache,preloadPlan} from './page-preload.js';
 import {communication} from './stock-live.js';
 export class SqlRepository {
-  constructor(){this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
-  async request(path,{method='GET',body,key,signal}={}){
+  constructor(){this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
+  async request(path,options={}){
+    const method=options.method||'GET',eligible=['settings-monitor','query-policy','read-sources','users','logs?q=&user=&module=&outcome=&from=&to=&page=1'].includes(path);
+    if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
+    if(method!=='GET'||!eligible)return this.networkRequest(path,options);
+    if(!options.preload){const cached=this.pageCache.take(path);if(cached!==undefined)return cached;}
+    if(this.getPending.has(path))return this.getPending.get(path);
+    const pending=this.networkRequest(path,options);this.getPending.set(path,pending);
+    try{return await pending;}finally{if(this.getPending.get(path)===pending)this.getPending.delete(path);}
+  }
+  async networkRequest(path,{method='GET',body,key,signal}={}){
     let response;
     try{response=await fetch('/api/'+path,{method,signal:AbortSignal.any([AbortSignal.timeout(path.startsWith('integrations/')?120000:25000),...(signal?[signal]:[])]),headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrf,...(method!=='GET'?{'Idempotency-Key':key||crypto.randomUUID()}:{})},body:body?JSON.stringify(body):undefined});}
     catch(error){throw Error(error.name==='TimeoutError'?'O servidor demorou a responder. Tente novamente.':'A conexão com o servidor local foi interrompida. Tente novamente em alguns segundos.');}
     if(response.headers.get('X-Central-Audit')==='unavailable')window.dispatchEvent(new Event('central-audit-unavailable'));
-    const data=await response.json();if(response.status===401&&this.user)window.dispatchEvent(new Event('central-session-expired'));if(!response.ok)throw Object.assign(Error(data.error||'Falha na consulta.'),{status:response.status});if(path.startsWith('integrations/stock?')&&data.contacts?.confirmed){const branch=new URLSearchParams(path.split('?')[1]).get('branch');if(branch)this.invalidate(branch,['warehouse']);}return data;
+    const data=await response.json();if(response.status===401&&this.user){this.clearPreload();window.dispatchEvent(new Event('central-session-expired'));}if(!response.ok)throw Object.assign(Error(data.error||'Falha na consulta.'),{status:response.status});if(path.startsWith('integrations/stock?')&&data.contacts?.confirmed){const branch=new URLSearchParams(path.split('?')[1]).get('branch');if(branch)this.invalidate(branch,['warehouse']);}return data;
   }
-  async session(){this.user=await this.request('session');this.csrf=this.user.csrf;return this.user;}
+  async session(){this.user=await this.request('session');this.csrf=this.user.csrf;await this.pageCache.bind(this.user);return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  async logout(){this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
+  clearPreload(){this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
+  async logout(){this.clearPreload();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){
     const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
     const result=[];
@@ -21,31 +32,47 @@ export class SqlRepository {
   }
   ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseCache.has(branch)));}
   invalidate(branch,groups=['devices','history','warehouse']){
-    for(const group of groups){const key=branch+':'+group;this.loaded.delete(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
+    this.pageCache.drop(branch,groups);
+    for(const group of groups){this.refreshErrors.delete(branch+':'+group);this.restored.delete(branch+':'+group);const key=branch+':'+group;this.loaded.delete(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
   }
   activate(branch,route){
     const key=branch+':'+route;
     this.activeView=key;this.currentBranch=branch;this.currentRoute=route;
+    const plan=preloadPlan(this.user,branch);
+    for(const group of plan.groups){const cacheKey=branch+':'+group;if(!this.loaded.has(cacheKey)){const data=this.pageCache.snapshot(branch,group);if(data&&Array.isArray(data.rows)){this.applyGroup(branch,group,data);this.loaded.add(cacheKey);this.restored.add(cacheKey);}}}
+    if(this.preloadBranch!==branch){this.preloadBranch=branch;void this.preloadSelected(branch);}
     const cached=this.warehouseCache.get(branch);
     this.warehouse=cached?.rows||[];this.movements=cached?.movements||[];this.warehouseBranch=cached?branch:null;
   }
-  async preloadImperatriz(){
-    if(!this.user?.branches?.some(b=>b.id==='imperatriz'))return [];
-    const groups=new Set(['stock','maintenance','warehouse'].flatMap(route=>this.groups(route)));
-    return Promise.allSettled([...groups].map(group=>this.loadGroup('imperatriz',group)));
+  async preloadSelected(branch,{delay=200}={}){
+    const version=++this.preloadVersion,epoch=this.epoch;
+    const current=()=>version===this.preloadVersion&&epoch===this.epoch&&!!this.user&&this.currentBranch===branch;
+    const plan=preloadPlan(this.user,branch),results=[];
+    const tasks=[...plan.groups.map(group=>()=>this.loadGroup(branch,group,{refresh:this.restored.has(branch+':'+group)})),...plan.paths.map(path=>async()=>{const revision=this.writeVersion;const data=await this.request(path,{preload:true});if(current()&&revision===this.writeVersion)this.pageCache.put(path,data);})];
+    for(const task of tasks){await new Promise(r=>setTimeout(r,delay));if(!current())break;try{await task();results.push(true);}catch{results.push(false);}}
+    return results;
   }
   async load(branch,{route=this.currentRoute||'overview',force=true}={}){
     if(force)this.invalidate(branch);
     await Promise.all(this.groups(route).map(group=>this.loadGroup(branch,group)));
   }
-  async loadGroup(branch,group){
+  async loadGroup(branch,group,{refresh=false}={}){
     const key=branch+':'+group;
-    if(this.loaded.has(key)&&(group!=='warehouse'||this.warehouseCache.has(branch)))return;
+    if(!refresh&&this.loaded.has(key)&&(group!=='warehouse'||this.warehouseCache.has(branch)))return;
     if(this.pending.has(key))return this.pending.get(key);
-    const generation=this.generations.get(key)||0,epoch=this.epoch;
+    const generation=this.generations.get(key)||0,epoch=this.epoch,revision=this.writeVersion;
     const pending=(async()=>{
       const data=await this.request(group+'?branch='+encodeURIComponent(branch));
       if(epoch!==this.epoch||generation!==(this.generations.get(key)||0))return;
+      this.applyGroup(branch,group,data);if(revision===this.writeVersion)this.pageCache.save(branch,group,data);this.refreshErrors.delete(key);
+      const wasRestored=this.restored.delete(key);
+      if(wasRestored)this.onDataUpdate?.(branch,group);
+      this.loaded.add(key);
+    })();
+    this.pending.set(key,pending);
+    try{await pending;}catch(error){if(epoch===this.epoch&&generation===(this.generations.get(key)||0)&&this.restored.has(key)){this.refreshErrors.add(key);this.onDataUpdate?.(branch,group);}throw error;}finally{if(this.pending.get(key)===pending)this.pending.delete(key);}
+  }
+  applyGroup(branch,group,data){
       if(group==='devices')this.devices=this.devices.filter(d=>d.branch!==branch).concat(data.rows.map(d=>({identification:'',model:'',communication:'Não consultado',connectivity:'Não consultado',installed_at:'',updated_at:'',...d})));
       if(group==='history'){
         const legacy=data.rows.filter(r=>r.source_table==='maintenance').map(r=>({...r.data,id:r.id,branch,legacy:true,entry:r.data.created_at||r.data.opened_at||'',currentSerial:r.data.serial||'',installSerial:r.data.replacement_serial||'',medium:r.data.discovery_method||'',notes:r.data.note||''}));
@@ -59,10 +86,7 @@ export class SqlRepository {
         this.warehouseCache.set(branch,{rows,movements});
         if(!this.currentBranch||this.currentBranch===branch){this.warehouse=rows;this.movements=movements;this.warehouseBranch=branch;}
       }
-      this.loaded.add(key);
-    })();
-    this.pending.set(key,pending);
-    try{await pending;}finally{if(this.pending.get(key)===pending)this.pending.delete(key);}
+
   }
   list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d,...(d.observation?{communication:communication(d.observation.location),connectivity:d.observation.chip?.ok?d.observation.chip.connectivity||'Não informado':'Consulta pendente'}:{})}));}
   async saveDevice(branch,values,current,{key}={}){const result=await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',key,body:{data:values,...(current?{version:current.version}:{})}});try{await this.load(branch,{route:'stock'});}catch{return {...result,refreshPending:true};}return result;}

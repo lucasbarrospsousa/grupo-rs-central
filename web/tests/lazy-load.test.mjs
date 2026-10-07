@@ -43,20 +43,16 @@ test('permissions still limit queries; logout discards in-flight data',async()=>
  const pending=r.load('a',{route:'stock',force:false});await r.logout();d.resolve({rows:[{id:'late',branch:'a'}]});await pending;assert.equal(r.devices.length,0);assert.equal(r.user,null);assert.equal(r.ready('a','stock'),false);
 });
 
-test('startup warms only authorized Imperatriz groups and shares in-flight loads',async()=>{
- const r=repo();r.user.branches=[{id:'imperatriz'},{id:'araguaina'}];r.activate('araguaina','stock');
- await Promise.all([r.preloadImperatriz(),r.preloadImperatriz()]);
- assert.deepEqual(r.calls.sort(),['devices?branch=imperatriz','history?branch=imperatriz','warehouse?branch=imperatriz']);
- assert.equal(r.currentBranch,'araguaina');assert.equal(r.warehouseBranch,null);
- r.activate('imperatriz','warehouse');assert.equal(r.ready('imperatriz','warehouse'),true);
- for(const route of ['stock','maintenance','warehouse','stock']){r.activate('imperatriz',route);await r.load('imperatriz',{route,force:false});}
- assert.equal(r.calls.length,3);
- const limited=repo();limited.user.branches=[{id:'araguaina'}];await limited.preloadImperatriz();assert.equal(limited.calls.length,0);
- limited.user.branches=[{id:'imperatriz'}];limited.user.permissions={views:['warehouse']};await limited.preloadImperatriz();assert.deepEqual(limited.calls,['warehouse?branch=imperatriz']);
+test('startup warms selected authorized branch and navigation reuses groups',async()=>{
+ const r=repo();r.user.branches=[{id:'imperatriz'},{id:'araguaina'}];r.currentBranch='araguaina';
+ await r.preloadSelected('araguaina',{delay:0});
+ assert.deepEqual(r.calls.filter(x=>x.includes('?branch=')),['devices?branch=araguaina','history?branch=araguaina']);
+ const count=r.calls.length;for(const route of ['stock','maintenance','stock'])await r.load('araguaina',{route,force:false});assert.equal(r.calls.length,count);
+ const limited=repo();limited.currentBranch='imperatriz';limited.user.branches=[{id:'imperatriz'}];limited.user.permissions={views:['warehouse']};await limited.preloadSelected('imperatriz',{delay:0});assert.deepEqual(limited.calls,['warehouse?branch=imperatriz']);
 });
 test('startup failure is isolated and can be retried by opening the module',async()=>{
- const r=repo();r.user.branches=[{id:'imperatriz'}];r.request=async path=>{if(path.startsWith('history'))throw Error('offline');return data();};
- const results=await r.preloadImperatriz();assert.equal(results.filter(x=>x.status==='rejected').length,1);
+ const r=repo();r.currentBranch='imperatriz';r.user.branches=[{id:'imperatriz'}];r.request=async path=>{if(path.startsWith('history'))throw Error('offline');return data();};
+ const results=await r.preloadSelected('imperatriz',{delay:0});assert.equal(results.filter(x=>!x).length,1);
  assert.equal(r.ready('imperatriz','stock'),true);assert.equal(r.ready('imperatriz','warehouse'),true);assert.equal(r.ready('imperatriz','maintenance'),false);
  r.request=async()=>data();await r.load('imperatriz',{route:'maintenance',force:false});assert.equal(r.ready('imperatriz','maintenance'),true);
  await r.logout();assert.equal(r.warehouseCache.size,0);
