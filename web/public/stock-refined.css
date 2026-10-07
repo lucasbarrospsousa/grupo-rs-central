@@ -1,0 +1,60 @@
+/* Approved equipment preview: presentation only, scoped to stock. */
+body.central-ui[data-view=stock]{--ui-blue:#087fff;--ui-ink:#122d52;--developer-credit-height:46px;color:var(--ui-ink)}
+body.central-ui[data-view=stock] .content>.top{min-height:76px;padding:12px 26px;background:#fff}
+body.central-ui[data-view=stock] .ui-heading strong{font-size:27px;letter-spacing:-.7px}
+body.central-ui[data-view=stock] .ui-header-actions button{color:#006dea;box-shadow:0 3px 0 #087fff;border-color:#d1e2f9}
+body.central-ui[data-view=stock] .developer-credit{border-top-color:#087fff}
+body.central-ui[data-view=stock] .developer-credit img{height:32px}
+body.central-ui[data-view=stock] #page{padding:16px 20px;gap:10px}
+body.central-ui[data-view=stock] #page .stock-card{padding:16px;gap:12px;border:1px solid #e0eaf7;box-shadow:0 3px 16px #183d6305;border-radius:15px}
+body.central-ui[data-view=stock] #page .stock-search-row :is(input,button){height:44px;min-height:44px;font-size:14px;border-radius:10px}
+body.central-ui[data-view=stock] #page .stock-search input{padding-left:42px;padding-right:12px}
+body.central-ui[data-view=stock] .stock-search>.icon{left:13px;right:auto;top:12px;color:#728aac}
+body.central-ui[data-view=stock] #page .stock-search-row button{color:#006de5;background:#fff;gap:7px;padding-inline:13px;white-space:nowrap}
+body.central-ui[data-view=stock] #page :is(#stock-analyze,#stock-report,#stock-filters){box-shadow:0 3px 0 #087fff;border-color:#c9def7}
+body.central-ui[data-view=stock] #page #stock-clear{box-shadow:none;font-weight:500;color:#496485}
+body.central-ui[data-view=stock] .stock-filter-row{gap:10px;flex-wrap:wrap}
+body.central-ui[data-view=stock] .stock-status-filters{gap:7px;flex-wrap:wrap}
+body.central-ui[data-view=stock] #page .stock-status-filters button{height:42px;min-height:42px;padding:9px 12px;font-size:14px;color:#173757;border-radius:10px;font-weight:500}
+body.central-ui[data-view=stock] #page .stock-status-filters .active{background:#087fff;color:#fff;border-color:#087fff}
+body.central-ui[data-view=stock] .stock-main-actions{align-items:center;gap:8px;flex-shrink:1}
+body.central-ui[data-view=stock] #page .stock-main-actions button{height:42px;min-height:42px;padding:8px 12px;font-size:14px;border-radius:10px;color:#006de5;white-space:nowrap}
+body.central-ui[data-view=stock] #page #stock-new{background:#087fff;border-color:#087fff;color:#fff;box-shadow:0 2px 4px #087fff18}
+body.central-ui[data-view=stock] .stock-more{position:relative;flex-shrink:0}
+body.central-ui[data-view=stock] .stock-more summary{list-style:none;cursor:pointer;border:1px solid #d1e2f9;border-radius:10px;width:40px;height:42px;display:flex;align-items:center;justify-content:center;color:#476789;font-weight:700}
+body.central-ui[data-view=stock] .stock-more summary::-webkit-details-marker{display:none}
+body.central-ui[data-view=stock] .stock-more-menu{position:absolute;right:0;top:48px;z-index:20;min-width:180px;padding:6px;display:grid;gap:3px;background:#fff;border:1px solid #d1e2f9;border-radius:10px;box-shadow:0 8px 24px #16395d20}
+body.central-ui[data-view=stock] #page .stock-more-menu button{border:0;background:#fff;justify-content:flex-start;font-weight:500}
+body.central-ui[data-view=stock] #page .stock-more-menu button:hover{background:#eef6ff}
+body.central-ui[data-view=stock] #page .stock-table th{height:44px;background:#edf5fc;color:#476483;font-size:13px;font-weight:600;padding:8px}
+body.central-ui[data-view=stock] #page .stock-table th button{color:inherit;font-size:13px;font-weight:600}
+body.central-ui[data-view=stock] #page .stock-table td{height:64px;padding:8px;color:#173654;font-size:14px;background:#fff;border-bottom:1px solid #e9f0f8}
+body.central-ui[data-view=stock] #page .stock-table tr:hover td{background:#f8fbff}
+body.central-ui[data-view=stock] #page .stock-series-link{color:#142e53;font-weight:700;font-size:14px}
+body.central-ui[data-view=stock] #page .stock-series-link:hover{color:#006de5;text-decoration:underline}
+body.central-ui[data-view=stock] #page .stock-pin{background:transparent;border:0;box-shadow:none;height:34px;width:28px;padding:0}
+body.central-ui[data-view=stock] #page .stock-pin .icon{stroke:currentColor;width:27px;height:30px;fill:none}
+body.central-ui[data-view=stock] .stock-pin.green,body.central-ui[data-view=stock] .stock-series small.green{color:#079855}
+body.central-ui[data-view=stock] .stock-pin.red{color:#d73751}
+body.central-ui[data-view=stock] .stock-pin.amber{color:#b67c10}
+body.central-ui[data-view=stock] .stock-pin.neutral{color:#8292a6}
+body.central-ui[data-view=stock] .stock-series small:before{content:'';display:inline-block;width:6px;height:6px;background:currentColor;border-radius:50%;margin-right:4px;vertical-align:1px}
+body.central-ui[data-view=stock] #page .stock-table input.stock-vehicle-plate{border:1px solid transparent;background:transparent;padding:5px 0;box-shadow:none;color:#294766;width:108px;max-width:108px}
+body.central-ui[data-view=stock] #page .stock-table input.stock-vehicle-plate::placeholder{color:#647d9d;opacity:1}
+body.central-ui[data-view=stock] #page .stock-table input.stock-vehicle-plate:is(:hover,:focus){border-color:#a8c9f1;background:#fff;padding-inline:5px}
+body.central-ui[data-view=stock] .stock-connect{border-radius:8px;min-width:106px;font-weight:500;padding:7px 9px}
+body.central-ui[data-view=stock] .stock-badge{background:#eaf5ff;color:#0069d8;font-weight:500;border-radius:8px}
+body.central-ui[data-view=stock] #page .stock-row-actions button{height:34px;min-height:34px;width:34px;border-color:#d0e3fb;color:#0877ec;background:#fff;box-shadow:none;border-radius:8px}
+body.central-ui[data-view=stock] #page .stock-row-actions [data-delete]{color:#e23845;border-color:#f2d7da}
+body.central-ui[data-view=stock] #page .stock-row-actions .stock-discharge{width:auto;min-width:78px;font-size:13px}
+body.central-ui[data-view=stock] .stock-reading-note{color:#587ba3;font-size:12px;flex-shrink:0;line-height:1.4}
+body.central-ui[data-view=stock] .stock-card-heading small{color:#7790ad;font-size:11px;text-align:left}
+body.central-ui[data-view=stock] #page .stock-pagination{min-height:36px;color:#4a688e}
+body.central-ui[data-view=stock] #page .stock-pagination button{min-height:36px;border-radius:9px}
+body.central-ui[data-view=stock] button:focus-visible,body.central-ui[data-view=stock] summary:focus-visible{outline:3px solid #006bd5;outline-offset:3px}
+@media(max-width:1350px){body.central-ui[data-view=stock] .stock-main-actions{margin-left:auto}body.central-ui[data-view=stock] .ui-heading strong{font-size:23px}}
+@media(max-width:700px){body.central-ui[data-view=stock] #page{padding:10px}body.central-ui[data-view=stock] #page .stock-card{padding:12px}body.central-ui[data-view=stock] #page .stock-search-row{gap:8px}body.central-ui[data-view=stock] .stock-main-actions{margin-left:0;justify-content:flex-start}body.central-ui[data-view=stock] .stock-more-menu{right:auto;left:0}}
+
+body.central-ui[data-view=stock] #page .stock-table input.stock-vehicle-plate{height:34px;min-height:34px;text-transform:none;font-size:14px}
+body.central-ui[data-view=stock] .stock-card-heading small{margin-left:0}
+@media(min-width:1601px){body.central-ui[data-view=stock] #page .stock-table td{height:74px;font-size:15px}body.central-ui[data-view=stock] #page .stock-series-link{font-size:15px}body.central-ui[data-view=stock] #page .stock-row-actions button{width:37px;height:37px;min-height:37px}body.central-ui[data-view=stock] #page .stock-row-actions .stock-discharge{width:auto}}@media(max-width:700px){body.central-ui[data-view=stock] .content>.top{padding:12px 14px}body.central-ui[data-view=stock] .ui-header-actions{flex-wrap:wrap;max-width:100%;gap:8px}body.central-ui[data-view=stock] .stock-more-menu{left:auto;right:0}}

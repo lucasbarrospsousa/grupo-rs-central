@@ -290,3 +290,11 @@ Prévia aprovada aplicada ao frontend: estoque por base em tabela com botões de
 Os blocos preservam carregamento independente, cache e intervalos anteriores. O filtro de ignição reutiliza os dados carregados e é levado para a lista de manutenção. Nenhuma alteração no backend, credenciais ou agendamentos.
 
 Validação com dados fictícios e consultas externas bloqueadas: resolução 1820×864 sem rolagem da página; abertura de lista por status; filtro e percentuais sem novas requisições; estoque operante durante atraso de manutenção; falha apresentada como pendência. Em 390×844 a tabela tem rolagem própria e a página não transborda horizontalmente. Conteúdo excepcionalmente maior e telas menores mantêm rolagem natural.
+
+## Estoque com cabeçalhos limpos — 07/10/2026
+
+Prévia aprovada aplicada ao estoque: ações em duas linhas, tipografia azul-escura, cabeçalhos Série / comunicação e Status do chip, botões discretos por aparelho e exportação identificada. Colar séries, Acompanhar SMS (Imperatriz) e Integrações ficam em Mais ações. Todos os IDs e fluxos anteriores foram preservados.
+
+O campo de placa mantém edição para a baixa, com borda ao focar/passagem do mouse e indicação de preenchimento. O status do chip continua independente da comunicação. A alteração é visual, sem novos intervalos/consultas ou alterações de backend.
+
+Validação local isolada com dados fictícios: tela 1828×864 sem rolagem externa, busca e limpeza, filtros de período, seleção, colagem de séries, relatório filtrado, abertura do cadastro, atualização da lista, paginação e preenchimento de placa até a confirmação (sem efetivar baixa). Nove testes de busca/modelo/paginação passaram. Tabela mantém rolagem própria em telas pequenas e com muitas linhas.
