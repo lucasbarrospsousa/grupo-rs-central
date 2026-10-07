@@ -1,12 +1,11 @@
 import {visibleStatus} from './stock-model.js';
 import {basePlatforms,monitorLabels,monitorState,monitorCounts,monitorDate} from './stock-monitor.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const colors=['#e8af08','#ff880a','#ee3452','#12ae68'];
 const date=v=>monitorDate(v,'Não consultado');
 export function mountStockOverview({repo,host,showModal}){
  const bases=repo.user.branches,results=new Map(),errors=new Map(),pending=new Set();let running=false;
  host.dataset.independent='true';
- host.innerHTML='<div class="live-heading"><div><h2>Estoque por base <span class="pill" id="stock-bases-complete"></span></h2><p class="muted">Comunicação e status do chip • somente aparelhos em estoque.</p></div><button id="stock-bases-refresh">Atualizar estoques</button></div><div class="grid four live-grid" id="stock-bases"></div><div class="live-progress" id="stock-bases-progress" role="status"></div>';
+ host.innerHTML='<div class="live-heading"><h2>Estoque por base <span class="pill" id="stock-bases-complete"></span></h2><button id="stock-bases-refresh" class="primary">Atualizar estoques</button></div><div class="overview-stock-wrap" id="stock-bases"></div><div class="live-progress" id="stock-bases-progress" role="status"></div>';
  function list(base,selected){
   let page=0;
   showModal('Estoque · '+base.name,'<div class="monitor-tabs" id="monitor-tabs"></div><p class="muted">Classificação conforme a regra da aba Estoque. Falha de consulta não significa aparelho desligado.</p><input id="base-stock-search" type="search" placeholder="Buscar série ou identificação" aria-label="Buscar aparelhos"><div class="table-wrap modal-body-scroll" id="base-stock-table"></div><div class="pager"><span id="base-stock-count"></span><button id="base-stock-prev">Anterior</button><button id="base-stock-next">Próxima</button></div>');
@@ -22,16 +21,14 @@ export function mountStockOverview({repo,host,showModal}){
  }
  function paint(){
   const container=host.querySelector('#stock-bases');
-  for(const [i,base] of bases.entries()){
-   let card=container.querySelector(`[data-stock-base="${base.id}"]`);
-   if(!card){card=document.createElement('article');card.className='branch-card monitor-card';card.dataset.stockBase=base.id;card.style.setProperty('--color',colors[i%colors.length]);const link=basePlatforms[base.id];card.innerHTML='<strong>'+(link?'<a href="'+link+'" target="_blank" rel="noopener noreferrer">'+esc(base.name)+' ↗</a>':esc(base.name))+'</strong><b class="value"></b><small></small><div class="monitor-statuses"></div><div class="foot">'+(link?'<a href="'+link+'" target="_blank" rel="noopener noreferrer">Abrir plataforma ↗</a>':'Plataforma não configurada')+'</div>';container.append(card);}
-   const rows=results.get(base.id),error=errors.get(base.id);card.setAttribute('aria-busy',String(!rows&&!error));
-   card.querySelector('.value').textContent=rows?rows.length.toLocaleString('pt-BR'):error?'Pendente':'—';card.querySelector('small').textContent=error?(rows?'Último resultado • falha ao atualizar':'Não foi possível consultar'):rows?(pending.has(base.id)?'aparelhos • atualizando…':'aparelhos em estoque'):'Consultando estoque…';
-   card.querySelector('.monitor-statuses').innerHTML=rows?Object.entries(monitorCounts(rows)).filter(([key,n])=>['on','off','stale'].includes(key)||n).map(([key,n])=>'<button class="monitor-status '+key+'" data-monitor="'+key+'" aria-label="'+esc(base.name+' · '+monitorLabels[key]+': '+n)+'"><span>'+monitorLabels[key]+'</span><strong>'+n+' ›</strong></button>').join(''):'';
-   card.querySelectorAll('[data-monitor]').forEach(b=>b.onclick=()=>list(base,b.dataset.monitor));
-  }
-  host.querySelector('#stock-bases-complete').textContent=results.size+' de '+bases.length+' bases consultadas';
-  host.querySelector('#stock-bases-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>bases.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando estoques • bases prontas já disponíveis':'Resultados salvos no servidor • tela atualizada às '+new Date().toLocaleTimeString('pt-BR');
+  const keys=['on','off','stale','unknown'];if([...results.values()].some(rows=>monitorCounts(rows).gps))keys.push('gps');
+  container.innerHTML='<table class="overview-stock-table"><thead><tr><th>Base</th><th>Estoque</th>'+keys.map(key=>'<th>'+monitorLabels[key]+'</th>').join('')+'<th>Plataforma</th></tr></thead><tbody>'+bases.map(base=>{
+   const rows=results.get(base.id),error=errors.get(base.id),counts=rows?monitorCounts(rows):null,link=basePlatforms[base.id],current=document.querySelector('#branch,#sql-branch')?.value===base.id;
+   return '<tr data-stock-base="'+base.id+'" class="'+(current?'selected':'')+'" aria-busy="'+String(!rows&&!error)+'"><th scope="row">'+esc(base.name)+(error?'<small class="stock-row-warning" title="'+esc(error)+'">'+(rows?'Último resultado':'Consulta pendente')+'</small>':'')+'</th><td class="stock-quantity">'+(rows?rows.length.toLocaleString('pt-BR'):'—')+'</td>'+keys.map(key=>'<td>'+(counts?'<button class="monitor-status '+key+(counts[key]?'':' zero')+'" data-stock-base-id="'+base.id+'" data-monitor="'+key+'" aria-label="'+esc(base.name+' · '+monitorLabels[key]+': '+counts[key])+'">'+counts[key]+'</button>':'<span class="stock-pending" aria-label="Consulta pendente">—</span>')+'</td>').join('')+'<td>'+(link?'<a href="'+link+'" target="_blank" rel="noopener noreferrer" aria-label="Abrir plataforma de '+esc(base.name)+'">Abrir ↗</a>':'—')+'</td></tr>';
+  }).join('')+'</tbody></table>';
+  container.querySelectorAll('[data-monitor]').forEach(b=>b.onclick=()=>list(bases.find(base=>base.id===b.dataset.stockBaseId),b.dataset.monitor));
+  host.querySelector('#stock-bases-complete').textContent=results.size+' de '+bases.length+' bases';
+  host.querySelector('#stock-bases-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>bases.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando estoques • bases prontas já disponíveis':'Atualizado às '+new Date().toLocaleTimeString('pt-BR');
  }
  async function refresh(){if(running||!host.isConnected)return;running=true;errors.clear();bases.forEach(b=>pending.add(b.id));host.querySelector('#stock-bases-refresh').disabled=true;paint();
   await Promise.all(bases.map(async base=>{try{const data=await repo.request('devices?branch='+encodeURIComponent(base.id)+'&scope=stock');if(!Array.isArray(data.rows))throw Error('Resposta de estoque incompleta.');if(host.isConnected)results.set(base.id,data.rows.filter(r=>!r.deleted_at&&visibleStatus(r,base.id)==='Estoque'));}catch(e){if(host.isConnected)errors.set(base.id,e.message);}finally{pending.delete(base.id);}if(host.isConnected)paint();}));

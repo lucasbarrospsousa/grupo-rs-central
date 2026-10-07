@@ -4,10 +4,9 @@ import {mountStockOverview} from './stock-overview.js';
 import {filterVehicles} from './domain.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arrow='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 9 7 7 7-7"/></svg>';
-const colors=['#ee3452','#ff880a','#e8af08','#12ae68'];
 const cache=new Map();
 export function mountLiveOverview({repo,showModal,notify,render}){
- const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel" id="stock-panorama"></section><div class="grid chart-grid" id="maintenance-panorama"><section class="panel"><div class="live-heading"><h2>Veículos em manutenção por base</h2><button id="live-refresh">Atualizar manutenções</button></div><div class="toolbar"><label for="chart-ignition">Ignição</label><select id="chart-ignition"><option value="">Todas</option><option value="on">Ligada</option><option value="off">Desligada</option><option value="unknown">Não informada</option></select></div><span class="pill" id="live-complete">Consultando bases</span><div class="live-progress" id="base-progress" role="status"></div><p class="muted">Veículos do filtro ÷ frota ativa da base • ignição da última comunicação • clique para ver a lista</p><div id="base-chart"></div></section><section class="panel live-total"><h3>Total de veículos em manutenção</h3><div class="total" id="base-total">—</div><p class="muted" id="total-note">Aguardando consulta</p></section></div>`;document.querySelector('#page').prepend(p);
+ const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel" id="stock-panorama"></section><section class="panel" id="maintenance-panorama"><div class="live-heading"><h2>Veículos em manutenção <span class="pill" id="live-complete"></span></h2><button id="live-refresh" aria-label="Atualizar manutenções">Atualizar</button></div><div class="maintenance-summary"><div><strong class="total" id="base-total">—</strong><span> veículos</span><p>% da frota de cada base</p></div><div class="ignition-control"><span>Ignição</span><div class="ignition-segments" role="group" aria-label="Filtrar gráfico por ignição"><button data-chart-ignition="" aria-pressed="true">Todas</button><button data-chart-ignition="on" aria-pressed="false">Ligada</button><button data-chart-ignition="off" aria-pressed="false">Desligada</button><button data-chart-ignition="unknown" aria-pressed="false" title="Somente veículos sem ignição informada">Não informada</button></div></div></div><div id="base-chart"></div><p id="total-note" class="maintenance-note" role="status">Aguardando consulta</p><div class="live-progress" id="base-progress" role="status"></div></section>`;document.querySelector('#page').prepend(p);
  mountStockOverview({repo,host:p.querySelector('#stock-panorama'),showModal,notify,render});
  const results=new Map(),errors=new Map();let running=false,ignitionFilter='',redrawList=null;
  function list(base,data){
@@ -28,7 +27,7 @@ export function mountLiveOverview({repo,showModal,notify,render}){
  }
  function paint(){
   const rows=[...results.values()].map(r=>({...r,count:ignitionRows(r.rows,ignitionFilter).length,unknown:ignitionCounts(r.rows).unknown,share:maintenanceShare(ignitionRows(r.rows,ignitionFilter).length,r.fleet_total)})).sort((a,b)=>(b.share??-1)-(a.share??-1));
-  p.querySelector('#live-complete').textContent=results.size+' de '+repo.user.branches.length+' bases consultadas';
+  p.querySelector('#live-complete').textContent=results.size+' de '+repo.user.branches.length+' bases';
   p.querySelector('#base-progress').textContent=errors.size?'Consulta parcial • '+[...errors].map(([id,msg])=>repo.user.branches.find(b=>b.id===id).name+': '+msg).join(' • '):running?'Consultando as bases…':'Resultados salvos • tela atualizada às '+new Date().toLocaleTimeString('pt-BR');
   const chart=p.querySelector('#base-chart');
   if(rows.length)chart.querySelector('.empty')?.remove();
@@ -37,9 +36,9 @@ export function mountLiveOverview({repo,showModal,notify,render}){
    let button=chart.querySelector(`[data-base="${r.base.id}"]`);
    if(!button){button=document.createElement('button');button.className='chart-row';button.dataset.base=r.base.id;button.innerHTML='<span></span><span class="track"><i></i></span><b></b>';chart.append(button);}
    button.firstElementChild.textContent=r.base.name;
-   button.querySelector('.track').style.setProperty('--color',colors[i%colors.length]);
+   button.querySelector('.track').style.setProperty('--color','#087fff');
    button.querySelector('.track').style.setProperty('--width',(r.share??0)+'%');
-   button.querySelector('b').textContent=r.share===null?'Aguardando total':r.share.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'% da base';
+   button.querySelector('b').textContent=r.share===null?'Aguardando total':r.share.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
    button.title=r.count.toLocaleString('pt-BR')+' veículos em manutenção no filtro'+(r.share===null?' • '+(r.fleet_warning||'Total ativo não confirmado'): ' de '+r.fleet_total.toLocaleString('pt-BR')+' veículos ativos');
    button.setAttribute('aria-label',r.base.name+': '+button.querySelector('b').textContent+'; '+button.title);
    if(chart.children[i]!==button)chart.insertBefore(button,chart.children[i]||null);
@@ -49,7 +48,7 @@ export function mountLiveOverview({repo,showModal,notify,render}){
   p.querySelectorAll('[data-base]').forEach(b=>b.onclick=()=>{const r=results.get(b.dataset.base);if(r)list(r.base,r);});
  }
  async function refresh(force=false){if(running)return;running=true;p.querySelector('#live-refresh').disabled=true;errors.clear();paint();for(const base of repo.user.branches){if(!p.isConnected)break;try{let item=cache.get(base.id);if(force||!item||Date.now()-item.at>60000){item={data:await repo.request('integrations/maintenance?branch='+base.id+(force?'&refresh=1':'')),at:Date.now()};cache.set(base.id,item);}if(!p.isConnected)break;const previous=results.get(base.id);results.set(base.id,previous?Object.assign(previous,item.data):{base,...item.data});redrawList?.();if(item.data.refresh_warning)errors.set(base.id,item.data.refresh_warning);}catch(e){errors.set(base.id,e.message);}if(p.isConnected)paint();}running=false;if(p.isConnected){paint();p.querySelector('#live-refresh').disabled=false;}}
- p.querySelector('#chart-ignition').onchange=e=>{ignitionFilter=e.target.value;paint();};
+ p.querySelectorAll('[data-chart-ignition]').forEach(button=>button.onclick=()=>{ignitionFilter=button.dataset.chartIgnition;p.querySelectorAll('[data-chart-ignition]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));paint();});
  p.querySelector('#live-refresh').onclick=()=>refresh(true);refresh();
  const poll=setInterval(()=>{if(!p.isConnected){clearInterval(poll);return;}if(!document.hidden)void refresh();},60000);
 }

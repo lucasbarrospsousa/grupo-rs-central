@@ -282,3 +282,11 @@ A arbitragem está no SQL, compartilhada por instâncias: requisições manuais 
 A pausa é revalidada antes da próxima chamada à plataforma Grupo RS, inclusive em lotes já iniciados. Consultas aos provedores de chip têm orçamento próprio e não são abrangidas pelo teto Grupo RS. A fila também não remove limites externos nem o limite de requisições simultâneas do usuário; uma espera temporária ainda é possível. O monitor mostra a ocupação por base, com atualização AJAX a cada 30 segundos apenas na aba visível, sujeita ao orçamento do navegador. Tokens e dados dos aparelhos não entram no monitor.
 
 Migração e teste SQL: `node web/tools/migrate-query-priority.mjs` (validação com rollback); `--apply` instala a versão 34 após validar. Testes focados: `node --test web/tests/query-priority.test.mjs web/tests/background-sync.test.mjs web/tests/code-scan.test.mjs web/tests/read-sources.test.mjs web/tests/query-usage.test.mjs web/tests/integration-sessions.test.mjs web/tests/maintenance-ignition.test.mjs`. Interface: `web/tools/test-settings-codes-ui.mjs` verifica gravação AJAX, preservação de edição, estado de espera e cinco abas sem scroll na referência 1917×913. Testes não cadastram nem dão baixa em aparelhos reais.
+
+## Visão geral compacta — 07/10/2026
+
+Prévia aprovada aplicada ao frontend: estoque por base em tabela com botões de status, manutenção com total e filtro de ignição em botões, e operação da filial com indicadores e distribuição por operadora. Os links das plataformas e as listas detalhadas continuam disponíveis. GPS desatualizado mantém coluna própria quando existir; consulta pendente/falha nunca vira estoque zero.
+
+Os blocos preservam carregamento independente, cache e intervalos anteriores. O filtro de ignição reutiliza os dados carregados e é levado para a lista de manutenção. Nenhuma alteração no backend, credenciais ou agendamentos.
+
+Validação com dados fictícios e consultas externas bloqueadas: resolução 1820×864 sem rolagem da página; abertura de lista por status; filtro e percentuais sem novas requisições; estoque operante durante atraso de manutenção; falha apresentada como pendência. Em 390×844 a tabela tem rolagem própria e a página não transborda horizontalmente. Conteúdo excepcionalmente maior e telas menores mantêm rolagem natural.

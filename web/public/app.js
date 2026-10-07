@@ -1,3 +1,4 @@
+import {overviewSummary} from './overview-summary.js';
 import {branchRouteVisible} from './branch-navigation.js';
 import {wireWarehouseRegistration} from './warehouse-register.js';
 import {mountInventoryAlerts,stopInventoryAlerts} from './inventory-alerts.js';
@@ -9,7 +10,7 @@ import {mountSystemLogs,installActionJournal} from './system-logs.js';
 import {mountUsers} from './users-page.js';
 import {mountSidebar} from './sidebar.js';
 import {accessControl,isReader,restrictedRoute} from './access-control.js';
-import {carrierSummary,stockSummary} from './dashboard-model.js';
+
 import {mountIntegrationActions} from './integration-actions.js';
 import { mountSettings } from './settings-page.js';
 import { mountSms } from './sms-page.js';
@@ -65,6 +66,7 @@ function login() {
 const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings'], ['logs','Logs do sistema','file']];
 let renderVersion=0;
 function render() {
+  document.body.dataset.route=state.route;
   const version=++renderVersion;
   const allowedRoute=id=>branchRouteVisible(state.branch,id)&&(!repo.real||!repo.user?.permissions||repo.user.permissions.owner||repo.user.permissions.views.includes(id));
   if(!allowedRoute(state.route))state.route=routes.find(([id])=>allowedRoute(id))?.[0]||'overview';
@@ -138,8 +140,8 @@ function overview() {
   if(repo.real){
     const branch=state.branch;page('<div id="overview-summary"><p role="status">Carregando resumo da filial…</p></div>');const summaryHost=document.querySelector('#overview-summary');
     const drawSummary=()=>{if(!summaryHost.isConnected)return;
-    const rows=repo.list(state.branch),summary=stockSummary(rows),count=status=>summary.find(r=>r.label===status)?.count||0;
-    summaryHost.innerHTML=`<div class="top dashboard-heading"><div><h2>Operação da filial · ${escape(name(state.branch))}</h2><p>Estoque e equipamentos da filial selecionada.</p></div>${button('Abrir estoque →','sql-open-stock','orange','box')}</div><div class="grid four">${[['Equipamentos na base',rows.length,'Cadastros da filial','blue','box'],['Disponíveis em estoque',count('Estoque'),'Prontos para a próxima operação','orange','box'],['Equipamentos em manutenção',count('Manutenção'),'Acompanhamento técnico','','tool'],['Instalados',count('Instalado'),'Vinculados na filial','navy','map']].map(([label,value,description,cls,glyph])=>`<article class="metric ${cls}">${icon(glyph)}${label}<b class="value">${value.toLocaleString('pt-BR')}</b><small style="color:inherit">${description}</small></article>`).join('')}</div><div class="grid two dashboard-lower"><section class="panel"><h2>Distribuição por operadora</h2><p class="muted">Chips dos equipamentos cadastrados na filial</p>${carrierSummary(rows).map((r,i)=>`<div class="chart-row" title="${escape(r.label)}: ${r.count} (${r.percent.toFixed(1)}%)"><span>${escape(r.label)}</span><span class="track" style="--color:${['#8b26cf','#ef3459','#0876d4','#ff8b0c','#8398b6'][i%5]};--width:${r.percent}%"><i></i></span><b>${r.count.toLocaleString('pt-BR')}</b></div>`).join('')||'<p class="empty">Nenhum equipamento cadastrado.</p>'}</section><section class="panel dashboard-summary"><h2>Resumo da filial</h2><p class="muted">Situação dos equipamentos na Central</p>${summary.map(r=>`<div class="summary-line"><span>${escape(r.label)}</span><b>${r.count.toLocaleString('pt-BR')}</b></div>`).join('')}<div class="selected-info"><b>Total: ${rows.length.toLocaleString('pt-BR')} equipamentos</b></div></section></div>`;
+    const rows=repo.list(state.branch);
+    summaryHost.innerHTML=overviewSummary(rows,name(state.branch),icon);
     on('sql-open-stock','click',()=>{state.route='stock';render();});};
     if(repo.ready(branch,'overview'))drawSummary();else void repo.load(branch,{route:'overview',force:false}).then(drawSummary).catch(()=>{if(summaryHost.isConnected)summaryHost.textContent='Resumo da filial indisponível. O estoque por base continua disponível.';});return;
   }

@@ -1,0 +1,82 @@
+/* Approved compact overview. All layout overrides are scoped to this route. */
+body.central-ui[data-route=overview]{--ui-blue:#087fff;--ui-ink:#102350;--developer-credit-height:46px}
+body.central-ui[data-route=overview] #page{padding:18px 22px 20px;max-width:none}
+body.central-ui[data-route=overview] .content>.top{min-height:84px;padding:14px 28px}
+body.central-ui[data-route=overview] .ui-heading strong{font-size:28px;font-weight:700;letter-spacing:-.6px}
+body.central-ui[data-route=overview] .content>.release-strip{margin:0;padding:5px 24px;font-size:12px}
+body.central-ui[data-route=overview] .footer-note{display:none}
+body.central-ui[data-route=overview] .developer-credit{border-top-color:#087fff}
+body.central-ui[data-route=overview] .developer-credit img{height:32px}
+body.central-ui[data-route=overview] .live-overview{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;margin-bottom:16px;align-items:stretch}
+body.central-ui[data-route=overview] #page .panel{padding:20px;border:1px solid #dbe8f7;border-radius:14px;box-shadow:0 3px 18px #193b6205;margin:0;background:#fff;min-width:0}
+body.central-ui[data-route=overview] #page .live-heading{gap:12px;margin:0 0 18px;align-items:center}
+body.central-ui[data-route=overview] #page h2{font-size:22px;font-weight:700;letter-spacing:-.5px;margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+body.central-ui[data-route=overview] #page h3{font-size:19px;font-weight:700;margin:0 0 16px}
+body.central-ui[data-route=overview] #page .pill{font-size:13px;font-weight:600;padding:6px 11px;background:#e9f4ff;color:#0065c9;white-space:nowrap}
+body.central-ui[data-route=overview] :is(.live-heading,.ui-header-actions)>button{min-height:42px;padding:10px 15px;font-size:14px;white-space:nowrap;border-color:#cde1fa;color:#006ce8;box-shadow:0 3px 0 #087fff,0 5px 8px #087fff0a;border-radius:11px}
+body.central-ui[data-route=overview] #stock-bases-refresh{background:#087fff;color:#fff;border-color:#087fff;box-shadow:0 3px 0 #006bdd,0 5px 8px #087fff15}
+body.central-ui[data-route=overview] button:focus-visible,body.central-ui[data-route=overview] a:focus-visible{outline:3px solid #005ecb;outline-offset:3px}
+body.central-ui[data-route=overview] .overview-stock-wrap{overflow-x:auto}
+body.central-ui[data-route=overview] #page .overview-stock-table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px;min-width:590px}
+body.central-ui[data-route=overview] #page .overview-stock-table :is(th,td){padding:10px 7px;text-align:center;border-bottom:1px solid #e7eff9;vertical-align:middle}
+body.central-ui[data-route=overview] #page .overview-stock-table thead th{background:#f0f6fd;color:#25476a;font-size:12px;font-weight:600;line-height:1.35;height:48px}
+body.central-ui[data-route=overview] #page .overview-stock-table th:first-child{text-align:left;white-space:nowrap;padding-left:10px}
+body.central-ui[data-route=overview] #page .overview-stock-table tbody th{font-weight:500;font-size:14px;background:none;color:var(--ui-ink)}
+body.central-ui[data-route=overview] #page .overview-stock-table .selected :is(th,td){background:#eef7ff}
+body.central-ui[data-route=overview] #page .overview-stock-table .stock-quantity{font-weight:750;font-size:16px}
+body.central-ui[data-route=overview] #page .overview-stock-table a{color:#006dea;text-decoration:none;white-space:nowrap;font-weight:600}
+body.central-ui[data-route=overview] #page .overview-stock-table button.monitor-status{min-height:34px;min-width:44px;width:100%;max-width:76px;display:inline-flex;justify-content:center;border:1px solid transparent;border-radius:8px;padding:5px 10px;font-size:14px;font-weight:700;box-shadow:none}
+body.central-ui[data-route=overview] #page .monitor-status.on{background:#e6f8ef;color:#087c48}
+body.central-ui[data-route=overview] #page .monitor-status.off{background:#fff0f2;color:#c92446}
+body.central-ui[data-route=overview] #page .monitor-status.stale{background:#fff4dd;color:#925c06}
+body.central-ui[data-route=overview] #page .monitor-status.unknown{background:#edf2f8;color:#435a79}
+body.central-ui[data-route=overview] #page .monitor-status.gps{background:#f2eaff;color:#7048a8}
+body.central-ui[data-route=overview] #page .monitor-status.zero{color:#71869f;background:#f2f6fa}
+body.central-ui[data-route=overview] #page .monitor-status:hover{border-color:currentColor;filter:brightness(.97)}
+body.central-ui[data-route=overview] .stock-pending{display:inline-block;background:#f2f6fa;border-radius:8px;padding:7px 15px;color:#7b8ca4}
+body.central-ui[data-route=overview] .stock-row-warning{display:block;font-size:12px;color:#996614;white-space:normal}
+body.central-ui[data-route=overview] .live-progress,body.central-ui[data-route=overview] .overview-updated{display:block;font-size:12px;line-height:1.45;color:#6481a5;margin:13px 0 0}
+body.central-ui[data-route=overview] .maintenance-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+body.central-ui[data-route=overview] .maintenance-summary .total{font-size:48px;line-height:1;font-weight:750;letter-spacing:-1px;display:inline}
+body.central-ui[data-route=overview] .maintenance-summary p{margin:8px 0 0;color:#6481a5;font-size:14px}
+body.central-ui[data-route=overview] .maintenance-summary>div>span{color:#6481a5;font-size:16px}
+body.central-ui[data-route=overview] .ignition-control{display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
+body.central-ui[data-route=overview] .ignition-segments{display:flex;background:#f5f8fc;border:1px solid #dce8f5;border-radius:9px;padding:3px;flex-wrap:wrap}
+body.central-ui[data-route=overview] .ignition-segments button{padding:7px 9px;min-height:32px;font-size:12px;border:0;border-radius:6px;box-shadow:none;background:transparent;font-weight:500}
+body.central-ui[data-route=overview] .ignition-segments button[aria-pressed=true]{background:#087fff;color:#fff;box-shadow:0 2px 5px #087fff30}
+body.central-ui[data-route=overview] #base-chart .chart-row{display:grid;grid-template-columns:98px minmax(0,1fr) 78px;gap:12px;padding:8px 0;min-height:42px;border:0;margin:0;border-radius:6px;background:transparent;font-size:14px;font-weight:500;width:100%;text-align:left}
+body.central-ui[data-route=overview] #base-chart .chart-row:hover{background:#f5f9ff}
+body.central-ui[data-route=overview] #base-chart b{text-align:right;font-size:14px;white-space:normal}
+body.central-ui[data-route=overview] .track{height:19px;border-radius:5px;background:#edf4fb;overflow:hidden}
+body.central-ui[data-route=overview] .track i{height:100%;background:#087fff;border-radius:5px;display:block;width:var(--width)}
+body.central-ui[data-route=overview] .maintenance-note{font-size:12px;line-height:1.5;padding:9px 12px;background:#fff7e8;color:#83621c;border-radius:8px;margin:13px 0 0}
+body.central-ui[data-route=overview] .operation-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px}
+body.central-ui[data-route=overview] .operation-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+body.central-ui[data-route=overview] .operation-metric{border:1px solid #dce8f7;border-radius:10px;padding:14px 12px;display:grid;grid-template-columns:36px 1fr;gap:6px 9px;font-size:13px;align-content:start;min-height:103px}
+body.central-ui[data-route=overview] .operation-metric .metric-icon{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;background:#eaf4ff;color:#087fff;grid-row:span 2}
+body.central-ui[data-route=overview] .operation-metric .icon{width:23px;height:23px}
+body.central-ui[data-route=overview] .operation-metric>strong{font-size:28px;line-height:1.15}
+body.central-ui[data-route=overview] .operation-metric.green .metric-icon{background:#e5f8ef;color:#069966}
+body.central-ui[data-route=overview] .operation-metric.amber .metric-icon{background:#fff3df;color:#c07e00}
+body.central-ui[data-route=overview] .operation-metric.purple .metric-icon{background:#f1eaff;color:#7954ca}
+body.central-ui[data-route=overview] .operation-secondary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;font-size:13px}
+body.central-ui[data-route=overview] .operation-secondary>div{display:flex;justify-content:space-between;padding:8px 12px;border:1px solid #dce8f7;border-radius:8px;background:#fbfdff}
+body.central-ui[data-route=overview] .operation-carriers{border-left:1px solid #dce8f7;padding-left:24px;min-width:0}
+body.central-ui[data-route=overview] .operation-carriers .chart-row{display:grid;grid-template-columns:minmax(90px,115px) minmax(0,1fr) 45px;gap:12px;font-size:14px;padding:5px 0;min-height:32px;margin:0}
+body.central-ui[data-route=overview] .operation-carriers b{text-align:right}
+@media(min-width:1600px){body.central-ui[data-route=overview] #page{padding:20px 24px}body.central-ui[data-route=overview] #page .panel{padding:22px}body.central-ui[data-route=overview] #page .overview-stock-table :is(th,td){padding-block:12px}body.central-ui[data-route=overview] .operation-metric{min-height:112px;font-size:14px}}
+@media(max-width:1350px){body.central-ui[data-route=overview] .live-overview{grid-template-columns:1fr}body.central-ui[data-route=overview] .operation-grid{grid-template-columns:1fr}body.central-ui[data-route=overview] .operation-carriers{border-left:0;border-top:1px solid #dce8f7;padding:16px 0 0}}
+@media(max-width:700px){body.central-ui[data-route=overview] #page{padding:14px}body.central-ui[data-route=overview] #page .panel{padding:16px}body.central-ui[data-route=overview] #page .live-heading{flex-wrap:wrap}body.central-ui[data-route=overview] .operation-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}body.central-ui[data-route=overview] .ui-heading strong{font-size:23px}body.central-ui[data-route=overview] .ui-header-actions{flex-wrap:wrap}body.central-ui[data-route=overview] .content>.top{padding:14px}body.central-ui[data-route=overview] #base-chart .chart-row{grid-template-columns:90px minmax(0,1fr) 66px;gap:8px}}
+@media(min-width:1351px){
+ body.central-ui[data-route=overview] #page{padding:16px 22px}
+ body.central-ui[data-route=overview] #page .panel{padding:18px}
+ body.central-ui[data-route=overview] #page .live-heading{margin-bottom:12px}
+ body.central-ui[data-route=overview] #page .overview-stock-table :is(th,td){padding-block:8px}
+ body.central-ui[data-route=overview] .maintenance-summary{margin-bottom:8px}
+ body.central-ui[data-route=overview] .maintenance-summary .total{font-size:42px}
+ body.central-ui[data-route=overview] .maintenance-summary p{margin-top:5px}
+ body.central-ui[data-route=overview] #base-chart .chart-row{min-height:36px;padding-block:6px}
+ body.central-ui[data-route=overview] .maintenance-note{padding:5px 8px;margin-top:8px}
+ body.central-ui[data-route=overview] .live-progress,body.central-ui[data-route=overview] .overview-updated{margin-top:9px}
+ body.central-ui[data-route=overview] .operation-metric{min-height:92px;padding:11px 10px;font-size:13px}
+}
