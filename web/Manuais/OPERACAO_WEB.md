@@ -321,3 +321,11 @@ Monitor geral mostra progresso das quatro bases e seletor da programação; Lote
 Validação: 40 consultas reais de leitura (10 por base), quatro lotes em paralelo e uma consulta por vez em cada base: 40 confirmadas, com APN e vínculo, em 15,6 s no total; Imperatriz 15,2 s, Araguaína 14,0 s, Açailândia 13,7 s e Marabá 13,7 s. Isso é evidência da amostra, não comprovação de um limite contratual das APIs nem garantia de latência futura. Rotas API v2 imp/arg/acl/mab.
 
 Teste SQL sem consultas externas: node web/tools/migrate-multibase-codes.mjs; dados sintéticos e alterações revertidos. Aplicação: acrescentar --apply. Teste de leitura real somente com autorização: node web/tools/probe-code-bases.mjs (máximo de 10 por base, saída agregada sem identificadores).
+
+## Correção do atendimento e busca de série — 07/10/2026
+
+O formulário de Manutenções mantém a mensagem de resultado fora dos campos condicionais, desabilita campos ocultos e restaura corretamente os controles após falha. A busca automática da série pode ser repetida pelo botão Buscar número de série; respostas antigas não substituem a seleção atual. O modo manual segue sem API/web. O envio mostra Salvando e mantém a chave de idempotência nas novas tentativas.
+
+A consulta exata por placa agora recupera a série pelo código do equipamento quando a lista omite a série, confirmando código, vínculo, placa e situação ativa. Divergências continuam bloqueadas. Salvamento com conferência remota admite até 120 segundos no navegador. Falha ao atualizar o histórico depois de uma gravação confirmada é apresentada como atualização pendente, preservando o sucesso da gravação.
+
+Validação: 290 testes locais; teste de navegador `node web/tools/test-maintenance-form-ui.mjs` (Playwright/Chrome, respostas sintéticas); `node web/tools/test-maintenance-sql.mjs` (8 verificações em transação revertida, sem escrita em plataformas nem SMS).

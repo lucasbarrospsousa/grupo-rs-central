@@ -101,7 +101,15 @@ export class Integrations{
   const data=await this.api(branch,(identification?'/veiculos':'/equipamentos')+'?q='+encodeURIComponent(q)+'&skip=0&take=50');
   const key=v=>String(v||'').replace(/[ -]/g,'').toUpperCase();
   const all=rows(data),matches=all.map(raw=>({...normalize(raw),plate:value(raw,['placa','plate'])||value(raw.veiculo,['placa'])})).filter(r=>[r.serial,r.iccid,r.phone,r.plate].some(v=>v&&key(v)===key(q)));
-  if(data.paginacao?.temMais||all.length>=50||matches.length!==1||!matches[0].serial)throw err('Correspondência única não confirmada. Informe a série ou use o cadastro manual.',422);
+  if(data.paginacao?.temMais||all.length>=50||matches.length!==1)throw err('Correspondência única não confirmada. Informe a série ou use o cadastro manual.',422);
+  // Vehicle lists may omit the serial but retain the linked equipment code.
+  const match=matches[0];
+  if(!match.serial&&identification&&/^[1-9]\d*$/.test(match.equipment_id)){
+   const detail=await this.api(branch,'/equipamentos/'+match.equipment_id),raw=detail.equipamento;
+   if(detail.ok===false||!raw||value(raw,['codEquipamento'])!==match.equipment_id||!serialOf(raw)||value(raw.veiculo,['codVeiculo'])!==match.vehicle_id||key(value(raw.veiculo,['placa']))!==key(q)||['0','FALSE','I','INATIVO','INACTIVE'].includes(value(raw,['ativo','status']).toUpperCase()))throw err('Código do aparelho não confirmou o vínculo deste veículo. Consulte novamente ou preencha manualmente.',422);
+   return {...match,...normalize(raw),ok:true,id:match.equipment_id,serial:serialOf(raw),plate:match.plate,vehicle_id:match.vehicle_id};
+  }
+  if(!match.serial)throw err('Número de série ausente na plataforma. Use o preenchimento manual.',422);
   const equipment=await this.equipment(branch,matches[0].serial);return {...matches[0],...equipment,plate:equipment.plate||matches[0].plate};
  }
  async equipmentPortal(branch,serial){return this.equipment(branch,serial);}
