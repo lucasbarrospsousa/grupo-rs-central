@@ -1,4 +1,5 @@
 import {mountQueryQueue} from './settings-queue.js';
+import {mountGeneralMonitor} from './settings-monitor.js';
 import {mountCodeScan} from './settings-codes.js';
 import {mountDeploymentToken} from './settings-token.js';
 import {mountAutomation} from './settings-automation.js';
@@ -10,18 +11,23 @@ const date=v=>v&&Number.isFinite(Date.parse(v))?new Date(v).toLocaleString('pt-B
 const entries=[['equipment','API de aparelhos','Cadastro de aparelhos','box'],['api','API Grupo RS','Vínculo e localização','map'],['arya','Arya / Innova','Consultas identificadas de chips','chip'],['link','Link Solutions','Consultas identificadas de chips','chip']];
 export function mountSettingsHealth(ctx){
  const root=document.querySelector('#page');root.innerHTML=`<div class="settings-eyebrow">GRUPO RS CENTRAL / ${esc(ctx.branchName)}</div><h1 class="settings-title">Configurações</h1><p class="settings-subtitle">Estado registrado no servidor, horários e verificações das integrações.</p><div class="settings-health-toolbar"><span id="health-updated" role="status">Consultando o servidor…</span><button id="health-refresh">Atualizar painel</button></div><p id="health-error" role="alert"></p><div class="settings-grid"><section class="settings-panel"><div class="settings-health-tabs"><button id="settings-connections" aria-pressed="true">Conexões</button><button id="settings-updates" aria-pressed="false">Sincronização</button></div><div id="settings-content"></div></section><aside class="settings-panel settings-environment"><h2>Operação da filial</h2><p>${esc(ctx.branchName)}</p><div id="health-gateway">Consultando a ponte SMS…</div><p>O painel relê o estado a cada 2 minutos, sujeito ao orçamento local de consultas enquanto estiver aberto. A sincronização é executada pelo servidor; esta tela não inicia ciclos.</p><p>Consultas manuais não alteram estoque nem enviam SMS.</p></aside></div>`;
- const sources=document.createElement('section');sources.className='settings-panel';root.querySelector(".settings-grid").before(sources);mountSources(ctx,sources);
- const automation=document.createElement('section');automation.className='settings-panel automation-panel';root.append(automation);mountAutomation(ctx,automation);
- const tokenPanel=document.createElement('section');root.append(tokenPanel);mountDeploymentToken(ctx,tokenPanel);
+ const sources=document.createElement('section');sources.className='settings-panel';root.querySelector(".settings-grid").before(sources);
+ const automation=document.createElement('section');automation.className='settings-panel automation-panel';root.append(automation);
+ const tokenPanel=document.createElement('section');root.append(tokenPanel);
  root.classList.add('compact-settings');
  root.querySelector('.settings-eyebrow')?.remove();root.querySelector('.settings-subtitle')?.remove();
  const tabs=document.createElement('nav');tabs.className='settings-main-tabs';tabs.setAttribute('aria-label','Seções das configurações');
- const panels={};for(const [id,label] of [['monitor','Monitor de lotes'],['queue','Fila e prioridade'],['connections','Conexões e fontes'],['consumption','Consumo'],['token','Token de publicação']]){const b=document.createElement('button');b.textContent=label;b.dataset.settingsTab=id;tabs.append(b);const panel=document.createElement('div');panel.dataset.settingsPanel=id;panels[id]=panel;root.append(panel);}
+ const panels={};for(const [id,label] of [['monitor','Monitor geral'],['batches','Lotes e pendências'],['queue','Fila e prioridade'],['connections','Conexões e fontes'],['consumption','Consumo'],['token','Token de publicação']]){const b=document.createElement('button');b.textContent=label;b.dataset.settingsTab=id;tabs.append(b);const panel=document.createElement('div');panel.dataset.settingsPanel=id;panel.hidden=true;panels[id]=panel;root.append(panel);}
  root.querySelector('.settings-title').after(tabs);
  panels.connections.id='settings-connections-panel';panels.connections.append(sources,root.querySelector('.settings-grid'));const querySlot=document.createElement('div');querySlot.id='settings-query-slot';panels.connections.querySelector('aside').append(querySlot);panels.consumption.append(automation);panels.token.append(tokenPanel);tokenPanel.querySelector('details')?.setAttribute('open','');
- const scan=mountCodeScan(ctx,panels.monitor);const queue=mountQueryQueue(ctx,panels.queue);
- const select=id=>{if(id==='queue')void queue.refresh();for(const [key,panel] of Object.entries(panels))panel.hidden=key!==id;tabs.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.settingsTab===id)));};
- tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>select(b.dataset.settingsTab));root.addEventListener('settings-tab',e=>select(e.detail));select('monitor');
+ let scan,queue,monitor,currentTab='monitor';const mounted=new Set();
+ const select=id=>{if(!panels[id])return;currentTab=id;for(const [key,panel] of Object.entries(panels))panel.hidden=key!==id;tabs.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.settingsTab===id)));
+  if(!mounted.has(id)){mounted.add(id);if(id==='monitor')monitor=mountGeneralMonitor(ctx,panels.monitor);if(id==='batches')scan=mountCodeScan(ctx,panels.batches);if(id==='queue')queue=mountQueryQueue(ctx,panels.queue);if(id==='connections'){mountSources(ctx,sources);void refresh();}if(id==='consumption')mountAutomation(ctx,automation);if(id==='token'){mountDeploymentToken(ctx,tokenPanel);tokenPanel.querySelector('details')?.setAttribute('open','');}}
+  else if(id==='monitor')void monitor.refresh();else if(id==='queue')void queue.refresh();
+ };
+ tabs.querySelectorAll('button').forEach(b=>b.onclick=()=>select(b.dataset.settingsTab));root.addEventListener('settings-tab',e=>select(e.detail));
+ root.addEventListener('scan-filter',e=>scan?.filter(e.detail));
+ root.addEventListener('monitor-updated',e=>{root.querySelector('#health-updated').textContent='Última leitura: '+date(e.detail);});
  let snapshot=null,manual={},tab='connections',busy=false,testing=false,error='';
  const content=root.querySelector('#settings-content'),active=()=>root.isConnected&&content.isConnected;
  const query=action=>ctx.repo.request('integrations/'+action+'?branch='+encodeURIComponent(ctx.branch));
@@ -43,8 +49,8 @@ export function mountSettingsHealth(ctx){
   }
  }
  async function refresh(){if(busy||!active())return;busy=true;paint();try{const next=await query('health');if(active()){snapshot=next;error='';}}catch(e){if(active())error='Não foi possível atualizar o painel: '+e.message+(snapshot?' Os horários abaixo pertencem à última leitura.':'');return false;}finally{busy=false;paint();}}
- root.querySelector('#settings-connections').onclick=()=>{tab='connections';paint();};root.querySelector('#settings-updates').onclick=()=>{tab='updates';paint();};root.querySelector('#health-refresh').onclick=()=>{void refresh();scan.refresh();queue.refresh();};
+ root.querySelector('#settings-connections').onclick=()=>{tab='connections';paint();};root.querySelector('#settings-updates').onclick=()=>{tab='updates';paint();};root.querySelector('#health-refresh').onclick=()=>{if(currentTab==='monitor')void monitor.refresh();else if(currentTab==='batches')scan.refresh();else if(currentTab==='queue')void queue.refresh();else void refresh();};
  root.addEventListener('central-carrier-result',e=>{manual[e.detail.source]={...e.detail.result,checked_at:new Date().toISOString()};paint();});
- startEconomyPolling(refresh,{interval:120000,alive:active});
- void refresh();
+ startEconomyPolling(refresh,{interval:120000,alive:active,active:()=>currentTab==='connections'});
+ select('monitor');
 }

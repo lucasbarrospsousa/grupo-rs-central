@@ -1,0 +1,98 @@
+/* Approved white-card monitor; scoped to settings, with accessible reflow on small screens. */
+body.central-ui.settings-page #page.compact-settings{padding:16px 22px!important}
+.general-monitor{--monitor-blue:#087eff;--monitor-muted:#647fa4;font-size:13px}
+.monitor-top{display:grid;grid-template-columns:minmax(190px,.85fr) minmax(390px,1.65fr) minmax(285px,1fr);gap:14px;align-items:stretch}
+.monitor-bottom{display:grid;grid-template-columns:minmax(390px,1.2fr) minmax(300px,.94fr) minmax(320px,1.08fr);gap:14px;margin-top:14px}
+body.central-ui #page.compact-settings .general-monitor .settings-panel{padding:16px;border-radius:14px;box-shadow:0 3px 16px #10355206;background:#fff}
+body.central-ui #page .general-monitor h2{font-size:18px;line-height:1.25;margin:0;color:#10264d}
+.monitor-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.monitor-heading small{color:var(--monitor-muted);font-size:11px;white-space:nowrap}
+.monitor-scope{font-size:11px;padding:5px 9px;border:1px solid #d5e4f6;border-radius:7px;color:#1768b5}
+.monitor-device{display:flex;flex-direction:column;min-width:0}
+body.central-ui #page .monitor-device>p{font-size:12px;margin:5px 0 0}
+.monitor-device>img{display:block;width:100%;height:235px;object-fit:contain;margin:8px auto;flex:0 0 auto;min-height:0;background:white}
+.monitor-device>small{font-size:11px;color:#254975;line-height:1.5;margin-top:9px}
+.monitor-pill{display:inline-block;vertical-align:middle;font-size:10px;line-height:1.35;font-weight:600;padding:4px 7px;border-radius:7px;background:#edf2f8;color:#56708c;white-space:nowrap}
+.monitor-pill[data-tone=good]{background:#e8f8ef;color:#13804b}.monitor-pill[data-tone=warning]{background:#fff7e7;color:#a6680b}.monitor-pill[data-tone=error]{background:#ffedf1;color:#b92345}
+.monitor-scan-status{margin:4px 0 10px}
+.monitor-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 14px}
+.monitor-metrics article{border:1px solid #d4e3f4;padding:9px 10px;border-radius:9px;min-width:0}
+.monitor-metrics strong{display:block;font-size:25px;line-height:1.15;color:#17395e;font-variant-numeric:tabular-nums}
+.monitor-metrics article:last-child strong{color:#ba2a48}.monitor-metrics span{display:block;font-size:11px;margin-top:5px;color:var(--monitor-muted)}
+.monitor-progress-label{display:flex;justify-content:space-between;font-size:11px}
+.monitor-scan progress{width:100%;height:12px;display:block;margin:7px 0;accent-color:#087eff;border:0;border-radius:8px;overflow:hidden}
+.monitor-scan progress::-webkit-progress-bar{background:#edf3fa}.monitor-scan progress::-webkit-progress-value{background:#087eff}
+.monitor-run-time,.monitor-next{font-size:10px;color:var(--monitor-muted);display:block;line-height:1.45}
+.monitor-flags{display:flex;gap:8px;margin:12px 0}
+body.central-ui #page .monitor-flags button{flex:1;border:1px solid #e0e8f2;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;padding:8px 5px;box-shadow:none;min-height:44px}
+.monitor-flags b{font-size:20px}.monitor-flags span{font-size:10px;text-align:left;max-width:78px;line-height:1.3}
+.monitor-flow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.monitor-flow>div{padding:9px;background:#f2f7fe;border-radius:8px;border:1px solid #e0eaf6}.monitor-flow b{display:block;font-size:12px}.monitor-flow small{display:block;font-size:10px;color:var(--monitor-muted);margin-top:4px}
+.monitor-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px}.monitor-foot small{font-size:10px;color:var(--monitor-muted)}
+body.central-ui #page .monitor-foot button{font-size:11px;padding:4px 7px;min-height:28px;border:0;box-shadow:none;background:none;color:#0575d8;white-space:nowrap}
+.monitor-schedule form{display:grid;gap:11px;margin-top:14px}
+.monitor-toggle{display:flex;gap:9px;align-items:center;font-size:12px}
+body.central-ui #page .monitor-toggle input{appearance:auto;width:17px;height:17px;min-height:0;accent-color:#087eff;padding:0;margin:0}
+.monitor-time{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.monitor-time label{font-size:11px;display:grid;gap:5px;min-width:0}
+body.central-ui #page .monitor-time input{height:34px;min-height:34px;padding:5px 9px;width:100%;min-width:0;font-size:12px;border-radius:8px}
+.monitor-time small,.monitor-schedule form>small{font-size:10px;color:var(--monitor-muted);line-height:1.4}
+.monitor-priority{border-top:1px solid #e2eaf4;padding-top:11px;margin-top:2px}
+.monitor-buttons{display:flex;gap:10px}
+body.central-ui #page .monitor-buttons button{padding:8px 10px;font-size:12px;border-radius:9px;min-height:36px;white-space:nowrap}.monitor-buttons button.primary{flex:1}
+body.central-ui #page [data-monitor-message]{font-size:11px;margin:0;line-height:1.25;max-width:100%}[data-monitor-message]:empty{display:none}
+.monitor-bottom .settings-panel{display:flex;flex-direction:column;min-width:0}.monitor-bottom .monitor-foot{margin-top:auto;padding-top:9px}
+body.central-ui #page .monitor-bases table{width:100%;font-size:11px;min-width:0;border-collapse:collapse;table-layout:auto}
+body.central-ui #page .monitor-bases :is(td,th){padding:9px 5px;white-space:nowrap;font-size:11px;border-bottom:1px solid #e5edf6}
+body.central-ui #page .monitor-bases th{background:#f0f5fb;color:#507298;font-size:10px}
+.monitor-bases .monitor-heading{display:block}.monitor-bases .monitor-heading small{display:block;margin-top:4px}
+[data-monitor-integrations]{margin-top:10px}
+[data-monitor-integrations]>div{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5edf6;padding:6px 0;gap:6px;font-size:11px;min-height:30px}
+[data-monitor-integrations] .monitor-pill{font-size:9px;padding:4px 5px}
+.monitor-chart{display:flex;align-items:center;gap:14px;min-height:160px}
+.monitor-donut{width:128px;height:128px;flex:0 0 128px;border-radius:50%;display:grid;place-items:center}
+.monitor-donut>span{width:98px;height:98px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column}.monitor-donut b{font-size:21px;color:#10264d}.monitor-donut small{font-size:10px;color:var(--monitor-muted)}
+.monitor-legend{flex:1;min-width:0}.monitor-legend>div{display:flex;align-items:center;gap:6px;font-size:10px;margin:9px 0}.monitor-legend i{width:7px;height:7px;flex:none;border-radius:50%}.monitor-legend b{margin-left:auto;font-weight:600}.monitor-legend span{min-width:0}
+.monitor-failures{padding:7px 9px;background:#fff7e8;color:#9d6410;font-size:11px;border:1px solid #f4e5c7;border-radius:7px}
+.monitor-error{margin:8px 0;color:#a8233b;font-size:12px}.monitor-error:empty{display:none}
+@media(min-width:1500px){
+ body.central-ui #page.compact-settings>.settings-title{font-size:25px;margin:0 0 4px;line-height:30px}
+ body.central-ui #page.compact-settings .settings-main-tabs{margin-bottom:12px;gap:8px}
+ body.central-ui #page.compact-settings .settings-main-tabs button{min-height:32px;padding:6px 12px;font-size:13px}
+ body.central-ui #page.compact-settings .general-monitor .settings-panel{padding:12px}
+ body.central-ui #page.compact-settings .monitor-heading{margin-bottom:8px}
+ body.central-ui #page.compact-settings .monitor-metrics{margin:8px 0 10px}
+ body.central-ui #page.compact-settings .monitor-flags{margin:9px 0}
+ body.central-ui #page.compact-settings .monitor-flow>div{padding:7px}
+ body.central-ui #page.compact-settings .monitor-schedule form{gap:9px;margin-top:11px}
+ body.central-ui #page.compact-settings [data-monitor-integrations]>div{padding:4px 0;min-height:27px;line-height:16px}
+ body.central-ui #page.compact-settings .monitor-foot{padding-top:4px}
+ body.central-ui #page.compact-settings .monitor-foot button{min-height:25px;padding:3px 6px}
+ body.central-ui #page.compact-settings .monitor-bases .monitor-heading{display:flex}
+ body.central-ui #page.compact-settings .monitor-device>img{height:245px;max-height:245px;width:100%;flex:0 0 auto}
+ body.central-ui #page.compact-settings .monitor-time input{height:34px;min-height:34px;padding:5px 9px}
+ body.central-ui #page.compact-settings .monitor-bases :is(td,th){padding:6px 5px!important;font-size:11px}
+ body.central-ui #page.compact-settings .monitor-bottom .settings-panel{min-height:0}
+ body.central-ui #page.compact-settings .monitor-chart{min-height:145px}
+}
+@media(min-width:1500px) and (min-height:950px){.monitor-device>img{height:280px}.monitor-top{min-height:415px}.monitor-bottom .settings-panel{min-height:280px}}
+@media(min-width:1500px) and (max-height:900px){
+ body.central-ui.settings-page #page.compact-settings{padding-top:12px!important;padding-bottom:8px!important}
+ body.central-ui #page.compact-settings .monitor-run-time{display:none}
+ body.central-ui #page.compact-settings .monitor-schedule form{font-size:11px}
+ body.central-ui #page.compact-settings .monitor-device>img{height:220px;max-height:220px}
+ body.central-ui #page.compact-settings .monitor-metrics{margin:6px 0 8px}
+ body.central-ui #page.compact-settings .monitor-metrics article{padding:7px 9px}
+ body.central-ui #page.compact-settings .monitor-scan-status{margin:2px 0 6px}
+ body.central-ui #page.compact-settings .monitor-flags{margin:7px 0}
+ body.central-ui #page.compact-settings .monitor-flow>div{padding:6px}
+ body.central-ui #page.compact-settings .monitor-schedule form{gap:7px;margin-top:8px}
+ body.central-ui #page.compact-settings .monitor-priority{padding-top:7px}
+ body.central-ui #page.compact-settings [data-monitor-integrations]>div{min-height:25px;padding:3px 0}
+ body.central-ui #page.compact-settings .monitor-bases :is(td,th){padding:5px!important}
+ body.central-ui #page.compact-settings .monitor-chart{min-height:132px}
+ body.central-ui #page.compact-settings .monitor-next{margin-top:3px}
+}
+@media(max-width:1450px){.monitor-top{grid-template-columns:190px minmax(320px,1.5fr) minmax(250px,1fr)}.monitor-bottom{grid-template-columns:1.2fr 1fr}.monitor-consumption{grid-column:1/-1}.monitor-chart{min-height:140px}.monitor-legend{max-width:400px}}
+@media(max-width:1100px){.monitor-top{grid-template-columns:1fr 1.7fr}.monitor-schedule{grid-column:1/-1}.monitor-schedule form{grid-template-columns:1fr 1fr}.monitor-bottom{grid-template-columns:1fr}.monitor-consumption{grid-column:auto}.settings-main-tabs{gap:4px}.compact-settings .settings-health-toolbar{position:static}.monitor-device>img{height:200px}}
+@media(max-width:700px){.monitor-top{grid-template-columns:1fr}.monitor-schedule{grid-column:auto}.monitor-schedule form{grid-template-columns:1fr}.monitor-metrics{grid-template-columns:1fr 1fr}.monitor-device>img{max-height:210px}.monitor-bases{overflow-x:auto}.monitor-heading{flex-wrap:wrap}.monitor-flow{grid-template-columns:1fr}.monitor-chart{gap:10px}.monitor-donut{width:110px;height:110px;flex-basis:110px}.monitor-donut>span{width:84px;height:84px}.monitor-donut b{font-size:18px}}

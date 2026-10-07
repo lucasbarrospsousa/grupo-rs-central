@@ -82,9 +82,17 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       await appendLog(pool,user,{module:'settings',action:'READ_SOURCES',outcome:'success',details:{branches},branch:null});
       reply(res,200,{branches});return true;
     }
+    if(url.pathname==='/api/settings-monitor'&&req.method==='GET'){
+      if(!permissions.owner)throw fail(403,'Monitor geral restrito à administração.');
+      res.setHeader('Cache-Control','no-store');
+      reply(res,200,(await pool.query('select central_homologacao.settings_monitor() as data')).rows[0].data);return true;
+    }
     if(url.pathname==='/api/code-scan'){
       if(!permissions.owner)throw fail(403,'Somente a administração pode acessar esta carga.');
-      if(req.method==='POST'){const config=scanConfig(await body(req));await pool.query('select central_homologacao.code_scan_configure($1,$2)',[config.enabled,config.interval_seconds]);await appendLog(pool,user,{module:'settings',action:'CODE_SCAN',outcome:'success',details:{enabled:config.enabled,interval_seconds:config.interval_seconds},branch:'imperatriz'});}
+      if(req.method==='POST'){const config=scanConfig(await body(req));
+        if(config.nightly_enabled!==undefined)await pool.query('select central_homologacao.code_scan_schedule($1,$2,$3,$4,$5,$6,$7)',[config.enabled,config.interval_seconds,config.nightly_enabled,config.night_start,config.night_end,config.batch_limit,config.priority]);
+        else await pool.query('select central_homologacao.code_scan_configure($1,$2)',[config.enabled,config.interval_seconds]);
+        await appendLog(pool,user,{module:'settings',action:'CODE_SCAN',outcome:'success',details:config,branch:'imperatriz'});}
       else if(req.method!=='GET')throw fail(405,'Método não permitido.');
       const state=url.searchParams.get('state');if(state&&!['confirmed','divergent','unlinked','error'].includes(state))throw fail(400,'Filtro inválido.');
       const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fail(400,'Página inválida.');

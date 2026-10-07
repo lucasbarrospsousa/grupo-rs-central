@@ -8,7 +8,17 @@ export function codeResult(row,result){
  if(!/^[1-9]\d*$/.test(result.vehicle_id)||!result.plate)throw Error('Código ou placa do veículo não confirmado.');
  return{...common,state:compact(row.plate)===compact(result.plate)?'confirmed':'divergent'};
 }
-export function scanConfig(body){if(typeof body.enabled!=='boolean'||!Number.isInteger(body.interval_seconds)||body.interval_seconds<25||body.interval_seconds>3600)throw Object.assign(Error('Informe um intervalo inteiro de 25 a 3600 segundos.'),{status:400});return body;}
+export function scanConfig(body){
+ const bad=message=>{throw Object.assign(Error(message),{status:400});};
+ if(typeof body.enabled!=='boolean'||!Number.isInteger(body.interval_seconds)||body.interval_seconds<25||body.interval_seconds>3600)bad('Informe um intervalo inteiro de 25 a 3600 segundos.');
+ const out={enabled:body.enabled,interval_seconds:body.interval_seconds};
+ if(body.nightly_enabled!==undefined){
+  if(typeof body.nightly_enabled!=='boolean'||!Number.isInteger(body.batch_limit)||body.batch_limit<1||body.batch_limit>10||typeof body.priority!=='boolean')bad('Confira o lote (1 a 10 aparelhos) e as opções da programação.');
+  if(![body.night_start,body.night_end].every(v=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v))||body.night_start===body.night_end)bad('Informe início e fim diferentes para a janela noturna.');
+  Object.assign(out,{nightly_enabled:body.nightly_enabled,batch_limit:body.batch_limit,night_start:body.night_start,night_end:body.night_end,priority:body.priority});
+ }
+ return out;
+}
 export function codeTick(pool,{service,budgetMs=45000,now=Date.now}={}){return trackQueries(pool,'automatic',async()=>{
  const lease=randomUUID(),batch=(await pool.query('select central_homologacao.code_scan_claim($1) as data',[lease])).rows[0].data;
  if(!batch.rows.length)return{processed:0,complete:!!batch.complete};
