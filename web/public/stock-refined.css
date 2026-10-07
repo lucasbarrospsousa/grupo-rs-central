@@ -47,9 +47,11 @@ body.central-ui[data-view=stock] .stock-badge{background:#eaf5ff;color:#0069d8;f
 body.central-ui[data-view=stock] #page .stock-row-actions button{height:34px;min-height:34px;width:34px;border-color:#d0e3fb;color:#0877ec;background:#fff;box-shadow:none;border-radius:8px}
 body.central-ui[data-view=stock] #page .stock-row-actions [data-delete]{color:#e23845;border-color:#f2d7da}
 body.central-ui[data-view=stock] #page .stock-row-actions .stock-discharge{width:auto;min-width:78px;font-size:13px}
-body.central-ui[data-view=stock] .stock-reading-note{color:#587ba3;font-size:12px;flex-shrink:0;line-height:1.4}
+/* Keep explanatory/live text accessible without reserving two footer rows. */
+body.central-ui[data-view=stock] .stock-reading-note,
+body.central-ui[data-view=stock] .stock-card-heading{position:absolute;width:1px;height:1px;padding:0;margin:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 body.central-ui[data-view=stock] .stock-card-heading small{color:#7790ad;font-size:11px;text-align:left}
-body.central-ui[data-view=stock] #page .stock-pagination{min-height:36px;color:#4a688e}
+body.central-ui[data-view=stock] #page .stock-pagination{min-height:36px;color:#4a688e;margin-top:auto;padding-top:0}
 body.central-ui[data-view=stock] #page .stock-pagination button{min-height:36px;border-radius:9px}
 body.central-ui[data-view=stock] button:focus-visible,body.central-ui[data-view=stock] summary:focus-visible{outline:3px solid #006bd5;outline-offset:3px}
 @media(max-width:1350px){body.central-ui[data-view=stock] .stock-main-actions{margin-left:auto}body.central-ui[data-view=stock] .ui-heading strong{font-size:23px}}
