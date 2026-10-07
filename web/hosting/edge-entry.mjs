@@ -1,3 +1,4 @@
+import {smsCloudFetch} from '../backend/sms-cloud.mjs';
 import {codeTick,scanBranch} from '../backend/code-scan.mjs';
 import {guardedIntegrations} from '../backend/background-sync.mjs';
 import {syncTick} from '../backend/background-sync.mjs';
@@ -11,6 +12,7 @@ const pool=createPool(),handler=api(pool);
 // Only the hosted site knows this separate bridge token; user sessions and CSRF
 // are still validated by the ordinary API. No database administrative key is used.
 export async function edgeFetch(request){
+ if(new URL(request.url).pathname.endsWith('/internal/sms-gateway'))return smsCloudFetch(request,pool);
  if(new URL(request.url).pathname.endsWith('/internal/configurator'))return configuratorFetch(request,pool);
  if(['/internal/sync','/internal/maintenance','/internal/codes'].some(p=>new URL(request.url).pathname.endsWith(p))){
   const expected=process.env.CENTRAL_SYNC_TOKEN||'',actual=request.headers.get('x-central-sync')||'';

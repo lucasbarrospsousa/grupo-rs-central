@@ -62,7 +62,7 @@ export function mountGeneralMonitor(ctx,root){
    const alerts=(a.sync.alerts||[]).filter(x=>key==='arya'||key==='link'?x.source==='carrier:'+key:x.source?.startsWith((key==='equipment'?'api':key)+':'));
    const health=alerts.length?{tone:'warning',label:'Acesso pendente'}:s;
    return `<div><span>${label}</span>${pill(health.label,health.tone)}</div>`;
-  }).join('')+`<div><span>Ponte SMS · Imperatriz</span>${pill(snapshot.gateway?.ok?'Sinal recente':'Sem sinal recente',snapshot.gateway?.ok?'good':'warning')}</div>`;
+  }).join('')+`<div><span>Ponte SMS · Imperatriz</span>${pill(snapshot.gateway?.connected&&snapshot.gateway.mode==='cloud'?(snapshot.gateway.ok?'Online · pronto':'Online · diagnóstico'):snapshot.gateway?.ok?'Sinal recente':'Sem sinal recente',snapshot.gateway?.ok?'good':'warning')}</div>`;
   const usage=a.usage||[],total=usage.reduce((n,r)=>n+Number(r.total),0),failed=usage.reduce((n,r)=>n+Number(r.failed),0);let at=0;const slices=[];
   const legend=sources.map(([key,label,color])=>{const count=usage.filter(r=>r.source===key).reduce((n,r)=>n+Number(r.total),0);if(count){const end=at+count/total*100;slices.push(`${color} ${at}% ${end}%`);at=end;}return count||key!=='other'?`<div><i style="background:${color}"></i><span>${label}</span><b>${num(count)}</b></div>`:'';}).join('');
   root.querySelector('[data-monitor-consumption]').innerHTML=`<div class="monitor-chart"><div class="monitor-donut" style="background:conic-gradient(${slices.join(',')||'#e7eef7 0% 100%'})"><span><b>${num(total)}</b><small>requisições</small></span></div><div class="monitor-legend">${legend}</div></div><div class="monitor-failures">${num(failed)} falhas de transporte / HTTP</div>`;

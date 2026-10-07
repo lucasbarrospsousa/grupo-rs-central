@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import {createPool,privatePath} from '../backend/database.mjs';
 import {scoped} from '../backend/remote-actions.mjs';
 import {gateway} from '../backend/gateway.mjs';
@@ -14,6 +14,7 @@ lock.on('error',fatal);
 const db=fn=>scoped(pool,user,fn);
 async function tick(){
  await lock.query('select 1');
+ if(existsSync(privatePath('sms-cloud-access.json'))){localStatus('cloud_managed');return;}
  const health=await gateway({action:'health'}).catch(()=>({ok:false}));
  await db(c=>c.query('insert into central_homologacao.sms_bridge_status(branch_id,healthy) values($1,$2) on conflict(branch_id) do update set healthy=excluded.healthy,checked_at=now()',[branch,health.ok===true]));
  localStatus(health.ok?'connected':'gateway_unavailable');

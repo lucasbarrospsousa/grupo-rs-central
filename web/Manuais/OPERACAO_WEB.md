@@ -329,3 +329,13 @@ O formulário de Manutenções mantém a mensagem de resultado fora dos campos c
 A consulta exata por placa agora recupera a série pelo código do equipamento quando a lista omite a série, confirmando código, vínculo, placa e situação ativa. Divergências continuam bloqueadas. Salvamento com conferência remota admite até 120 segundos no navegador. Falha ao atualizar o histórico depois de uma gravação confirmada é apresentada como atualização pendente, preservando o sucesso da gravação.
 
 Validação: 290 testes locais; teste de navegador `node web/tools/test-maintenance-form-ui.mjs` (Playwright/Chrome, respostas sintéticas); `node web/tools/test-maintenance-sql.mjs` (8 verificações em transação revertida, sem escrita em plataformas nem SMS).
+
+### Gateway SMS direto na nuvem — 07/10/2026
+
+Migração 037 adiciona detalhes do sinal e impede que a ponte antiga do PC sobrescreva o sinal do modo nuvem. O Android 0.4.0 consulta `/internal/sms-gateway` por HTTPS com credencial própria (somente Imperatriz), independente da sessão do navegador. `poll` publica saúde e reserva pedidos; diagnóstico não reserva pedidos. `report` só altera pedidos reservados para aquela identidade e não regride estados terminais. Conteúdo é devolvido apenas enquanto o pedido está pendente de recebimento; após recebido, consultas devolvem somente ID/estado. Tentativa persistida impede competição com a ponte antiga.
+
+`web/tools/provision-sms-cloud.mjs` aplica migração e cria credencial em arquivo protegido somente quando ausente, usando a identidade administrativa já cadastrada na ponte. `web/tools/enroll-sms-cloud-usb.mjs` transfere a credencial por stdin para armazenamento privado do app autorizado. Não exibe token nem inclui segredo no APK. `web/tools/deploy-edge.mjs` publica os segredos dedicados no backend. `web/tools/check-sms-cloud.mjs` mostra somente a saúde; `web/tools/test-sms-cloud-sql.mjs` usa tabelas temporárias e rollback, sem transmitir SMS.
+
+O modo diagnóstico aparece conectado, porém bloqueia novos envios. Para produção, selecionar o SIM e habilitar envio no telefone. Tela apagada requer a autorização de bateria existente. Reinício/encerramento forçado do telefone exige reativação manual. Um recibo de entrega não comprova execução do comando pelo rastreador.
+
+Validação desta entrega: 297 testes Node passaram; SQL com tabelas temporárias e rollback verificou reserva idempotente, diagnóstico, isolamento de base e relatórios sem regressão. O Galaxy 0.4.0 enviou sinais diretamente ao backend por HTTPS, sem túnel ADB, inclusive durante teste curto com tela em Dozing. Envio real permaneceu desabilitado. Disponibilidade prolongada e envio/entrega real desta rota ainda não foram comprovados.

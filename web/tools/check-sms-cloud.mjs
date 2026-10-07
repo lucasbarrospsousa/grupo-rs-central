@@ -1,0 +1,1 @@
+import {createPool} from '../backend/database.mjs';const p=createPool({admin:true});try{const r=(await p.query("select healthy,checked_at,details->>'mode' mode,details->>'send_enabled' send_enabled,details->>'app_version' app_version from central_homologacao.sms_bridge_status where branch_id='imperatriz'")).rows[0];console.log(JSON.stringify(r));}finally{await p.end()}
