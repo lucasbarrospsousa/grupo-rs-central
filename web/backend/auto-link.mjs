@@ -51,10 +51,10 @@ export async function startAutoLink({pool,user,branch,body}){
   return{id,existing:false};
  });
 }
-export async function runAutoLink(id,{pool,user,service}){
+export async function runAutoLink(id,{pool,user,service,claim}){
  // Durable send fence: a lost response never results in another submission.
  for(let attempt=0;attempt<10;attempt++){
-  const op=await scoped(pool,user,async c=>{const op=(await c.query('select * from central_homologacao.remote_operations where id=$1 for update',[id])).rows[0];if(!op?.payload.automatic||op.state!=='submitted'||op.payload.sent)return null;const device=(await c.query('select version from central_homologacao.devices where id=$1 and deleted_at is null',[op.payload.device_id])).rows[0];if(device?.version!==op.payload.version){await c.query("update central_homologacao.remote_operations set state='pending',result=$2 where id=$1",[id,{message:'Cadastro mudou antes do envio. Confira a operação.'}]);return null;}op.payload.sent=true;op.payload.attempts=attempt+1;await c.query('update central_homologacao.remote_operations set payload=$2,updated_at=now() where id=$1',[id,op.payload]);return op;});
+  const op=await scoped(pool,user,async c=>{const op=(await c.query('select * from central_homologacao.remote_operations where id=$1 for update',[id])).rows[0];if(!op?.payload.automatic||op.state!=='submitted'||op.payload.sent||(claim&&op.payload.claim!==claim))return null;const device=(await c.query('select version from central_homologacao.devices where id=$1 and deleted_at is null',[op.payload.device_id])).rows[0];if(device?.version!==op.payload.version){await c.query("update central_homologacao.remote_operations set state='pending',result=$2 where id=$1",[id,{message:'Cadastro mudou antes do envio. Confira a operação.'}]);return null;}op.payload.sent=true;op.payload.attempts=attempt+1;await c.query('update central_homologacao.remote_operations set payload=$2,updated_at=now() where id=$1',[id,op.payload]);return op;});
   if(!op)return;
   let outcome='uncertain';try{
    let target=op.payload.target;
@@ -63,7 +63,7 @@ export async function runAutoLink(id,{pool,user,service}){
     if(created.occupied)outcome='occupied';
     else if(created.vehicle_id){
      target={...target,vehicle_id:created.vehicle_id};op.payload.target=target;
-     await scoped(pool,user,async c=>{await c.query("update central_homologacao.link_targets set vehicle_id=$2 where operation_id=$1 and state='reserved'",[id,target.vehicle_id]);await c.query('update central_homologacao.remote_operations set payload=$2 where id=$1',[id,op.payload]);});
+     await scoped(pool,user,async c=>{await c.query("update central_homologacao.link_targets set vehicle_id=$2 where operation_id=$1 and state='reserved'",[id,target.vehicle_id]);await c.query("update central_homologacao.remote_operations set payload=jsonb_set(payload,'{target}',$2::jsonb) where id=$1",[id,JSON.stringify(target)]);});
      outcome=linkOutcome(await service.linkSaved(op.branch_id,op.payload.equipment_id,target.vehicle_id),op.payload.equipment_id,target.vehicle_id);
     }
    }else outcome=linkOutcome(await service.linkSaved(op.branch_id,op.payload.equipment_id,target.vehicle_id),op.payload.equipment_id,target.vehicle_id);
@@ -81,6 +81,7 @@ export async function runAutoLink(id,{pool,user,service}){
    }
    if(outcome==='occupied'){
     await c.query("update central_homologacao.link_targets set state='occupied' where operation_id=$1 and state='reserved'",[id]);
+    if(p.cancel_requested){await c.query("update central_homologacao.remote_operations set state='cancelled',result=$2,updated_at=now() where id=$1",[id,{message:'Placa ocupada. Próximas tentativas canceladas.'}]);return false;}
     const next=attempt<9?(await c.query("select * from central_homologacao.link_targets where branch_id=$1 and prefix=$2 and number>$3 and state='available' order by number for update skip locked limit 1",[op.branch_id,p.prefix,t.number])).rows[0]:null;
     if(next){await c.query("update central_homologacao.link_targets set state='reserved',operation_id=$4 where branch_id=$1 and prefix=$2 and number=$3",[op.branch_id,p.prefix,next.number,id]);await c.query('update central_homologacao.remote_operations set payload=$2,updated_at=now() where id=$1',[id,{...p,target:next,sent:false}]);return true;}
     await c.query("update central_homologacao.remote_operations set state='failed',result=$2,updated_at=now() where id=$1",[id,{message:'Lote esgotado ou limite de dez tentativas atingido.'}]);return false;
