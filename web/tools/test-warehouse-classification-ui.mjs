@@ -30,5 +30,14 @@ try{
  await page.waitForTimeout(500);await page.screenshot({path:fileURLToPath(new URL('../../artifacts/warehouse-classification-ui.png',import.meta.url))});
  await page.locator('#warehouse-new').click();assert.equal(await page.locator('#new-classification').inputValue(),'Estoque');await page.locator('#new-classification').selectOption('Reserva');assert.deepEqual(errors,[]);
  await page.locator('dialog[open]').evaluate(d=>d.close());await page.locator('[data-tab="movements"]').click();assert.ok((await page.locator('#warehouse-table').textContent()).includes('Marabá → Araguaína'));
+ rows.push({...rows[1],id:'44444444-4444-4444-8444-444444444444',serial:'8955000000000000004',branch:'maraba'});
+ await page.locator('[data-tab="chip"]').click();await page.locator('#warehouse-refresh').click();await page.locator('#warehouse-status').selectOption('');await page.waitForFunction(()=>document.querySelectorAll('[data-warehouse-classify]').length===4);
+ await page.locator('#warehouse-base').selectOption('araguaina');assert.equal(await page.locator('[data-warehouse-classify]').count(),1);assert.equal(await page.locator('.warehouse-metrics .value').nth(1).textContent(),'1');await page.locator('#warehouse-base').selectOption('');
+ await page.locator('[data-item]').first().check();await page.locator('#review-transfer').click();await page.locator('dialog[open]').waitFor();await page.locator('dialog[open]').evaluate(d=>d.close());
+ await page.locator('#warehouse-clear-selection').click();await page.locator('#notice button').first().click().catch(()=>{});await page.waitForTimeout(500);
+ const bounds=await page.evaluate(()=>{const footer=document.querySelector('.developer-credit').getBoundingClientRect().top;return [...document.querySelectorAll('.warehouse-control-grid>.panel,#warehouse-pagination,#review-transfer,#warehouse-table tbody tr')].map(e=>({element:e.id||e.className,bottom:e.getBoundingClientRect().bottom,footer,parentBottom:e.closest('.panel')?.getBoundingClientRect().bottom||footer}));});
+ assert.ok(bounds.every(b=>b.bottom<=b.footer+1&&b.bottom<=b.parentBottom+1),JSON.stringify(bounds));
+ const overflow=await page.locator('#warehouse-table').evaluate(e=>({h:e.scrollHeight-e.clientHeight,w:e.scrollWidth-e.clientWidth}));assert.ok(overflow.h<=1&&overflow.w<=1,JSON.stringify(overflow));
+ await page.screenshot({path:fileURLToPath(new URL('../../artifacts/warehouse-control-desktop.png',import.meta.url))});
  console.log('PASS global warehouse UI and stock-only chip count: classification filter, usage filter, AJAX edit, saved version, original usage and new-item selector; synthetic API.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
