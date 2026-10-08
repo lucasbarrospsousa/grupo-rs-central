@@ -63,7 +63,7 @@ function login() {
   app.innerHTML = `<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>GRUPO RS CENTRAL</small><h1>Uma Central.<br>Todas as bases.</h1><p>Estoque, manutenção e operação em um só lugar.</p></section><section class="login-main"><span class="pill">VERSÃO WEB • PRÉVIA LOCAL</span><h1>Acesse a Central</h1><p>A estrutura web está em preparação. Você pode explorar os fluxos com dados demonstrativos, sem informar senha.</p><label class="field">Filial inicial<select id="login-branch">${branchOptions(state.branch)}</select></label>${button('Explorar demonstração', 'enter', 'primary', 'right')}<div class="gate" style="margin-top:25px"><strong>Conexão com o banco pendente</strong><br>O login real será conectado após sua autorização. Os exemplos são reiniciados ao recarregar a página.</div></section></main>`;
   on('enter', 'click', () => { state.branch = document.querySelector('#login-branch').value; state.entered = true; render(); });
 }
-const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['link', 'Vinculação', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings'], ['logs','Logs do sistema','file']];
+const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings'], ['logs','Logs do sistema','file']];
 let renderVersion=0,cacheRenderTimer;
 if(repo.real)repo.onDataUpdate=(branch,group)=>{
  if(!state.entered||state.branch!==branch||!repo.groups(state.route).includes(group))return;
@@ -247,7 +247,7 @@ function reportForm() {
 }
 function tracking() { mountConsult({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function sms() { mountSms({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
-function linking() { mountLinking({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
+function linking() { state.route='stock';render(); }
 function bulk() { mountBulk({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function settings() { mountSettings({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 async function enterSql(){

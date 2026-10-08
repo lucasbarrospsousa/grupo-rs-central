@@ -35,6 +35,7 @@ export async function remoteAction({action,body,branch,user,role,pool,service}){
  return reconcile(op,{pool,user,service});
 }
 async function reconcile(op,{pool,user,service}){
+ if(op.payload.automatic)return{ok:op.state==='confirmed',pending:op.state!=='confirmed',id:op.id,message:op.result?.message||'Operação automática em andamento. Nenhum reenvio.'};
  if(op.state==='confirmed')return{ok:true,id:op.id,message:'Vínculo já confirmado; nenhuma gravação repetida.'};
  let result;try{
   if(op.kind==='link'){

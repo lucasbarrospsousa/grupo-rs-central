@@ -41,9 +41,10 @@ export async function tlsRequest(url,{method,headers,body}){
 }
 async function rawTransport(url,{method='GET',headers={},body,allowRedirect=false}={}){
  let r;try{r=headers.Authorization&&Object.values(ORIGINS).includes(new URL(url).origin)?await exactCaseRequest(url,{method,headers,body}):await fetch(url,{method,headers,body,redirect:'manual',signal:AbortSignal.timeout(18000)});}catch{throw err('Integração indisponível ou tempo de consulta excedido.');}
- if(!r.ok&&!(allowRedirect&&[302,303].includes(r.status)))throw Object.assign(err('Integração retornou HTTP '+r.status,r.status===429?429:r.status===401||r.status===403?502:503),{upstreamStatus:r.status});
+
  const chunks=[];let size=0;for await(const chunk of r.body){size+=chunk.length;if(size>8*1024*1024)throw err('Resposta excedeu o limite seguro. Reduza o período.');chunks.push(chunk);}
  const bytes=Buffer.concat(chunks);let text=new TextDecoder('utf-8').decode(bytes);if(text.includes('\ufffd'))text=new TextDecoder('windows-1252').decode(bytes);
+ if(!r.ok&&!(allowRedirect&&[302,303].includes(r.status)))throw Object.assign(err('Integração retornou HTTP '+r.status,r.status===429?429:r.status===401||r.status===403?502:503),{upstreamStatus:r.status,upstreamBody:text});
  return {text,headers:r.headers,status:r.status};
 }
 async function transport(url,options){const branch=Object.keys(ORIGINS).find(b=>new URL(url).origin===ORIGINS[b]);return branch?withApiBudget(branch,()=>rawTransport(url,options)):rawTransport(url,options);}
@@ -167,9 +168,25 @@ export class Integrations{
  async apiPost(branch,path,payload){
   const creation=path==='/veiculos'&&/^(AAA|GRS|XRS) - \d{1,6}$/.test(payload.placa||'')&&Number.isSafeInteger(payload.codCliente)&&payload.codCliente>0&&payload.moverEquipamento===false&&Object.keys(payload).every(k=>['placa','codCliente','codEquipamento','moverEquipamento'].includes(k));const association=/^\/veiculos\/[1-9]\d*\/equipamento$/.test(path)&&payload.mover===false&&Object.keys(payload).every(k=>['codEquipamento','mover'].includes(k));if((!creation&&!association)||!Number.isSafeInteger(payload.codEquipamento)||payload.codEquipamento<=0)throw err('Escrita da API não autorizada para este fluxo.',400);
   const session=await this.session(branch);
-  if(!session.token)await this.api(branch,'/veiculos?skip=0&take=1');
+  if(!session.token){const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});session.token=tokenOf(json(r.text));if(!session.token)throw err('API não confirmou autenticação.');}
   try{const result=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});return json(result.text);}
   catch(e){if(e.upstreamStatus===401){session.token='';e.credentialInvalid=true;}throw e;} // Never retry a write; the durable operation reconciles using reads.
+ }
+ async createSavedTarget(branch,equipmentId,target){
+  // Creation uses the RS300 owner recorded when the lot was registered.
+  try{const result=await this.apiPost(branch,'/veiculos',{placa:target.plate,codCliente:Number(target.client_id),codEquipamento:Number(equipmentId),moverEquipamento:false});
+   const id=value(result.veiculo,['codVeiculo']);
+   if(result.ok===true&&/^[1-9]\d*$/.test(id)&&value(result.veiculo,['placa'])===target.plate&&value(result,['codCliente'])===target.client_id&&value(result,['nomeCliente']).toUpperCase()==='RS300')return{vehicle_id:id};
+   return{};
+  }catch(e){let d;try{d=JSON.parse(e.upstreamBody||'');}catch{}const m=String(d?.message||d?.mensagem||d?.erro||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if([400,409,422].includes(e.upstreamStatus)&&/placa.*ja.*(cadastrad|existe|utilizada)/.test(m))return{occupied:true};throw e;}
+ }
+ async linkSaved(branch,equipmentId,vehicleId){
+  if(!/^[1-9]\d*$/.test(String(equipmentId))||!/^[1-9]\d*$/.test(String(vehicleId)))throw err('Códigos salvos inválidos.',400);
+  const session=await this.session(branch);
+  // Authenticate directly, without a preliminary vehicle lookup.
+  if(!session.token){const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});session.token=tokenOf(json(r.text));if(!session.token)throw err('API não confirmou autenticação.');}
+  try{const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/veiculos/'+vehicleId+'/equipamento',{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({codEquipamento:Number(equipmentId),mover:false})});return {status:r.status,body:r.text};}
+  catch(e){if(e.upstreamStatus===401)session.token='';if(e.upstreamStatus)return{status:e.upstreamStatus,body:e.upstreamBody||''};throw e;}
  }
  async equipmentByCode(branch,serial,id){
   if(!/^\d{6,17}$/.test(serial)||!/^[1-9]\d*$/.test(String(id)))throw err('Código ou série inválidos.',400);

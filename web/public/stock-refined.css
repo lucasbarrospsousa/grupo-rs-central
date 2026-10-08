@@ -60,3 +60,5 @@ body.central-ui[data-view=stock] button:focus-visible,body.central-ui[data-view=
 body.central-ui[data-view=stock] #page .stock-table input.stock-vehicle-plate{height:34px;min-height:34px;text-transform:none;font-size:14px}
 body.central-ui[data-view=stock] .stock-card-heading small{margin-left:0}
 @media(min-width:1601px){body.central-ui[data-view=stock] #page .stock-table td{height:74px;font-size:15px}body.central-ui[data-view=stock] #page .stock-series-link{font-size:15px}body.central-ui[data-view=stock] #page .stock-row-actions button{width:37px;height:37px;min-height:37px}body.central-ui[data-view=stock] #page .stock-row-actions .stock-discharge{width:auto}}@media(max-width:700px){body.central-ui[data-view=stock] .content>.top{padding:12px 14px}body.central-ui[data-view=stock] .ui-header-actions{flex-wrap:wrap;max-width:100%;gap:8px}body.central-ui[data-view=stock] .stock-more-menu{left:auto;right:0}}
+
+.stock-row-actions button[data-auto-link]{width:auto;min-width:78px;padding:8px 10px;white-space:nowrap}

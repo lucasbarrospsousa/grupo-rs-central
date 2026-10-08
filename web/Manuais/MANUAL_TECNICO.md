@@ -197,3 +197,6 @@ Configuração padrão lê somente devices.data.apn do cadastro ativo por base e
 Gateway Android 0.5.0 anuncia capacidade multibase em consultas e retornos. Servidor restringe acesso às memberships administrativas existentes; clientes anteriores continuam em Imperatriz. Lote único de até 10 pedidos por consulta, preservando UUID/base e bloqueio da ponte local. Sinal individual por base, sem duplicar SMS.
 
 Validação: 299 testes Node, SQL com tabelas temporárias e rollback para isolamento por base, teste visual das quatro bases a 1917x913 sem rolagem na revisão. Galaxy validado em diagnóstico, sem SMS real. Frontend publicado pelo Sites e backend central-api atualizado.
+
+## Vinculação automática — 08/10/2026
+Fluxo atual, limites e testes em [VINCULACAO_AUTOMATICA.md](VINCULACAO_AUTOMATICA.md). Substitui o fluxo da aba de vinculação para novas operações.

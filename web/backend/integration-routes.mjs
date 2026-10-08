@@ -1,3 +1,4 @@
+import {importLinkLot,startAutoLink,runAutoLink} from './auto-link.mjs';
 import {lookupEquipment,inventoryCounts} from './inventory-tools.mjs';
 import {stockBatch} from './stock-batch.mjs';
 import {maintenanceSnapshot} from './maintenance-monitor.mjs';
@@ -18,6 +19,18 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
  try{
   if(service===integrations){if(!services.has(pool))services.set(pool,guardedIntegrations(pool));service=services.get(pool);}
   const action=url.pathname.split('/').at(-1),serial=url.searchParams.get('serial');
+  if(['auto-link','link-lots'].includes(action)){
+   if(membership.role==='reader'||(!permissions?.owner&&!permissions?.writes?.includes('stock')))throw fail(403,'Sem permissão para vincular no estoque.');
+   if(req.method==='GET'){
+    const data=action==='link-lots'?await scoped(pool,user,async c=>({rows:(await c.query("select prefix,min(number) as start,max(number) as end,count(*) filter(where state='available')::int as available from central_homologacao.link_targets where branch_id=$1 group by prefix",[branch])).rows})):await scoped(pool,user,async c=>({rows:(await c.query("select id,serial,state,result,updated_at from central_homologacao.remote_operations where branch_id=$1 and kind='link' and payload->>'automatic'='true' order by created_at desc limit 50",[branch])).rows}));send(res,data);return true;
+   }
+   if(req.method!=='POST')throw fail(405,'Método inválido.');
+   const body=await readBody(req);
+   if(action==='link-lots'){if(membership.role!=='admin')throw fail(403,'Somente administrador pode cadastrar lotes.');send(res,await importLinkLot({pool,user,branch,body,service}));return true;}
+   const result=await startAutoLink({pool,user,branch,body});
+   if(!result.existing){const task=runAutoLink(result.id,{pool,user,service}).catch(()=>{});if(globalThis.EdgeRuntime?.waitUntil)globalThis.EdgeRuntime.waitUntil(task);else void task;}
+   send(res,{ok:true,...result,message:'Vinculação em segundo plano. Acompanhe pela lista.'});return true;
+  }
   if(action==='stock-page'&&req.method==='GET'){send(res,await stockBatch({pool,user,branch,service,ids:(url.searchParams.get('ids')||'').split(','),kind:['locations','chips','identity'].includes(url.searchParams.get('kind'))?url.searchParams.get('kind'):null}));return true;}
   if(action==='equipment-refresh'&&req.method==='POST'){
    if(membership.role==='reader'||(!permissions?.owner&&!permissions?.writes?.includes('stock')))throw fail(403,'Sem permissão para atualizar aparelhos.');

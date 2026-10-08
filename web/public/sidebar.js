@@ -2,7 +2,7 @@ import {branchRouteVisible} from './branch-navigation.js';
 let collapsed=false,expandedGroup,scrollTop=0;
 // Hide navigation only; tracking routes and functions remain intact.
 const hiddenGroups = new Set(['tracking']);
-const groups = {equipment:[['stock','Estoque','box'],['link','Vinculação','box'],['bulk','Cadastro em massa','file']],tracking:[['tracking','Consultar veículo','search'],['records','Histórico de posições','file'],['route','Trajeto','map']]};
+const groups = {equipment:[['stock','Estoque','box'],['bulk','Cadastro em massa','file']],tracking:[['tracking','Consultar veículo','search'],['records','Histórico de posições','file'],['route','Trajeto','map']]};
 export function mountSidebar({route,branch,icon,navigate,logout,username}) {
  const sidebar=document.querySelector('.sidebar'); sidebar.className='sidebar central-sidebar';
  sidebar.id='central-navigation';
