@@ -37,3 +37,5 @@ test('manual portal lookup retries a shared login deferred by an automatic conte
  const api={credentials:()=>({username:'synthetic',password:'synthetic'}),request:async url=>{if(url.endsWith('/login.php')&&++calls===1)throw deferredQuery('manual');return{text:'<table></table>',headers:new Headers()};}};
  const page=await new PortalRead(api).page('imperatriz','/cadastro/veiculos_listar.php');assert.equal(page,'<table></table>');assert.equal(calls,2);
 });
+
+test('local queue denial is explicitly safe to retry before dispatch',async()=>{let sent=0;setApiBudgetPool({query:async sql=>({rows:[{data:{wait_ms:13000,reason:'capacity'}}]})});await assert.rejects(withApiBudget('imperatriz',()=>sent++),e=>e.requestNotSent===true&&e.reason==='queue_busy');assert.equal(sent,0);});

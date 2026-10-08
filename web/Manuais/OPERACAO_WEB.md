@@ -351,3 +351,11 @@ Mensagens operacionais usam `public/notices.js`: faixa azul-escura com texto bra
 O componente acompanha o diálogo aberto para manter o X acessível; preserva avisos ao trocar janelas e trata mensagens como texto. Resultados de configuração e erros dos elementos role=alert/data-notice usam a mesma apresentação.
 
 Validação: 12 testes Node focados; `web/tools/test-notices-ui.mjs` em Chrome com persistência, duplicidade, empilhamento, janela modal, X, ação, escape de texto e viewport móvel; teste de estoque com API sintética. Não executa operações reais nem consultas externas.
+
+### Vinculações na fila e respostas inconclusivas — 08/10/2026
+
+Recusas locais de capacidade antes de chamar o transporte recebem `requestNotSent`; a vinculação mantém a reserva, libera a vaga de execução e volta à fila com espera mínima de 5 segundos. O agendador retoma apenas envios comprovadamente não realizados. Timeout após envio continua pendente, sem repetição automática. Falhas passam a guardar etapa, categoria e HTTP quando disponível, sem resposta bruta ou credenciais.
+
+Lotes distinguem novas operações de operações já registradas. Pendências existentes não aparecem como novos envios. O botão Conferir vínculo mostra o motivo, e a transição para pendência produz aviso. São preservados o limite de duas execuções por base e o isolamento entre bases.
+
+Validação: testes Node de prioridade e interpretação; SQL com rollback para espera local versus timeout e clique repetido; navegador com API simulada para seleção, lote, atualização e cancelamento. Consulta de diagnóstico real foi somente leitura, sem reenviar a pendência anterior.

@@ -38,7 +38,7 @@ export async function startAutoLink({pool,user,branch,body}){
   const d=(await c.query('select * from central_homologacao.devices where id=$1 and branch_id=$2 and deleted_at is null for update',[body.id,branch])).rows[0];
   if(!d)throw fail(404,'Aparelho não encontrado.');
   const pending=(await c.query("select * from central_homologacao.remote_operations where branch_id=$1 and kind='link' and serial=$2 and state in ('prepared','submitted','pending') order by created_at desc limit 1",[branch,d.serial])).rows[0];
-  if(pending)return {id:pending.id,existing:true};
+  if(pending)return {id:pending.id,existing:true,state:pending.state,message:pending.result?.message||'Vinculação já registrada. Acompanhe o progresso.'};
   const done=(await c.query("select id from central_homologacao.remote_operations where branch_id=$1 and serial=$2 and kind='link' and state='confirmed' and payload->>'automatic'='true' and result->>'plate'=$3 and (payload->>'version')::int+1=$4 order by created_at desc limit 1",[branch,d.serial,d.data.identification||'',d.version])).rows[0];if(done&&d.data.status==='Estoque')return{id:done.id,existing:true};
   if(d.version!==body.version||!['Estoque','Reserva','Manutenção'].includes(d.data.status))throw fail(409,'Cadastro mudou ou não está disponível para vinculação.');
   const prefix=linkPrefix(d.data),equipment=(await c.query('select central_homologacao.binding_device_code($1,$2) as code',[branch,d.serial])).rows[0]?.code;
@@ -48,7 +48,7 @@ export async function startAutoLink({pool,user,branch,body}){
   const payload={automatic:true,device_id:d.id,version:d.version,equipment_id:equipment,prefix,target,attempts:0};
   await c.query("insert into central_homologacao.remote_operations(id,user_id,branch_id,kind,serial,payload,state) values($1,$2,$3,'link',$4,$5,'submitted')",[id,user.user_id,branch,d.serial,payload]);
   await c.query("update central_homologacao.link_targets set state='reserved',operation_id=$4 where branch_id=$1 and prefix=$2 and number=$3",[branch,prefix,target.number,id]);
-  return{id,existing:false};
+  return{id,existing:false,state:'submitted'};
  });
 }
 export async function runAutoLink(id,{pool,user,service,claim}){
@@ -56,7 +56,7 @@ export async function runAutoLink(id,{pool,user,service,claim}){
  for(let attempt=0;attempt<10;attempt++){
   const op=await scoped(pool,user,async c=>{const op=(await c.query('select * from central_homologacao.remote_operations where id=$1 for update',[id])).rows[0];if(!op?.payload.automatic||op.state!=='submitted'||op.payload.sent||(claim&&op.payload.claim!==claim))return null;const device=(await c.query('select version from central_homologacao.devices where id=$1 and deleted_at is null',[op.payload.device_id])).rows[0];if(device?.version!==op.payload.version){await c.query("update central_homologacao.remote_operations set state='pending',result=$2 where id=$1",[id,{message:'Cadastro mudou antes do envio. Confira a operação.'}]);return null;}op.payload.sent=true;op.payload.attempts=attempt+1;await c.query('update central_homologacao.remote_operations set payload=$2,updated_at=now() where id=$1',[id,op.payload]);return op;});
   if(!op)return;
-  let outcome='uncertain';try{
+  let outcome='uncertain',stage='create',failure=null;const interpret=response=>{const result=linkOutcome(response,op.payload.equipment_id,op.payload.target.vehicle_id);if(result==='uncertain')failure={status:response.status,reason:'invalid_response'};return result;};try{
    let target=op.payload.target;
    if(!target.vehicle_id){
     const created=await service.createSavedTarget(op.branch_id,op.payload.equipment_id,target);
@@ -64,13 +64,18 @@ export async function runAutoLink(id,{pool,user,service,claim}){
     else if(created.vehicle_id){
      target={...target,vehicle_id:created.vehicle_id};op.payload.target=target;
      await scoped(pool,user,async c=>{await c.query("update central_homologacao.link_targets set vehicle_id=$2 where operation_id=$1 and state='reserved'",[id,target.vehicle_id]);await c.query("update central_homologacao.remote_operations set payload=jsonb_set(payload,'{target}',$2::jsonb) where id=$1",[id,JSON.stringify(target)]);});
-     outcome=linkOutcome(await service.linkSaved(op.branch_id,op.payload.equipment_id,target.vehicle_id),op.payload.equipment_id,target.vehicle_id);
+     stage='link';outcome=interpret(await service.linkSaved(op.branch_id,op.payload.equipment_id,target.vehicle_id));
     }
-   }else outcome=linkOutcome(await service.linkSaved(op.branch_id,op.payload.equipment_id,target.vehicle_id),op.payload.equipment_id,target.vehicle_id);
-  }catch{}
+   }else {stage='link';outcome=interpret(await service.linkSaved(op.branch_id,op.payload.equipment_id,target.vehicle_id));}
+  }catch(e){failure={notSent:e.requestNotSent===true,status:Number(e.upstreamStatus||e.status)||null,reason:e.requestNotSent?'queue_busy':e.upstreamStatus?'http_error':'transport_error'};}
   const again=await scoped(pool,user,async c=>{
    const current=(await c.query('select * from central_homologacao.remote_operations where id=$1 for update',[id])).rows[0];if(current.state!=='submitted')return false;
    const p=current.payload,t=p.target;
+   if(failure?.notSent){
+    if(p.cancel_requested){await c.query("update central_homologacao.remote_operations set state='cancelled',result=$2,updated_at=now() where id=$1",[id,{message:'Vinculação cancelada antes do envio.'}]);await c.query("update central_homologacao.link_targets set state='available',operation_id=null where operation_id=$1 and state='reserved'",[id]);return false;}
+    const next={...p,sent:false,retry_at:new Date(Date.now()+5000).toISOString()};delete next.running_at;delete next.claim;
+    await c.query("update central_homologacao.remote_operations set payload=$2,result=$3,updated_at=now() where id=$1",[id,next,{message:'Aguardando espaço na API. Envio não realizado; retomada automática.',stage,reason:'queue_busy'}]);return false;
+   }
    if(outcome==='confirmed'){
     const r=await c.query("update central_homologacao.devices set data=data||$4::jsonb,version=version+1,updated_at=now() where id=$1 and branch_id=$2 and version=$3 and deleted_at is null returning id",[p.device_id,op.branch_id,p.version,JSON.stringify({status:'Estoque',identification:t.plate,plate:'',client:'RS300',installed_at:'',quantity:1,stock:1})]);
     if(r.rowCount)await c.query('select central_homologacao.capture_device_codes($1,$2,$3)',[op.branch_id,op.serial,{state:'confirmed',equipment_id:p.equipment_id,vehicle_id:t.vehicle_id,api_plate:t.plate}]);
@@ -86,7 +91,8 @@ export async function runAutoLink(id,{pool,user,service,claim}){
     if(next){await c.query("update central_homologacao.link_targets set state='reserved',operation_id=$4 where branch_id=$1 and prefix=$2 and number=$3",[op.branch_id,p.prefix,next.number,id]);await c.query('update central_homologacao.remote_operations set payload=$2,updated_at=now() where id=$1',[id,{...p,target:next,sent:false}]);return true;}
     await c.query("update central_homologacao.remote_operations set state='failed',result=$2,updated_at=now() where id=$1",[id,{message:'Lote esgotado ou limite de dez tentativas atingido.'}]);return false;
    }
-   await c.query("update central_homologacao.remote_operations set state='pending',result=$2,updated_at=now() where id=$1",[id,{message:'Resposta inconclusiva. Número reservado; nenhum reenvio automático. Confira a operação.'}]);return false;
+   const detail=failure?.status?'HTTP '+failure.status:failure?'Falha de comunicação':'Resposta não confirmou a operação';
+   await c.query("update central_homologacao.remote_operations set state='pending',result=$2,updated_at=now() where id=$1",[id,{message:detail+' ao '+(stage==='create'?'criar a identificação':'vincular o aparelho')+'. Número reservado; confira antes de reenviar.',stage,reason:failure?.reason||'invalid_response',http_status:failure?.status||null}]);return false;
   });
   if(!again)return;
  }

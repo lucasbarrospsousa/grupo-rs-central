@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {queryContext} from './query-usage.mjs';
 let pool;
 export function setApiBudgetPool(value){pool=value;}
-export const deferredQuery=reason=>Object.assign(Error('Consulta automática aguardando espaço.'),{automaticDeferred:true,reason});
+export const deferredQuery=reason=>Object.assign(Error('Consulta automática aguardando espaço.'),{automaticDeferred:true,requestNotSent:true,reason});
 export async function withApiBudget(branch,run){
  if(!pool)throw Object.assign(Error('Controle de consultas da API indisponível.'),{status:503});
  const database=pool,lease=randomUUID(),deadline=Date.now()+12000,{mode,routine}=queryContext();
@@ -11,7 +11,7 @@ export async function withApiBudget(branch,run){
    const {wait_ms:wait,reason}=(await database.query('select central_homologacao.query_claim($1,$2,$3,$4) as data',[branch,lease,mode,routine])).rows[0].data;
    if(wait===0)break;
    if(mode==='automatic'&&(['manual','paused','capacity'].includes(reason)||Date.now()+wait>deadline))throw deferredQuery(reason);
-   if(Date.now()+wait>deadline)throw Object.assign(Error('Fila de consultas ocupada. Aguarde alguns segundos.'),{status:429,reason:'queue_busy'});
+   if(Date.now()+wait>deadline)throw Object.assign(Error('Fila de consultas ocupada. Aguarde alguns segundos.'),{status:429,requestNotSent:true,reason:'queue_busy'});
    await new Promise(resolve=>setTimeout(resolve,Math.min(wait,1000)));
   }
   return await run();

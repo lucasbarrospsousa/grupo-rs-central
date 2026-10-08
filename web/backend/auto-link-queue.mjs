@@ -26,7 +26,8 @@ export async function startLinkBatch({body,...context}){
   try{results.push({device_id:item.id,ok:true,...await startAutoLink({...context,body:item})});}
   catch(e){results.push({device_id:item.id,ok:false,message:e.status?e.message:'Não foi possível incluir este aparelho. Atualize o progresso antes de tentar novamente.'});}
  }
- return {ok:true,results,message:`${results.filter(r=>r.ok).length} de ${items.length} aparelhos aceitos. Até 2 vinculações simultâneas nesta base.`};
+ const added=results.filter(r=>r.ok&&!r.existing).length,existing=results.filter(r=>r.ok&&r.existing).length;
+ return {ok:true,results,message:`${added} novos na fila · ${existing} já registrados · ${results.filter(r=>!r.ok).length} não incluídos. Até 2 vinculações simultâneas nesta base.`};
 }
 
 // Database transaction serializes claims across users, tabs and server instances.
@@ -46,6 +47,7 @@ export async function claimLink({pool,user,branch}){
    left join central_homologacao.user_permissions p on p.user_id=u.id
    where o.branch_id=$1 and o.kind='link' and o.state='submitted' and o.payload->>'automatic'='true'
    and not(o.payload ? 'running_at') and coalesce(o.payload->>'sent','false')!='true'
+   and (o.payload->>'retry_at' is null or (o.payload->>'retry_at')::timestamptz<=now())
    and ((u.username='lucasabm' and m.role='admin') or 'stock'=any(p.writes))
    order by o.created_at,o.id for update of o skip locked limit 1`,[branch])).rows[0];
   if(!op)return null;

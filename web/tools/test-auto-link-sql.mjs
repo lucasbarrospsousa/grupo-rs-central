@@ -22,7 +22,9 @@ try{
  await c.query("update central_homologacao.devices set data=data||'{\"status\":\"Manutenção\"}'::jsonb where id=$1",[id]);
  await c.query("insert into central_homologacao.link_targets(branch_id,prefix,number,plate,vehicle_id,client_id) values('imperatriz','AAA',999992,'AAA - 999992','999992','1')");
  const uncertain=await startAutoLink({...args,body:{id,version:2}});let sends=0;const timeout={linkSaved:async()=>{sends++;throw Error('Timeout')}};
- await runAutoLink(uncertain.id,{pool,user,service:timeout});await runAutoLink(uncertain.id,{pool,user,service:timeout});assert.equal(sends,1);assert.equal((await startAutoLink({...args,body:{id,version:2}})).id,uncertain.id);
+ await runAutoLink(uncertain.id,{pool,user,service:{linkSaved:async()=>{throw Object.assign(Error('queue'),{requestNotSent:true,status:429});}}});
+ const deferred=(await c.query('select state,payload,result from central_homologacao.remote_operations where id=$1',[uncertain.id])).rows[0];assert.equal(deferred.state,'submitted');assert.equal(deferred.payload.sent,false);assert.ok(deferred.payload.retry_at);assert.equal(deferred.result.reason,'queue_busy');assert.equal(sends,0);
+ await runAutoLink(uncertain.id,{pool,user,service:timeout});await runAutoLink(uncertain.id,{pool,user,service:timeout});assert.equal(sends,1);const existing=await startAutoLink({...args,body:{id,version:2}});assert.equal(existing.id,uncertain.id);assert.equal(existing.state,'pending');assert.match(existing.message,/comunicação/);
  assert.equal((await c.query('select state from central_homologacao.remote_operations where id=$1',[uncertain.id])).rows[0].state,'pending');
  console.log('PASS transactional SQL: reservation, repeated click, occupied advances, confirmed saves, no repeated send; rollback');
 }finally{await c.query('rollback');c.release();await admin.end();}
