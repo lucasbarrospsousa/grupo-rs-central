@@ -32,6 +32,7 @@ export class SqlRepository {
   }
   ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseCache.has(branch)));}
   invalidate(branch,groups=['devices','history','warehouse']){
+    if(groups.includes('warehouse'))for(const other of this.user?.branches||[]){this.pageCache.drop(other.id,['warehouse']);const key=other.id+':warehouse';this.loaded.delete(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);this.warehouseCache.delete(other.id);}
     this.pageCache.drop(branch,groups);
     for(const group of groups){this.refreshErrors.delete(branch+':'+group);this.restored.delete(branch+':'+group);const key=branch+':'+group;this.loaded.delete(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
   }
@@ -80,9 +81,9 @@ export class SqlRepository {
       }
       if(group==='warehouse'){
         const rows=data.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR')}));
-        const movements=data.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch,type:item.action||'Envio',serial:item.serial,deviceSerial:item.device_serial||'',phone:item.phone||'',note:m.note||'',detected:item.time_basis==='detection',at:new Date(item.detected_at||m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
+        const movements=data.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch:m.branch||branch,type:item.action||'Envio',serial:item.serial,deviceSerial:item.device_serial||'',phone:item.phone||'',note:m.note||'',detected:item.time_basis==='detection',at:new Date(item.detected_at||m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
         const moved=new Set(movements.map(r=>r.serial));
-        movements.push(...rows.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch,type:r.status,serial:r.serial,at:r.received,destination:'Registro importado • destino não informado'})));
+        movements.push(...rows.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch:r.branch,type:r.status,serial:r.serial,at:'Data não informada',destination:'Registro importado • destino não informado'})));
         this.warehouseCache.set(branch,{rows,movements});
         if(!this.currentBranch||this.currentBranch===branch){this.warehouse=rows;this.movements=movements;this.warehouseBranch=branch;}
       }
@@ -94,8 +95,8 @@ export class SqlRepository {
   analyze(){throw Error('A baixa depende da integração de consulta da plataforma, ainda em validação.');}
   applyDischarge(){throw Error('A baixa remota ainda está em validação.');}
   async addWarehouse(kind,serial,provider='arya',classification='Estoque'){await this.request('warehouse?branch='+this.currentBranch,{method:'POST',body:{kind,serial,classification,...(kind==='chip'?{provider}:{})}});await this.load(this.currentBranch,{route:'warehouse'});}
-  async classifyWarehouse(id,classification){const row=this.warehouse.find(r=>r.id===id);const branch=this.currentBranch;await this.request('warehouse/'+id+'?branch='+branch,{method:'PATCH',body:{classification,version:row.version}});await this.load(branch,{route:'warehouse'});}
-  async removeWarehouse(id){const row=this.warehouse.find(r=>r.id===id);await this.request('warehouse/'+id+'?branch='+this.currentBranch,{method:'DELETE',body:{version:row.version}});await this.load(this.currentBranch,{route:'warehouse'});}
+  async classifyWarehouse(id,classification){const row=this.warehouse.find(r=>r.id===id);const branch=row.branch;await this.request('warehouse/'+id+'?branch='+branch,{method:'PATCH',body:{classification,version:row.version}});await this.load(this.currentBranch,{route:'warehouse'});}
+  async removeWarehouse(id){const row=this.warehouse.find(r=>r.id===id);await this.request('warehouse/'+id+'?branch='+row.branch,{method:'DELETE',body:{version:row.version}});await this.load(this.currentBranch,{route:'warehouse'});}
   async transfer(ids,destination,note){const items=ids.map(id=>{const r=this.warehouse.find(r=>r.id===id);return{id,version:r.version};});await this.request('warehouse-transfer?branch='+this.currentBranch,{method:'POST',body:{items,destination,note}});await this.load(this.currentBranch,{route:'warehouse'});}
   async addBulk(rows,{branch=this.currentBranch,key}={}){const result=await this.request('bulk?branch='+encodeURIComponent(branch),{method:'POST',key,body:{rows}});try{await this.load(branch,{route:'bulk'});}catch{return {...result,refreshPending:true};}return result;}
   async saveReport({branch,id,...data}){const result=await this.request('maintenance?branch='+branch,{method:'POST',body:data,key:id});try{await this.load(branch,{route:'maintenance'});}catch{return {...result,refreshPending:true};}return result;}

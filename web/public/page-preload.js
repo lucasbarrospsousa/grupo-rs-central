@@ -18,7 +18,7 @@ export class PagePreloadCache{
   this.key=PREFIX+Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('');
   try{for(let i=this.storage.length-1;i>=0;i--){const key=this.storage.key(i);if(key?.startsWith(PREFIX)&&key!==this.key)this.storage.removeItem(key);}const saved=JSON.parse(this.storage.getItem(this.key)||'{}');this.snapshots=saved&&typeof saved==='object'?saved:{};}catch{this.snapshots={};}
  }
- snapshot(branch,group){const entry=this.snapshots[branch+':'+group];return entry&&entry.at<=this.now()&&this.now()-entry.at<300000?entry.data:null;}
+ snapshot(branch,group){if(group==='warehouse')return null;const entry=this.snapshots[branch+':'+group];return entry&&entry.at<=this.now()&&this.now()-entry.at<300000?entry.data:null;}
  save(branch,group,data){if(!this.key||!['devices','history','warehouse'].includes(group))return;this.snapshots[branch+':'+group]={at:this.now(),data};try{for(const [key,e] of Object.entries(this.snapshots))if(this.now()-e.at>=300000)delete this.snapshots[key];const text=JSON.stringify(this.snapshots);if(text.length<=2000000)this.storage.setItem(this.key,text);else this.storage.removeItem(this.key);}catch{}}
  drop(branch,groups){for(const group of groups)delete this.snapshots[branch+':'+group];try{if(this.key)this.storage.setItem(this.key,JSON.stringify(this.snapshots));}catch{}this.memory.clear();}
  dropSnapshots(){this.snapshots={};this.memory.clear();try{if(this.key)this.storage.removeItem(this.key);}catch{}}

@@ -200,3 +200,10 @@ Validação: 299 testes Node, SQL com tabelas temporárias e rollback para isola
 
 ## Vinculação automática — 08/10/2026
 Fluxo atual, limites e testes em [VINCULACAO_AUTOMATICA.md](VINCULACAO_AUTOMATICA.md). Substitui o fluxo da aba de vinculação para novas operações.
+
+## Armazém global — 08/10/2026
+A leitura do Armazém reúne as filiais autorizadas do usuário independentemente da filial selecionada. A origem de cada item e movimento permanece preservada; novas entradas usam a filial selecionada. O total de chips disponíveis inclui somente status Disponível e classificação Estoque. Reserva e Emergência permanecem consultáveis separadamente.
+Envios com itens de várias origens são atômicos, validam versão/disponibilidade/permissão administrativa em todas as origens e geram histórico por origem. Edição e remoção usam a origem real do item. O monitor atualiza o painel a cada minuto com a aba ativa; o registro no banco ocorre ao receber cadastros/atualizações das integrações.
+Migração 040: rastreia aparelhos por série exata nas quatro bases e reconhece entradas cadastradas depois do aparelho. Chips continuam rastreados por ICCID; novas entradas também reconhecem uso já cadastrado. Vínculo ambíguo não é inferido. O horário de detecção não representa a data física da saída; históricos importados sem data não usam a data de entrada como saída. Não há retorno automático ao disponível ao remover um vínculo.
+Configurador aceita chip originário de outra base e chip previamente enviado quando o uso no aparelho foi confirmado, mantendo origem no histórico. Esta regra substitui a antiga restrição de mesma filial descrita acima.
+Testes: `node web/tools/test-global-warehouse-sql.mjs` (dados sintéticos e rollback, quatro bases, origens/destinos, deduplicação, entrada posterior e envio com várias origens); `node web/tools/test-warehouse-classification-ui.mjs` (API simulada, filtros, contagem, edição e histórico); `node --test web/tests/inventory-tools.test.mjs`.
