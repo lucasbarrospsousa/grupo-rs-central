@@ -1,5 +1,5 @@
 import {startLinkBatch,drainLinkQueue,cancelLinkQueue} from './auto-link-queue.mjs';
-import {importLinkLot,startAutoLink} from './auto-link.mjs';
+import {startAutoLink} from './auto-link.mjs';
 import {lookupEquipment,inventoryCounts} from './inventory-tools.mjs';
 import {stockBatch} from './stock-batch.mjs';
 import {maintenanceSnapshot} from './maintenance-monitor.mjs';
@@ -20,16 +20,16 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
  try{
   if(service===integrations){if(!services.has(pool))services.set(pool,guardedIntegrations(pool));service=services.get(pool);}
   const action=url.pathname.split('/').at(-1),serial=url.searchParams.get('serial');
-  if(['auto-link','link-lots'].includes(action)){
+  if(action==='link-lots')throw fail(410,'A numeração da vinculação agora é automática.');
+  if(action==='auto-link'){
    if(membership.role==='reader'||(!permissions?.owner&&!permissions?.writes?.includes('stock')))throw fail(403,'Sem permissão para vincular no estoque.');
    if(req.method==='GET'){
-    const data=action==='link-lots'?await scoped(pool,user,async c=>({rows:(await c.query("select prefix,min(number) as start,max(number) as end,count(*) filter(where state='available')::int as available from central_homologacao.link_targets where branch_id=$1 group by prefix",[branch])).rows})):await scoped(pool,user,async c=>({rows:(await c.query("select id,serial,state,result,updated_at,payload ? 'running_at' or payload->>'sent'='true' as running from central_homologacao.remote_operations where branch_id=$1 and kind='link' and payload->>'automatic'='true' order by created_at desc limit 200",[branch])).rows}));send(res,data);return true;
+    const data=await scoped(pool,user,async c=>({rows:(await c.query("select id,serial,state,result,updated_at,payload ? 'running_at' or payload->>'sent'='true' as running from central_homologacao.remote_operations where branch_id=$1 and kind='link' and payload->>'automatic'='true' order by created_at desc limit 200",[branch])).rows}));send(res,data);return true;
    }
    if(req.method!=='POST')throw fail(405,'Método inválido.');
    const body=await readBody(req);
-   if(action==='link-lots'){if(membership.role!=='admin')throw fail(403,'Somente administrador pode cadastrar lotes.');send(res,await importLinkLot({pool,user,branch,body,service}));return true;}
    if(body.cancel===true){send(res,await cancelLinkQueue({pool,user,branch}));return true;}
-   const result=body.items?await startLinkBatch({pool,user,branch,body}):await startAutoLink({pool,user,branch,body});
+   const result=body.items?await startLinkBatch({pool,user,branch,body,service}):await startAutoLink({pool,user,branch,body,service});
    {const task=drainLinkQueue({pool,user,branch,service}).catch(()=>{});if(globalThis.EdgeRuntime?.waitUntil)globalThis.EdgeRuntime.waitUntil(task);else void task;}
    send(res,{ok:true,...result,message:result.message||'Vinculação na fila. Acompanhe pela lista.'});return true;
   }

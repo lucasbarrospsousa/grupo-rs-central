@@ -365,3 +365,9 @@ Validação: testes Node de prioridade e interpretação; SQL com rollback para 
 Na criação de identificação (`createSavedTarget`), HTTP 409 torna o número indisponível independentemente do formato da mensagem; o fluxo existente reserva o próximo número livre do mesmo lote e mantém o limite de dez tentativas. Na etapa de vinculação, permanece a interpretação específica de conflito, sem repetição em resposta ambígua.
 
 Validação: cinco testes Node, incluindo 409 sem JSON e preservação de outros erros; teste real expressamente autorizado concluiu em duas tentativas, avançando após conflito de criação e confirmando a vinculação com HTTP 200. Dados operacionais desse teste ficam somente no banco/auditoria.
+
+### Numeração automática de vinculação — 08/10/2026
+
+O estoque não apresenta mais configuração de lotes. A Central determina AAA/GRS/XRS pelo tipo confirmado do aparelho e administra a numeração a partir de 450, independente por base/prefixo. Reutiliza números disponíveis já cadastrados e estende a sequência quando necessário; reserva em transação com bloqueio por base para evitar duplicidade entre usuários/servidores. Números ocupados, reservados ou confirmados são preservados. A primeira utilização sem titular salvo resolve RS300 pela API; usos seguintes reutilizam o cadastro. Não há consulta remota por placa antes/depois de cada envio.
+
+HTTP 409 na criação segue para o próximo número; mantém dez tentativas por execução. A rota antiga de configuração manual retorna 410. A inicialização valida titular único e bloqueia tipo desconhecido; não inventa prefixo ou titular. Validação: testes Node, SQL isolado com rollback em quatro bases sintéticas (primeiro uso, extensão, reutilização e prefixos independentes), e teste de navegador com API simulada.

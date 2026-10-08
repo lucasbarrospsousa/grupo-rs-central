@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';
-import {createPool} from '../backend/database.mjs';import {startAutoLink,runAutoLink} from '../backend/auto-link.mjs';
+import {createPool} from '../backend/database.mjs';import {startAutoLink,runAutoLink,nextLinkTarget} from '../backend/auto-link.mjs';
 const serial='999'+String(Date.now());
 const admin=createPool({admin:true}),c=await admin.connect(),uid=randomUUID(),id=randomUUID(),user={user_id:uid};
 const pool={connect:async()=>({query:(sql,args)=>['BEGIN','COMMIT','ROLLBACK'].includes(sql)?Promise.resolve({rows:[]}):c.query(sql,args),release(){}})};
 try{
  await c.query('begin');
+ for(let i=0;i<4;i++){
+ const branch='qa-auto-'+randomUUID();await c.query('insert into central_homologacao.branches values($1,$2)',[branch,'QA automatic sequence']);let reads=0;
+ const owner=async()=>{reads++;return{id:'123'}};
+ const first=await nextLinkTarget(c,branch,'AAA',449,owner);assert.equal(first.number,450);
+ await c.query("update central_homologacao.link_targets set state='occupied' where branch_id=$1 and prefix='AAA'",[branch]);
+ const next=await nextLinkTarget(c,branch,'AAA',450,owner);assert.equal(next.number,451);
+ assert.equal((await nextLinkTarget(c,branch,'AAA',449,owner)).number,451);
+ assert.equal((await nextLinkTarget(c,branch,'GRS',449,owner)).number,450);
+ assert.equal((await nextLinkTarget(c,branch,'XRS',449,owner)).number,450);assert.equal(reads,1);
+ }
+ console.log('PASS automatic numbering: four isolated bases, first use, next number, reuse and independent prefixes; owner resolved once/base.');
  await c.query('insert into central_homologacao.users(id,username,password_hash,active) values($1,$2,$3,false)',[uid,'qa-link-'+uid,'disabled']);
  await c.query("insert into central_homologacao.memberships values($1,'imperatriz','operator')",[uid]);
  await c.query("insert into central_homologacao.devices(id,branch_id,serial,data) values($1,'imperatriz',$2,$3)",[id,serial,{status:'Manutenção',model:'V7.2.2'}]);

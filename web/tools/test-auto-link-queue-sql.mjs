@@ -48,6 +48,7 @@ try{
  await Promise.all(branches.map(branch=>drainLinkQueue({pool,user,branch,service})));
  assert.equal(calls.size,count);
  const states=(await admin.query('select state,count(*)::int n from central_homologacao.remote_operations where branch_id=any($1) group by state',[branches])).rows;
+ if(states.find(r=>r.state==='pending')?.n!==3)console.log(JSON.stringify((await admin.query("select state,result from central_homologacao.remote_operations where branch_id=any($1) and state!='confirmed'",[branches])).rows));
  assert.equal(states.find(r=>r.state==='pending').n,3);assert.equal(states.find(r=>r.state==='confirmed').n,9);
  const again=(await admin.query("update central_homologacao.devices set data=data||'{\"status\":\"Manutenção\"}'::jsonb,version=version+1 where id in(select id from central_homologacao.devices where branch_id=$1 and data->>'status'='Estoque' limit 3) returning id,version",[branches[0]])).rows;
  for(let n=999986;n<=999989;n++)await admin.query("insert into central_homologacao.link_targets(branch_id,prefix,number,plate,vehicle_id,client_id) values($1,'AAA',$2,$3,$4,'1')",[branches[0],n,'AAA - '+n,String(n)]);

@@ -33,7 +33,20 @@ export async function importLinkLot({pool,user,branch,body,service}){
   await c.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,'IMPORT_LINK_LOT',randomUUID(),{prefix,start,end,count:targets.length}]);
   return{ok:true,imported:targets.length,message:targets.length+' números cadastrados no lote. Identificações ausentes serão criadas ao vincular.'};});
 }
-export async function startAutoLink({pool,user,branch,body}){
+export async function nextLinkTarget(c,branch,prefix,after=449,resolveOwner){
+ // Serialize allocation across workers and reuse all previously reserved numbers.
+ await c.query('select pg_advisory_xact_lock(hashtext($1))',['central-auto-target:'+branch]);
+ const available=(await c.query("select * from central_homologacao.link_targets where branch_id=$1 and prefix=$2 and number>$3 and state='available' order by number for update skip locked limit 1",[branch,prefix,after])).rows[0];
+ if(available)return available;
+ const owners=(await c.query('select distinct client_id from central_homologacao.link_targets where branch_id=$1',[branch])).rows;
+ if(owners.length>1)throw fail(422,'Titular RS300 divergente no cadastro da base. Confira a integração.');
+ const client=owners[0]?.client_id||(await resolveOwner?.())?.id;
+ if(!/^[1-9]\d*$/.test(client||''))throw fail(422,'Titular RS300 não confirmado para esta base.');
+ const number=Number((await c.query('select greatest(coalesce(max(number),449),$3::int)+1 as number from central_homologacao.link_targets where branch_id=$1 and prefix=$2',[branch,prefix,after])).rows[0].number);
+ if(number>999999)throw fail(422,'Limite de numeração da identificação atingido.');
+ return (await c.query('insert into central_homologacao.link_targets(branch_id,prefix,number,plate,client_id) values($1,$2,$3,$4,$5) returning *',[branch,prefix,number,prefix+' - '+number,client])).rows[0];
+}
+export async function startAutoLink({pool,user,branch,body,service}){
  return scoped(pool,user,async c=>{
   const d=(await c.query('select * from central_homologacao.devices where id=$1 and branch_id=$2 and deleted_at is null for update',[body.id,branch])).rows[0];
   if(!d)throw fail(404,'Aparelho não encontrado.');
@@ -43,8 +56,7 @@ export async function startAutoLink({pool,user,branch,body}){
   if(d.version!==body.version||!['Estoque','Reserva','Manutenção'].includes(d.data.status))throw fail(409,'Cadastro mudou ou não está disponível para vinculação.');
   const prefix=linkPrefix(d.data),equipment=(await c.query('select central_homologacao.binding_device_code($1,$2) as code',[branch,d.serial])).rows[0]?.code;
   if(!/^[1-9]\d*$/.test(equipment||''))throw fail(422,'Código do aparelho ausente. Use Atualizar aparelhos antes de vincular.');
-  const id=randomUUID();const target=(await c.query("select * from central_homologacao.link_targets where branch_id=$1 and prefix=$2 and state='available' order by number for update skip locked limit 1",[branch,prefix])).rows[0];
-  if(!target)throw fail(422,'Nenhuma identificação livre neste lote. Abra Lotes de vinculação.');
+  const id=randomUUID(),target=await nextLinkTarget(c,branch,prefix,449,()=>service.linkStockOwner(branch));
   const payload={automatic:true,device_id:d.id,version:d.version,equipment_id:equipment,prefix,target,attempts:0};
   await c.query("insert into central_homologacao.remote_operations(id,user_id,branch_id,kind,serial,payload,state) values($1,$2,$3,'link',$4,$5,'submitted')",[id,user.user_id,branch,d.serial,payload]);
   await c.query("update central_homologacao.link_targets set state='reserved',operation_id=$4 where branch_id=$1 and prefix=$2 and number=$3",[branch,prefix,target.number,id]);
@@ -87,9 +99,9 @@ export async function runAutoLink(id,{pool,user,service,claim}){
    if(outcome==='occupied'){
     await c.query("update central_homologacao.link_targets set state='occupied' where operation_id=$1 and state='reserved'",[id]);
     if(p.cancel_requested){await c.query("update central_homologacao.remote_operations set state='cancelled',result=$2,updated_at=now() where id=$1",[id,{message:'Placa ocupada. Próximas tentativas canceladas.'}]);return false;}
-    const next=attempt<9?(await c.query("select * from central_homologacao.link_targets where branch_id=$1 and prefix=$2 and number>$3 and state='available' order by number for update skip locked limit 1",[op.branch_id,p.prefix,t.number])).rows[0]:null;
+    const next=attempt<9?await nextLinkTarget(c,op.branch_id,p.prefix,t.number):null;
     if(next){await c.query("update central_homologacao.link_targets set state='reserved',operation_id=$4 where branch_id=$1 and prefix=$2 and number=$3",[op.branch_id,p.prefix,next.number,id]);await c.query('update central_homologacao.remote_operations set payload=$2,updated_at=now() where id=$1',[id,{...p,target:next,sent:false}]);return true;}
-    await c.query("update central_homologacao.remote_operations set state='failed',result=$2,updated_at=now() where id=$1",[id,{message:'Lote esgotado ou limite de dez tentativas atingido.'}]);return false;
+    await c.query("update central_homologacao.remote_operations set state='failed',result=$2,updated_at=now() where id=$1",[id,{message:'Limite de dez tentativas atingido. Tente novamente para continuar a sequência.'}]);return false;
    }
    const detail=failure?.status?'HTTP '+failure.status:failure?'Falha de comunicação':'Resposta não confirmou a operação';
    await c.query("update central_homologacao.remote_operations set state='pending',result=$2,updated_at=now() where id=$1",[id,{message:detail+' ao '+(stage==='create'?'criar a identificação':'vincular o aparelho')+'. Número reservado; confira antes de reenviar.',stage,reason:failure?.reason||'invalid_response',http_status:failure?.status||null}]);return false;
