@@ -3,3 +3,5 @@
 @media(max-width:1050px){.warehouse-page .split{grid-template-columns:minmax(0,1fr)}.warehouse-page .warehouse-metrics{grid-template-columns:1fr}.warehouse-heading{align-items:flex-start;flex-direction:column}}
 @media(max-width:700px){.warehouse-page #page{padding:18px 12px}.warehouse-heading h1{font-size:32px}.warehouse-page #warehouse-clear-selection{float:none;margin:0}.warehouse-page .tabs button{padding:10px}.warehouse-page .toolbar select{width:100%}}
 .warehouse-metric-2 .icon{background:#e2f5e9;color:#22a052}.warehouse-page .warehouse-subnav{display:flex;flex-direction:column;margin-left:12px;gap:6px}.warehouse-page .warehouse-subnav button{border:0;background:transparent;color:#d7e6f3;text-align:left;justify-content:flex-start;font-size:13px;white-space:normal}.warehouse-page #warehouse-equipment-group{background:#113852;color:#d7e6f3;justify-content:flex-start}.warehouse-page #warehouse-equipment-group:before{display:none}.warehouse-page .pill.green{background:#def6e6;color:#099849}
+
+.warehouse-page #warehouse-classification{width:200px;flex-shrink:0}.warehouse-page [data-warehouse-classify]{min-width:145px}

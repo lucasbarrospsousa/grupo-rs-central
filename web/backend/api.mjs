@@ -131,7 +131,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       await client.query('BEGIN');await client.query("select set_config('central.user_id',$1,true)",[user.user_id]);
       if(req.method==='GET'&&['/api/history','/api/warehouse'].includes(url.pathname)){
         const rows=url.pathname==='/api/history'?(await client.query('select source_id as id,source_table,branch_id,data from central_homologacao.legacy_records where branch_id=$1',[branch])).rows:
-          (await client.query('select id,branch_id as branch,kind,serial,status,received_at,version,chip_provider,chip_operator,chip_phone,usage_device_serial,usage_branch,usage_detected_at from central_homologacao.warehouse_items where branch_id=$1 and deleted_at is null order by received_at desc',[branch])).rows;
+          (await client.query('select id,branch_id as branch,kind,serial,status,classification,received_at,version,chip_provider,chip_operator,chip_phone,usage_device_serial,usage_branch,usage_detected_at from central_homologacao.warehouse_items where branch_id=$1 and deleted_at is null order by received_at desc',[branch])).rows;
         const movements=url.pathname==='/api/warehouse'?(await client.query('select id,destination,note,created_at,items from central_homologacao.warehouse_movements where branch_id=$1 order by created_at desc',[branch])).rows:[];
         const visits=url.pathname==='/api/history'?(await client.query('select id,branch_id as branch,data,version from central_homologacao.visits where branch_id=$1 order by created_at desc',[branch])).rows:[];
         await client.query('COMMIT');reply(res,200,{rows,movements,visits});return true;

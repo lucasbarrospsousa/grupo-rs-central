@@ -64,12 +64,12 @@ export class DemoRepository {
     }
     return outcomes;
   }
-  addWarehouse(kind, serial, verification) {
+  addWarehouse(kind, serial, verification, classification='Estoque') {
     serial = serial.trim();
     if (!['device', 'chip'].includes(kind) || !(kind === 'device' ? validSerial(serial) : validIccid(serial))) throw Error('Confira o número completo e mantenha os zeros iniciais.');
     if (this.warehouse.some(d => d.serial === serial && d.kind === kind)) throw Error('Este item já está no Armazém.');
     if (kind === 'chip' && (verification?.state !== 'found' || verification.iccid !== serial)) throw Error('Cadastro bloqueado até a Arya confirmar o ICCID.');
-    this.warehouse.push({ id: crypto.randomUUID(), kind, serial, status: 'Disponível', received: new Date().toLocaleDateString('pt-BR'), version: 1 });
+    this.warehouse.push({ id: crypto.randomUUID(), kind, serial, classification, status: 'Disponível', received: new Date().toLocaleDateString('pt-BR'), version: 1 });
     this.record('Entrada', serial, 'Armazém');
   }
   transfer(ids, destination, note = '') {

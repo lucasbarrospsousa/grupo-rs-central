@@ -29,6 +29,10 @@ Rastreamento: consulta local, confirmação remota por série, histórico até s
 
 Armazém: cadastro, seleção, envio por destino, auditoria e consulta de chips. Configurações: acompanhamento da sincronização e verificações adicionais sob demanda. As falhas de consulta não são tratadas como estoque vazio.
 
+O armazém possui classificação independente da situação de uso: **Estoque**, **Reserva** ou **Emergência**, para aparelhos e chips. Novos itens começam em Estoque, com escolha no cadastro. A lista permite filtrar e editar a classificação por AJAX; gravação exige escrita no armazém, papel administrativo na filial e versão atual. Classificar não muda Disponível/Utilizado/Enviado e não consulta operadoras. Alterações registram valores anterior e novo na auditoria.
+
+Migração 039 adiciona a coluna e valida os três valores. `node web/tools/migrate-warehouse-classification.mjs` testa em transação e reverte; `--apply` aplica o schema. A opção adicional `--classify-link`, utilizada somente para o pedido pontual de 08/10/2026, classifica os chips não excluídos com provedor confirmado `link` como Emergência em todas as filiais autorizadas. Não cria regra automática para novos chips nem infere o provedor de registros sem essa informação. `test-warehouse-classification-ui.mjs` verifica filtro e edição na tela com API simulada.
+
 ## Validação e comandos
 
 Em `web`, `node --test tests/*.test.mjs` executa os testes locais. `node tools/test-sql.mjs` e `node tools/test-integration-sql.mjs` usam identidades e registros descartáveis no schema de homologação. O segundo simula os serviços externos. `node tools/test-edge.mjs` testa login, isolamento, CRUD descartável e logout pela API publicada. Os scripts removem somente os registros pertencentes às identidades criadas por eles.

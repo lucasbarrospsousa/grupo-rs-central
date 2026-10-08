@@ -78,11 +78,22 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
   return {id,response:{ok:true,id,count:created.length,ids:created}};
  }
  if(role!=='admin')throw failure(403,'Armazém exige permissão administrativa nesta filial.');
+ if(path.startsWith('/api/warehouse/')&&method==='PATCH'){
+  if(!['Estoque','Reserva','Emergência'].includes(body.classification)||!Number.isInteger(body.version))throw failure(400,'Informe uma classificação válida e atualize a lista.');
+  const target=path.split('/').at(-1);
+  const row=(await c.query('select classification,version from central_homologacao.warehouse_items where id=$1 and branch_id=$2 and deleted_at is null for update',[target,branch])).rows[0];
+  if(!row||row.version!==body.version)throw failure(409,'Item alterado. Atualize a lista antes de classificar.');
+  await c.query('update central_homologacao.warehouse_items set classification=$2,version=version+1 where id=$1',[target,body.classification]);
+  await c.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,'WAREHOUSE_CLASSIFICATION',target,{before:row.classification,after:body.classification}]);
+  return {id:target,response:{ok:true,id:target,classification:body.classification,version:row.version+1}};
+ }
  if(path==='/api/warehouse'&&method==='POST'){
   if(!['device','chip'].includes(body.kind))throw failure(400,'Tipo inválido.');
+  const classification=body.classification??'Estoque';
+  if(!['Estoque','Reserva','Emergência'].includes(classification))throw failure(400,'Classificação inválida.');
   const chip=body.kind==='chip'?await verifyWarehouseChip(service,body.serial,body.provider??'arya'):null;
   if(body.kind==='device'&&!/^\d{9}$/.test(body.serial||''))throw failure(400,'Informe a série com nove dígitos.');
-  await c.query("insert into central_homologacao.warehouse_items(id,branch_id,kind,serial,status,received_at,chip_provider,chip_operator,chip_phone) values($1,$2,$4,$3,'Disponível',now(),$5,$6,$7)",[id,branch,body.serial,body.kind,chip?.provider??null,chip?.operator??null,chip?.phone??null]);
+  await c.query("insert into central_homologacao.warehouse_items(id,branch_id,kind,serial,status,received_at,chip_provider,chip_operator,chip_phone,classification) values($1,$2,$4,$3,'Disponível',now(),$5,$6,$7,$8)",[id,branch,body.serial,body.kind,chip?.provider??null,chip?.operator??null,chip?.phone??null,classification]);
   return {id,response:{ok:true,id}};
  }
  if(path.startsWith('/api/warehouse/')&&method==='DELETE'){
