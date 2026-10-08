@@ -1,0 +1,41 @@
+import {createServer} from 'node:http';
+import {readFile,mkdir} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import assert from 'node:assert/strict';
+const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
+const server=createServer(async(req,res)=>{try{
+ const path=new URL(req.url,'http://localhost').pathname;
+ res.setHeader('Content-Type',path.endsWith('.css')?'text/css':path.endsWith('.js')?'text/javascript':'text/html');
+ res.end(path==='/'?'<link rel="stylesheet" href="/styles.css"><main><h1>Central · avisos</h1></main><dialog><p>Janela de operação</p><p id="error" role="alert"></p></dialog><div id="notice" role="status"></div>':await readFile(new URL('../public'+path,import.meta.url)));
+}catch{res.statusCode=404;res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+try{
+ const page=await browser.newPage({viewport:{width:1917,height:913}}),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:'+server.address().port);
+ await page.evaluate(async()=>{window.notices=await import('/notices.js');notices.installNoticeAlerts();notices.notify('Salvo com sucesso');notices.notify('Salvo com sucesso');notices.notify('Estoque baixo em Imperatriz',{group:'inventory',action:{label:'Ver estoque',run:()=>window.opened=true}});});
+ assert.equal(await page.locator('.central-notice').count(),2);
+ await page.waitForTimeout(6500);assert.equal(await page.locator('.central-notice').count(),2,'Notices must not expire');
+ await page.getByRole('button',{name:'Ver estoque'}).click();assert.equal(await page.evaluate(()=>window.opened),true);
+ assert.equal(await page.locator('.central-notice').count(),2);
+ await page.evaluate(()=>{document.querySelector('dialog').showModal();document.querySelector('#error').textContent='Não foi possível salvar. Tente novamente.';});
+ await page.getByText('Não foi possível salvar. Tente novamente.',{exact:true}).waitFor();
+ assert.equal(await page.locator('#error').count(),1);assert.equal(await page.locator('#error').textContent(),'');
+ await page.locator('.central-notice').last().getByRole('button',{name:'Fechar aviso'}).click();
+ await page.evaluate(()=>document.querySelector('dialog').close());
+ const colors=await page.locator('.central-notice').first().evaluate(e=>({bg:getComputedStyle(e).backgroundColor,color:getComputedStyle(e).color}));
+ assert.deepEqual(colors,{bg:'rgb(21, 62, 96)',color:'rgb(255, 255, 255)'});
+ await mkdir(new URL('../../artifacts/',import.meta.url),{recursive:true});
+ await page.screenshot({path:fileURLToPath(new URL('../../artifacts/notices-desktop.png',import.meta.url))});
+ await page.setViewportSize({width:390,height:844});
+ await page.evaluate(()=>notices.notify('<img src=x onerror=alert(1)> Texto longo para conferir a quebra de linha em uma tela pequena sem perder o botão de fechar.'));
+ assert.equal(await page.locator('#notice img').count(),0);
+ const box=await page.locator('#notice').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=390&&box.y+box.height<=844);
+ await page.screenshot({path:fileURLToPath(new URL('../../artifacts/notices-mobile.png',import.meta.url))});
+ await page.evaluate(()=>notices.clearNotices('inventory'));assert.equal(await page.locator('[data-group="inventory"]').count(),0);
+ while(await page.locator('.central-notice').count())await page.getByRole('button',{name:'Fechar aviso'}).first().click();
+ assert.equal(await page.locator('#notice').isVisible(),false);assert.deepEqual(errors,[]);
+ console.log('PASS: persistence, stacking, deduplication, modal close, action, escaped text, mobile bounds, group cleanup and individual close.');
+}finally{await browser.close();await new Promise(r=>server.close(r));}

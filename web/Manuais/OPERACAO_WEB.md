@@ -343,3 +343,11 @@ Migração 037 adiciona detalhes do sinal e impede que a ponte antiga do PC sobr
 O modo diagnóstico aparece conectado, porém bloqueia novos envios. Para produção, selecionar o SIM e habilitar envio no telefone. Tela apagada requer a autorização de bateria existente. Reinício/encerramento forçado do telefone exige reativação manual. Um recibo de entrega não comprova execução do comando pelo rastreador.
 
 Validação desta entrega: 297 testes Node passaram; SQL com tabelas temporárias e rollback verificou reserva idempotente, diagnóstico, isolamento de base e relatórios sem regressão. O Galaxy 0.4.0 enviou sinais diretamente ao backend por HTTPS, sem túnel ADB, inclusive durante teste curto com tela em Dozing. Envio real permaneceu desabilitado. Disponibilidade prolongada e envio/entrega real desta rota ainda não foram comprovados.
+
+### Avisos padronizados — 08/10/2026
+
+Mensagens operacionais usam `public/notices.js`: faixa azul-escura com texto branco, próxima ao rodapé, sem expiração automática. O X fecha cada aviso; avisos diferentes empilham, duplicados visíveis não se repetem. Alertas de estoque mantêm a ação Ver estoque. Confirmações, progresso e estados dos registros continuam nos respectivos controles. Ao sair da sessão, os avisos são limpos.
+
+O componente acompanha o diálogo aberto para manter o X acessível; preserva avisos ao trocar janelas e trata mensagens como texto. Resultados de configuração e erros dos elementos role=alert/data-notice usam a mesma apresentação.
+
+Validação: 12 testes Node focados; `web/tools/test-notices-ui.mjs` em Chrome com persistência, duplicidade, empilhamento, janela modal, X, ação, escape de texto e viewport móvel; teste de estoque com API sintética. Não executa operações reais nem consultas externas.

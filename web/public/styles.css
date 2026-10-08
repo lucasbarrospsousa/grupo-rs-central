@@ -132,8 +132,15 @@ dialog.medium{width:850px}
 .login-main button{margin-top:20px}
 .login-main p{color:#617898}
 .status-dot{display:inline-block;width:8px;height:8px;background:#efa01a;border-radius:50%;margin-right:6px}
-#notice{position:fixed;bottom:25px;right:25px;max-width:480px;background:#153e60;color:white;padding:0;border-radius:10px;z-index:10;box-shadow:0 7px 30px #132c4426}
-#notice:not(:empty){padding:16px 22px}
+#notice{position:fixed;inset:auto 20px 76px auto;margin:0;width:min(520px,calc(100vw - 32px));max-height:45vh;overflow:auto;background:transparent;color:#fff;padding:0;border:0;z-index:10060;display:grid;gap:8px;pointer-events:none}
+#notice:empty{display:none}#notice::backdrop{background:transparent;pointer-events:none}
+.central-notice{display:flex;align-items:center;gap:12px;background:#153e60;color:#fff;padding:12px 14px 12px 18px;border-radius:12px;box-shadow:0 6px 22px #132c4426;pointer-events:auto;font-size:14px;line-height:1.45}
+.central-notice-text{flex:1;min-width:0;overflow-wrap:anywhere}
+#notice button{color:#fff;background:transparent;border:0;box-shadow:none;flex-shrink:0;margin:0}
+#notice .central-notice-close{font-size:25px;line-height:1;width:36px;height:36px;padding:0;border-radius:8px}
+#notice .central-notice-action{font-size:12px;padding:8px 4px;text-decoration:underline}
+#notice button:hover{background:#ffffff1c}#notice button:focus-visible{outline:2px solid white;outline-offset:2px}
+@media(max-width:600px){#notice{right:16px;bottom:72px}.central-notice{gap:8px;padding:10px 10px 10px 14px;flex-wrap:wrap}.central-notice-text{flex-basis:calc(100% - 48px)}.central-notice-close{order:1}.central-notice-action{order:2}}
 .progress{height:9px;background:#e1edf6;border-radius:10px;overflow:hidden;margin:15px 0}
 .progress div{height:100%;background:#087ce3;width:var(--width)}
 .detail-list{display:grid;grid-template-columns:1fr 1fr;gap:15px}

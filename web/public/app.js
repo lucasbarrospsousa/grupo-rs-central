@@ -1,4 +1,6 @@
 import {overviewSummary} from './overview-summary.js';
+import {notify,clearNotices,installNoticeAlerts} from './notices.js';
+installNoticeAlerts();
 import {branchRouteVisible} from './branch-navigation.js';
 import {wireWarehouseRegistration} from './warehouse-register.js';
 import {mountInventoryAlerts,stopInventoryAlerts} from './inventory-alerts.js';
@@ -40,8 +42,6 @@ const options = (items, selected) => items.map(([value, label]) => `<option valu
 const branchOptions = selected => options((repo.real ? repo.user?.branches || [] : branches).map(b => [b.id, b.name]), selected);
 const name = id => branches.find(b => b.id === id)?.name || id;
 const on = (id, event, fn) => document.getElementById(id)?.addEventListener(event, fn);
-let toastTimer;
-function notify(message) { document.querySelector('#notice').textContent = message; clearTimeout(toastTimer); toastTimer = setTimeout(() => document.querySelector('#notice').textContent = '', 6000); }
 function showModal(title, content, size = '', subtitle = '') {
   if (modal.open) modal.close();
   modal.className = size;
@@ -104,7 +104,7 @@ function render() {
     if(mode==='production'){document.querySelector('.demo-strip').className='release-strip';document.querySelector('.release-strip').innerHTML='<span>Acesso exclusivo • '+escape(repo.user.username)+'</span><span>Dados salvos na Central online</span>';document.querySelector('.footer-note').textContent='Grupo RS Central • versão 1.0';}
     if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms','users','logs'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
   }
-  const mountNavigation=()=>{mountInventoryAlerts({repo,showModal,navigate:(route,branch)=>{state.route=route;state.branch=branch;render();}});return mountSidebar({route:state.route,branch:state.branch,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real){stopInventoryAlerts();await repo.logout();}state.entered=false;state.selected.clear();render();})});};
+  const mountNavigation=()=>{mountInventoryAlerts({repo,showModal,navigate:(route,branch)=>{state.route=route;state.branch=branch;render();}});return mountSidebar({route:state.route,branch:state.branch,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real){stopInventoryAlerts();await repo.logout();}state.entered=false;state.selected.clear();clearNotices();render();})});};
   if(!allowedRoute(state.route)){page('<section class="panel"><p>Nenhum módulo disponível nesta filial para seu usuário. Selecione outra filial.</p></section>');mountNavigation();return;}
   if(repo.real){
     repo.activate(state.branch,state.route);

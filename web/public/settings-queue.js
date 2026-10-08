@@ -7,7 +7,7 @@ export function mountQueryQueue(ctx,root){
  <label>Retomar após ação manual <input name="resume_seconds" type="number" min="0" max="60" required> segundos</label>
  <label>Intervalo mínimo entre consultas automáticas <input name="gap_seconds" type="number" min="0" max="60" required> segundos</label>
  <fieldset><legend>Rotinas habilitadas</legend><label><input type="checkbox" name="codes"> Sonda de códigos · todas as bases</label><label><input type="checkbox" name="stock"> Monitoramento do estoque</label><label><input type="checkbox" name="maintenance"> Monitoramento de manutenções</label></fieldset>
- <button class="primary" type="submit" disabled>Salvar controles</button></form><p data-queue-message role="status"></p></section>
+ <button class="primary" type="submit" disabled>Salvar controles</button></form><p data-queue-message data-notice role="status"></p></section>
  <section class="settings-panel"><div class="codes-heading"><h2>Fila por base</h2><button data-queue-refresh>Atualizar</button></div><div data-queue-status role="status">Consultando…</div><p>Uma requisição já iniciada termina normalmente. Itens adiados continuam pendentes, sem registrar falha do aparelho.</p><small>Os intervalos dos lotes continuam valendo. Este painel consulta apenas o estado salvo; não inicia buscas.</small></section></div>`;
  const form=root.querySelector('form'),message=root.querySelector('[data-queue-message]');let busy=false,edited=false,snapshot;
  form.oninput=()=>{edited=true;};

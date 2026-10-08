@@ -1,3 +1,4 @@
+import {notify} from './notices.js';
 const sources=[['api','API Grupo RS','#267ac9'],['portal','Portal Grupo RS','#103252'],['arya','Arya / Innova','#ff9000'],['link','Link Solutions','#18a878'],['other','Outras integrações','#9465cd']];
 const number=n=>Number(n||0).toLocaleString('pt-BR');
 export function mountAutomation(ctx,root){
@@ -13,8 +14,8 @@ export function mountAutomation(ctx,root){
   body.querySelector('[data-mode]').value=mode;
   body.querySelector('[data-mode]').onchange=e=>{mode=e.target.value;paint();};
   body.querySelector('[data-refresh]').onclick=load;
-  body.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;const form=e.currentTarget;busy=true;form.querySelector('button').disabled=true;const message=body.querySelector('[data-message]');message.textContent='Salvando no servidor…';try{snapshot=await ctx.repo.request('automation',{method:'POST',body:{enabled:form.elements.enabled.checked,interval_minutes:Number(form.elements.interval.value)}});paint();if(alive())body.querySelector('[data-message]').textContent='Configuração salva. '+(snapshot.sync.enabled?'Automação ativa.':'Automação desativada; consultas das páginas preservadas.');}catch(e){message.textContent='Não foi possível salvar: '+e.message;}finally{busy=false;if(form.isConnected)form.querySelector('button').disabled=false;}};
+  body.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;const form=e.currentTarget;busy=true;form.querySelector('button').disabled=true;const message=body.querySelector('[data-message]');message.textContent='Salvando no servidor…';try{snapshot=await ctx.repo.request('automation',{method:'POST',body:{enabled:form.elements.enabled.checked,interval_minutes:Number(form.elements.interval.value)}});paint();if(alive())notify('Configuração salva. '+(snapshot.sync.enabled?'Automação ativa.':'Automação desativada; consultas das páginas preservadas.'));}catch(e){message.textContent='';notify('Não foi possível salvar: '+e.message);}finally{busy=false;if(form.isConnected)form.querySelector('button').disabled=false;}};
  }
- async function load(){if(busy)return;busy=true;const button=body.querySelector('[data-refresh]');if(button)button.disabled=true;try{snapshot=await ctx.repo.request('automation');paint();}catch(e){if(alive()){if(snapshot)body.querySelector('[data-message]').textContent='Contagem não atualizada: '+e.message;else body.textContent='Controles restritos à administração ou indisponíveis: '+e.message;}}finally{busy=false;if(button?.isConnected)button.disabled=false;}}
+ async function load(){if(busy)return;busy=true;const button=body.querySelector('[data-refresh]');if(button)button.disabled=true;try{snapshot=await ctx.repo.request('automation');paint();}catch(e){if(alive()){if(snapshot)notify('Contagem não atualizada: '+e.message);else body.textContent='Controles restritos à administração ou indisponíveis: '+e.message;}}finally{busy=false;if(button?.isConnected)button.disabled=false;}}
  void load();
 }
