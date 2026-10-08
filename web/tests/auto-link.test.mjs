@@ -20,3 +20,12 @@ test('configurator saves physical type only in central data',()=>{
  const d=configuredData(null,{branch:'imperatriz',serial:'024000001',tracker_version:'V7.2.2'});assert.equal(d.model,'V7.2.2');assert.equal(d.tracker_version,'V7.2.2');
  assert.throws(()=>validateConfigurator({branch:'imperatriz',serial:'024000001',action:'save',tracker_version:'unknown'}));
 });
+
+test('creation 409 advances independent of response text; other failures do not',async()=>{
+ const s=new Integrations();
+ for(const body of ['{"error":{"message":"Conflito"}}','<html>Conflict</html>','']){
+  s.apiPost=async()=>{throw Object.assign(Error('Conflict'),{upstreamStatus:409,upstreamBody:body});};
+  assert.deepEqual(await s.createSavedTarget('imperatriz','4',{plate:'AAA - 456',client_id:'1'}),{occupied:true});
+ }
+ for(const status of [400,401,429,500]){s.apiPost=async()=>{throw Object.assign(Error('failure'),{upstreamStatus:status});};await assert.rejects(s.createSavedTarget('imperatriz','4',{plate:'AAA - 456',client_id:'1'}));}
+});

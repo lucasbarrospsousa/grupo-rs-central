@@ -178,7 +178,7 @@ export class Integrations{
    const id=value(result.veiculo,['codVeiculo']);
    if(result.ok===true&&/^[1-9]\d*$/.test(id)&&value(result.veiculo,['placa'])===target.plate&&value(result,['codCliente'])===target.client_id&&value(result,['nomeCliente']).toUpperCase()==='RS300')return{vehicle_id:id};
    return{};
-  }catch(e){let d;try{d=JSON.parse(e.upstreamBody||'');}catch{}const m=String(d?.message||d?.mensagem||d?.erro||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if([400,409,422].includes(e.upstreamStatus)&&/placa.*ja.*(cadastrad|existe|utilizada)/.test(m))return{occupied:true};throw e;}
+  }catch(e){if(e.upstreamStatus===409)return{occupied:true};let d;try{d=JSON.parse(e.upstreamBody||'');}catch{}const m=String(d?.message||d?.mensagem||d?.erro||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();if([400,409,422].includes(e.upstreamStatus)&&/placa.*ja.*(cadastrad|existe|utilizada)/.test(m))return{occupied:true};throw e;}
  }
  async linkSaved(branch,equipmentId,vehicleId){
   if(!/^[1-9]\d*$/.test(String(equipmentId))||!/^[1-9]\d*$/.test(String(vehicleId)))throw err('Códigos salvos inválidos.',400);

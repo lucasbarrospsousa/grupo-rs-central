@@ -359,3 +359,9 @@ Recusas locais de capacidade antes de chamar o transporte recebem `requestNotSen
 Lotes distinguem novas operações de operações já registradas. Pendências existentes não aparecem como novos envios. O botão Conferir vínculo mostra o motivo, e a transição para pendência produz aviso. São preservados o limite de duas execuções por base e o isolamento entre bases.
 
 Validação: testes Node de prioridade e interpretação; SQL com rollback para espera local versus timeout e clique repetido; navegador com API simulada para seleção, lote, atualização e cancelamento. Consulta de diagnóstico real foi somente leitura, sem reenviar a pendência anterior.
+
+### Conflito ao criar identificação — 08/10/2026
+
+Na criação de identificação (`createSavedTarget`), HTTP 409 torna o número indisponível independentemente do formato da mensagem; o fluxo existente reserva o próximo número livre do mesmo lote e mantém o limite de dez tentativas. Na etapa de vinculação, permanece a interpretação específica de conflito, sem repetição em resposta ambígua.
+
+Validação: cinco testes Node, incluindo 409 sem JSON e preservação de outros erros; teste real expressamente autorizado concluiu em duas tentativas, avançando após conflito de criação e confirmando a vinculação com HTTP 200. Dados operacionais desse teste ficam somente no banco/auditoria.
