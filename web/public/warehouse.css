@@ -26,3 +26,14 @@ body.central-ui.warehouse-page #page .warehouse-kpi{flex-direction:row;justify-c
 body.central-ui.warehouse-page #page .warehouse-transfer .form-actions{margin-top:5px}body.central-ui.warehouse-page #page .warehouse-transfer #review-transfer{height:29px;padding:4px 12px}body.central-ui.warehouse-page #page .warehouse-transfer #warehouse-clear-selection{height:25px;padding:3px;font-size:10px}
 body.central-ui.warehouse-page #page .warehouse-inventory td small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}body.central-ui.warehouse-page #page .warehouse-inventory td [data-warehouse-classify]{height:24px!important;font-size:10px!important}body.central-ui.warehouse-page #page .warehouse-inventory td{padding:3px 5px}body.central-ui.warehouse-page #page .warehouse-inventory .row-action{height:24px;min-height:24px;padding:2px}body.central-ui.warehouse-page #page .warehouse-inventory .tabs button{height:30px;min-height:30px;padding:5px 12px}
 @media(min-width:1101px) and (min-height:700px){body.central-ui.warehouse-page #page{height:calc(100dvh - 130px);padding-bottom:8px}body.central-ui.warehouse-page .content{height:calc(100dvh - 52px)}}
+/* Never clip warehouse data at browser zoom or on shorter displays. */
+body.central-ui.warehouse-page{overflow-y:auto}
+body.central-ui.warehouse-page .content{height:auto;overflow:visible}
+body.central-ui.warehouse-page #page{height:auto;min-height:calc(100dvh - 130px);padding-bottom:20px}
+body.central-ui.warehouse-page #page .warehouse-control-grid{flex:none;grid-template-rows:minmax(250px,auto) minmax(320px,auto)}
+body.central-ui.warehouse-page #page .warehouse-control-grid .table-wrap{min-height:180px;max-height:none;overflow:auto;flex:none}
+body.central-ui.warehouse-page #page .warehouse-inventory{justify-content:space-between}
+body.central-ui.warehouse-page #warehouse-timeline{flex:none;min-height:0;justify-content:flex-start}
+body.central-ui.warehouse-page #warehouse-timeline article{flex-shrink:0}
+body.central-ui.warehouse-page #warehouse-history{margin-top:8px;flex-shrink:0}
+body.central-ui.warehouse-page #page :is(.warehouse-heading,.warehouse-transfer .form-actions){flex-wrap:wrap}

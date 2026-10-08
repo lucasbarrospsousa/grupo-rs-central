@@ -36,8 +36,14 @@ try{
  await page.locator('[data-item]').first().check();await page.locator('#review-transfer').click();await page.locator('dialog[open]').waitFor();await page.locator('dialog[open]').evaluate(d=>d.close());
  await page.locator('#warehouse-clear-selection').click();await page.locator('#notice button').first().click().catch(()=>{});await page.waitForTimeout(500);
  const bounds=await page.evaluate(()=>{const footer=document.querySelector('.developer-credit').getBoundingClientRect().top;return [...document.querySelectorAll('.warehouse-control-grid>.panel,#warehouse-pagination,#review-transfer,#warehouse-table tbody tr')].map(e=>({element:e.id||e.className,bottom:e.getBoundingClientRect().bottom,footer,parentBottom:e.closest('.panel')?.getBoundingClientRect().bottom||footer}));});
- assert.ok(bounds.every(b=>b.bottom<=b.footer+1&&b.bottom<=b.parentBottom+1),JSON.stringify(bounds));
+ assert.ok(bounds.every(b=>b.bottom<=b.parentBottom+1),JSON.stringify(bounds));
  const overflow=await page.locator('#warehouse-table').evaluate(e=>({h:e.scrollHeight-e.clientHeight,w:e.scrollWidth-e.clientWidth}));assert.ok(overflow.h<=1&&overflow.w<=1,JSON.stringify(overflow));
  await page.screenshot({path:fileURLToPath(new URL('../../artifacts/warehouse-control-desktop.png',import.meta.url))});
- console.log('PASS global warehouse UI and stock-only chip count: classification filter, usage filter, AJAX edit, saved version, original usage and new-item selector; synthetic API.');
+ for(const viewport of [{width:1534,height:726},{width:1280,height:720}]){
+  await page.setViewportSize(viewport);await page.waitForTimeout(100);
+  const reachable=await page.evaluate(()=>{window.scrollTo(0,document.documentElement.scrollHeight);const history=document.querySelector('#warehouse-history').getBoundingClientRect(),footer=document.querySelector('.developer-credit').getBoundingClientRect();return {scroll:window.scrollY,bodyOverflow:getComputedStyle(document.body).overflowY,historyBottom:history.bottom,footerTop:footer.top,tableClipped:getComputedStyle(document.querySelector('#warehouse-table')).overflowY==='hidden'};});
+  assert.ok(reachable.scroll>0&&reachable.historyBottom<=reachable.footerTop+1&&!reachable.tableClipped,JSON.stringify(reachable));
+ }
+ await page.screenshot({path:fileURLToPath(new URL('../../artifacts/warehouse-scroll-short-screen.png',import.meta.url))});
+ console.log('PASS short viewport scroll and reachable history, plus global warehouse UI and stock-only chip count: classification filter, usage filter, AJAX edit, saved version, original usage and new-item selector; synthetic API.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
