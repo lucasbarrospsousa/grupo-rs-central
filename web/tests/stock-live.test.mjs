@@ -30,5 +30,5 @@ test('platform failure preserves independently confirmed position and never gues
 test('chip registration status is not presumed online and timestamps preserve platform timezone',()=>{
  assert.equal(connectionState('Ativo'),'Não informado');assert.equal(connectionState(false),'Off');assert.equal(connectionState('Online'),'Online');
  const now=Date.parse('2026-09-24T13:00:00Z'),sample={ok:true,updated_at:'2026-09-24 09:55:00',gps_at:'2026-09-24 09:55:00',ignition:'1'};
- assert.equal(communication(sample,now),'Atualizado');assert.equal(communication({...sample,ignition:'0'},now),'Desligado');assert.equal(communication(sample,now+3600000),'Desatualizado');assert.equal(communication({ok:false,message:'timeout'},now),'Consulta pendente');
+ assert.equal(communication(sample,now),'Ligado · há 5 min');assert.equal(communication({...sample,ignition:'0'},now),'Desligado · há 5 min');assert.equal(communication(sample,now+3600000),'Sem atualização · há 1 h');assert.equal(communication({ok:false,message:'timeout'},now),'Consulta pendente');
 });
