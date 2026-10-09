@@ -3,7 +3,7 @@ import {Integrations} from '../backend/integrations.mjs';
 import {guardedIntegrations} from '../backend/background-sync.mjs';
 import {locationTime} from '../public/stock-location.js';
 const serial='024000001',codes={vehicle_id:'7',equipment_id:'8'};
-const response=()=>({veiculo:{codVeiculo:7,placa:'ABC1D23'},equipamento:{codEquipamento:8,numeroSerie:serial},comunicacao:{latitude:-5,longitude:-47,bateria:0,ignicao:0,dataEvento:'2026-10-05 10:00:00.000',dataComunicacao:'2026-10-05 10:00:03.517'}});
+const response=()=>({veiculo:{codVeiculo:7,placa:'ABC1D23'},equipamento:{codEquipamento:8,numeroSerie:serial},comunicacao:{latitude:-5,longitude:-47,bateria:0,bateriaInterna:95,ignicao:0,dataEvento:'2026-10-05 10:00:00.000',dataComunicacao:'2026-10-05 10:00:03.517'}});
 test('saved vehicle code makes one telemetry call, with zero preserved and both timestamps',async()=>{
  const s=new Integrations(),calls=[];s.equipment=()=>{throw Error('unexpected equipment lookup');};s.api=async(b,p)=>{calls.push(p);return response();};
  const r=await s.equipmentLocation('imperatriz',serial,codes);assert.deepEqual(calls,['/veiculos/7/comunicacao']);assert.equal(r.battery,'0');assert.equal(r.ignition,'0');assert.equal(r.gps_at,'2026-10-05 10:00:00.000');assert.equal(r.updated_at,'2026-10-05 10:00:03.517');assert.equal(r.plate,'ABC1D23');assert.equal(r.client,'');

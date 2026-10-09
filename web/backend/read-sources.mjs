@@ -7,7 +7,7 @@ export function mergeConfirmed(api,web){
  for(const field of ['serial','vehicle_id','plate','client_id','client','id'])if(!empty(api[field])&&!empty(web[field])&&(field==='plate'?key(api[field])!==key(web[field]):String(api[field]).trim()!==String(web[field]).trim()))throw fail('API e web divergem em '+field+'. Confira o vínculo; dados preservados.');
  if(Number(api.owner_count)>1)throw fail('A API informa múltiplos titulares. Conferência manual necessária.');
  const out={...api,field_sources:{...api.field_sources}},samePosition=api.updated_at&&Date.parse(api.updated_at)===Date.parse(web.updated_at)&&Date.parse(api.gps_at)===Date.parse(web.gps_at);
- const telemetry=new Set(['lat','lng','battery','ignition','speed','gps_at','gps_signal','updated_at']);
+ const telemetry=new Set(['lat','lng','battery','internal_battery','ignition','speed','gps_at','gps_signal','updated_at']);
  for(const [field,v] of Object.entries(web))if(!['source','data_source','queried_at','ok','field_sources'].includes(field)&&empty(out[field])&&!empty(v)&&(!telemetry.has(field)||samePosition)){out[field]=v;out.field_sources[field]='web';}
  return{...out,data_source:'both',queried_at:new Date().toISOString()};
 }
