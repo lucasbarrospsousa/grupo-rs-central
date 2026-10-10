@@ -1,3 +1,4 @@
+import {mountEquipmentSwap} from './equipment-swap.js';
 import {communicationAge,ignitionLabel,latestCommunication} from './communication-state.js';
 import {positionMap} from './maps.js';
 import {validPoint} from './tracking-model.js';
@@ -17,9 +18,10 @@ export function internalBatteryDetails(loc){
 export function locationTime(value){
  if(!value)return 'Não informado';let text=String(value).trim().replace(' ','T');if(!/(Z|[+-]\d{2}:?\d{2})$/i.test(text))text+='-03:00';const date=new Date(text);return Number.isNaN(date.getTime())?'Não informado':date.toLocaleString('pt-BR',{timeZone:'America/Fortaleza'});
 }
-export function showStockLocation({row,data,showModal,query,onData}){
- showModal('Localização do aparelho','<section class="stock-location"><div class="location-identity" id="position-owner"></div><div class="stock-location-grid"><div id="position-map" class="stock-location-map"></div><aside id="position-info" aria-label="Comunicação do aparelho"></aside></div><footer class="location-footer"><button id="position-center">Centralizar</button><a id="position-external" target="_blank" rel="noopener noreferrer" hidden>Abrir no Maps</a><button id="position-refresh" aria-label="Atualizar localização">↻ Atualizar</button><small>Atualização a cada 15 s</small><span id="position-state" role="status"></span></footer></section>','location-dialog');
+export function showStockLocation({row,data,showModal,query,onData,swap}){
+ showModal('Localização do aparelho','<section class="stock-location"><div class="location-identity" id="position-owner"></div><div class="stock-location-grid"><div id="position-map" class="stock-location-map"></div><aside id="position-info" aria-label="Comunicação do aparelho"></aside></div><footer class="location-footer"><button id="position-center">Centralizar</button><a id="position-external" target="_blank" rel="noopener noreferrer" hidden>Abrir no Maps</a><button id="position-refresh" aria-label="Atualizar localização">↻ Atualizar</button><small>Atualização a cada 15 s</small><span id="position-state" role="status"></span></footer><section id="equipment-swap" hidden></section></section>','location-dialog');
  const modal=document.querySelector('#modal'),host=modal.querySelector('.stock-location');let map=null,point=null,busy=false,revision=0,mapKey='',sample=data;const controller=new AbortController();
+ const swapHost=host.querySelector('#equipment-swap');if(swap)swapHost.hidden=false;const stopSwap=swap?mountEquipmentSwap(swapHost,{...swap,done:async()=>{await swap.done?.();sample={};await display({location:{ok:false,message:'Troca concluída. Aguardando consulta do novo vínculo.'}});await refresh();}}):()=>{};
  const el=id=>host.querySelector('#position-'+id);
  function displayOwner(){
   const loc=sample?.location||{},equipment=sample?.equipment||{};
@@ -42,7 +44,7 @@ export function showStockLocation({row,data,showModal,query,onData}){
  async function refresh(){if(busy||controller.signal.aborted||!modal.open||!host.isConnected)return;busy=true;el('refresh').disabled=true;el('state').textContent='Consultando comunicação…';try{const result=await query(controller.signal);if(controller.signal.aborted||!host.isConnected||!modal.open)return;await display(result);if(controller.signal.aborted||!host.isConnected||!modal.open)return;onData(sample);if(sample.location?.query_error)el('state').textContent='Último estado conhecido • '+sample.location.query_error;}catch(error){if(host.isConnected&&!controller.signal.aborted)el('state').textContent='Último estado conhecido • Consulta pendente: '+error.message;}finally{busy=false;if(host.isConnected)el('refresh').disabled=false;}}
  el('refresh').onclick=()=>{void refresh();};el('center').onclick=()=>map?.fit();let stopped=false;
  const timer=setInterval(()=>{if(!host.isConnected||!modal.open){stop();return;}if(!document.hidden&&navigator.onLine!==false)void refresh();},15000);
- function stop(){if(stopped)return;stopped=true;clearInterval(timer);observer.disconnect();controller.abort();revision++;map?.dispose();map=null;modal.removeEventListener('close',stop);}
+ function stop(){if(stopped)return;stopped=true;stopSwap();clearInterval(timer);observer.disconnect();controller.abort();revision++;map?.dispose();map=null;modal.removeEventListener('close',stop);}
  const observer=new MutationObserver(()=>{if(!host.isConnected||!modal.open)stop();});observer.observe(modal,{childList:true});
  modal.addEventListener('close',stop,{once:true});void display(data);if(!data?.location?.ok||!validPoint(data.location))void refresh();
 }

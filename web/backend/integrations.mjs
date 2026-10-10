@@ -165,6 +165,12 @@ export class Integrations{
   }
   return this.apiPost(branch,'/veiculos/'+fresh.payload.vehicle_id+'/equipamento',{codEquipamento:Number(payload.equipment_id),mover:false});
  }
+ async swapEquipment(branch,serial){return Integrations.prototype.equipment.call(this,branch,serial);}
+ async swapAssociate(branch,vehicleId,equipmentId,move){
+  if(!/^[1-9]\d*$/.test(String(vehicleId))||!/^[1-9]\d*$/.test(String(equipmentId))||typeof move!=='boolean')throw err('Troca inválida.',400);
+  const session=await this.session(branch);if(!session.token)throw err('Sessão da conferência expirou. Confira sem reenviar.',409);
+  const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/veiculos/'+vehicleId+'/equipamento',{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({codEquipamento:Number(equipmentId),mover:move})});return json(r.text);
+ }
  async apiPost(branch,path,payload){
   const creation=path==='/veiculos'&&/^(AAA|GRS|XRS) - \d{1,6}$/.test(payload.placa||'')&&Number.isSafeInteger(payload.codCliente)&&payload.codCliente>0&&payload.moverEquipamento===false&&Object.keys(payload).every(k=>['placa','codCliente','codEquipamento','moverEquipamento'].includes(k));const association=/^\/veiculos\/[1-9]\d*\/equipamento$/.test(path)&&payload.mover===false&&Object.keys(payload).every(k=>['codEquipamento','mover'].includes(k));if((!creation&&!association)||!Number.isSafeInteger(payload.codEquipamento)||payload.codEquipamento<=0)throw err('Escrita da API não autorizada para este fluxo.',400);
   const session=await this.session(branch);

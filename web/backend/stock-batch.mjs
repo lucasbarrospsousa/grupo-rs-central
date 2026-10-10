@@ -10,7 +10,7 @@ export async function stockBatch({pool,user,branch,service,ids,kind}){
  const devices=await scoped(pool,user,async c=>(await c.query('select id,serial,data,version from central_homologacao.devices where branch_id=$1 and id=any($2::uuid[]) and deleted_at is null',[branch,ids])).rows);
  if(devices.length!==ids.length)throw fail(403,'Aparelho indisponível nesta filial.');
  const results=await mapTwo(devices,async row=>{
-  if(kind==='locations')return{location:await (service.stockCommunication||service.equipmentLocation).call(service,branch,row.serial)};
+  if(kind==='locations')return{device:row.data.status==='Instalado'?{...row.data,id:row.id,serial:row.serial,version:row.version,branch}:undefined,location:await (service.stockCommunication||service.equipmentLocation).call(service,branch,row.serial)};
   if(kind==='identity')return{identity:await service.locationIdentity(branch,row.serial)};
   if(kind==='chips'){const chip=await savedChipStatus(service,row.data);if(!chip.ok)throw fail(422,chip.message);return{chip};}
   const equipment=await service.equipment(branch,row.serial),patch=equipmentPatch(equipment,row.serial);

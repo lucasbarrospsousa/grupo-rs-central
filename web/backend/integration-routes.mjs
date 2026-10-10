@@ -1,3 +1,4 @@
+import {equipmentSwap} from './equipment-swap.mjs';
 import {startLinkBatch,drainLinkQueue,cancelLinkQueue} from './auto-link-queue.mjs';
 import {startAutoLink} from './auto-link.mjs';
 import {lookupEquipment,inventoryCounts} from './inventory-tools.mjs';
@@ -20,6 +21,13 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
  try{
   if(service===integrations){if(!services.has(pool))services.set(pool,guardedIntegrations(pool));service=services.get(pool);}
   const action=url.pathname.split('/').at(-1),serial=url.searchParams.get('serial');
+  if(action==='equipment-swap'){
+   if(membership.role==='reader'||(!permissions?.owner&&!permissions?.writes?.includes('stock')))throw fail(403,'Sem permissão para trocar aparelhos.');
+   if(req.method==='GET'){send(res,await equipmentSwap({pool,user,branch,service,action:'status',body:{serial}}));return true;}
+   if(req.method!=='POST')throw fail(405,'Método inválido.');
+   const b=await readBody(req);if(!['preview','execute'].includes(b.action))throw fail(400,'Ação inválida.');
+   send(res,await equipmentSwap({pool,user,branch,service,action:b.action,body:b}));return true;
+  }
   if(action==='link-lots')throw fail(410,'A numeração da vinculação agora é automática.');
   if(action==='auto-link'){
    if(membership.role==='reader'||(!permissions?.owner&&!permissions?.writes?.includes('stock')))throw fail(403,'Sem permissão para vincular no estoque.');
