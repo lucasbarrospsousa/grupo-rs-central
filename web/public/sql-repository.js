@@ -81,7 +81,7 @@ export class SqlRepository {
       }
       if(group==='warehouse'){
         const rows=data.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR')}));
-        const movements=data.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch:m.branch||branch,type:item.action||'Envio',serial:item.serial,deviceSerial:item.device_serial||'',phone:item.phone||'',note:m.note||'',detected:item.time_basis==='detection',atISO:item.detected_at||m.created_at,at:new Date(item.detected_at||m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
+        const movements=data.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch:m.branch||branch,type:item.action||'Envio',kind:item.kind,serial:item.serial,deviceSerial:item.device_serial||'',phone:item.phone||'',note:m.note||'',detected:item.time_basis==='detection',atISO:item.detected_at||m.created_at,at:new Date(item.detected_at||m.created_at).toLocaleString('pt-BR'),destination:m.destination})));
         const moved=new Set(movements.map(r=>r.serial));
         movements.push(...rows.filter(r=>['Utilizado','Enviado'].includes(r.status)&&!moved.has(r.serial)).map(r=>({id:'legacy-'+r.id,branch:r.branch,type:r.status,serial:r.serial,at:'Data não informada',destination:'Registro importado • destino não informado'})));
         this.warehouseCache.set(branch,{rows,movements});

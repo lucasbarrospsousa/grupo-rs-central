@@ -371,3 +371,14 @@ Validação: cinco testes Node, incluindo 409 sem JSON e preservação de outros
 O estoque não apresenta mais configuração de lotes. A Central determina AAA/GRS/XRS pelo tipo confirmado do aparelho e administra a numeração a partir de 450, independente por base/prefixo. Reutiliza números disponíveis já cadastrados e estende a sequência quando necessário; reserva em transação com bloqueio por base para evitar duplicidade entre usuários/servidores. Números ocupados, reservados ou confirmados são preservados. A primeira utilização sem titular salvo resolve RS300 pela API; usos seguintes reutilizam o cadastro. Não há consulta remota por placa antes/depois de cada envio.
 
 HTTP 409 na criação segue para o próximo número; mantém dez tentativas por execução. A rota antiga de configuração manual retorna 410. A inicialização valida titular único e bloqueia tipo desconhecido; não inventa prefixo ou titular. Validação: testes Node, SQL isolado com rollback em quatro bases sintéticas (primeiro uso, extensão, reutilização e prefixos independentes), e teste de navegador com API simulada.
+
+
+### Armazém central de Imperatriz — 10/10/2026
+
+Quatro abas padronizadas: Visão geral, Inventário, Movimentações e Análise mensal. Entrada exclusivamente manual na tabela warehouse_items; cadastros do configurador e estoque não criam itens no armazém. As rotas de leitura/escrita do armazém recusam outras filiais; a navegação também permanece exclusiva de Imperatriz. Histórico existente é preservado.
+
+Detecção pelos gatilhos existentes identifica séries/ICCID já cadastrados no armazém nas quatro bases. A tela consulta o estado salvo a cada minuto enquanto ativa. Histórico por item mostra base, aparelho/chip associado e horário da detecção, sem afirmar o horário físico de envio. Chips em reserva/emergência não entram no disponível. Consulta de associação respeita as permissões do banco.
+
+Gráficos mostram quatro linhas por dia, mês escolhido ou três meses terminando nele, com filtro de aparelhos/chips. Somente itens do armazém com destino reconhecido e data registrada contam. Envio e confirmação do mesmo item/destino contam uma vez, pela primeira data; mudanças de telefone e desvinculação permanecem no histórico, fora das saídas. Registros sem data continuam visíveis no histórico, sem inventar pontos no gráfico; dias futuros são excluídos.
+
+Validação: 22 testes Node focados; test-global-warehouse-sql.mjs com cenários sintéticos nas quatro bases e rollback; leitura real da consulta nova sem alterações; test-warehouse-control-ui.mjs com API simulada em 1917x913, 1280x720 e 390x844. Sem chamadas novas aos provedores nem migração de dados nesta entrega.

@@ -124,6 +124,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     if(await integrationRoute({req,res,url,pool,user,permissions,readBody:body,service:integrationService}))return true;
     if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');
+    if(url.pathname.startsWith('/api/warehouse')&&branch!=='imperatriz')throw fail(403,'Armazém disponível somente em Imperatriz.');
     const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];
     if(!membership)throw fail(403,'Sem acesso a esta filial.');
     const client=await pool.connect();
@@ -131,8 +132,8 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       await client.query('BEGIN');await client.query("select set_config('central.user_id',$1,true)",[user.user_id]);
       if(req.method==='GET'&&['/api/history','/api/warehouse'].includes(url.pathname)){
         const rows=url.pathname==='/api/history'?(await client.query('select source_id as id,source_table,branch_id,data from central_homologacao.legacy_records where branch_id=$1',[branch])).rows:
-          (await client.query('select id,branch_id as branch,kind,serial,status,classification,received_at,version,chip_provider,chip_operator,chip_phone,usage_device_serial,usage_branch,usage_detected_at from central_homologacao.warehouse_items where branch_id in (select branch_id from central_homologacao.memberships where user_id=$1) and deleted_at is null order by received_at desc',[user.user_id])).rows;
-        const movements=url.pathname==='/api/warehouse'?(await client.query('select id,branch_id as branch,destination,note,created_at,items from central_homologacao.warehouse_movements where branch_id in (select branch_id from central_homologacao.memberships where user_id=$1) order by created_at desc',[user.user_id])).rows:[];
+          (await client.query("select id,branch_id as branch,kind,serial,status,classification,received_at,version,chip_provider,chip_operator,chip_phone,usage_device_serial,usage_branch,usage_detected_at,(select d.data->>'iccid' from central_homologacao.devices d where d.serial=warehouse_items.usage_device_serial and d.branch_id=warehouse_items.usage_branch and d.deleted_at is null limit 1) as linked_iccid from central_homologacao.warehouse_items where branch_id='imperatriz' and branch_id in (select branch_id from central_homologacao.memberships where user_id=$1) and deleted_at is null order by received_at desc",[user.user_id])).rows;
+        const movements=url.pathname==='/api/warehouse'?(await client.query("select id,branch_id as branch,destination,note,created_at,items from central_homologacao.warehouse_movements where branch_id='imperatriz' and branch_id in (select branch_id from central_homologacao.memberships where user_id=$1) order by created_at desc",[user.user_id])).rows:[];
         const visits=url.pathname==='/api/history'?(await client.query('select id,branch_id as branch,data,version from central_homologacao.visits where branch_id=$1 order by created_at desc',[branch])).rows:[];
         await client.query('COMMIT');reply(res,200,{rows,movements,visits});return true;
       }
