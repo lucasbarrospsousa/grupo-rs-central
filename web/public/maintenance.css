@@ -179,3 +179,7 @@ body.central-ui .maintenance-record-form .form-actions{bottom:-24px;margin:0;pad
 @media(prefers-reduced-motion:reduce){body.central-ui .maintenance-records *,body.central-ui .maintenance-record-form *,body.central-ui.maintenance-page button{animation:none!important;transition:none!important;translate:none!important}}
 @media(max-width:650px){body.central-ui .maintenance-record-form .form-grid{grid-template-columns:1fr}}
 @media(min-width:1000px){body.central-ui .maintenance-record-form>.form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+body.central-ui #record-swap-host:not(:empty){padding:12px;margin:10px 0;border:1px solid #b7d9ee;border-radius:10px;background:#edf7ff}
+body.central-ui #record-swap-host .swap-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+body.central-ui #record-swap-host .swap-bar label{flex:1;min-width:170px}
+body.central-ui #record-swap-host .swap-summary{font-size:13px;line-height:1.5;margin:10px 0 0}
