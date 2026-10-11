@@ -46,8 +46,8 @@ test('permissions still limit queries; logout discards in-flight data',async()=>
 test('startup warms selected authorized branch and navigation reuses groups',async()=>{
  const r=repo();r.user.branches=[{id:'imperatriz'},{id:'araguaina'}];r.currentBranch='araguaina';
  await r.preloadSelected('araguaina',{delay:0});
- assert.deepEqual(r.calls.filter(x=>x.includes('?branch=')),['devices?branch=araguaina','history?branch=araguaina']);
- const count=r.calls.length;for(const route of ['stock','maintenance','stock'])await r.load('araguaina',{route,force:false});assert.equal(r.calls.length,count);
+ assert.deepEqual(r.calls.filter(x=>x.includes('?branch=')),['devices?branch=araguaina']);
+ const count=r.calls.length;for(const route of ['stock','stock'])await r.load('araguaina',{route,force:false});assert.equal(r.calls.length,count);
  const limited=repo();limited.currentBranch='imperatriz';limited.user.branches=[{id:'imperatriz'}];limited.user.permissions={views:['warehouse']};await limited.preloadSelected('imperatriz',{delay:0});assert.deepEqual(limited.calls,['warehouse?branch=imperatriz']);
 });
 test('startup failure is isolated and can be retried by opening the module',async()=>{

@@ -1,3 +1,4 @@
+export const stockStatusLabel=value=>value==='Manutenção'?'Reparo':value;
 // Port of inventory search/date rules; no network or persistence.
 export const statuses = ['Todos', 'Estoque', 'Reserva', 'Instalado', 'Manutenção', 'Inativos'];
 export function visibleStatus(row, branch) {
@@ -46,7 +47,7 @@ export function filterStock(rows, { query = '', status = 'Todos', start = '', en
 }
 export function csvText(rows) {
   const cell = v => { let s = String(v ?? ''); if (/^[=+@\-\t\r]/.test(s)) s = "'" + s; return '"' + s.replaceAll('"','""') + '"'; };
-  return '\ufeff' + [['Série','Identificação','Veículo','Tipo','Operadora','Status','Conectividade','Instalação'], ...rows.map(r => [r.serial,r.identification,r.plate,r.model,r.carrier,r.status,r.connectivity,r.installed_at])].map(row => row.map(cell).join(';')).join('\r\n');
+  return '\ufeff' + [['Série','Identificação','Veículo','Tipo','Operadora','Status','Conectividade','Instalação'], ...rows.map(r => [r.serial,r.identification,r.plate,r.model,r.carrier,stockStatusLabel(r.status),r.connectivity,r.installed_at])].map(row => row.map(cell).join(';')).join('\r\n');
 }
 
 export function stockPageNumber(value,total,perPage=10){

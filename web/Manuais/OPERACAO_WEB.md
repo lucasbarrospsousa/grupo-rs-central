@@ -1,5 +1,15 @@
 # Grupo RS Central — operação web
 
+## Manutenções — registros de situações e soluções (11/10/2026)
+
+Disponível apenas em Imperatriz. Indicadores e registros usam os dados do aparelho, chip e veículo no momento da ocorrência, preservados no relatório. RS300 possui versões próprias (7.1.6, 7.2.2, 7.3.2, 7.3.5 e futuras versões exatas); J16 e Suntech são modelos distintos e não entram no gráfico de versões do RS300. Campos históricos ausentes permanecem não informados.
+
+Registrar ou editar uma manutenção não altera estoque, vínculos nem as plataformas externas. Troca de chip inclui reconfiguração. Não há etapa de validação da solução nem linha do tempo de atendimento. A consulta opcional preenche identificação para conferência; a gravação salva apenas o registro. Edições preservam identidade, data original e evidências legadas. Conflitos de versão exigem atualizar a lista.
+
+A migração 043 amplia a restrição de identidade para registros explícitos V3 de Imperatriz sem reescrever dados antigos. Aplicação: `node tools/migrate-maintenance-records.mjs --apply`; sem a opção, valida e reverte. Teste SQL: `node tools/test-maintenance-sql.mjs`, com rollback dos dados sintéticos. Formulários anteriores são recusados com solicitação para atualizar a página.
+
+No estoque, “Reparo” é o nome exibido do estado armazenado “Manutenção”; a integração continua usando o valor existente. Os indicadores apresentam contagens de registros, não taxas de falha por frota. Ícones e tons azul, laranja, roxo e verde diferenciam os blocos mantendo rótulos textuais.
+
 ## Ambiente e responsabilidade pelos dados
 
 O site usa o PostgreSQL do projeto Supabase existente, schema privado `central_homologacao`. A origem foi o backup de 24/09/2026, reconciliado com nova cópia consistente do desktop às 11:47 (Fortaleza): um aparelho atualizado e uma movimentação incorporada. O armazém foi conferido sem diferenças. Não há sincronização automática com o aplicativo desktop. Uma alteração feita no site não atualiza o banco do executável, e vice-versa.

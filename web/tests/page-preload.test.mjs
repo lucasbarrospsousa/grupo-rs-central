@@ -7,7 +7,7 @@ const data={rows:[],visits:[],movements:[]};
 function storage(){const m=new Map();return {get length(){return m.size},key:i=>[...m.keys()][i],getItem:k=>m.get(k),setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)};}
 test('preload respects selected branch, hidden modules and view permissions',()=>{
  assert.deepEqual(preloadPlan(user,'imperatriz').groups,['devices','warehouse','history']);
- assert.deepEqual(preloadPlan(user,'araguaina').groups,['devices','history']);
+ assert.deepEqual(preloadPlan(user,'araguaina').groups,['devices']);
  assert.deepEqual(preloadPlan(user,'maraba'),{groups:[],paths:[]});
  assert.deepEqual(preloadPlan({...user,permissions:{views:['warehouse','sms']}},'araguaina'),{groups:[],paths:[]});
  assert.deepEqual(preloadPlan({...user,permissions:{views:['stock']}},'imperatriz'),{groups:['devices'],paths:[]});

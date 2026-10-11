@@ -124,6 +124,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     if(await integrationRoute({req,res,url,pool,user,permissions,readBody:body,service:integrationService}))return true;
     if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');
+    if((url.pathname==='/api/history'||url.pathname.startsWith('/api/maintenance'))&&branch!=='imperatriz')throw fail(403,'Manutenções disponível somente em Imperatriz.');
     if(url.pathname.startsWith('/api/warehouse')&&branch!=='imperatriz')throw fail(403,'Armazém disponível somente em Imperatriz.');
     const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];
     if(!membership)throw fail(403,'Sem acesso a esta filial.');

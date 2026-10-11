@@ -18,7 +18,7 @@ export function setupAutoLink({repo,branch,showModal,notify,refresh}){
  }
  async function submit(rows){
   if(submitting)return;
-  if(!rows.length)return notify('Selecione aparelhos em Estoque, Reserva ou Manutenção.');
+  if(!rows.length)return notify('Selecione aparelhos em Estoque, Reserva ou Reparo.');
   if(rows.length>50)return notify('Selecione até 50 aparelhos por lote.');
   submitting=true;if(selectionButton)selectionButton.disabled=true;paint();
   try{const result=await request('auto-link',{items:rows.map(r=>({id:r.id,version:r.version}))});

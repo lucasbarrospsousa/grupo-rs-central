@@ -1,3 +1,4 @@
+import {maintenanceRecord} from './maintenance-records.mjs';
 import {verifyWarehouseChip} from './warehouse-chip.mjs';
 import {trackerClassification} from '../public/tracker-classification.js';
 import {integrations} from './integrations.mjs';
@@ -16,55 +17,7 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
   return {id:row.id,response:{ok:true,id:row.id,version:row.version+1,plate}};
  }
 
- if(path==='/api/maintenance'&&method==='POST'){
-  if(role==='reader')throw failure(403,'Usuário somente de leitura.');
-
-  if(!['Sem comunicação','Localização errada','Troca de aparelho'].includes(body.reason)||!['App de rastreamento','Suporte do rastreio','Consultor informou'].includes(body.medium)||typeof body.notes!=='string'||body.notes.length>2000)throw failure(400,'Dados do atendimento inválidos.');
-  if(typeof body.clientId!=='string'||typeof body.clientName!=='string'||typeof body.vehicleId!=='string'||typeof body.plate!=='string')throw failure(422,'Selecione cliente e veículo na plataforma.');
-  const manual=body.manual===true;
-  if(manual&&(!/^[0-9]{6,17}$/.test(body.currentSerial||'')||!body.clientName.trim()||body.clientName.length>120||!body.plate.trim()||body.plate.length>20||/[<>\x00-\x1f]/.test(body.clientName+body.plate)))throw failure(422,'Informe cliente, placa/identificação e série válidos.');
-  const vehicleRows=manual?[{vehicle_id:body.vehicleId,plate:body.plate,serial:body.currentSerial,client_id:body.clientId,client:body.clientName}]:await service.clientVehicles(branch,body.clientId,body.clientName);
-  if(!manual&&vehicleRows.some(v=>v.vehicle_id===body.vehicleId&&v.plate===body.plate&&!v.serial)){
-    const equipment=await service.lookupEquipment(branch,body.plate);
-    const matching=vehicleRows.filter(v=>v.vehicle_id===body.vehicleId&&v.plate===body.plate);
-    if(matching.length===1&&equipment.serial&&equipment.plate?.replace(/[ -]/g,'')===body.plate.replace(/[ -]/g,''))matching[0].serial=equipment.serial;
-  }
-  const confirmedVehicles=vehicleRows.filter(r=>r.vehicle_id===body.vehicleId&&r.plate===body.plate);
-  if(confirmedVehicles.length!==1||!confirmedVehicles[0].serial)throw failure(409,'Vínculo do veículo mudou. Consulte novamente.');
-  const confirmedVehicle=confirmedVehicles[0];
-  if(confirmedVehicle.client_id!==body.clientId||confirmedVehicle.client!==body.clientName)throw failure(409,'Titular do veículo mudou. Consulte novamente.');
-  const confirmedClient={id:confirmedVehicle.client_id,name:confirmedVehicle.client};
-  const changing=body.reason==='Troca de aparelho';
-  if(changing&&!body.replacement)throw failure(422,'Selecione o aparelho de reposição.');
-  if(!changing&&body.replacement)throw failure(422,'Reposição permitida somente para troca de aparelho.');
-  const ids=[body.vehicle,...(changing?[body.replacement]:[])].filter(Boolean);
-  const locked=(await c.query('select id,serial,data,version from central_homologacao.devices where id=any($1::uuid[]) and branch_id=$2 and deleted_at is null order by id for update',[ids,branch])).rows;
-  const row=locked.find(r=>r.id===body.vehicle),replacement=locked.find(r=>r.id===body.replacement);
-  if(body.vehicle&&!row)throw failure(409,'Cadastro do aparelho mudou. Consulte novamente.');
-  if(row&&(row.serial!==confirmedVehicle.serial||row.version!==body.vehicleVersion))throw failure(409,'Aparelho de chegada mudou. Atualize e consulte novamente.');
-  if(changing&&(!replacement||replacement.serial===confirmedVehicle.serial||!['Estoque',...(branch==='imperatriz'?[]:['Reserva'])].includes(replacement.data.status)||replacement.version!==body.replacementVersion))throw failure(409,'Aparelho de reposição indisponível ou cadastro alterado. Atualize a lista.');
-  if(!confirmedVehicle.plate)throw failure(422,'Veículo sem placa confirmada.');
-  const entry=new Date().toISOString();
-  await c.query('insert into central_homologacao.visits(id,branch_id,device_id,data) values($1,$2,$3,$4)',[id,branch,row?.id||null,{status:'Concluída',identity_source:manual?'manual':'platform',visit_version:2,completed_at:entry,client:confirmedClient.name,client_id:confirmedClient.id,vehicle_id:confirmedVehicle.vehicle_id,plate:confirmedVehicle.plate,currentSerial:confirmedVehicle.serial,reason:body.reason,medium:body.medium,notes:body.notes,entry,...(changing?{installSerial:replacement.serial,replacementId:replacement.id,stockDischarged:true,installationSource:'Relatório local; vínculo remoto não alterado'}:{})}]);
-  if(changing){
-   await c.query("update central_homologacao.devices set data=data||$3::jsonb,version=version+1,updated_at=now() where id=$1 and branch_id=$2",[replacement.id,branch,JSON.stringify({status:'Instalado',plate:confirmedVehicle.plate,client:confirmedClient.name,installed_at:entry,installation_source:'maintenance_local',maintenance_visit:id})]);
-   await c.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,'MAINTENANCE_DISCHARGE',replacement.id,{visit:id,beforeVersion:replacement.version,source:'Relatório local; sem escrita na plataforma'}]);
-  }
-  return{id,response:{ok:true,id}};
- }
- if(path.startsWith('/api/maintenance/')&&method==='PATCH'){
-  const target=path.split('/').at(-1);
-  if(role==='reader')throw failure(403,'Usuário somente de leitura.');
-  if(!['Sem comunicação','Localização errada','Troca de aparelho'].includes(body.reason)||!['App de rastreamento','Suporte do rastreio','Consultor informou'].includes(body.medium)||typeof body.notes!=='string'||body.notes.length>2000)throw failure(400,'Motivo, meio ou relato inválido.');
-  const existing=(await c.query('select data,version from central_homologacao.visits where id=$1 and branch_id=$2 for update',[target,branch])).rows[0];
-  if(!existing||existing.version!==body.version)throw failure(409,'Atendimento alterado por outra sessão. Atualize a lista.');
-  const discharged=existing.data.stockDischarged||existing.data.stock_discharge_id||existing.data.installSerial||existing.data.replacement_serial;
-  if(discharged&&body.reason!==existing.data.reason)throw failure(422,'A edição preserva o motivo e a baixa já registrada.');
-  if(!discharged&&body.reason==='Troca de aparelho')throw failure(422,'Registre uma nova visita para uma nova troca de aparelho.');
-  const result=await c.query("update central_homologacao.visits set data=data||$4::jsonb,version=version+1,updated_at=now() where id=$1 and branch_id=$2 and version=$3 returning id",[target,branch,body.version,JSON.stringify({status:'Concluída',reason:body.reason,medium:body.medium,notes:body.notes})]);
-  if(!result.rowCount)throw failure(409,'Atendimento alterado por outra sessão. Atualize a lista.');
-  return{id:target,response:{ok:true,id:target}};
- }
+ if(path==='/api/maintenance'&&method==='POST'||path.startsWith('/api/maintenance/')&&method==='PATCH')return maintenanceRecord(c,{path,method,body,branch,role});
  if(path==='/api/bulk'&&method==='POST'){
   if(!Array.isArray(body.rows)||!body.rows.length||body.rows.length>500)throw failure(400,'Envie entre 1 e 500 registros.');
   const seen=new Set();

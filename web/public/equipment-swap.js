@@ -7,7 +7,7 @@ export function mountEquipmentSwap(host,{request,serial,done}){
   if(!current(n)||input.value.trim().length<3)return;
   summary.textContent='Conferindo placa e aparelhos…';
   try{const r=await request({action:'preview',serial,plate:input.value.trim()});if(!current(n))return;preview=r;const s=r.snapshot;
-   summary.textContent='Instalar '+s.incoming.serial+' em '+s.outgoing.plate+' · '+(s.client||s.model||'Veículo confirmado')+' · Retirar '+s.outgoing.serial+' para '+s.incoming.plate+' (Manutenção).';button.disabled=false;
+   summary.textContent='Instalar '+s.incoming.serial+' em '+s.outgoing.plate+' · '+(s.client||s.model||'Veículo confirmado')+' · Retirar '+s.outgoing.serial+' para '+s.incoming.plate+' (Reparo).';button.disabled=false;
    expiry=setTimeout(()=>{preview=null;button.disabled=true;summary.textContent='Conferência vencida. Edite a placa para atualizar.';},55000);
   }catch(e){if(current(n))summary.textContent=e.message;}
  }
