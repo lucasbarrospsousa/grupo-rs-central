@@ -10,7 +10,7 @@ test('communication and query dates use Fortaleza, including API milliseconds an
 const at=Date.parse('2026-10-03T19:00:00Z');
 const row=(ignition,age,ok=true)=>({observation:{location:{ok,ignition,updated_at:new Date(at-age).toISOString(),gps_at:new Date(at-age).toISOString()}}});
 test('shared stock thresholds and mutually exclusive counts include missing data',()=>{
- assert.equal(monitorState(row(true,600000),at),'on');assert.equal(monitorState(row(true,600001),at),'stale');assert.equal(monitorState(row(false,3600000),at),'off');assert.equal(monitorState(row(false,3600001),at),'stale');assert.equal(monitorState(row(false,0,false),at),'unknown');
+ assert.equal(monitorState(row(true,300000),at),'on');assert.equal(monitorState(row(true,300001),at),'stale');assert.equal(monitorState(row(false,300000),at),'off');assert.equal(monitorState(row(false,300001),at),'stale');assert.equal(monitorState(row(false,0,false),at),'unknown');
  assert.deepEqual(monitorCounts([row(true,0),row(false,0),row(true,700000),row(false,0,false)],at),{on:1,off:1,stale:1,unknown:1,gps:0});assert.equal(basePlatforms.maraba,'https://mab.ogrupors.com.br/');
 });
 test('worker skips chip until due and drops unnecessary telemetry and private identity',async()=>{
@@ -20,4 +20,13 @@ test('worker skips chip until due and drops unnecessary telemetry and private id
 });
 test('communication failure is explicit and does not prevent independent chip read',async()=>{
  const out=await monitorStock({stockCommunication:async()=>{throw Error('unreachable');},carrier:async()=>({ok:true,iccid:'8955000000000000001',status:'Ativo'})},{iccid:'8955000000000000001',apn:'hinova.br',chip_due:true});assert.equal(out.location.ok,false);assert.equal(out.chip.ok,true);
+});
+
+test('summary uses structured ignition rather than changing display labels',()=>{
+ for(const value of [1,'1',true,'on'])assert.equal(monitorState(row(value,1000),at),'on');
+ for(const value of [0,'0',false,'off'])assert.equal(monitorState(row(value,1000),at),'off');
+ assert.equal(monitorState(row(null,0),at),'unknown');
+ const bad=row(1,0);bad.observation.location.updated_at='invalid';assert.equal(monitorState(bad,at),'unknown');
+ assert.equal(monitorState(row(1,-300001),at),'unknown');
+ const failed=row(1,1000);failed.observation.location.query_error='Falha';assert.equal(monitorState(failed,at),'stale');
 });

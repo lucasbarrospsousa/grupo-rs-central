@@ -15,7 +15,7 @@ body.central-ui .central-sidebar .nav-group.contains-active{color:#fff;border-le
 body.central-ui .central-sidebar a[aria-current=page]{background:#1878d1;color:white}
 body.central-ui .central-sidebar a:hover,body.central-ui .central-sidebar .nav-group:hover{background:#1c4b6d;color:#fff;transform:none}
 body.central-ui .central-sidebar a[aria-current=page]:hover{background:#1683e1}
-body.central-ui .central-sidebar .nav-children{padding-left:12px}
+body.central-ui .central-sidebar .nav-children{margin-left:11px;padding-left:10px;border-left:2px solid #3983ad}
 body.central-ui .central-sidebar .nav-children[hidden]{display:none}
 body.central-ui .central-sidebar .nav-children a{font-size:13px;min-height:42px;padding:10px 12px;gap:12px}
 body.central-ui .central-sidebar .nav-children .icon{width:19px;height:19px;flex-basis:19px}
