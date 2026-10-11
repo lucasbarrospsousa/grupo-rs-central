@@ -1,4 +1,4 @@
-export function mountEquipmentSwap(host,{request,serial,done,initialPlate='',expectedOutgoing='',onState=()=>{}}){
+export function mountEquipmentSwap(host,{request,serial,done,initialPlate='',expectedOutgoing='',onState=()=>{},beforeExecute=()=>true}){
  host.innerHTML='<div class="swap-bar"><strong>ÁREA DE TROCA</strong><label>Placa de destino<input maxlength="30" placeholder="Digite a placa" aria-label="Placa de destino" autocomplete="off"></label><button type="button" class="primary" disabled>TROCAR</button></div><p class="swap-summary" role="status">O aparelho desta janela será instalado na placa informada.</p>';
  const input=host.querySelector('input'),button=host.querySelector('button'),summary=host.querySelector('p');let revision=0,timer,expiry,preview=null,pending=null,busy=false,stopped=false,retryReady=false;
  const current=n=>!stopped&&host.isConnected&&n===revision;
@@ -15,7 +15,7 @@ export function mountEquipmentSwap(host,{request,serial,done,initialPlate='',exp
  }
  input.oninput=()=>{if(busy||pending)return;clearTimeout(timer);clearTimeout(expiry);preview=null;button.disabled=true;const n=++revision;timer=setTimeout(()=>prepare(n),650);};
  button.onclick=async()=>{
-  if(busy)return;if(!preview&&!pending){retryReady=false;button.disabled=true;button.textContent='TROCAR';await prepare(revision);return;}busy=true;emit();clearTimeout(expiry);input.disabled=true;button.disabled=true;summary.textContent=pending?'Conferindo troca sem repetir envios…':'Realizando troca…';
+  if(busy)return;if(!preview&&!pending){retryReady=false;button.disabled=true;button.textContent='TROCAR';await prepare(revision);return;}if(!pending&&!beforeExecute())return;busy=true;emit();clearTimeout(expiry);input.disabled=true;button.disabled=true;summary.textContent=pending?'Conferindo troca sem repetir envios…':'Realizando troca…';
   const id=pending||preview.id;pending=id;emit();
   try{const r=await request({action:'execute',id});if(stopped)return;summary.textContent=r.message;if(r.ok){pending=null;preview=null;button.textContent='CONCLUÍDO';await done?.();}else{button.textContent='CONFERIR TROCA';}}
   catch(e){if(!stopped){summary.textContent=e.message;button.textContent='CONFERIR TROCA';if(e.status===409){try{const status=await request(null);if(!status.operation){pending=null;preview=null;input.disabled=false;retryReady=!!initialPlate;button.textContent=retryReady?'ATUALIZAR CONFERÊNCIA':'TROCAR';}}catch{}}}}
