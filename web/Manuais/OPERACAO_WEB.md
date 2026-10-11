@@ -2,6 +2,8 @@
 
 ## Manutenções — registros de situações e soluções (11/10/2026)
 
+Formulário compacto com uma única Observação, reunindo relato, diagnóstico e descrição da solução. Na leitura de registros antigos, os textos são combinados sem repetir trechos iguais; uma edição explícita usa a nova observação, mantendo os campos legados armazenados. Modelo do veículo não é solicitado nem exibido. ICCID/telefone ficam em seção opcional expansível. Cards e botões possuem transições e feedback de interação, desativados pela preferência de movimento reduzido.
+
 Disponível apenas em Imperatriz. Indicadores e registros usam os dados do aparelho, chip e veículo no momento da ocorrência, preservados no relatório. RS300 possui versões próprias (7.1.6, 7.2.2, 7.3.2, 7.3.5 e futuras versões exatas); J16 e Suntech são modelos distintos e não entram no gráfico de versões do RS300. Campos históricos ausentes permanecem não informados.
 
 Registrar ou editar uma manutenção não altera estoque, vínculos nem as plataformas externas. Troca de chip inclui reconfiguração. Não há etapa de validação da solução nem linha do tempo de atendimento. A consulta opcional preenche identificação para conferência; a gravação salva apenas o registro. Edições preservam identidade, data original e evidências legadas. Conflitos de versão exigem atualizar a lista.

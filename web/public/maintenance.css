@@ -150,3 +150,32 @@ body.central-ui .maintenance-record-form h3{background:#edf6ff;border-radius:9px
 body.central-ui .maintenance-record-form h3:nth-of-type(2){background:#fff7e9;--record-accent:#b66a08}
 body.central-ui .maintenance-record-form h3:nth-of-type(3){background:#f5f0ff;--record-accent:#7650ba}
 body.central-ui .maintenance-record-form h3:nth-of-type(4){background:#edf9f4;--record-accent:#168163}
+/* Compact record entry and consistent interaction within maintenance. */
+body.central-ui .maintenance-record-form{display:grid;gap:10px}
+body.central-ui .maintenance-record-form>p{margin:0;font-size:13px}
+body.central-ui .maintenance-record-form h3{margin:4px 0 0;padding:9px 12px;font-size:16px}
+body.central-ui .maintenance-record-form h4{margin:10px 0;font-size:14px}
+body.central-ui .maintenance-record-form .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0}
+body.central-ui .maintenance-record-form .field{display:grid;gap:5px;margin:0;font-size:13px}
+body.central-ui .maintenance-record-form :is(input,select){min-height:38px;height:38px;padding:7px 10px;font-size:14px}
+body.central-ui .maintenance-record-form textarea{min-height:76px;padding:9px 10px;font-size:14px}
+body.central-ui .maintenance-record-form .record-lookup{gap:8px}
+body.central-ui .maintenance-record-form #visit-results:empty,body.central-ui .maintenance-record-form #visit-form-status:empty{display:none}
+body.central-ui .maintenance-record-form .record-chip-extra{grid-column:1/-1;border:1px solid #dbe5f0;border-radius:9px;padding:8px 10px}
+body.central-ui .record-chip-extra summary{cursor:pointer;color:#45698d;font-size:13px}
+body.central-ui .record-chip-extra[open]>.form-grid{margin-top:10px}
+body.central-ui .maintenance-record-form .form-actions{bottom:-24px;margin:0;padding:10px 0}
+@keyframes record-enter{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:no-preference){
+ body.central-ui .maintenance-records :is(.record-panel,.record-identity,.record-comparison>div),body.central-ui .maintenance-record-form h3{animation:record-enter .22s ease-out both;transition:translate .18s ease,box-shadow .18s ease,border-color .18s ease}
+ body.central-ui.maintenance-page button,body.central-ui .maintenance-records button,body.central-ui .maintenance-record-form :is(button,summary){transition:translate .16s ease,box-shadow .16s ease,background-color .16s ease;animation:record-enter .2s ease-out both}
+ body.central-ui .maintenance-records :is(.record-panel,.record-identity):focus-within{box-shadow:0 0 0 2px #168bf02b}
+ body.central-ui.maintenance-page button:not(:disabled):active,body.central-ui .maintenance-record-form button:not(:disabled):active{translate:0 1px}
+}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){
+ body.central-ui .maintenance-records :is(.record-panel,.record-identity,.record-comparison>div):hover{translate:0 -2px;box-shadow:0 5px 16px #183a5c12}
+ body.central-ui.maintenance-page button:not(:disabled):hover,body.central-ui .maintenance-record-form :is(button:not(:disabled),summary):hover{translate:0 -1px;box-shadow:0 3px 9px #183a5c14}
+}
+@media(prefers-reduced-motion:reduce){body.central-ui .maintenance-records *,body.central-ui .maintenance-record-form *,body.central-ui.maintenance-page button{animation:none!important;transition:none!important;translate:none!important}}
+@media(max-width:650px){body.central-ui .maintenance-record-form .form-grid{grid-template-columns:1fr}}
+@media(min-width:1000px){body.central-ui .maintenance-record-form>.form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}

@@ -10,14 +10,15 @@ export const missing='Não informado';
 export const clean=v=>String(v??'').trim();
 export function normalizedSymptom(v){return ({'Sem comunicação':'Sem comunicar','Localização errada':'Localização parada'})[v]||v||missing;}
 export function normalizedSource(v){return v==='Consultor informou'?'Voluntário':v||missing;}
+export function recordObservation(row){return Object.hasOwn(row,'observation')?clean(row.observation):[...new Set([row.notes,row.diagnosis,row.resolution?.notes||row.solution].map(clean).filter(Boolean))].join('\n\n');}
 export function recordView(row){
  const incident=row.incident||{},resolution=row.resolution||{};
- return {...row,reason:normalizedSymptom(row.reason),medium:normalizedSource(row.medium),incident,resolution,cause:row.cause||'Não identificada',diagnosis:row.diagnosis||'',solutionKind:resolution.kind|| (row.installSerial?'Troca de aparelho':'Não informada'),solutionNotes:resolution.notes||row.solution||'',installSerial:Object.hasOwn(resolution,'serial')?resolution.serial:(row.installSerial||'')};
+ return {...row,observation:recordObservation(row),reason:normalizedSymptom(row.reason),medium:normalizedSource(row.medium),incident,resolution,cause:row.cause||'Não identificada',diagnosis:row.diagnosis||'',solutionKind:resolution.kind|| (row.installSerial?'Troca de aparelho':'Não informada'),solutionNotes:resolution.notes||row.solution||'',installSerial:Object.hasOwn(resolution,'serial')?resolution.serial:(row.installSerial||'')};
 }
 // Never infer a historical firmware version from today's stock or an ambiguous prefix.
 export function exactRsVersion(incident){return incident?.trackerModel==='RS300'&&/^\d+\.\d+\.\d+$/.test(incident.trackerVersion||'')?incident.trackerVersion:null;}
 export function localVisitDay(value){const d=new Date(value);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit',day:'2-digit'}).format(d):String(value||'').slice(0,10);}
-export function recordRows(rows,{search='',month='',model=''}={}){const q=clean(search).toLocaleLowerCase('pt-BR');return rows.map(recordView).filter(r=>(!month||localVisitDay(r.entry).startsWith(month))&&(!model||r.incident.trackerModel===model)&&(!q||[r.client,r.plate,r.currentSerial,r.installSerial,r.reason,r.cause,r.diagnosis,r.notes,r.solutionNotes].some(v=>clean(v).toLocaleLowerCase('pt-BR').includes(q))));}
+export function recordRows(rows,{search='',month='',model=''}={}){const q=clean(search).toLocaleLowerCase('pt-BR');return rows.map(recordView).filter(r=>(!month||localVisitDay(r.entry).startsWith(month))&&(!model||r.incident.trackerModel===model)&&(!q||[r.client,r.plate,r.currentSerial,r.installSerial,r.reason,r.cause,r.observation].some(v=>clean(v).toLocaleLowerCase('pt-BR').includes(q))));}
 const counts=(rows,fn)=>{const out=new Map();for(const row of rows){const key=fn(row)||missing;out.set(key,(out.get(key)||0)+1);}return [...out].map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'pt-BR'));};
 export function recordIndicators(rows){
  const serials=counts(rows,r=>r.currentSerial),rs=rows.filter(r=>r.incident.trackerModel==='RS300');

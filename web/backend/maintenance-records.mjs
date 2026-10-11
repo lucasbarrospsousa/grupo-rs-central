@@ -13,6 +13,7 @@ function snapshot(input={},replacement=false){
 export function validateRecord(body){
  if(body.visit_version!==3)throw fail(409,'Atualize a página para usar o novo registro de manutenção.');
  const data={visit_version:3,reason:choice(body.reason,symptoms),medium:choice(body.medium,sources),notes:text(body.notes,2000),cause:choice(body.cause,causes),diagnosis:text(body.diagnosis,2000),incident:snapshot(body.incident)};
+ if(Object.hasOwn(body,'observation'))data.observation=text(body.observation,6500);
  const r=body.resolution||{},kind=choice(r.kind,solutions),swapsDevice=kind.includes('Troca de aparelho'),swapsChip=kind.includes('chip');
  const chosen={...r,...(!swapsDevice?{trackerModel:'Não informado',trackerVersion:''}:{}),...(!swapsChip?{carrier:'',chipType:'Não informado',iccid:'',phone:''}:{})};
  data.resolution={...snapshot(chosen,true),kind,notes:text(r.notes,2000),serial:swapsDevice?text(r.serial,17):'',disposition:swapsDevice?text(r.disposition,80):''};
