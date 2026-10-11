@@ -105,14 +105,16 @@ function render() {
     if(mode==='production'){document.querySelector('.demo-strip').className='release-strip';document.querySelector('.release-strip').innerHTML='<span>Acesso exclusivo • '+escape(repo.user.username)+'</span><span>Dados salvos na Central online</span>';document.querySelector('.footer-note').textContent='Grupo RS Central • versão 1.0';}
     if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms','users','logs'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
   }
+  const headerControls={branch:document.querySelector('#branch'),refresh:document.querySelector('#refresh')};
+  const normalizeHeader=()=>unifyPageHeader(({stock:'Estoque de equipamentos',records:'Histórico de posições',route:'Trajeto'})[state.route]||route[1],headerControls);
   const mountNavigation=()=>{mountInventoryAlerts({repo,showModal,navigate:(route,branch)=>{state.route=route;state.branch=branch;render();}});return mountSidebar({route:state.route,branch:state.branch,icon,username:repo.real?repo.user.username:'',navigate:route=>{state.route=route;state.selected.clear();render();},logout:()=>safe(async()=>{if(repo.real){stopInventoryAlerts();await repo.logout();}state.entered=false;state.selected.clear();clearNotices();render();})});};
-  if(!allowedRoute(state.route)){page('<section class="panel"><p>Nenhum módulo disponível nesta filial para seu usuário. Selecione outra filial.</p></section>');mountNavigation();return;}
+  if(!allowedRoute(state.route)){page('<section class="panel"><p>Nenhum módulo disponível nesta filial para seu usuário. Selecione outra filial.</p></section>');mountNavigation();normalizeHeader();return;}
   if(repo.real){
     repo.activate(state.branch,state.route);
     const restored=repo.groups(state.route).map(g=>state.branch+':'+g).filter(k=>repo.restored.has(k));
     if(restored.length){const banner=document.querySelector('.release-strip span:last-child');if(banner)banner.textContent=restored.some(k=>repo.refreshErrors.has(k))?'Cópia temporária • atualização pendente. Use Atualizar para tentar novamente.':'Cópia temporária da sessão • atualizando dados salvos…';}
     if(state.route!=='overview'&&!repo.ready(state.branch,state.route)){
-      mountNavigation();
+      mountNavigation();normalizeHeader();
       const branch=state.branch,route=state.route;
       const labels=route==='overview'?['Equipamentos na base','Disponíveis em estoque','Equipamentos em manutenção','Instalados']:['Carregando '+(routes.find(r=>r[0]===route)?.[1]||'dados')];
       page('<section aria-busy="true" aria-label="Carregando dados"><p role="status">Carregando os dados de '+escape(name(branch))+'… Você pode acessar outra página.</p><div class="grid four">'+labels.map(label=>'<article class="panel loading-card"><h3>'+escape(label)+'</h3><span class="loading-placeholder" aria-hidden="true"></span><small>Aguardando dados</small></article>').join('')+'</div></section>');
@@ -140,7 +142,7 @@ function render() {
     if(readonly)document.querySelectorAll('#stock-new,[data-edit],[data-delete]').forEach(b=>{b.disabled=true;b.title='Usuário somente de leitura';});
     if(state.route!=='logs')mountIntegrationActions({repo,branch:state.branch,route:state.route,showModal,notify,render});
   }
-  unifyPageHeader(({stock:'Estoque de equipamentos',records:'Histórico de posições',route:'Trajeto'})[state.route]||route[1]);
+  normalizeHeader();
 }
 const page = html => document.querySelector('#page').innerHTML = html;
 const colors = ['#f32c4d', '#ff8808', '#edb20b', '#13b468'];
