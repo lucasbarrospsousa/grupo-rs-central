@@ -2,7 +2,7 @@ const pauseMs=750,minIntervalMs=2500,cacheMs=5*60000;
 export function mountOwnerSearch(host,{repo,branch,input,onSelect}){
  host.className='stock-owner-search';
  host.innerHTML='<select aria-label="Selecionar titular" hidden></select><span role="status"></span>';
- const select=host.querySelector('select'),status=host.querySelector('span'),cache=new Map();
+ const select=host.querySelector('select'),status=host.querySelector('span'),cache=new Map(),bindings=new Map();
  let revision=0,timer=null,lastStarted=-Infinity,busy=false,composing=false,stopped=false;
  const request=(action,params)=>repo.request('integrations/'+action+'?'+new URLSearchParams({branch,...params}));
  const text=()=>input.value.trim().replace(/\s+/g,' ');
@@ -11,6 +11,7 @@ export function mountOwnerSearch(host,{repo,branch,input,onSelect}){
  function show(data){
   select.disabled=false;select.replaceChildren(new Option('Selecione o titular',''));
   for(const owner of data.rows||[]){const option=new Option(owner.name+' · cadastro '+owner.id,owner.id);option.dataset.name=owner.name;select.add(option);}
+  if(data.rows?.length===1){select.hidden=true;void choose(data.rows[0]);return;}
   select.hidden=!data.rows?.length;status.textContent=data.rows?.length?'Selecione o titular para confirmar os aparelhos.':'Nenhum titular encontrado nesta base.';
  }
  function schedule(delay=pauseMs){clearTimeout(timer);timer=setTimeout(search,delay);}
@@ -31,14 +32,20 @@ export function mountOwnerSearch(host,{repo,branch,input,onSelect}){
  input.addEventListener('input',changed);
  input.addEventListener('compositionstart',()=>{composing=true;changed();});
  input.addEventListener('compositionend',()=>{composing=false;changed();});
- select.onchange=async()=>{
-  const option=select.selectedOptions[0];if(!option?.value)return;
+ async function choose(owner){
+  if(!owner?.id)return;
   const id=++revision,q=text();clearTimeout(timer);select.disabled=true;onSelect([]);status.textContent='Confirmando veículos e aparelhos…';
-  try{const data=await request('stock-owner-search',{client:option.value,name:option.dataset.name});if(!current(id,q))return;
+  try{const key=String(owner.id),signature=JSON.stringify((repo.list?.(branch)||[]).map(r=>[r.id,r.version,r.serial,r.status,r.plate])),saved=bindings.get(key);
+   let entry=saved;if(!entry||entry.signature!==signature||entry.name!==owner.name||Date.now()-entry.at>=cacheMs){
+    entry={signature,name:owner.name,at:Date.now(),promise:request('stock-owner-search',{client:owner.id,name:owner.name})};bindings.set(key,entry);if(bindings.size>30)bindings.delete(bindings.keys().next().value);
+    entry.promise.catch(()=>{if(bindings.get(key)===entry)bindings.delete(key);});
+   }
+   const data=await entry.promise;if(!current(id,q))return;
    onSelect(data.rows);status.textContent=data.rows.length+' aparelhos instalados confirmados'+(data.pending?' · '+data.pending+' vínculos pendentes de conferência':'.');
   }catch(e){if(current(id,q))status.textContent='Consulta pendente: '+e.message;}
   finally{if(current(id,q))select.disabled=false;}
- };
- const observer=new MutationObserver(()=>{if(!host.isConnected){stopped=true;revision++;clearTimeout(timer);observer.disconnect();clearButton?.removeEventListener('click',clear);input.removeEventListener('input',changed);cache.clear();}});
+ }
+ select.onchange=()=>{const option=select.selectedOptions[0];if(option?.value)void choose({id:option.value,name:option.dataset.name});};
+ const observer=new MutationObserver(()=>{if(!host.isConnected){stopped=true;revision++;clearTimeout(timer);observer.disconnect();clearButton?.removeEventListener('click',clear);input.removeEventListener('input',changed);cache.clear();bindings.clear();}});
  observer.observe(document.body,{childList:true,subtree:true});
 }
