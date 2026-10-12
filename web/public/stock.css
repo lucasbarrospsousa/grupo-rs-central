@@ -148,3 +148,9 @@ body.central-ui #modal.location-dialog{width:min(1280px,94vw);padding:20px;overf
 .location-batteries progress{appearance:none;width:100%;height:10px;margin-top:10px;border:0;border-radius:12px;overflow:hidden;background:#d8e7f7}.location-batteries progress::-webkit-progress-bar{background:#d8e7f7}.location-batteries progress::-webkit-progress-value{background:linear-gradient(90deg,#087cff,#3d9bff);border-radius:12px}
 .location-sleep{margin-top:14px;background:linear-gradient(120deg,#f9f5ff,#eee9ff);border:1px solid #dfd2ff}
 .stock-map-pin img[data-tone="off"]{filter:none}.stock-map-pin img[data-tone="on"]{filter:hue-rotate(135deg)}.stock-map-pin img[data-tone="unknown"]{filter:grayscale(1)}
+.stock-map-pin img{width:80px;height:100px}
+.location-glyph{width:25px;height:25px;flex:0 0 25px;color:#0784ff;vertical-align:middle}
+.location-pin-popup>strong{display:flex;align-items:center;gap:8px}.location-pin-popup>strong .location-glyph{color:white;width:22px;height:22px;flex-basis:22px}
+.location-detail.with-glyph{display:flex;align-items:center;gap:13px}.location-detail.with-glyph>div{min-width:0}
+.location-batteries{position:relative;padding-left:38px}.location-batteries>.location-glyph{position:absolute;left:0;top:18px}
+.location-sleep{position:relative;padding-left:43px}.location-sleep>.location-glyph{position:absolute;left:10px;top:14px;color:#8051d9}

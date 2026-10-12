@@ -410,4 +410,3 @@ Validação: node --test web/tests/equipment-swap.test.mjs; node web/tools/test-
 Identificação em linha, mapa com balão aberto (placa, série, última ignição e comunicação), painel complementar e troca no rodapé. Marcador verde/vermelho/cinza representa a última ignição ligada/desligada/desconhecida; dados antigos continuam sinalizados. Atualizações de 15 s renovam o balão mesmo sem mudança de coordenadas. Mantidos os critérios de comunicação e possível repouso da versão hospedada. Em telas pequenas, o diálogo permite rolagem.
 
 Prévia aprovada: cabeçalho mostra versão de tracker_version/hardware_version/model, sem inferir pela placa. Ausência mostra Não informada. Balão em duas colunas com modelo cadastrado, degradê discreto e agulha PNG simples. Datas completas e baterias no painel lateral.
-
