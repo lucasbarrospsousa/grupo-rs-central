@@ -1,3 +1,4 @@
+export function stockOwnerName(r,branch){return r.status==='Instalado' && r.owner_binding?.branch===branch && r.owner_binding?.serial===r.serial && Date.now()-Date.parse(r.owner_binding.checked_at)<6*3600000 && String(r.owner_binding.plate).replace(/\W/g,'').toUpperCase()===String(r.plate).replace(/\W/g,'').toUpperCase() ? r.owner_binding.client : '';}
 export const stockStatusLabel=value=>value==='Manutenção'?'Reparo':value;
 // Port of inventory search/date rules; no network or persistence.
 export const statuses = ['Todos', 'Estoque', 'Reserva', 'Instalado', 'Manutenção', 'Inativos'];
@@ -21,7 +22,7 @@ export function filterStock(rows, { query = '', status = 'Todos', start = '', en
   const normalize=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
   const text = normalize(query.trim());
   const matched = rows.filter(r => batch ? wanted.includes(r.serial) :
-    [r.serial, r.identification, r.plate, r.phone, r.iccid, r.carrier, r.status==='Instalado' && r.owner_binding?.branch===branch && r.owner_binding?.serial===r.serial && Date.now()-Date.parse(r.owner_binding.checked_at)<6*3600000 && String(r.owner_binding.plate).replace(/\W/g,'').toUpperCase()===String(r.plate).replace(/\W/g,'').toUpperCase() ? r.owner_binding.client : ''].some(v => normalize(v).includes(text)));
+    [r.serial, r.identification, r.plate, r.phone, r.iccid, r.carrier, stockOwnerName(r,branch)].some(v => normalize(v).includes(text)));
   const filtered = matched.filter(r => {
     // Same priority as _inventory_product_date; period is NOT installation date.
     const date = (r.updated_at || r.created_at || r.source_date || r.purchase_date || r.date || '').slice(0,10);

@@ -9,3 +9,5 @@ A sonda existente passa a completar o titular apenas de aparelhos **Instalados**
 Migração adicional: `044_stock_owner.sql`. Os helpers ficam restritos ao papel interno do backend; as rotas exigem sessão e acesso à filial. A seleção de titular usa códigos atuais de veículo/equipamento e série exata, nunca somente o nome ou a placa.
 
 Validação: 24 testes focados de busca, sonda e troca; navegador com titulares homônimos, consulta única de identidade, atualização de 15 segundos e layout desktop/mobile; teste SQL transacional com rollback; uma consulta real confirmou o titular sem troca operacional. Um teste antigo em `stock-live.test.mjs` espera “Sem atualização” onde o módulo de comunicação já retorna “Desatualizado”; divergência anterior e fora deste escopo.
+
+A lista exibe o titular confirmado abaixo da placa em texto compacto, com nome completo ao passar o mouse. Usa somente `owner_binding` já carregado ou retornado pela busca existente; não cria requisições adicionais.
