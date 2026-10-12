@@ -404,3 +404,7 @@ A primeira etapa move o aparelho aberto ao veículo escolhido; a segunda associa
 Migrações 041/042: a sondagem existente corrige a placa local somente de Instalados, com vínculo exato confirmado. Divergências conhecidas são elegíveis de imediato; demais Instalados voltam à fila após seis horas, respeitando intervalos, lotes e capacidade existentes. Reserva, Estoque e Manutenção não recebem correção automática de placa. Erros e respostas sem vínculo preservam a placa; ficam pendentes. Consultas da lista adotam os dados já atualizados no banco. Isso não é atualização instantânea de todas as bases. A troca explícita atualiza os dois envolvidos independentemente da reconciliação automática.
 
 Validação: node --test web/tests/equipment-swap.test.mjs; node web/tools/test-equipment-swap-sql.mjs (reverte); --apply aplica as migrações após os testes. Teste visual: web/tools/test-equipment-swap-ui.mjs com PLAYWRIGHT_MODULE configurado.
+
+### Localização compacta — 11/10/2026
+
+Identificação em linha, mapa com balão aberto (placa, série, última ignição e comunicação), painel complementar e troca no rodapé. Marcador verde/vermelho/cinza representa a última ignição ligada/desligada/desconhecida; dados antigos continuam sinalizados. Atualizações de 15 s renovam o balão mesmo sem mudança de coordenadas. Mantidos os critérios de comunicação e possível repouso da versão hospedada. Em telas pequenas, o diálogo permite rolagem.

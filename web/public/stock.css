@@ -98,3 +98,29 @@ body.central-ui .discharge-footer{border-top:1px solid #dfebf5;padding-top:12px;
 
 /* Compact swap area follows the existing Central controls. */
 #equipment-swap{border-top:1px solid #cfdfef;margin-top:14px;padding:14px 0 4px}.swap-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.swap-bar>strong{color:#153f60;font-size:14px}.swap-bar label{display:flex;align-items:center;gap:10px;flex:1}.swap-bar input{min-width:140px;max-width:360px;flex:1}.swap-summary{font-size:13px;margin:8px 0;color:#52718f}.swap-bar button{min-width:120px}@media(max-width:600px){.swap-bar label{flex-basis:100%}.swap-bar input{width:100%}}
+
+.location-dialog .location-card.danger strong,.location-dialog .location-card.danger .location-icon{color:#cb2944}
+.location-dialog .location-card.warning strong{color:#996000}
+
+.location-dialog .location-card.sleep strong,.location-dialog .location-card.sleep .location-icon{color:#7c3aed}
+/* Compact device location: one identity, map popup and complementary details. */
+body.central-ui #modal.location-dialog{width:min(1280px,94vw);padding:20px;overflow:auto}
+#modal.location-dialog .modal-head{margin-bottom:8px}
+.location-dialog .location-identity{display:flex;align-items:center;gap:14px;margin-bottom:14px;font-size:14px;color:#536f8f;flex-wrap:wrap}
+.location-identity>span{border-left:1px solid #d3e3f2;padding-left:14px}
+.location-dialog .stock-location-grid{grid-template-columns:minmax(0,1fr) 300px;gap:14px}
+.location-dialog .stock-location-map{height:clamp(360px,48dvh,460px)}
+.location-dialog .stock-location aside{display:flex;flex-direction:column;gap:0;background:#fff;border:1px solid #d3e3f2;border-radius:12px;padding:14px}
+#position-info h3{font-size:18px;margin:0 0 10px}
+.location-ignition{font-size:14px;font-weight:700;margin-bottom:10px}
+.location-detail{padding:10px 0;border-bottom:1px solid #e0e9f2;font-size:13px}
+.location-detail span,.location-detail strong{display:block}.location-detail span{color:#5e7a98}.location-detail strong{font-size:15px;margin-top:4px}
+.location-sleep{padding:10px;background:#f5f0ff;color:#744ac6;border-radius:8px;font-size:14px}
+.location-sleep small,.location-gps small{display:block;font-size:12px;line-height:1.4;margin-top:4px}
+.location-gps{padding-top:12px;font-size:14px}.location-gps.warning{color:#a56800}.location-gps.success{color:#10835e}
+.location-footer{margin:10px 0;gap:10px;font-size:12px}.location-footer small{font-size:12px}
+.location-dialog #equipment-swap{background:#f0f7ff;border:1px solid #d3e3f2;padding:12px;border-radius:10px;margin-top:10px}
+.location-dialog .swap-bar{margin:0;padding:0;border:0}.location-dialog .swap-summary{margin:6px 0 0;font-size:12px}
+.compact-position-popup .leaflet-popup-content{margin:0;width:220px!important}.compact-position-popup .leaflet-popup-content-wrapper{padding:0;border-radius:10px;overflow:hidden}.compact-position-popup .leaflet-popup-close-button{color:white!important}
+.location-pin-popup>strong{display:block;color:#fff;padding:10px 25px 10px 12px;font-size:15px}.location-pin-popup>div{padding:10px 12px}.location-pin-popup small,.location-pin-popup b{display:block;line-height:1.4}.location-pin-popup small{color:#57718e;font-size:11px}.location-pin-popup b{font-size:13px;color:#163858}.location-pin-popup p{margin:8px 0!important;font-size:12px}.location-pin-popup em{display:block;background:#fff3dc;color:#966000;font-size:11px;font-style:normal;padding:5px;margin-top:7px;border-radius:5px}
+@media(max-width:760px){.location-dialog .stock-location-grid{grid-template-columns:1fr}.location-dialog .stock-location-map{height:370px}.location-dialog .stock-location aside{display:flex}.location-footer #position-refresh{margin-left:0}body.central-ui #modal.location-dialog{padding:14px}.location-dialog .swap-bar{flex-wrap:wrap}.location-dialog .swap-bar label{min-width:0;width:100%}}

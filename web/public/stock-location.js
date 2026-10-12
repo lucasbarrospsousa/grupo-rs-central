@@ -1,12 +1,15 @@
 import {mountEquipmentSwap} from './equipment-swap.js';
-import {communicationAge,ignitionLabel,latestCommunication} from './communication-state.js';
+import {communicationAge,communicationStatus,ignitionLabel,latestCommunication} from './communication-state.js';
 import {positionMap} from './maps.js';
 import {validPoint} from './tracking-model.js';
 import {gpsStatus} from './gps-status.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const paths={user:'M20 21v-2a7 7 0 0 0-14 0v2M17 7a5 5 0 1 1-10 0 5 5 0 0 1 10 0',car:'M4 10l2-6h12l2 6M3 10h18v8H3zM6 18v3m12-3v3M6 14h2m8 0h2',chip:'M6 6h12v12H6zM9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4',gps:'M12 22S4 15 4 9a8 8 0 0 1 16 0c0 6-8 13-8 13ZM15 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0',power:'M12 2v10M6 5a9 9 0 1 0 12 0',battery:'M2 6h18v12H2zM20 10h2v4h-2M6 12h6m-3-3v6'};
-const icon=k=>'<span class="location-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="'+paths[k]+'"/></svg></span>';
-const card=(label,value,k,tone='',detail='')=>'<article class="location-card '+tone+'">'+icon(k)+'<div><span>'+label+'</span><strong>'+esc(value===undefined||value===null||value===''?'Não informado':value)+'</strong>'+(detail?'<small>'+esc(detail)+'</small>':'')+'</div></article>';
+export function markerColor(loc){const label=ignitionLabel(loc?.ignition);return label==='Ligado'?'#129568':label==='Desligado'?'#d62f49':'#728397';}
+export function locationPopup(loc){
+ const gps=gpsStatus(loc),age=communicationAge(loc),node=document.createElement('div');node.className='location-pin-popup';
+ node.innerHTML='<strong style="background:'+markerColor(loc)+'">'+esc(loc.plate||'Sem identificação')+'</strong><div><small>Série</small><b>'+esc(loc.serial||'Não informada')+'</b><p>Última ignição: '+esc(ignitionLabel(loc.ignition))+'</p><small>Última comunicação</small><b>'+esc(locationTime(loc.updated_at))+'</b><small>'+(age?'Há '+esc(age):'Horário não informado')+'</small>'+(gps.tone==='warning'?'<em>'+esc(gps.label)+'</em>':'')+'</div>';return node;
+}
+const detail=(label,value)=>'<div class="location-detail"><span>'+label+'</span><strong>'+esc(value)+'</strong></div>';
 export function internalBattery(value,unit='%'){
  if(value===null||value===undefined||String(value).trim()==='')return 'Não informado';
  const number=Number(value);return Number.isFinite(number)&&number>=0?number.toLocaleString('pt-BR',{maximumFractionDigits:2})+unit:'Não informado';
@@ -25,21 +28,23 @@ export function showStockLocation({row,data,showModal,query,onData,swap}){
  const el=id=>host.querySelector('#position-'+id);
  function displayOwner(){
   const loc=sample?.location||{},equipment=sample?.equipment||{};
-  el('owner').innerHTML=card('Placa / identificação',loc.plate||equipment.plate||row.plate,'car')+card('Número de série',row.serial,'chip');
+  el('owner').innerHTML='<strong>'+esc(loc.plate||equipment.plate||row.plate||'Sem identificação')+'</strong><span>Série '+esc(row.serial)+'</span>';
  }
  async function display(next){
   sample={...next,location:latestCommunication(sample?.location,next?.location)};
   const version=++revision,loc=sample?.location||{},gps=gpsStatus(loc);
   displayOwner();
-  const ignition=ignitionLabel(loc.ignition);
-  el('info').innerHTML=card('Ignição',ignition,'power',ignition==='Ligado'?'success':'neutral','Último estado recebido')+card('Bateria externa',loc.battery,'battery','',internalBatteryDetails(loc))+card('Horário do evento',locationTime(loc.gps_at),'gps')+card('Última comunicação',locationTime(loc.updated_at),'gps')+card('Sem comunicar há',communicationAge(loc)||'Não informado','gps')+card('Status de GPS',gps.label,'gps',gps.tone,gps.detail);
+  const ignition=ignitionLabel(loc.ignition),status=communicationStatus(loc);
+  el('info').innerHTML='<h3>Estado do aparelho</h3><div class="location-ignition" style="color:'+markerColor(loc)+'">Última ignição: '+esc(ignition)+'</div>'+(status.possibleSleep?'<div class="location-sleep"><strong>Possível repouso</strong><small>Hipótese; repouso não confirmado.</small></div>':'')+detail('Último evento',locationTime(loc.gps_at))+detail('Bateria externa',internalBattery(loc.battery,' V'))+'<div class="location-detail"><span>'+esc(internalBatteryDetails(loc))+'</span></div><div class="location-gps '+esc(gps.tone)+'"><strong>'+esc(gps.label)+'</strong><small>'+esc(gps.detail)+'</small></div>';
+  loc.serial=row.serial;loc.plate=loc.plate||sample.equipment?.plate||row.plate;
+
 
   point=loc.ok&&validPoint(loc)?loc:null;el('center').disabled=!point;el('external').hidden=!point;el('external').removeAttribute('href');
-  const nextKey=point?point.lat+','+point.lng:'';if(map&&mapKey===nextKey){el('state').textContent='';return;}mapKey=nextKey;
+  const nextKey=point?point.lat+','+point.lng:'';if(map&&mapKey===nextKey){map.select(point,{pan:false});el('external').href='https://www.google.com/maps?q='+Number(point.lat)+','+Number(point.lng);el('state').textContent='';return;}mapKey=nextKey;
   if(map){map.dispose();map=null;}el('map').replaceChildren();
-  if(!point){el('map').textContent='Coordenadas não disponíveis para este aparelho.';el('state').textContent=loc.message||'';return;}
+  if(!point){el('map').textContent='Coordenadas não disponíveis para este aparelho.';el('info').insertAdjacentHTML('beforeend',detail('Última comunicação',locationTime(loc.updated_at)));el('state').textContent=loc.message||'';return;}
   el('external').href='https://www.google.com/maps?q='+Number(point.lat)+','+Number(point.lng);el('state').textContent='';
-  try{const result=await positionMap(el('map'),[point],{pin:true,isCurrent:()=>version===revision&&modal.open});if(version!==revision||!host.isConnected||!modal.open){result?.dispose();return;}map=result;}catch(error){if(host.isConnected)el('state').textContent='Mapa indisponível: '+error.message;}
+  try{const result=await positionMap(el('map'),[point],{pin:true,pinColor:markerColor,popup:locationPopup,openPopup:true,isCurrent:()=>version===revision&&modal.open});if(version!==revision||!host.isConnected||!modal.open){result?.dispose();return;}map=result;}catch(error){if(host.isConnected)el('state').textContent='Mapa indisponível: '+error.message;}
  }
  async function refresh(){if(busy||controller.signal.aborted||!modal.open||!host.isConnected)return;busy=true;el('refresh').disabled=true;el('state').textContent='Consultando comunicação…';try{const result=await query(controller.signal);if(controller.signal.aborted||!host.isConnected||!modal.open)return;await display(result);if(controller.signal.aborted||!host.isConnected||!modal.open)return;onData(sample);if(sample.location?.query_error)el('state').textContent='Último estado conhecido • '+sample.location.query_error;}catch(error){if(host.isConnected&&!controller.signal.aborted)el('state').textContent='Último estado conhecido • Consulta pendente: '+error.message;}finally{busy=false;if(host.isConnected)el('refresh').disabled=false;}}
  el('refresh').onclick=()=>{void refresh();};el('center').onclick=()=>map?.fit();let stopped=false;
