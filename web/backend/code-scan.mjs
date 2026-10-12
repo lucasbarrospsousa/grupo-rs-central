@@ -1,3 +1,4 @@
+import {stockOwner} from './stock-owner.mjs';
 import {randomUUID} from 'node:crypto';
 import {trackQueries} from './query-usage.mjs';
 export const CODE_BASES=['imperatriz','araguaina','acailandia','maraba'];
@@ -26,10 +27,11 @@ export function codeTick(pool,{service,branch='imperatriz',budgetMs=45000,now=Da
  const lease=randomUUID(),batch=(await pool.query('select central_homologacao.code_scan_claim($1,$2) as data',[branch,lease])).rows[0].data;
  if(!batch.rows.length)return{processed:0,complete:!!batch.complete};
  const start=now();let processed=0,backoff=0;
- try{for(const row of batch.rows){if(now()-start>=budgetMs)break;let result;
-  try{result=codeResult(row,await service.equipment(branch,row.serial));}
+ try{for(const row of batch.rows){if(now()-start>=budgetMs)break;let result,equipment;
+  try{result=codeResult(row,equipment=await service.equipment(branch,row.serial));}
   catch(e){if(e.automaticDeferred)return{processed,batch:batch.batch,deferred:e.reason};result={state:'error',message:e.message};backoff=e.credentialInvalid?900:e.status===429||e.upstreamStatus===429?120:60;}
   await pool.query('select central_homologacao.code_scan_save($1,$2,$3,$4)',[lease,row.id,row.serial,result]);processed++;
+  if(!backoff&&now()-start<budgetMs){try{await stockOwner(pool,service,branch,row.serial,{equipment,fresh:true});}catch(e){if(e.automaticDeferred)break;}}
   if(backoff)break;
  }return{processed,batch:batch.batch,backoff};}
  finally{await pool.query('select central_homologacao.code_scan_release($1,$2,$3)',[lease,Math.round(now()-start),backoff]);}

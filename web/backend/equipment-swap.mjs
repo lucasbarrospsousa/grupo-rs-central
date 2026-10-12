@@ -70,7 +70,7 @@ export async function equipmentSwap({pool,user,branch,service,action,body={}}){
   await tx(async c=>{
    const locked=(await c.query('select phase from central_homologacao.equipment_swaps where id=$1 for update',[op.id])).rows[0];if(locked.phase==='complete')return;
    for(const [device,vehicle,status] of [[snapshot.incoming,snapshot.outgoing,'Instalado'],[snapshot.outgoing,snapshot.incoming,'Manutenção']]){
-    const patch={plate:status==='Instalado'?vehicle.plate:'',identification:status==='Manutenção'?vehicle.plate:'',status,client:status==='Instalado'?snapshot.client:'',binding_checked_at:new Date().toISOString(),swap_id:op.id};
+    const patch={plate:status==='Instalado'?vehicle.plate:'',identification:status==='Manutenção'?vehicle.plate:'',status,client:status==='Instalado'?snapshot.client:'',owner_binding:null,binding_checked_at:new Date().toISOString(),swap_id:op.id};
     await c.query("update central_homologacao.devices set data=data||$3::jsonb,version=version+1,updated_at=now() where branch_id=$1 and serial=$2 and deleted_at is null",[branch,device.serial,patch]);
     await c.query('select central_homologacao.capture_device_codes($1,$2,$3)',[branch,device.serial,{state:'confirmed',equipment_id:device.id,vehicle_id:vehicle.vehicle_id,api_plate:vehicle.plate}]);
    }

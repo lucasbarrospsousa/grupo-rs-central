@@ -1,0 +1,11 @@
+# Busca por titular e localização
+
+Implementado em 11/10/2026. No estoque, digite pelo menos três caracteres do nome e use **Consultar associado**. Selecione o cadastro retornado pela plataforma; nomes iguais continuam separados. A lista mostra somente aparelhos instalados da filial com vínculo confirmado. Ausência de resultado e falha de consulta têm mensagens diferentes.
+
+A localização mostra o titular uma vez no cabeçalho. A leitura de titular ocorre ao abrir a janela e após uma troca confirmada, separada da atualização de telemetria de 15 segundos. O cache no servidor dura até seis horas e contém filial, série, equipamento, veículo, placa, código e nome do titular. A busca local aceita nomes sem acentos e ignora confirmações vencidas ou de outro vínculo.
+
+A sonda existente passa a completar o titular apenas de aparelhos **Instalados**, respeitando seu orçamento, lote e agendamento atuais. Esta entrega não ativa sondas pausadas. Não muda equipamentos em estoque nem realiza alterações nas plataformas de rastreamento. Uma troca concluída invalida o titular dos dois aparelhos. Gravações concorrentes são recusadas pela versão do registro; falhas removem a confirmação, preservando os demais dados.
+
+Migração adicional: `044_stock_owner.sql`. Os helpers ficam restritos ao papel interno do backend; as rotas exigem sessão e acesso à filial. A seleção de titular usa códigos atuais de veículo/equipamento e série exata, nunca somente o nome ou a placa.
+
+Validação: 24 testes focados de busca, sonda e troca; navegador com titulares homônimos, consulta única de identidade, atualização de 15 segundos e layout desktop/mobile; teste SQL transacional com rollback; uma consulta real confirmou o titular sem troca operacional. Um teste antigo em `stock-live.test.mjs` espera “Sem atualização” onde o módulo de comunicação já retorna “Desatualizado”; divergência anterior e fora deste escopo.

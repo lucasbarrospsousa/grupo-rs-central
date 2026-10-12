@@ -1,3 +1,4 @@
+import {mountOwnerSearch} from './stock-owner-search.js';
 import {setupAutoLink} from './auto-link.js';
 import {openSms} from './sms-live.js';
 import {trackerClassification} from './tracker-classification.js';
@@ -21,16 +22,16 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   const selected = new Set(); const perPage = 10; let current = [];
   const linking=setupAutoLink({repo,branch,showModal,notify,refresh:async()=>{await repo.load(branch,{force:true});draw();}});
   const regional = branch !== 'imperatriz';
-  let live=null;
+  let live=null,ownerSerials=null;
   const refreshRows = () => live?live.decorate(stockRows(repo.list(branch))):stockRows(repo.list(branch));
-  const data = () => filterStock(refreshRows(), {...model, branch});
+  const data = () => filterStock(ownerSerials?refreshRows().filter(r=>ownerSerials.has(r.serial)):refreshRows(), {...model,query:ownerSerials?'':model.query, branch});
   const date = s => /^\d{4}-\d{2}-\d{2}/.test(s||'') ? `${s.slice(8,10)}/${s.slice(5,7)}/${s.slice(0,4)} ${s.slice(11,16)}` : '—';
   const branchControl=document.querySelector('#branch');
   document.querySelector('.content>.top').innerHTML = `<div class="stock-app-heading">${svg('menu')}<div><strong>Estoque de equipamentos</strong><small>Cadastro, disponibilidade e situação dos rastreadores</small><small>Início › Equipamentos › Estoque</small></div></div><span class="stock-demo">Demonstração • sem banco conectado</span>`;
   if(branchControl)document.querySelector('.content>.top').append(branchControl);
   page.innerHTML = `<section class="stock-card" aria-label="Equipamentos da filial">
-    <div class="stock-search-row"><div class="stock-search"><input id="stock-query" aria-label="Buscar equipamentos" placeholder="Buscar placa, série, identificação, telefone, chip ou operadora" title="Separe várias séries com ponto e vírgula">${icon('search')}</div><button id="stock-analyze">${svg('chart')}Analisar baixa</button><button id="stock-report" title="Exportar relatório em CSV ou PDF">${svg('download')}Exportar</button><button id="stock-filters" aria-expanded="false" aria-controls="stock-period">${svg('filter')}<span>Filtros</span></button><button id="stock-clear" aria-label="Limpar busca" title="Limpar busca">${svg('clear')}Limpar</button></div>
-    <div class="stock-filter-row"><div class="stock-status-filters" id="stock-status-filters"></div><div class="stock-main-actions"><button id="stock-update-equipment" title="Consultar e atualizar o cadastro dos aparelhos desta página">${svg('chip')}Atualizar aparelhos</button><button id="stock-new" class="primary">${icon('plus')}Novo equipamento</button><button id="stock-reconnect" aria-label="Atualizar lista" title="Recarregar lista e atualizar comunicação e chip">${icon('refresh')}Lista</button><details class="stock-more"><summary title="Colar séries, SMS e integrações" aria-label="Mais ações">•••</summary><div class="stock-more-menu"><button id="stock-paste">Colar séries</button>${regional?'':'<button id="stock-sms-monitor">Acompanhar SMS</button>'}<button id="stock-integrations">Integrações</button></div></details></div></div><div id="stock-batch" class="stock-batch" role="status" hidden></div>
+    <div class="stock-search-row"><div class="stock-search"><input id="stock-query" aria-label="Buscar equipamentos" placeholder="Buscar associado, placa, série, telefone, chip ou operadora" title="Separe várias séries com ponto e vírgula">${icon('search')}</div><button id="stock-analyze">${svg('chart')}Analisar baixa</button><button id="stock-report" title="Exportar relatório em CSV ou PDF">${svg('download')}Exportar</button><button id="stock-filters" aria-expanded="false" aria-controls="stock-period">${svg('filter')}<span>Filtros</span></button><button id="stock-clear" aria-label="Limpar busca" title="Limpar busca">${svg('clear')}Limpar</button></div>
+    <div id="stock-owner-search"></div><div class="stock-filter-row"><div class="stock-status-filters" id="stock-status-filters"></div><div class="stock-main-actions"><button id="stock-update-equipment" title="Consultar e atualizar o cadastro dos aparelhos desta página">${svg('chip')}Atualizar aparelhos</button><button id="stock-new" class="primary">${icon('plus')}Novo equipamento</button><button id="stock-reconnect" aria-label="Atualizar lista" title="Recarregar lista e atualizar comunicação e chip">${icon('refresh')}Lista</button><details class="stock-more"><summary title="Colar séries, SMS e integrações" aria-label="Mais ações">•••</summary><div class="stock-more-menu"><button id="stock-paste">Colar séries</button>${regional?'':'<button id="stock-sms-monitor">Acompanhar SMS</button>'}<button id="stock-integrations">Integrações</button></div></details></div></div><div id="stock-batch" class="stock-batch" role="status" hidden></div>
     <div class="stock-period" id="stock-period" hidden><label>${svg('calendar')}<span>Período inicial</span><input type="date" id="stock-start" aria-label="Período inicial"></label><label>${svg('calendar')}<span>Período final</span><input type="date" id="stock-end" aria-label="Período final"></label><button id="stock-period-apply" class="primary">Aplicar</button><button id="stock-period-clear">Limpar período</button><small>Período do cadastro / atualização</small></div>
     <div class="stock-selection" id="stock-selection" hidden></div><div id="stock-link-controls" class="stock-selection" hidden><span id="stock-link-progress" role="status"></span><button id="stock-link-cancel">Cancelar vinculações</button></div><div class="stock-table-wrap"><table class="stock-table"><thead><tr><th><input type="checkbox" id="stock-all" aria-label="Selecionar página"></th><th><button data-sort="serial">Série / comunicação</button></th><th><button data-sort="connectivity">Status do chip</button></th><th>Identificação</th><th>Veículo</th><th>Tipo</th><th><button data-sort="carrier">Operadora</button></th><th><button data-sort="status">Situação</button></th><th><button data-sort="installed_at">Instalação</button></th><th>Ações</th></tr></thead><tbody id="stock-body"></tbody></table></div><div class="stock-reading-note">Comunicação do aparelho e status do chip são verificados separadamente.</div><div class="stock-card-heading"><span id="stock-total" class="stock-visually-hidden"></span><small>Comunicação demonstrativa</small></div><div class="stock-pagination" id="stock-pagination"></div></section>`;
   function draw() {
@@ -123,9 +124,9 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   }
   page.querySelector('.stock-more').addEventListener('click',e=>{if(e.target.closest('button'))e.currentTarget.open=false;});
   page.querySelector('.stock-more').addEventListener('keydown',e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary').focus();}});
-  on('stock-query','input',e=>{model.query=e.target.value;model.page=1;draw();});
-  on('stock-query','paste',e=>{const text=e.clipboardData.getData('text');if(/[\r\n]/.test(text)){e.preventDefault();e.target.value=text.replace(/[\r\n]+/g,';');model.query=e.target.value;model.page=1;draw();}});
-  on('stock-clear','click',()=>{document.querySelector('#stock-query').value='';model.query='';model.page=1;draw();});
+  on('stock-query','input',e=>{ownerSerials=null;model.query=e.target.value;model.page=1;draw();});
+  on('stock-query','paste',e=>{const text=e.clipboardData.getData('text');if(/[\r\n]/.test(text)){e.preventDefault();e.target.value=text.replace(/[\r\n]+/g,';');ownerSerials=null;model.query=e.target.value;model.page=1;draw();}});
+  on('stock-clear','click',()=>{document.querySelector('#stock-query').value='';ownerSerials=null;model.query='';model.page=1;draw();});
   on('stock-paste','click',()=>{showModal('Colar séries',`<p>Cole uma série por linha ou separe por ponto e vírgula. A busca será por série exata.</p><textarea id="stock-paste-text" rows="7" aria-label="Lista de séries"></textarea><div class="form-actions"><button id="stock-paste-apply" class="primary">Buscar séries</button></div>`,'compact');on('stock-paste-apply','click',()=>{model.query=document.querySelector('#stock-paste-text').value.replace(/[\r\n]+/g,';')+';';model.page=1;document.querySelector('#stock-query').value=model.query;modal.close();draw();});});
   on('stock-filters','click',()=>{const panel=document.querySelector('#stock-period');panel.hidden=!panel.hidden;document.querySelector('#stock-filters').setAttribute('aria-expanded',String(!panel.hidden));});
   if(!repo.real)on('stock-integrations','click',()=>pending('Consulta das integrações','Disponível no ambiente conectado.'));
@@ -140,6 +141,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   on('stock-sms-monitor','click',()=>document.querySelector('[data-route="sms"]')?.click());
   if(repo.real)live=createStockLive({repo,branch,draw,showModal});
   for(const k of ['query','start','end'])document.querySelector('#stock-'+k).value=model[k];
+  if(repo.real)mountOwnerSearch(document.querySelector('#stock-owner-search'),{repo,branch,input:document.querySelector('#stock-query'),onSelect:rows=>{ownerSerials=new Set(rows.map(r=>r.serial));model.page=1;draw();}});
   draw();
   linking.start();
 }

@@ -1,3 +1,4 @@
+import {stockOwner,confirmedOwner} from './stock-owner.mjs';
 import {equipmentSwap} from './equipment-swap.mjs';
 import {startLinkBatch,drainLinkQueue,cancelLinkQueue} from './auto-link-queue.mjs';
 import {startAutoLink} from './auto-link.mjs';
@@ -68,6 +69,19 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    else if(action==='location')data=await service.location(branch,serial,await plateHint());
    else if(action==='history')data=await service.history(branch,serial,url.searchParams.get('start'),url.searchParams.get('end'));
    else if(action==='client-vehicles')data={rows:await service.clientVehicles(branch,url.searchParams.get('client'),url.searchParams.get('name'))};
+   else if(action==='stock-owner')data=await stockOwner(pool,service,branch,serial);
+   else if(action==='stock-owner-search'){
+    const vehicles=await service.associatedVehicles(branch,url.searchParams.get('client'),url.searchParams.get('name'));
+    const local=await scoped(pool,user,async c=>(await c.query("select d.serial,d.version,d.data,c.equipment_id,c.vehicle_id from central_homologacao.devices d left join central_homologacao.device_codes c on c.device_id=d.id and c.serial=d.serial where d.branch_id=$1 and d.deleted_at is null and d.data->>'status'='Instalado'",[branch])).rows);
+    const rows=[];let pending=0;
+    for(const row of local){const matches=vehicles.filter(v=>v.serial===row.serial);if(!matches.length)continue;
+     const owner=matches.length===1?confirmedOwner(branch,row.serial,{ok:true,serial:row.serial,id:row.equipment_id,vehicle_id:row.vehicle_id,plate:row.data.plate},matches[0]):null;
+     if(!owner){pending++;continue;}
+     const saved=(await pool.query('select central_homologacao.owner_save($1,$2,$3,$4) as saved',[branch,row.serial,row.version,owner])).rows[0]?.saved;
+     if(saved)rows.push(owner);else pending++;
+    }
+    data={rows,pending};
+   }
    else if(action==='clients')data={rows:await service.clients(branch,url.searchParams.get('q'),url.searchParams.get('mode')||'vehicle')};
    else if(action==='carrier')data=await service.carrier(url.searchParams.get('provider'),url.searchParams.get('iccid'));
    else if(action==='status'){await service.api(branch,'/veiculos?skip=0&take=1');data={api:true,portal:false,branch,checked_at:new Date().toISOString()};}

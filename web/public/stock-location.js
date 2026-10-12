@@ -29,18 +29,20 @@ export function internalBatteryDetails(loc){
 export function locationTime(value){
  if(!value)return 'Não informado';let text=String(value).trim().replace(' ','T');if(!/(Z|[+-]\d{2}:?\d{2})$/i.test(text))text+='-03:00';const date=new Date(text);return Number.isNaN(date.getTime())?'Não informado':date.toLocaleString('pt-BR',{timeZone:'America/Fortaleza'});
 }
-export function showStockLocation({row,data,showModal,query,onData,swap}){
+export function showStockLocation({row,data,showModal,query,onData,swap,queryOwner}){
  showModal('Localização do aparelho','<section class="stock-location"><div class="location-identity" id="position-owner"></div><div class="stock-location-grid"><div id="position-map" class="stock-location-map"></div><aside id="position-info" aria-label="Comunicação do aparelho"></aside></div><footer class="location-footer"><button id="position-center">Centralizar</button><a id="position-external" target="_blank" rel="noopener noreferrer" hidden>Abrir no Maps</a><button id="position-refresh" aria-label="Atualizar localização">↻ Atualizar</button><small>Atualização a cada 15 s</small><span id="position-state" role="status"></span></footer><section id="equipment-swap" hidden></section></section>','location-dialog');
- const modal=document.querySelector('#modal'),host=modal.querySelector('.stock-location');let map=null,point=null,busy=false,revision=0,mapKey='',sample=data;const controller=new AbortController();
- const swapHost=host.querySelector('#equipment-swap');if(swap)swapHost.hidden=false;const stopSwap=swap?mountEquipmentSwap(swapHost,{...swap,done:async()=>{await swap.done?.();sample={};await display({location:{ok:false,message:'Troca concluída. Aguardando consulta do novo vínculo.'}});await refresh();}}):()=>{};
+ const modal=document.querySelector('#modal'),host=modal.querySelector('.stock-location');let map=null,point=null,busy=false,revision=0,mapKey='',sample=data,owner=null,ownerRevision=0;const controller=new AbortController();
+ const swapHost=host.querySelector('#equipment-swap');if(swap)swapHost.hidden=false;const stopSwap=swap?mountEquipmentSwap(swapHost,{...swap,done:async()=>{owner=null;ownerRevision++;await swap.done?.();sample={};await display({location:{ok:false,message:'Troca concluída. Aguardando consulta do novo vínculo.'}});await refresh();void loadOwner();}}):()=>{};
  const el=id=>host.querySelector('#position-'+id);
  function displayOwner(){
   const loc=sample?.location||{},equipment=sample?.equipment||{};
-  el('owner').innerHTML='<strong>'+esc(loc.plate||equipment.plate||row.plate||'Sem identificação')+'</strong><span>Série '+esc(row.serial)+'</span><span>Versão '+esc(deviceIdentity(row).version)+'</span>';
+  el('owner').innerHTML='<strong>'+esc(loc.plate||equipment.plate||row.plate||'Sem identificação')+'</strong><span>Série '+esc(row.serial)+'</span><span>Versão '+esc(deviceIdentity(row).version)+'</span><span class="location-owner-name">Titular: '+esc(owner?.ok&&String(owner.plate).replace(/\W/g,'').toUpperCase()===String(loc.plate||equipment.plate||row.plate||'').replace(/\W/g,'').toUpperCase()?owner.client:'não confirmado')+'</span>';
  }
+ async function loadOwner(){if(!queryOwner)return;const request=++ownerRevision;try{const value=await queryOwner();if(request!==ownerRevision||!host.isConnected||!modal.open)return;owner=value;displayOwner();}catch{if(request===ownerRevision&&host.isConnected&&modal.open){owner=null;displayOwner();}}}
  async function display(next){
   sample={...next,location:latestCommunication(sample?.location,next?.location)};
   const version=++revision,loc=sample?.location||{},gps=gpsStatus(loc);
+  if(owner?.ok&&((sample.location?.vehicle_id&&String(sample.location.vehicle_id)!==String(owner.vehicle_id))||(sample.location?.plate&&String(sample.location.plate).replace(/\W/g,'').toUpperCase()!==String(owner.plate).replace(/\W/g,'').toUpperCase())))owner=null;
   displayOwner();
   const ignition=ignitionLabel(loc.ignition),status=communicationStatus(loc);
   const percent=Number(loc.internal_battery),hasPercent=loc.internal_battery!==null&&loc.internal_battery!==undefined&&String(loc.internal_battery).trim()!==''&&Number.isFinite(percent)&&percent>=0&&percent<=100;
@@ -61,5 +63,5 @@ export function showStockLocation({row,data,showModal,query,onData,swap}){
  const timer=setInterval(()=>{if(!host.isConnected||!modal.open){stop();return;}if(!document.hidden&&navigator.onLine!==false)void refresh();},15000);
  function stop(){if(stopped)return;stopped=true;stopSwap();clearInterval(timer);observer.disconnect();controller.abort();revision++;map?.dispose();map=null;modal.removeEventListener('close',stop);}
  const observer=new MutationObserver(()=>{if(!host.isConnected||!modal.open)stop();});observer.observe(modal,{childList:true});
- modal.addEventListener('close',stop,{once:true});void display(data);if(!data?.location?.ok||!validPoint(data.location))void refresh();
+ modal.addEventListener('close',stop,{once:true});void display(data);void loadOwner();if(!data?.location?.ok||!validPoint(data.location))void refresh();
 }
