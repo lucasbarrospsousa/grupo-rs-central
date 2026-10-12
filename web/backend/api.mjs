@@ -85,7 +85,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     if(url.pathname==='/api/settings-monitor'&&req.method==='GET'){
       if(!permissions.owner)throw fail(403,'Monitor geral restrito à administração.');
       res.setHeader('Cache-Control','no-store');
-      reply(res,200,(await pool.query('select central_homologacao.settings_monitor() as data')).rows[0].data);return true;
+      reply(res,200,(await pool.query("select central_homologacao.settings_monitor() || jsonb_build_object('code_progress',central_homologacao.settings_code_progress()) as data")).rows[0].data);return true;
     }
     if(url.pathname==='/api/code-scan'){
       if(!permissions.owner)throw fail(403,'Somente a administração pode acessar esta carga.');
