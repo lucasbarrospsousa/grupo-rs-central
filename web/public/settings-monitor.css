@@ -126,3 +126,6 @@ body.central-ui #page.compact-settings .monitor-bottom{margin-top:10px}
 }
 
 @media(min-width:1500px) and (max-height:900px){body.central-ui #page.compact-settings .monitor-side .settings-panel{padding:12px}.monitor-side{gap:8px}}
+body.central-ui #page .monitor-code-row .monitor-pending-link{border:0;background:none;box-shadow:none;padding:0;min-height:0;height:auto;font:inherit;color:#096dc5;text-decoration:underline;cursor:pointer}
+body.central-ui #page .monitor-code-row .monitor-pending-link:disabled{color:#647fa4;text-decoration:none;cursor:default}
+.code-pending-list>input{width:100%;margin:8px 0}.code-pending-table{max-height:50vh;overflow:auto}.code-pending-table table{width:100%;border-collapse:collapse}.code-pending-table :is(th,td){text-align:left;padding:9px;border-bottom:1px solid #dce8f6;font-size:13px}.code-pending-list footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}.code-pending-list>small{color:#647fa4}
