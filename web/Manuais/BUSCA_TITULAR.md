@@ -1,6 +1,6 @@
 # Busca por titular e localização
 
-Implementado em 11/10/2026. No estoque, digite pelo menos três caracteres do nome e use **Consultar associado**. Selecione o cadastro retornado pela plataforma; nomes iguais continuam separados. A lista mostra somente aparelhos instalados da filial com vínculo confirmado. Ausência de resultado e falha de consulta têm mensagens diferentes.
+Implementado em 11/10/2026. No estoque, digite pelo menos três letras do nome na própria barra. A busca automática espera 750 ms sem digitação, limita novas consultas a uma a cada 2,5 segundos e reaproveita nomes consultados por cinco minutos nesta tela. Séries, placas com números e listas de séries não disparam consulta de associados. Respostas antigas são descartadas e a saída da tela cancela buscas agendadas. Selecione o cadastro retornado pela plataforma; nomes iguais continuam separados. A lista mostra somente aparelhos instalados da filial com vínculo confirmado. Ausência de resultado e falha de consulta têm mensagens diferentes.
 
 A localização mostra o titular uma vez no cabeçalho. A leitura de titular ocorre ao abrir a janela e após uma troca confirmada, separada da atualização de telemetria de 15 segundos. O cache no servidor dura até seis horas e contém filial, série, equipamento, veículo, placa, código e nome do titular. A busca local aceita nomes sem acentos e ignora confirmações vencidas ou de outro vínculo.
 
