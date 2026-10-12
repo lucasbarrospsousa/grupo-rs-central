@@ -154,3 +154,17 @@ body.central-ui #modal.location-dialog{width:min(1280px,94vw);padding:20px;overf
 .location-detail.with-glyph{display:flex;align-items:center;gap:13px}.location-detail.with-glyph>div{min-width:0}
 .location-batteries{position:relative;padding-left:38px}.location-batteries>.location-glyph{position:absolute;left:0;top:18px}
 .location-sleep{position:relative;padding-left:43px}.location-sleep>.location-glyph{position:absolute;left:10px;top:14px;color:#8051d9}
+/* Scoped GPS badges and balanced map popup. */
+.location-dialog .location-gps{display:flex;align-items:center;gap:8px;padding:9px 11px;margin-top:12px;border-radius:9px;background:#eef4fb;color:#415c79;border:1px solid #d9e5f1;font-size:13px;font-weight:600}
+.location-dialog .location-gps.success{background:#e5f7ee;color:#08603c;border-color:#b8e5cf}
+.location-dialog .location-gps.warning{background:#fff4df;color:#835200;border-color:#f1ddb5}
+.location-dialog .location-gps::before{content:'●';font-size:10px;flex:0 0 auto}
+.stock-map-pin{display:flex;align-items:center;justify-content:center}
+.compact-position-popup .leaflet-popup-content-wrapper{border:1px solid #d5e4f0;box-shadow:0 7px 22px #18365030,0 2px 5px #18365014}
+.location-pin-popup>strong{padding:13px 32px 13px 14px;background:linear-gradient(125deg,color-mix(in srgb,var(--pin-color) 75%,white),var(--pin-color) 55%,color-mix(in srgb,var(--pin-color) 78%,#102842));letter-spacing:.2px;text-shadow:0 1px 1px #0002}
+.location-pin-popup .pin-grid{padding:10px;gap:8px;background:linear-gradient(140deg,#fff 10%,#f2f8ff 65%,#eaf3fc)}
+.location-pin-popup .pin-field{border:1px solid #dfeaf5;background:linear-gradient(120deg,#fff,#edf5ff);box-shadow:inset 0 1px #fff;padding:9px}
+.location-pin-popup .pin-field small{display:flex;align-items:center;gap:5px;letter-spacing:.25px;font-size:10px}
+.location-pin-popup .pin-field .location-glyph{width:13px;height:13px;flex-basis:13px;color:#6389b0}
+.location-pin-popup .pin-field b{margin-top:5px;font-size:15px}
+.stock-location-map .stock-map-pin{display:flex;align-items:center;justify-content:center}
