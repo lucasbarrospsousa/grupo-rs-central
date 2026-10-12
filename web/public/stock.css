@@ -124,3 +124,14 @@ body.central-ui #modal.location-dialog{width:min(1280px,94vw);padding:20px;overf
 .compact-position-popup .leaflet-popup-content{margin:0;width:220px!important}.compact-position-popup .leaflet-popup-content-wrapper{padding:0;border-radius:10px;overflow:hidden}.compact-position-popup .leaflet-popup-close-button{color:white!important}
 .location-pin-popup>strong{display:block;color:#fff;padding:10px 25px 10px 12px;font-size:15px}.location-pin-popup>div{padding:10px 12px}.location-pin-popup small,.location-pin-popup b{display:block;line-height:1.4}.location-pin-popup small{color:#57718e;font-size:11px}.location-pin-popup b{font-size:13px;color:#163858}.location-pin-popup p{margin:8px 0!important;font-size:12px}.location-pin-popup em{display:block;background:#fff3dc;color:#966000;font-size:11px;font-style:normal;padding:5px;margin-top:7px;border-radius:5px}
 @media(max-width:760px){.location-dialog .stock-location-grid{grid-template-columns:1fr}.location-dialog .stock-location-map{height:370px}.location-dialog .stock-location aside{display:flex}.location-footer #position-refresh{margin-left:0}body.central-ui #modal.location-dialog{padding:14px}.location-dialog .swap-bar{flex-wrap:wrap}.location-dialog .swap-bar label{min-width:0;width:100%}}
+/* Roomier popup and raster pin requested after the compact preview. */
+.compact-position-popup .leaflet-popup-content{width:270px!important}
+.location-pin-popup>strong{padding:13px 30px 13px 16px;font-size:17px}
+.location-pin-popup>div{padding:13px 16px 15px}
+.location-pin-popup small{font-size:12px;line-height:1.5}
+.location-pin-popup b{font-size:15px;line-height:1.5;margin:2px 0 4px}
+.location-pin-popup p{font-size:14px;margin:11px 0!important}
+.location-pin-popup em{font-size:12px;padding:8px;margin-top:10px}
+.stock-map-pin img{width:52px;height:68px;object-fit:contain;display:block}
+.stock-map-pin img[data-tone="off"]{filter:hue-rotate(225deg) saturate(1.4)}
+.stock-map-pin img[data-tone="unknown"]{filter:grayscale(1)}
