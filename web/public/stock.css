@@ -135,3 +135,16 @@ body.central-ui #modal.location-dialog{width:min(1280px,94vw);padding:20px;overf
 .stock-map-pin img{width:52px;height:68px;object-fit:contain;display:block}
 .stock-map-pin img[data-tone="off"]{filter:hue-rotate(225deg) saturate(1.4)}
 .stock-map-pin img[data-tone="unknown"]{filter:grayscale(1)}
+/* Approved two-column popup and complementary device panel. */
+.location-pin-popup>strong{background:linear-gradient(120deg,var(--pin-color),color-mix(in srgb,var(--pin-color) 78%,#102842));padding:11px 30px 11px 14px;font-size:17px}
+.location-pin-popup .pin-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:9px;background:linear-gradient(135deg,#fff,#f0f6fc)}
+.location-pin-popup .pin-field{padding:7px 8px;background:#eef4fa;border-radius:8px;min-width:0}
+.location-pin-popup .pin-field small{font-size:10px;font-weight:700;color:#6782a2;line-height:1.2}
+.location-pin-popup .pin-field b{color:#087dff;font-size:14px;line-height:1.25;margin:3px 0 0;overflow-wrap:anywhere}
+.location-pin-popup .pin-ignition b{color:var(--pin-color)}.location-pin-popup .pin-age b{color:#163858}
+.location-pin-popup .pin-grid em{grid-column:1/-1;margin:0;padding:7px 9px;background:linear-gradient(110deg,#fff0d6,#fff8ea)}
+.location-dialog #position-info{background:linear-gradient(145deg,#fff,#f9fcff)}
+.location-detail{padding:14px 0}.location-detail strong{font-size:16px;color:#13395f}.location-batteries>span:last-of-type{margin-top:7px}
+.location-batteries progress{appearance:none;width:100%;height:10px;margin-top:10px;border:0;border-radius:12px;overflow:hidden;background:#d8e7f7}.location-batteries progress::-webkit-progress-bar{background:#d8e7f7}.location-batteries progress::-webkit-progress-value{background:linear-gradient(90deg,#087cff,#3d9bff);border-radius:12px}
+.location-sleep{margin-top:14px;background:linear-gradient(120deg,#f9f5ff,#eee9ff);border:1px solid #dfd2ff}
+.stock-map-pin img[data-tone="off"]{filter:none}.stock-map-pin img[data-tone="on"]{filter:hue-rotate(135deg)}.stock-map-pin img[data-tone="unknown"]{filter:grayscale(1)}

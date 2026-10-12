@@ -5,9 +5,15 @@ import {validPoint} from './tracking-model.js';
 import {gpsStatus} from './gps-status.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function markerColor(loc){const label=ignitionLabel(loc?.ignition);return label==='Ligado'?'#129568':label==='Desligado'?'#d62f49':'#728397';}
+export function deviceIdentity(row={}){
+ const raw=String(row.tracker_version||row.hardware_version||row.model||'').trim();
+ const version=raw.match(/^(?:RS300\s*)?V?(\d+\.\d+\.\d+(?:\s*[/,]\s*V?\d+\.\d+\.\d+)*)$/i)?.[1]||'';
+ return {version:version||'Não informada',model:version||/RS\s*300/i.test(raw)?'RS300':String(row.model||'Não informado')};
+}
 export function locationPopup(loc){
  const gps=gpsStatus(loc),age=communicationAge(loc),node=document.createElement('div');node.className='location-pin-popup';
- node.innerHTML='<strong style="background:'+markerColor(loc)+'">'+esc(loc.plate||'Sem identificação')+'</strong><div><small>Série</small><b>'+esc(loc.serial||'Não informada')+'</b><p>Última ignição: '+esc(ignitionLabel(loc.ignition))+'</p><small>Última comunicação</small><b>'+esc(locationTime(loc.updated_at))+'</b><small>'+(age?'Há '+esc(age):'Horário não informado')+'</small>'+(gps.tone==='warning'?'<em>'+esc(gps.label)+'</em>':'')+'</div>';return node;
+ const cell=(label,value,cls='')=>'<div class="pin-field '+cls+'"><small>'+label+'</small><b>'+esc(value)+'</b></div>';
+ node.innerHTML='<strong style="--pin-color:'+markerColor(loc)+'">'+esc(loc.plate||'Sem identificação')+'</strong><div class="pin-grid">'+cell('EQUIPAMENTO',loc.serial||'Não informado')+cell('MODELO',loc.device_model||'Não informado')+cell('IGNIÇÃO',ignitionLabel(loc.ignition),'pin-ignition')+cell('COMUNICAÇÃO',age?'Há '+age:'Não informada','pin-age')+(gps.tone==='warning'?'<em>'+esc(gps.label)+'</em>':'')+'</div>';node.style.setProperty('--pin-color',markerColor(loc));return node;
 }
 const detail=(label,value)=>'<div class="location-detail"><span>'+label+'</span><strong>'+esc(value)+'</strong></div>';
 export function internalBattery(value,unit='%'){
@@ -28,21 +34,23 @@ export function showStockLocation({row,data,showModal,query,onData,swap}){
  const el=id=>host.querySelector('#position-'+id);
  function displayOwner(){
   const loc=sample?.location||{},equipment=sample?.equipment||{};
-  el('owner').innerHTML='<strong>'+esc(loc.plate||equipment.plate||row.plate||'Sem identificação')+'</strong><span>Série '+esc(row.serial)+'</span>';
+  el('owner').innerHTML='<strong>'+esc(loc.plate||equipment.plate||row.plate||'Sem identificação')+'</strong><span>Série '+esc(row.serial)+'</span><span>Versão '+esc(deviceIdentity(row).version)+'</span>';
  }
  async function display(next){
   sample={...next,location:latestCommunication(sample?.location,next?.location)};
   const version=++revision,loc=sample?.location||{},gps=gpsStatus(loc);
   displayOwner();
   const ignition=ignitionLabel(loc.ignition),status=communicationStatus(loc);
-  el('info').innerHTML='<h3>Estado do aparelho</h3><div class="location-ignition" style="color:'+markerColor(loc)+'">Última ignição: '+esc(ignition)+'</div>'+(status.possibleSleep?'<div class="location-sleep"><strong>Possível repouso</strong><small>Hipótese; repouso não confirmado.</small></div>':'')+detail('Último evento',locationTime(loc.gps_at))+detail('Bateria externa',internalBattery(loc.battery,' V'))+'<div class="location-detail"><span>'+esc(internalBatteryDetails(loc))+'</span></div><div class="location-gps '+esc(gps.tone)+'"><strong>'+esc(gps.label)+'</strong><small>'+esc(gps.detail)+'</small></div>';
-  loc.serial=row.serial;loc.plate=loc.plate||sample.equipment?.plate||row.plate;
+  const percent=Number(loc.internal_battery),hasPercent=loc.internal_battery!==null&&loc.internal_battery!==undefined&&String(loc.internal_battery).trim()!==''&&Number.isFinite(percent)&&percent>=0&&percent<=100;
+  el('info').innerHTML='<h3>Dados do aparelho</h3>'+detail('Última comunicação',locationTime(loc.updated_at))+detail('Último evento',locationTime(loc.gps_at))+'<div class="location-detail location-batteries"><span>Bateria</span><strong>Externa: '+esc(internalBattery(loc.battery,' V'))+'</strong><span>'+esc(internalBatteryDetails(loc))+'</span>'+(hasPercent?'<progress max="100" value="'+percent+'" aria-label="Bateria interna"></progress>':'')+'</div>'+(status.possibleSleep?'<div class="location-sleep"><strong>Possível repouso</strong><small>Hipótese; não confirmado.</small></div>':'')+'<div class="location-gps '+esc(gps.tone)+'" title="'+esc(gps.detail)+'">'+esc(gps.label)+'</div>';
+
+  loc.serial=row.serial;loc.device_model=deviceIdentity(row).model;loc.plate=loc.plate||sample.equipment?.plate||row.plate;
 
 
   point=loc.ok&&validPoint(loc)?loc:null;el('center').disabled=!point;el('external').hidden=!point;el('external').removeAttribute('href');
   const nextKey=point?point.lat+','+point.lng:'';if(map&&mapKey===nextKey){map.select(point,{pan:false});el('external').href='https://www.google.com/maps?q='+Number(point.lat)+','+Number(point.lng);el('state').textContent='';return;}mapKey=nextKey;
   if(map){map.dispose();map=null;}el('map').replaceChildren();
-  if(!point){el('map').textContent='Coordenadas não disponíveis para este aparelho.';el('info').insertAdjacentHTML('beforeend',detail('Última comunicação',locationTime(loc.updated_at)));el('state').textContent=loc.message||'';return;}
+  if(!point){el('map').textContent='Coordenadas não disponíveis para este aparelho.';el('state').textContent=loc.message||'';return;}
   el('external').href='https://www.google.com/maps?q='+Number(point.lat)+','+Number(point.lng);el('state').textContent='';
   try{const result=await positionMap(el('map'),[point],{pin:true,pinColor:markerColor,popup:locationPopup,openPopup:true,isCurrent:()=>version===revision&&modal.open});if(version!==revision||!host.isConnected||!modal.open){result?.dispose();return;}map=result;}catch(error){if(host.isConnected)el('state').textContent='Mapa indisponível: '+error.message;}
  }
