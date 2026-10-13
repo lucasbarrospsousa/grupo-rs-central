@@ -1,4 +1,4 @@
-export function wireWarehouseRegistration({repo,branch,modal,notify,render,safe,escape,validIccid}){
+export function wireWarehouseRegistration({repo,branch,modal,notify,render,safe,escape,validIccid,onSaved=()=>{}}){
  const form=document.querySelector('#warehouse-form'),input=form.querySelector('#new-serial'),save=form.querySelector('#save-item');
  let kind='device',verified=null,generation=0,busy=false;
  const provider=form.querySelector('#chip-provider'),lookup=form.querySelector('#lookup-chip'),result=form.querySelector('#chip-validation');
@@ -28,7 +28,7 @@ export function wireWarehouseRegistration({repo,branch,modal,notify,render,safe,
   finally{busy=false;if(form.isConnected)validate();}
  };
  form.onsubmit=event=>{event.preventDefault();if(busy||(repo.real&&repo.currentBranch!==branch)||(kind==='chip'&&(!verified||verified.serial!==input.value.trim()||verified.provider!==provider.value)))return;
-  busy=true;validate();safe(async()=>{try{await repo.addWarehouse(kind,input.value.trim(),provider.value,form.querySelector('#new-classification').value);modal.close();render();notify(kind==='chip'?'Chip e operadora salvos no armazém.':'Aparelho cadastrado.');}finally{busy=false;if(form.isConnected)validate();}});
+  busy=true;validate();safe(async()=>{try{await repo.addWarehouse(kind,input.value.trim(),provider.value,form.querySelector('#new-classification').value);modal.close();onSaved(kind);render();notify(kind==='chip'?'Chip e operadora salvos no armazém.':'Aparelho cadastrado.');}finally{busy=false;if(form.isConnected)validate();}});
  };
  reset();
 }
