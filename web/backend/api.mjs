@@ -1,3 +1,4 @@
+import {sendWarehouseActivation} from './warehouse-activation-send.mjs';
 import {scanConfig,scanBranch} from './code-scan.mjs';
 import {centralTokenStatus,saveCentralToken} from './deployment-credential.mjs';
 import {setApiBudgetPool,queryPolicyInput} from './api-budget.mjs';
@@ -122,12 +123,16 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     if(mutation){const access=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,url.searchParams.get('branch')])).rows[0];if(!access||access.role==='reader')throw fail(403,'Usuário somente de consulta.');}
     if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
     if(await integrationRoute({req,res,url,pool,user,permissions,readBody:body,service:integrationService}))return true;
-    if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/warehouse-activation','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
+    if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/warehouse-activation','/api/warehouse-activation-send','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');
     if((url.pathname==='/api/history'||url.pathname.startsWith('/api/maintenance'))&&branch!=='imperatriz')throw fail(403,'Manutenções disponível somente em Imperatriz.');
     if(url.pathname.startsWith('/api/warehouse')&&branch!=='imperatriz')throw fail(403,'Armazém disponível somente em Imperatriz.');
     const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];
     if(!membership)throw fail(403,'Sem acesso a esta filial.');
+    if(url.pathname==='/api/warehouse-activation-send'){
+      if(req.method!=='POST')throw fail(405,'Método não permitido.');
+      reply(res,200,await sendWarehouseActivation({pool,user,branch,role:membership.role,body:await body(req),service:integrationService}));return true;
+    }
     const client=await pool.connect();
     try{
       await client.query('BEGIN');await client.query("select set_config('central.user_id',$1,true)",[user.user_id]);

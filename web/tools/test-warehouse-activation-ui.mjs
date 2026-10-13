@@ -12,10 +12,10 @@ try{
   const p=u.pathname.slice(5);let result={rows:[],visits:[],movements:[]};
   if(p==='session')result={username:'warehouse-test',csrf:'test',lastActivityAt:new Date().toISOString(),branches:[{id:'imperatriz',name:'Imperatriz',role:'admin'}],permissions:{owner:false,views:['warehouse'],writes:['warehouse']}};
   if(p==='warehouse')result={rows,movements:[]};
-  if(p==='warehouse-activation'){
+  if(p==='warehouse-activation'||p==='warehouse-activation-send'){
    const b=req.postDataJSON();writes.push(b);
    if(b.action==='prepare'){assert.ok([10,20].includes(b.size));assert.ok(b.ids.length<=b.size);const chosen=rows.filter(r=>b.ids.includes(r.id));assert.ok(chosen.every(r=>!r.activation_state));for(const r of chosen){r.activation_batch='33333333-3333-4333-8333-333333333333';r.activation_state='prepared';r.activation_at=new Date().toISOString();}result={ok:true};}
-   if(b.action==='requested'){for(const r of rows.filter(r=>r.activation_batch===b.batch))r.activation_state='requested';result={ok:true};}
+   if(b.action==='send'){for(const r of rows.filter(r=>r.activation_batch===b.batch))r.activation_state='requested';result={ok:true,message:'Lote enviado à fila da Árya.'};}
    if(b.action==='check')result={ok:true,confirmed:0,pending:10,errors:0};
   }
   await route.fulfill({json:result});
@@ -28,10 +28,12 @@ try{
  await page.getByText('Lote reservado na Central. Ainda não enviado à Árya.').waitFor();assert.equal(writes.length,1);
  assert.equal(await page.locator('[data-reserve-id]:disabled').count(),10);
  await page.reload();await page.locator('[data-warehouse-view="reserve"]').click();assert.equal(await page.locator('[data-reserve-id]:disabled').count(),10);
- const batch='33333333-3333-4333-8333-333333333333';const article=page.locator('article').filter({has:page.locator(`[data-requested="${batch}"]`)});await article.locator('summary').click();
- await page.locator(`[data-requested="${batch}"]`).click();assert.equal(writes.length,1);
- await page.locator(`[data-reference="${batch}"]`).fill('PROTOCOLO-SIMULADO');await page.locator(`[data-confirm-batch="${batch}"]`).check();await page.locator(`[data-requested="${batch}"]`).click();await page.getByText('Solicitação registrada. Aguarde a ativação pela operadora.').waitFor();assert.equal(writes.length,2);
+ const batch='33333333-3333-4333-8333-333333333333';
+ assert.ok(await page.locator(`[data-send-batch="${batch}"]`).isDisabled());
+ await page.locator(`[data-confirm-batch="${batch}"]`).check();await page.locator(`[data-send-batch="${batch}"]`).click();await page.getByText('Lote enviado à fila da Árya.').waitFor();assert.equal(writes.length,2);
+ assert.equal(await page.locator('[data-send-batch]').count(),0);
+ await page.waitForTimeout(900);
  await page.screenshot({path:fileURLToPath(new URL('../.sites-runtime/warehouse-reserve.png',import.meta.url)),fullPage:true});
  for(const width of [1280,390]){await page.setViewportSize({width,height:844});await page.waitForTimeout(900);const measured=await page.evaluate(()=>({w:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+2&&e.getBoundingClientRect().width>0).slice(-15).map(e=>({tag:e.tagName,cls:e.className,id:e.id,w:e.getBoundingClientRect().width}))}));assert.ok(measured.scroll<=measured.w+2,JSON.stringify(measured));}
- assert.deepEqual(errors,[]);console.log('PASS UI 10/20, persisted reservation, no duplicate selection, explicit portal confirmation, responsive layout. All API calls mocked; zero external requests.');
+ assert.deepEqual(errors,[]);console.log('PASS UI 10/20, persisted reservation, no duplicate selection, direct Central send, explicit confirmation, responsive layout. All API calls mocked; zero external requests.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

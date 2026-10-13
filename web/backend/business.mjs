@@ -54,7 +54,7 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
  }
  if(path.startsWith('/api/warehouse/')&&method==='DELETE'){
   const target=path.split('/').at(-1);
-  const result=await c.query("update central_homologacao.warehouse_items set deleted_at=now(),version=version+1 where id=$1 and branch_id=$2 and version=$3 and status='Disponível' and activation_state is distinct from 'prepared' and activation_state is distinct from 'requested' and deleted_at is null returning id",[target,branch,body.version]);
+  const result=await c.query("update central_homologacao.warehouse_items set deleted_at=now(),version=version+1 where id=$1 and branch_id=$2 and version=$3 and status='Disponível' and activation_state is distinct from 'prepared' and activation_state is distinct from 'requested' and activation_state is distinct from 'sending' and activation_state is distinct from 'uncertain' and deleted_at is null returning id",[target,branch,body.version]);
   if(!result.rowCount)throw failure(409,'Item indisponível ou alterado. Atualize a lista.');
   return {id:target,response:{ok:true,id:target}};
  }
@@ -62,7 +62,7 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
   if(!Array.isArray(body.items)||!body.items.length||body.items.length>100||new Set(body.items.map(i=>i.id)).size!==body.items.length)throw failure(400,'Selecione até 100 itens distintos.');
   if(typeof body.destination!=='string'||!body.destination.trim()||body.destination.length>120||typeof body.note!=='string'||body.note.length>500)throw failure(400,'Destino ou observação inválidos.');
   const rows=(await c.query("select * from central_homologacao.warehouse_items where id=any($1::uuid[]) and branch_id='imperatriz' and branch_id in (select branch_id from central_homologacao.memberships where user_id=$2 and role='admin') and deleted_at is null order by id for update",[body.items.map(i=>i.id),user.user_id])).rows;
-  if(rows.length!==body.items.length||rows.some(r=>['prepared','requested'].includes(r.activation_state)||r.status!=='Disponível'||r.version!==body.items.find(i=>i.id===r.id).version))throw failure(409,'Um item já foi movimentado ou alterado. Nenhum item foi enviado.');
+  if(rows.length!==body.items.length||rows.some(r=>['prepared','requested','sending','uncertain'].includes(r.activation_state)||r.status!=='Disponível'||r.version!==body.items.find(i=>i.id===r.id).version))throw failure(409,'Um item já foi movimentado ou alterado. Nenhum item foi enviado.');
   await c.query("update central_homologacao.warehouse_items set status='Enviado',version=version+1 where id=any($1::uuid[])",[rows.map(r=>r.id)]);
   for(const origin of new Set(rows.map(r=>r.branch_id)))await c.query('insert into central_homologacao.warehouse_movements(id,user_id,branch_id,destination,note,items) values($1,$2,$3,$4,$5,$6)',[origin===rows[0].branch_id?id:randomUUID(),user.user_id,origin,body.destination.trim(),body.note,JSON.stringify(rows.filter(r=>r.branch_id===origin).map(r=>({id:r.id,serial:r.serial,kind:r.kind})))]);
   return {id,response:{ok:true,id,count:rows.length}};

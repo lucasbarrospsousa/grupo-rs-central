@@ -1,16 +1,17 @@
+import {openAryaActivations} from './arya-activation.mjs';
 import {randomUUID} from 'node:crypto';
 import {activationSelection} from '../public/warehouse-activation-model.js';
 const fail=(status,message)=>Object.assign(Error(message),{status});
 const pending=v=>['0','PENDENTE','PENDING'].includes(String(v??'').trim().toUpperCase());
 const active=v=>['ATIVO','ATIVA','ACTIVE','ATIVADO'].includes(String(v??'').trim().toUpperCase());
-// Assisted workflow only. This module has no activation/reset transport.
+// Preparation and read-only reconciliation. Sending uses a separate committed fence.
 export async function warehouseActivation(c,{body,branch,role,service}){
  if(branch!=='imperatriz'||role!=='admin')throw fail(403,'Ativação restrita ao armazém de Imperatriz.');
  const {action}=body;
  if(!['prepare','requested','check'].includes(action))throw fail(400,'Ação inválida.');
  await c.query("select pg_advisory_xact_lock(hashtext('warehouse-chip-activation'))");
  if(action==='prepare'){
-  if(body.portalChecked!==true)throw fail(400,'Confira na Árya se os chips não possuem solicitação aberta.');
+  if(body.confirmed!==true)throw fail(400,'Revise os ICCIDs selecionados.');
   if(![10,20].includes(body.size)||!Array.isArray(body.ids)||!body.ids.length||body.ids.length>body.size||body.ids.some(id=>!/^\w{8}-(?:\w{4}-){3}\w{12}$/.test(id)))throw fail(400,'Seleção inválida.');
   const rows=(await c.query("select * from central_homologacao.warehouse_items where id=any($1::uuid[]) and branch_id='imperatriz' and deleted_at is null order by id for update",[body.ids])).rows;
   let selected;try{selected=activationSelection(rows,body.ids,body.size);}catch(e){throw fail(409,e.message);}
@@ -35,6 +36,11 @@ export async function warehouseActivation(c,{body,branch,role,service}){
   return{id:body.batch,response:{ok:true,count:rows.length,state:'requested'}};
  }
  let confirmed=0,pendingCount=0,errors=0;
+ let open;try{open=await openAryaActivations(service);}catch{errors++;}
+ if(open)for(const r of rows){if(['prepared','sending','uncertain'].includes(r.activation_state)&&open.has(r.serial)){
+  await c.query("update central_homologacao.warehouse_items set activation_state='requested',activation_reference=$2,activation_at=now(),version=version+1 where id=$1",[r.id,'Chamado Árya '+open.get(r.serial)]);
+ }}
+
  for(const r of rows){
   if(r.activation_state==='active'){confirmed++;continue;}
   try{
