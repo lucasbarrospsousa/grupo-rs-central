@@ -15,3 +15,7 @@ Validação local com dados fictícios: 17 testes Node focados (chips, ativaçã
 ## Aparelhos
 
 A antiga aba Inventário agora se chama Aparelhos e apresenta Gestão de aparelhos, com cartões locais de Estoque, Reserva, Emergência e Total. Os cartões filtram somente aparelhos disponíveis, reutilizando a classificação existente. Cadastro abre no tipo Aparelho; busca por série, detalhes, classificação, seleção, revisão e envio mantêm as permissões e confirmações existentes. A navegação interna duplicada foi ocultada. Nenhuma consulta externa foi adicionada.
+
+## Movimentações
+
+Padrão de gestão com indicadores de envios de aparelhos, destinos, registros filtrados e histórico total. Abre nos envios do mês atual (America/Fortaleza). Filtros locais por mês, destino/base ou destino manual, série/observação e escopo (envios, aparelhos, chips, todos). Histórico completo limpa os filtros e inclui registros sem data; detecções não contam como envio físico. Ordenação da lista por data decrescente, sem mutar os eventos originais; paginação reaproveita a lista filtrada. Não altera registros nem consulta provedores. Testes: warehouse-movements.test.mjs e test-warehouse-overview-ui.mjs.

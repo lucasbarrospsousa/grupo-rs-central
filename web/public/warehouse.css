@@ -20,3 +20,9 @@ body.central-ui #page .warehouse-device-card.tone-1{background:linear-gradient(1
 body.central-ui #page.warehouse-devices-page .warehouse-inventory td{padding:9px 10px;font-size:13px}body.central-ui #page.warehouse-devices-page .warehouse-inventory th{padding:11px 10px;font-size:12px}
 @media(max-width:1100px){body.central-ui #page.warehouse-devices-page .warehouse-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){body.central-ui #page .warehouse-device-card{padding:12px;gap:8px}.warehouse-device-card small{font-size:11px}.warehouse-device-card .icon{width:22px;height:22px}}
+
+/* Movements share the device management layout, with local history filters. */
+body.central-ui #page.warehouse-movements-page .warehouse-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.warehouse-movements-page .warehouse-control-grid{display:block}.warehouse-movements-page .warehouse-inventory>.tabs{display:none}.warehouse-movements-page .warehouse-inventory .toolbar{flex-wrap:wrap}.warehouse-movements-page .warehouse-inventory .toolbar>*{flex:1 1 170px;min-width:0}.warehouse-movements-page #warehouse-search{flex:2 1 250px}.warehouse-movements-page #movement-all-history{flex:0 1 auto}
+body.central-ui #page.warehouse-movements-page td{font-size:13px;padding:10px}body.central-ui #page.warehouse-movements-page th{font-size:12px;padding:11px 10px}.warehouse-movements-page .warehouse-heading h1{font-size:26px}.warehouse-movements-page .warehouse-heading p{font-size:12px}
+@media(max-width:1100px){body.central-ui #page.warehouse-movements-page .warehouse-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
