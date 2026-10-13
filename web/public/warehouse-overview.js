@@ -6,6 +6,10 @@ const colors=['#1686ed','#009f91','#8a59ce','#ee8a12','#47758f'];
 const paths={box:'M3 7l9-4 9 4-9 4z M3 7v10l9 4 9-4V7 M12 11v10',send:'M3 5h11v12H3z M14 9h4l3 4v4h-7 M6 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4 M18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4',chip:'M7 3h10l4 4v14H7z M10 11h8v7h-8z M3 7v14',bolt:'M13 2L4 14h7l-1 8 10-13h-8z',cash:'M3 5h18v14H3z M12 8v8 M14 9h-3a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-3',chart:'M4 3v17h17 M8 16v-5 M13 16V7 M18 16V4',clock:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 7v5l3 2',arrow:'M4 12h16 M14 6l6 6-6 6',plus:'M12 4v16 M4 12h16',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14 M15 15l6 6'};
 const icon=name=>`<svg class="wo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.box}"/></svg>`;
 const snapshots=new WeakMap();
+export function cachedWarehouseCosts(repo){
+ const cached=snapshots.get(repo);
+ return repo.real&&repo.user?.permissions?.owner&&cached?.username===repo.user?.username?cached.data:null;
+}
 export function mountWarehouseOverview(root,{repo,navigate,newItem}){
  let rows=[],movements=[],month=warehouseDay(new Date()).slice(0,7),recentKind='device',busy=false,error='',query='';
  const username=repo.user?.username,canCost=repo.real&&repo.user?.permissions?.owner;

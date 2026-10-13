@@ -29,16 +29,16 @@ try{
  await page.locator('#wo-cost-load').click();assert.equal(costCalls,1);
  await page.locator('#wo-cost-details summary').click();await page.locator('#wo-cost-search').fill('024000002');assert.match(await page.locator('#wo-cost-items').innerText(),/Não localizado/);assert.doesNotMatch(await page.locator('#wo-cost-items').innerText(),/3,99/);
  await page.locator('#wo-cost-details summary').click();
- await page.locator('[data-wo-chip="Reserva"]').click();await page.locator('#warehouse-classification').waitFor();assert.equal(await page.locator('#warehouse-classification').inputValue(),'Reserva');
+ await page.locator('[data-wo-chip="Reserva"]').click();await page.locator('#ci-category').waitFor();assert.equal(await page.locator('#ci-category').inputValue(),'Reserva');
  await page.locator('[data-warehouse-view="overview"]').click();assert.match(await page.locator('#wo-cost-summary').innerText(),/3,99/);
  for(const viewport of [{width:1917,height:913},{width:1280,height:720},{width:390,height:844}]){await page.setViewportSize(viewport);await page.waitForTimeout(800);const size=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+2&&e.getBoundingClientRect().width).slice(0,10).map(e=>({id:e.id,cls:e.className,w:e.getBoundingClientRect().width}))}));assert.ok(size.scroll<=size.width+2,JSON.stringify(size));}
  await page.setViewportSize({width:1917,height:913});await page.waitForTimeout(900);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:fileURLToPath(new URL('../.sites-runtime/warehouse-dashboard.png',import.meta.url))});
  await page.locator('[data-warehouse-view="inventory"]').click();await page.locator('[data-tab="chip"]').click();
- await page.locator('#warehouse-classification').selectOption('Emergência');assert.equal(await page.locator('[data-warehouse-classify]').count(),1);
- await page.locator('#warehouse-status').selectOption('');assert.equal(await page.locator('[data-warehouse-classify]').count(),2);
- await page.locator('[data-warehouse-classify="'+rows[0].id+'"]').selectOption('Reserva');await page.waitForFunction(()=>document.querySelectorAll('[data-warehouse-classify]').length===1);
+ await page.locator('#ci-category').selectOption('Emergência');assert.equal(await page.locator('[data-ci-classify]').count(),1);
+ await page.locator('#ci-status').selectOption('');assert.equal(await page.locator('[data-ci-classify]').count(),2);
+ await page.locator('.wc-row-actions summary').first().click();await page.locator('[data-ci-classify="'+rows[0].id+'"]').selectOption('Reserva');await page.waitForFunction(()=>document.querySelectorAll('[data-ci-classify]').length===1);
  assert.deepEqual(writes,[{classification:'Reserva',version:1}]);
- await page.locator('[data-warehouse-detail="'+rows[2].id+'"]').click();await page.locator('dialog[open]').waitFor();assert.ok((await page.locator('dialog[open]').innerText()).includes('024000001'));await page.locator('dialog[open]').evaluate(d=>d.close());
+ await page.locator('[data-ci-detail="'+rows[2].id+'"]').first().click();await page.locator('dialog[open]').waitFor();assert.ok((await page.locator('dialog[open]').innerText()).includes('024000001'));await page.locator('dialog[open]').evaluate(d=>d.close());
  await page.locator('[data-warehouse-view="movements"]').click();assert.ok((await page.locator('#warehouse-table').innerText()).includes('Araguaína'));
  await page.locator('#warehouse-base').selectOption('maraba');assert.ok((await page.locator('#warehouse-table').innerText()).includes('Marabá'));
  await page.locator('[data-warehouse-view="analysis"]').click();await page.locator('#warehouse-range').selectOption('3');assert.equal(await page.locator('#warehouse-month-totals th').count(),4);

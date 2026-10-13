@@ -1,0 +1,87 @@
+/* Compact chip inventory; scoped so device transfers and other warehouse tabs retain their layout. */
+body.central-ui #page.warehouse-chips-page{--wc-muted:#6782a5}
+.warehouse-chips-page .warehouse-control-grid{display:block}
+.warehouse-chips-page .warehouse-inventory{padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
+.warehouse-chips-page .warehouse-inventory>.tabs{margin-bottom:12px}
+.warehouse-chips-page .warehouse-inventory>.tabs{display:none}
+.warehouse-chips-page .warehouse-heading{margin-bottom:8px}
+.warehouse-chips-page .warehouse-heading h1{font-size:26px}
+.warehouse-chips-page .warehouse-heading p{font-size:12px}
+.warehouse-chips-page .warehouse-views{margin-bottom:12px}
+.warehouse-chips-page .warehouse-inventory>.tabs [data-tab=movements]{display:none}
+.warehouse-chips-page .warehouse-metrics,.warehouse-chips-page #warehouse-pagination{display:none!important}
+.warehouse-chips{min-width:0}
+.warehouse-chips .wc-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(160px,.7fr);gap:12px;margin:0 0 16px}
+.warehouse-chips .teal{--wc-accent:#008b73;--wc-soft:#e9f9f5}
+.warehouse-chips .violet{--wc-accent:#7341d2;--wc-soft:#f2edff}
+.warehouse-chips .amber{--wc-accent:#b87300;--wc-soft:#fff5e4}
+.warehouse-chips .blue{--wc-accent:#1279d6;--wc-soft:#edf5ff}
+body.central-ui #page .warehouse-chips .wc-metric{display:flex;align-items:center;justify-content:flex-start;gap:14px;padding:16px;text-align:left;min-height:100px;min-width:0;border:1px solid #d4e4f3;border-radius:14px;background:linear-gradient(120deg,var(--wc-soft),#fff);color:var(--wc-accent);box-shadow:none}
+.warehouse-chips .wc-metric[aria-pressed=true]{outline:2px solid var(--wc-accent);outline-offset:-2px}
+.warehouse-chips .wc-metric>span:last-child{display:flex;flex-direction:column;gap:4px;min-width:0}
+.warehouse-chips .wc-metric small{font-size:12px;font-weight:650;color:var(--wc-accent)}
+.warehouse-chips .wc-metric strong{font-size:30px;line-height:1.1;color:#15375e}
+.warehouse-chips .wc-metric em{font-size:11px;font-style:normal;color:var(--wc-muted)}
+.warehouse-chips .wc-icon-tile{display:grid;place-items:center;background:var(--wc-soft);border-radius:12px;width:48px;height:48px;flex-shrink:0}
+.warehouse-chips .wc-icon-tile .icon{width:28px;height:28px}
+.warehouse-chips .wc-panel{padding:16px;border:1px solid #d9e6f4;border-radius:16px;background:#fff;min-width:0}
+.warehouse-chips .wc-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.warehouse-chips .wc-search{display:flex;align-items:center;gap:8px;flex:2 1 300px;border:1px solid #c7daf4;border-radius:10px;padding-left:12px;color:#6082ac;min-width:0}
+body.central-ui #page .warehouse-chips .wc-search input{border:0;background:transparent;box-shadow:none;width:100%;min-width:0;height:40px;padding:8px}
+body.central-ui #page .warehouse-chips .wc-toolbar select{flex:1 1 160px;min-width:0;height:42px;font-size:12px;padding:8px 10px}
+.warehouse-chips .wc-table-wrap{overflow:auto;padding-bottom:3px}
+.warehouse-chips table{width:100%;min-width:1000px;border-collapse:collapse}
+body.central-ui #page .warehouse-chips th{font-size:11px;color:#48688f;background:#eef5fc;padding:11px 10px;text-align:left;white-space:nowrap}
+body.central-ui #page .warehouse-chips td{font-size:12px;padding:12px 10px;color:#173959;border-bottom:1px solid #e2edf8;vertical-align:middle;background:transparent}
+.warehouse-chips tr.is-selected{background:#eaf5ff}
+.warehouse-chips tr:hover{background:#f7faff}
+.warehouse-chips td small{font-size:11px;color:var(--wc-muted);margin-top:3px}
+.warehouse-chips input[type=checkbox]{accent-color:#0786ff;width:17px;height:17px}
+body.central-ui #page .warehouse-chips .wc-serial{display:block;padding:0;border:0;min-height:0;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;background:none;box-shadow:none;color:#173b68}
+.warehouse-chips .wc-tag{display:inline-flex;gap:6px;align-items:center;border-radius:7px;padding:7px 9px;background:var(--wc-soft);color:var(--wc-accent);font-size:11px;white-space:nowrap}
+.warehouse-chips .wc-tag .icon{width:15px;height:15px}
+.warehouse-chips .wc-status{display:flex;align-items:center;gap:7px;max-width:170px;font-size:11px}
+.warehouse-chips .wc-status i{flex:0 0 7px;width:7px;height:7px;background:var(--wc-accent);border-radius:50%}
+.warehouse-chips .wc-muted{color:var(--wc-muted);font-size:11px}
+.warehouse-chips .wc-price{white-space:nowrap}
+.warehouse-chips .wc-row-actions{display:flex;align-items:center;gap:5px}
+body.central-ui #page .warehouse-chips .wc-row-actions>button,.warehouse-chips .wc-row-actions summary{display:grid;place-items:center;border:0;background:none;box-shadow:none;padding:5px;min-height:28px;color:#1785f5;cursor:pointer}
+.warehouse-chips .wc-row-actions summary{font-size:14px;list-style:none}
+.warehouse-chips .wc-menu{display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:240px;border:1px solid #d8e6f5;background:#f7faff;padding:10px;border-radius:9px}
+.warehouse-chips .wc-menu label{font-size:11px}
+.warehouse-chips .wc-menu select{display:block;width:140px;font-size:12px}
+.warehouse-chips .wc-selection{border-radius:10px;padding:12px;background:linear-gradient(110deg,#eaf5ff,#f6fbff);margin-top:10px}
+.warehouse-chips .wc-selection>div{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.warehouse-chips .wc-selection strong{display:flex;align-items:center;gap:6px;font-size:12px;color:#086dd4}
+body.central-ui #page .warehouse-chips .wc-selection select{height:36px;width:auto;font-size:12px;padding:6px 10px}
+body.central-ui #page .warehouse-chips button{transition:transform .16s,box-shadow .16s}
+body.central-ui #page .warehouse-chips button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 10px #16375215}
+body.central-ui #page .warehouse-chips button:active:not(:disabled){transform:translateY(0)}
+body.central-ui #page .warehouse-chips .primary{min-height:38px;padding:9px 14px;font-size:12px}
+body.central-ui #page .warehouse-chips .wc-link{padding:4px 0;min-height:24px;border:0;background:none;box-shadow:none;color:#0676e7;font-size:11px;text-decoration:underline}
+.warehouse-chips .wc-bottom{margin-top:10px;font-size:11px;color:#527499}
+.warehouse-chips .wc-pager{margin-left:auto;display:flex;align-items:center;gap:8px}
+body.central-ui #page .warehouse-chips .wc-pager button{padding:4px 10px;min-height:28px}
+.warehouse-chips .wc-pager b{padding:5px 9px;background:#087cf4;border-radius:6px;color:white}
+.warehouse-chips .wc-cost-note{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap;color:var(--wc-muted);margin-top:10px;font-size:11px}
+.warehouse-chips .wc-message:empty{display:none}
+.warehouse-chips .wc-message{font-size:12px;color:#235079;margin:8px 0 0}
+@media(max-width:1200px){.warehouse-chips .wc-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.warehouse-chips .wc-pager{margin-left:0}}
+@media(max-width:650px){.warehouse-chips .wc-metrics{gap:8px}body.central-ui #page .warehouse-chips .wc-metric{padding:12px;gap:8px;min-height:100px}.warehouse-chips .wc-icon-tile{width:30px;height:36px}.warehouse-chips .wc-icon-tile .icon{width:22px;height:22px}.warehouse-chips .wc-metric strong{font-size:24px}.warehouse-chips .wc-metric em{font-size:10px}.warehouse-chips .wc-panel{padding:10px}.warehouse-chips .wc-pager{flex-wrap:wrap}.warehouse-chips .wc-selection>div{gap:8px}.warehouse-chips .wc-search{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){body.central-ui #page .warehouse-chips button{transition:none;transform:none!important}}
+@media(min-width:1201px){
+ body.central-ui.warehouse-page #page.warehouse-chips-page{padding:16px 24px}
+ body.central-ui #page.warehouse-chips-page .warehouse-heading{margin:0 0 10px;gap:12px}
+ body.central-ui #page.warehouse-chips-page .warehouse-heading h1{font-size:26px}
+ body.central-ui #page.warehouse-chips-page .warehouse-heading p{font-size:12px;margin-bottom:0}
+ body.central-ui #page.warehouse-chips-page .warehouse-views button{min-height:34px;padding:7px 12px;font-size:12px}
+ body.central-ui #page .warehouse-chips .wc-metric{min-height:84px;padding:12px 16px}
+ body.central-ui #page .warehouse-chips td{padding:7px 10px;font-size:13px;line-height:1.3}
+ body.central-ui #page .warehouse-chips td small{line-height:1.2;margin-top:2px}
+ body.central-ui #page .warehouse-chips .wc-serial{line-height:1.3}
+ body.central-ui #page .warehouse-chips .wc-selection select{min-height:36px;min-width:128px;padding-right:28px}
+ body.central-ui #page .warehouse-chips .wc-pager button{min-height:28px}
+ body.central-ui #page .warehouse-chips .wc-serial{font-size:13px}
+ .warehouse-chips .wc-metrics{margin-bottom:12px}
+ .warehouse-chips .wc-selection{padding:10px 12px}
+}
