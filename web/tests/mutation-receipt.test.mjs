@@ -67,9 +67,9 @@ test('registration switches to the saved kind before rendering success and does 
  const elements=new Map();const element=id=>{if(!elements.has(id))elements.set(id,{value:'',isConnected:true,classList:{toggle(){}},querySelector:element});return elements.get(id);};
  const original=globalThis.document;globalThis.document={querySelector:element};t.after(()=>{if(original===undefined)delete globalThis.document;else globalThis.document=original;});
  const events=[];let pending,fail=false;
- const r={real:true,currentBranch:branch,request:async()=>({ok:true,iccid:'89999000000000000999',provider:'arya',operator:'QA'}),addWarehouse:async()=>{if(fail)throw Error('QA recusado');events.push('saved');}};
+ const r={real:true,currentBranch:branch,request:()=>assert.fail('No extra provider request before saving'),addWarehouse:async(kind,serial,provider)=>{assert.equal(kind,'chip');assert.equal(serial,'89999000000000000999');assert.equal(provider,'arya');if(fail)throw Error('QA recusado');events.push('saved');}};
  wireWarehouseRegistration({repo:r,branch,modal:{close:()=>events.push('close')},notify:()=>events.push('success'),render:()=>events.push('render'),safe:fn=>{pending=fn();},escape:String,validIccid:()=>true,onSaved:kind=>events.push(kind)});
- element('#kind-chip').onclick();element('#new-serial').value='89999000000000000999';element('#chip-provider').value='arya';await element('#lookup-chip').onclick();
- element('#warehouse-form').onsubmit({preventDefault(){}});await pending;assert.deepEqual(events,['saved','close','chip','render','success']);
+ element('#kind-chip').onclick();element('#new-serial').value='89999000000000000999';element('#chip-provider').value='arya';element('#new-serial').oninput();assert.equal(element('#save-item').disabled,false);
+ element('#warehouse-form').onsubmit({preventDefault(){}});element('#warehouse-form').onsubmit({preventDefault(){}});await pending;assert.deepEqual(events,['saved','close','chip','render','success']);
  events.length=0;fail=true;element('#warehouse-form').onsubmit({preventDefault(){}});await assert.rejects(pending,/recusado/);assert.deepEqual(events,[]);
 });
