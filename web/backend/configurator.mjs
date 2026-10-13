@@ -8,7 +8,7 @@ const branches=['imperatriz','araguaina','acailandia','maraba'];
 const digits=v=>String(v||'').replace(/\D/g,'');
 const phone=v=>digits(v).replace(/^55(?=\d{10,11}$)/,'');
 export function validateConfigurator(p){
- if(!branches.includes(p.branch)||!/^024\d{6}$/.test(p.serial||''))throw fail(400,'Filial ou série RS300 inválida.');
+ if(!branches.includes(p.branch)||typeof p.serial!=='string'||! /^[0-9]{9}$/.test(p.serial))throw fail(400,'Filial ou série RS300 inválida.');
  if(p.action==='preflight')return;
  if(p.tracker_version&&!/^V7\.\d+\.\d+$/.test(p.tracker_version))throw fail(400,'Versão física inválida.');
  if(!['hinova.br','linksolutions.br'].includes(p.apn??'hinova.br'))throw fail(400,'APN do Configurador inválida.');

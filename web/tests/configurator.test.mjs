@@ -1,6 +1,14 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {validateConfigurator,configuredData,configuratorFetch} from '../backend/configurator.mjs';
 const payload={action:'save',branch:'imperatriz',serial:'024999991',iccid:'8955000000000000001',phone:'99999999999',operator:'CLARO',version:0,key:'11111111-1111-1111-1111-111111111111'};
+test('all branches accept any nine-digit serial prefix in preflight and save',()=>{
+ for(const branch of ['imperatriz','araguaina','acailandia','maraba'])for(const serial of ['024999991','040999991','123999991','000999991'])for(const action of ['preflight','save']){
+  validateConfigurator({...payload,branch,serial,action});
+  assert.equal(configuredData(null,{...payload,branch,serial}).serial,serial);
+ }
+ for(const serial of ['', '04099999', '0409999910', '+40999991', '04099999A', 40999991])for(const action of ['preflight','save'])assert.throws(()=>validateConfigurator({...payload,serial,action}));
+ assert.throws(()=>validateConfigurator({...payload,serial:'040999991',branch:'unknown',action:'preflight'}));
+});
 test('configurator preserves Link APN and legacy Hinova while rejecting unknown profiles',()=>{
  for(const apn of ['hinova.br','linksolutions.br']){validateConfigurator({...payload,apn});assert.equal(configuredData(null,{...payload,apn}).apn,apn);}
  assert.equal(configuredData(null,payload).apn,'hinova.br');
