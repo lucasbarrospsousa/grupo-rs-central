@@ -410,3 +410,14 @@ Validação: node --test web/tests/equipment-swap.test.mjs; node web/tools/test-
 Identificação em linha, mapa com balão aberto (placa, série, última ignição e comunicação), painel complementar e troca no rodapé. Marcador verde/vermelho/cinza representa a última ignição ligada/desligada/desconhecida; dados antigos continuam sinalizados. Atualizações de 15 s renovam o balão mesmo sem mudança de coordenadas. Mantidos os critérios de comunicação e possível repouso da versão hospedada. Em telas pequenas, o diálogo permite rolagem.
 
 Prévia aprovada: cabeçalho mostra versão de tracker_version/hardware_version/model, sem inferir pela placa. Ausência mostra Não informada. Balão em duas colunas com modelo cadastrado, degradê discreto e agulha PNG simples. Datas completas e baterias no painel lateral.
+
+
+## Chips reserva e ativação assistida — 13/10/2026
+
+Armazém > Chips reserva lista chips disponíveis classificados como Reserva, sem telefone ou com lote de ativação. Apenas administradores de Imperatriz com escrita no Armazém podem preparar lotes de até 10 ou 20; o último lote pode ser menor. Link não é enviado pelo fluxo Árya. Seleção e paginação são locais. A preparação relê a situação de cada ICCID exato via carrier, aceita PENDENTE/0 da Árya e reserva o lote em transação com bloqueio e índice único por ICCID. Abertura da tela e atualização da lista não consultam operadoras.
+
+O envio é ASSISTIDO: copiar ICCIDs, abrir Operacional > Ações em lote > Reset/Ativação, selecionar Ativação e enviar no portal. A Central não faz POST de ativação/reset. O usuário confirma previamente ausência de chamados abertos na Árya; a API disponível não confirma chamados externos. Após o envio, registrar referência/protocolo e confirmação. Lotes preparados e solicitados não podem ser reutilizados, removidos ou movimentados enquanto pendentes. Não há liberação automática por prazo nem reenvio em timeout. Retomar pelo lote salvo após falha de rede.
+
+Conferir ativação faz somente leituras e preserva estado em erro. Apenas status ativo textual explícito confirma conclusão; códigos numéricos de ativo ainda sem contrato oficial ficam sem confirmação. O telefone só é atualizado com resposta exata e ativação confirmada. Ativar não exige que o chip esteja online. Itens ativos permanecem em Reserva até classificação explícita. Sem automação de envio, cobrança ou novo agendador.
+
+Migração 048 adiciona campos ao armazém sem reclassificar dados existentes. Validar com node web/tools/migrate-warehouse-activation.mjs (rollback); aplicar com --apply. Testes de regras e SQL usam respostas simuladas. UI: tools/test-warehouse-activation-ui.mjs com API local simulada, bloqueio de rede externa e capturas fora do Git.
