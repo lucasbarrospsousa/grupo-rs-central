@@ -25,9 +25,14 @@ const query=async(sql,args)=>{
 const pool={query,connect:async()=>({query,release(){}})};
 const service={carrier:async(provider,iccid)=>{const t=performance.now();await new Promise(r=>setTimeout(r,carrierDelay));current.carrierMs+=performance.now()-t;return{ok:true,iccid,provider,operator:'TIM',phone:'5599999999999'};}};
 async function call(label,path,method='GET',body){
+ if(process.argv.includes('--receipts-only')&&label.endsWith('.reload'))return;
  current={label,queries:[],carrierMs:0};const t=performance.now();
  const response=await fetch(`http://127.0.0.1:${server.address().port}/api/${path}`,{method,headers:{Origin:`http://127.0.0.1:${server.address().port}`,Cookie:'central_session='+sid,'Content-Type':'application/json','X-CSRF-Token':csrf,'Idempotency-Key':randomUUID()},body:body?JSON.stringify(body):undefined});
  const text=await response.text(),data=JSON.parse(text);assert.equal(response.status,200,`${label}: HTTP ${response.status}`);
+ if(process.argv.includes('--receipts-only')&&method!=='GET'){
+  assert.equal(data.ok,true);assert.equal(data.changes?.branch,'imperatriz');
+  assert.ok(Object.values(data.changes).some(v=>Array.isArray(v)&&v.length),'Missing affected rows');
+ }
  current.totalMs=performance.now()-t;current.bytes=Buffer.byteLength(text);current.rows=data.rows?.length??null;
  samples.push(current);console.log(label,Math.round(current.totalMs)+'ms',current.queries.length+' SQL');current=null;return data;
 }
@@ -35,13 +40,13 @@ try{
  await c.query('BEGIN');
  await admin.query('insert into central_homologacao.users(id,username,password_hash) values($1,$2,$3)',[uid,'qa-profile-'+uid,'unusable-test-password']);
  await admin.query("insert into central_homologacao.memberships values($1,'imperatriz','admin')",[uid]);
- await admin.query('insert into central_homologacao.user_permissions(user_id,views,writes) values($1,$2,$2)',[uid,['stock','warehouse','maintenance']]);
+ await admin.query('insert into central_homologacao.user_permissions(user_id,views,writes) values($1,$2,$2)',[uid,['stock','warehouse','maintenance','bulk']]);
  await admin.query("insert into central_homologacao.sessions(token_hash,user_id,csrf_hash,expires_at) values($1,$2,$3,now()+interval '10 minutes')",[hash(sid),uid,hash(csrf)]);
 
  for(let i=0;i<3;i++){const t=performance.now();await c.query('select 1');baseline.push(performance.now()-t);}
  const handler=api(pool,{integrationService:service});server=http.createServer((q,s)=>handler(q,s));
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- for(let round=0;round<2;round++){
+ for(let round=0;round<(process.argv.includes('--extended-only')?0:2);round++){
   const serial='999'+String(Date.now()).slice(-6),iccid='89999'+String(Date.now()).padStart(15,'0');
   assert.equal((await c.query('select 1 from central_homologacao.devices where serial=$1 union all select 1 from central_homologacao.warehouse_items where serial=$2',[serial,iccid])).rowCount,0,'Synthetic identifier collision; abort');
   const chip=await call('chip.create','warehouse?branch=imperatriz','POST',{kind:'chip',serial:iccid,provider:'arya'});ids.push(chip.id);
@@ -59,6 +64,18 @@ try{
  }
  carrierDelay=1000;
  const delayed=await call('chip.create.carrier_1s','warehouse?branch=imperatriz','POST',{kind:'chip',serial:'89998'+String(Date.now()).padStart(15,'0'),provider:'arya'});ids.push(delayed.id);
+ if(process.argv.includes('--receipts-only')){
+  const sent=await call('warehouse.transfer','warehouse-transfer?branch=imperatriz','POST',{items:[{id:delayed.id,version:1}],destination:'QA ficticio',note:'QA'});
+  assert.equal(sent.changes.warehouse[0].status,'Enviado');assert.equal(sent.changes.warehouse[0].version,2);assert.equal(sent.changes.movements.length,1);
+  const bulk=await call('bulk.create','bulk?branch=imperatriz','POST',{rows:[{serial:'987'+String(Date.now()).slice(-6),plate:'',carrier:'TIM'},{serial:'986'+String(Date.now()).slice(-6),plate:'',carrier:'TIM'}]});
+  assert.equal(bulk.changes.devices.length,2);ids.push(...bulk.ids);
+  const snapshot={trackerModel:'RS300',trackerVersion:'7.3.2',carrier:'',chipType:'Não informado',iccid:'',phone:'',vehicleType:'Automóvel',vehicleModel:''};
+  const record={visit_version:3,clientName:'QA ficticio',plate:'QAT1A23',currentSerial:'999000099',manual:true,reason:'Sem comunicar',medium:'Suporte do rastreio',notes:'',cause:'Não identificada',diagnosis:'',observation:'QA inicial',incident:snapshot,resolution:{...snapshot,kind:'Outra solução',notes:''}};
+  const visit=await call('maintenance.create','maintenance?branch=imperatriz','POST',record);
+  assert.equal(visit.changes.reports[0].observation,'QA inicial');
+  const edited=await call('maintenance.update','maintenance/'+visit.id+'?branch=imperatriz','PATCH',{...record,version:1,observation:'QA alterado'});
+  assert.equal(edited.changes.reports[0].version,2);assert.equal(edited.changes.reports[0].observation,'QA alterado');
+ }
 }finally{
  if(server){server.closeAllConnections();await new Promise(r=>server.close(r));}
  await c.query('ROLLBACK');

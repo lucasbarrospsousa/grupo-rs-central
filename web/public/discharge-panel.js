@@ -61,7 +61,7 @@ export function openDischarge({repo,branch,showModal,notify,render}){
    selected.delete(row.id);draw();
   }
   // Closing stops the remaining batch; an already submitted write may finish.
-  if(changed)try{await repo.load(branch);}catch(error){notify('Baixas confirmadas; não foi possível atualizar a lista: '+error.message);}
+  // HTTP receipts already updated the affected devices.
   busy=false;review=false;if(alive()){get('confirm').textContent=`${done} baixa(s) aplicada(s) • ${failed} pendência(s).`;draw();}else if(changed)render();
  };
  window.addEventListener('resize',draw);

@@ -1,3 +1,4 @@
+import {mutationReceipt,remoteMutationReceipt} from './mutation-receipt.mjs';
 import {stockOwner,confirmedOwner} from './stock-owner.mjs';
 import {equipmentSwap} from './equipment-swap.mjs';
 import {startLinkBatch,drainLinkQueue,cancelLinkQueue} from './auto-link-queue.mjs';
@@ -27,7 +28,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    if(req.method==='GET'){send(res,await equipmentSwap({pool,user,branch,service,action:'status',body:{serial}}));return true;}
    if(req.method!=='POST')throw fail(405,'Método inválido.');
    const b=await readBody(req);if(!['preview','execute'].includes(b.action))throw fail(400,'Ação inválida.');
-   send(res,await equipmentSwap({pool,user,branch,service,action:b.action,body:b}));return true;
+   const result=await equipmentSwap({pool,user,branch,service,action:b.action,body:b});send(res,await remoteMutationReceipt(pool,user,branch,'swap',result));return true;
   }
   if(action==='link-lots')throw fail(410,'A numeração da vinculação agora é automática.');
   if(action==='auto-link'){
@@ -89,7 +90,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    if(action==='stock'){const fresh=await scoped(pool,user,async c=>(await c.query('select id,serial,branch_id,data,version from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null',[branch,serial])).rows[0]);if(fresh)data.contacts={...(data.contacts||{}),device:{...fresh.data,id:fresh.id,serial:fresh.serial,branch:fresh.branch_id,version:fresh.version}};}
    send(res,data);return true;
   }
-  if(['link','sms','reconcile'].includes(action)&&req.method==='POST'){const body=await readBody(req);if(action==='reconcile'){const op=await scoped(pool,user,async c=>(await c.query('select kind from central_homologacao.remote_operations where id=$1 and branch_id=$2',[body.id,branch])).rows[0]);if(!op)throw fail(404,'Pedido não encontrado.');if(!permissions?.owner&&!permissions?.writes?.includes(op.kind))throw fail(403,'Sem permissão para conferir este tipo de operação.');}send(res,await remoteAction({action,body,branch,user,role:membership.role,pool,service}));return true;}
+  if(['link','sms','reconcile'].includes(action)&&req.method==='POST'){const body=await readBody(req);if(action==='reconcile'){const op=await scoped(pool,user,async c=>(await c.query('select kind from central_homologacao.remote_operations where id=$1 and branch_id=$2',[body.id,branch])).rows[0]);if(!op)throw fail(404,'Pedido não encontrado.');if(!permissions?.owner&&!permissions?.writes?.includes(op.kind))throw fail(403,'Sem permissão para conferir este tipo de operação.');}const result=await remoteAction({action,body,branch,user,role:membership.role,pool,service});send(res,action==='sms'?result:await remoteMutationReceipt(pool,user,branch,'link',result));return true;}
   if(action!=='discharge'||req.method!=='POST')throw fail(405,'Operação indisponível.');
   if(membership.role==='reader')throw fail(403,'Usuário somente de leitura.');
   const body=await readBody(req),key=req.headers['idempotency-key'];if(!/^[a-f0-9-]{36}$/.test(key||'')||typeof body.id!=='string'||!Number.isInteger(body.version))throw fail(400,'Identificador ou versão inválidos.');
@@ -100,7 +101,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
   const remote=await (service.dischargeBinding||service.binding).call(service,branch,current.serial,current.data.client,{fresh:true});const manual=body.manual===true&&['stock','review'].includes(body.confirmedCategory)&&remote.category===body.confirmedCategory;if((!remote.ok&&!manual)||(remote.plate||'')!==(body.plate||'')||(remote.client||'')!==(body.client||''))throw fail(409,'Vínculo mudou ou não foi confirmado. Analise novamente.');
   const tx=await pool.connect();try{await tx.query('BEGIN');await tx.query("select set_config('central.user_id',$1,true)",[user.user_id]);await tx.query('select pg_advisory_xact_lock(hashtext($1))',[user.user_id+key]);const replay=(await tx.query('select response,fingerprint from central_homologacao.requests where user_id=$1 and request_key=$2',[user.user_id,key])).rows[0];if(replay){if(replay.fingerprint!==fingerprint)throw fail(409,'Identificador reutilizado.');await tx.query('COMMIT');send(res,replay.response);return true;}
    const r=await tx.query("update central_homologacao.devices set data=data||$4::jsonb,version=version+1,updated_at=now() where id=$1 and branch_id=$2 and version=$3 and deleted_at is null returning id",[body.id,branch,body.version,JSON.stringify({status:'Instalado',plate:remote.plate||current.data.plate||'',client:remote.client||current.data.client||'',installed_at:new Date().toISOString()})]);if(!r.rowCount)throw fail(409,'Cadastro mudou durante a consulta.');
-   const result={ok:true,id:body.id,version:body.version+1};await tx.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,'DISCHARGE',body.id,{beforeVersion:body.version,source:remote.source,manual,category:remote.category,confirmedPlate:body.plate,confirmedClient:body.client}]);await tx.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,key,fingerprint,result]);await tx.query('COMMIT');send(res,result);return true;
+   const result=await mutationReceipt(tx,{path:'/api/devices',method:'PATCH',body,branch,result:{ok:true,id:body.id,version:body.version+1}});await tx.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,'DISCHARGE',body.id,{beforeVersion:body.version,source:remote.source,manual,category:remote.category,confirmedPlate:body.plate,confirmedClient:body.client}]);await tx.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,key,fingerprint,result]);await tx.query('COMMIT');send(res,result);return true;
   }catch(e){await tx.query('ROLLBACK');throw e;}finally{tx.release();}
  }finally{active.set(user.user_id,(active.get(user.user_id)||1)-1);}
 }

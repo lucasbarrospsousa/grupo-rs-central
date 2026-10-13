@@ -44,7 +44,7 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
      const result=await repo.request('integrations/link?branch='+branch,{method:'POST',body:{id:row.id,version:row.version,plate:preview.plate,confirmed:true}});
      if(resultNode.isConnected)resultNode.textContent=result.message;
      if(!result.ok)return;
-     await repo.load(branch,{route:'link'});const saved=repo.list(branch).find(d=>d.id===row.id);
+     const saved=repo.list(branch).find(d=>d.id===row.id);
      if(!saved||saved.status!=='Estoque'||saved.identification!==preview.plate)throw Error('Vínculo confirmado na plataforma; atualize a lista para conferir o estoque local.');
      if(!confirm.isConnected||repo.currentBranch!==branch)return;
      render();showModal('Vinculação concluída','<p>Série <strong>'+esc(saved.serial)+'</strong> • Identificação <strong>'+esc(saved.identification)+'</strong></p><p>Salvo em Estoque e removido dos aparelhos pendentes.</p><button id="remote-link-done" class="primary">Concluído</button>','medium');

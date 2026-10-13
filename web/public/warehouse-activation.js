@@ -8,7 +8,7 @@ export function mountWarehouseActivation(root,{repo,icon}){
   if(busy)return;busy=true;message='Conferindo e salvando…';draw();
   try{const result=await repo.request((body.action==='send'?'warehouse-activation-send':'warehouse-activation')+'?branch=imperatriz',{method:'POST',body});selected.clear();message=result.message|| (body.action==='check'?`${result.confirmed} ativos confirmados • ${result.pending} sem confirmação de ativação • ${result.errors} falhas de consulta`:body.action==='prepare'?'Lote reservado na Central. Ainda não enviado à Árya.':'Solicitação registrada. Aguarde a ativação pela operadora.');
   }catch(e){message=e.message+' Atualize a lista antes de tentar novamente.';}
-  finally{try{repo.invalidate('imperatriz',['warehouse']);await repo.loadGroup('imperatriz','warehouse');rows=repo.warehouse;}catch{message+=' Não foi possível recarregar a lista.';}busy=false;draw();}
+  finally{rows=repo.warehouse;busy=false;draw();}
  }
  function draw(){
   if(!root.isConnected)return;

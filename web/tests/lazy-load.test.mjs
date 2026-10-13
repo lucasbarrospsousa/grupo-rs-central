@@ -12,7 +12,8 @@ test('navigation retains warehouse and stock data without refetching',async()=>{
 test('saving an ICCID invalidates warehouse so the next visit gets the movement',async()=>{
  const r=repo();r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});
  await r.saveDevice('a',{serial:'024000001',iccid:'8955000000000000001'});
- assert.equal(r.ready('a','warehouse'),false);assert.equal(r.ready('a','stock'),true);
+ assert.equal(r.ready('a','warehouse'),false);assert.equal(r.ready('a','stock'),false);
+ assert.equal(r.calls.filter(p=>p==='devices?branch=a').length,1); // Only POST: no eager full reload.
  await r.load('a',{route:'warehouse',force:false});assert.equal(r.calls.at(-1),'warehouse?branch=a');
 });
 function repo(){const r=new SqlRepository();r.user={permissions:{owner:true}};r.calls=[];r.request=async path=>{r.calls.push(path);return data()};return r;}

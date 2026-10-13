@@ -1,3 +1,5 @@
+import {scoped} from './remote-actions.mjs';
+import {mutationReceipt} from './mutation-receipt.mjs';
 import {sendWarehouseActivation} from './warehouse-activation-send.mjs';
 import {scanConfig,scanBranch} from './code-scan.mjs';
 import {centralTokenStatus,saveCentralToken} from './deployment-credential.mjs';
@@ -131,7 +133,9 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     if(!membership)throw fail(403,'Sem acesso a esta filial.');
     if(url.pathname==='/api/warehouse-activation-send'){
       if(req.method!=='POST')throw fail(405,'Método não permitido.');
-      reply(res,200,await sendWarehouseActivation({pool,user,branch,role:membership.role,body:await body(req),service:integrationService}));return true;
+      const input=await body(req),result=await sendWarehouseActivation({pool,user,branch,role:membership.role,body:input,service:integrationService});
+      let receipt=result;try{receipt=await scoped(pool,user,c=>mutationReceipt(c,{path:url.pathname,method:req.method,body:input,branch,result}));}catch{receipt={...result,refreshPending:true};}
+      reply(res,200,receipt);return true;
     }
     const client=await pool.connect();
     try{
@@ -157,9 +161,10 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       const fingerprint=hash(JSON.stringify([req.method,url.pathname,branch,b]));
       await client.query('select pg_advisory_xact_lock(hashtext($1))',[user.user_id+requestKey]);
       const previous=(await client.query('select fingerprint,response from central_homologacao.requests where user_id=$1 and request_key=$2',[user.user_id,requestKey])).rows[0];
-      if(previous){if(previous.fingerprint!==fingerprint)throw fail(409,'Identificador reutilizado para outra operação.');await client.query('COMMIT');reply(res,200,previous.response);return true;}
+      if(previous){if(previous.fingerprint!==fingerprint)throw fail(409,'Identificador reutilizado para outra operação.');const receipt=previous.response.changes?previous.response:await mutationReceipt(client,{path:url.pathname,method:req.method,body:b,branch,result:previous.response});await client.query('COMMIT');reply(res,200,receipt);return true;}
       if(!url.pathname.startsWith('/api/devices')){
         const result=await businessMutation(client,{service:integrationService,path:url.pathname,method:req.method,body:b,branch,user,role:membership.role});
+        result.response=await mutationReceipt(client,{path:url.pathname,method:req.method,body:b,branch,result:result.response});
         await client.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,req.method+' '+url.pathname,result.id,{count:result.response.count||1}]);
         await client.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,requestKey,fingerprint,result.response]);
         await client.query('COMMIT');reply(res,200,result.response);return true;
@@ -194,7 +199,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
         if(current)await client.query('update central_homologacao.devices set data=$2,version=version+1,updated_at=now() where id=$1',[id,data]);
         else await client.query('insert into central_homologacao.devices(id,branch_id,serial,data) values($1,$2,$3,$4)',[id,branch,data.serial,data]);
       }
-      const response={ok:true,id,version:(current?.version||0)+1};
+      const response=await mutationReceipt(client,{path:url.pathname,method:req.method,body:b,branch,result:{ok:true,id,version:(current?.version||0)+1}});
       await client.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,req.method,id,{beforeVersion:current?.version||0,afterVersion:response.version}]);
       await client.query('insert into central_homologacao.requests(user_id,request_key,fingerprint,response) values($1,$2,$3,$4)',[user.user_id,requestKey,fingerprint,response]);
       await client.query('COMMIT');reply(res,200,response);return true;

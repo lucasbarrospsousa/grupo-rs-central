@@ -1,3 +1,4 @@
+import {applyMutationReceipt} from './mutation-receipt.js';
 import {PagePreloadCache,preloadPlan} from './page-preload.js';
 import {communication} from './stock-live.js';
 export class SqlRepository {
@@ -12,16 +13,16 @@ export class SqlRepository {
     try{return await pending;}finally{if(this.getPending.get(path)===pending)this.getPending.delete(path);}
   }
   async networkRequest(path,{method='GET',body,key,signal}={}){
-    let response;
+    let response;const requestEpoch=this.epoch;
     try{response=await fetch('/api/'+path,{method,signal:AbortSignal.any([AbortSignal.timeout(path.startsWith('warehouse-activation')||path.startsWith('integrations/')||method==='POST'&&path.startsWith('maintenance?')?120000:25000),...(signal?[signal]:[])]),headers:{'Content-Type':'application/json','X-CSRF-Token':this.csrf,...(method!=='GET'?{'Idempotency-Key':key||crypto.randomUUID()}:{})},body:body?JSON.stringify(body):undefined});}
     catch(error){throw Error(error.name==='TimeoutError'?'O servidor demorou a responder. Tente novamente.':'A conexão com o servidor local foi interrompida. Tente novamente em alguns segundos.');}
     if(response.headers.get('X-Central-Audit')==='unavailable')window.dispatchEvent(new Event('central-audit-unavailable'));
-    const data=await response.json();if(response.status===401&&this.user){this.clearPreload();window.dispatchEvent(new Event('central-session-expired'));}if(!response.ok)throw Object.assign(Error(data.error||'Falha na consulta.'),{status:response.status});if(path.startsWith('integrations/stock?')&&data.contacts?.confirmed){const branch=new URLSearchParams(path.split('?')[1]).get('branch');if(branch)this.invalidate(branch,['warehouse']);}return data;
+    const data=await response.json();if(response.status===401&&this.user){this.clearPreload();window.dispatchEvent(new Event('central-session-expired'));}if(!response.ok)throw Object.assign(Error(data.error||'Falha na consulta.'),{status:response.status});if(method!=='GET'&&/^(devices|warehouse|warehouse-transfer|warehouse-activation|warehouse-activation-send|bulk|maintenance|install)(?:[/?]|$)/.test(path)&&data.ok!==true)throw Error(data.error||data.message||'Gravação não confirmada.');if(path.startsWith('integrations/stock?')&&data.contacts?.confirmed){const branch=new URLSearchParams(path.split('?')[1]).get('branch');if(branch)this.invalidate(branch,['warehouse']);}if(method!=='GET'&&data.ok===true&&requestEpoch===this.epoch){if(data.changes){this.writeVersion++;applyMutationReceipt(this,data.changes);}else data.refreshPending=true;}return data;
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;await this.pageCache.bind(this.user);return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
   clearPreload(){this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
-  async logout(){this.clearPreload();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
+  async logout(){this.clearPreload();this.receiptVersions?.clear();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){
     const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
     const result=[];
@@ -65,7 +66,8 @@ export class SqlRepository {
     const pending=(async()=>{
       const data=await this.request(group+'?branch='+encodeURIComponent(branch));
       if(epoch!==this.epoch||generation!==(this.generations.get(key)||0))return;
-      this.applyGroup(branch,group,data);if(revision===this.writeVersion)this.pageCache.save(branch,group,data);this.refreshErrors.delete(key);
+      if(revision!==this.writeVersion)return;
+      this.applyGroup(branch,group,data);this.pageCache.save(branch,group,data);this.refreshErrors.delete(key);
       const wasRestored=this.restored.delete(key);
       if(wasRestored)this.onDataUpdate?.(branch,group);
       this.loaded.add(key);
@@ -90,16 +92,17 @@ export class SqlRepository {
 
   }
   list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d,...(d.observation?{communication:communication(d.observation.location),connectivity:d.observation.chip?.ok?d.observation.chip.connectivity||'Não informado':'Consulta pendente'}:{})}));}
-  async saveDevice(branch,values,current,{key}={}){const result=await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',key,body:{data:values,...(current?{version:current.version}:{})}});try{await this.load(branch,{route:'stock'});}catch{return {...result,refreshPending:true};}return result;}
-  async deleteDevice(branch,current){await this.request('devices/'+current.id+'?branch='+encodeURIComponent(branch),{method:'DELETE',body:{version:current.version}});await this.load(branch,{route:'stock'});}
+  mutationResult(result){return result.changes?result:{...result,refreshPending:true};}
+  async saveDevice(branch,values,current,{key}={}){const result=await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',key,body:{data:values,...(current?{version:current.version}:{})}});if(!result.changes&&Object.hasOwn(values,'iccid'))this.invalidate(branch,['warehouse']);return this.mutationResult(result);}
+  async deleteDevice(branch,current){await this.request('devices/'+current.id+'?branch='+encodeURIComponent(branch),{method:'DELETE',body:{version:current.version}});}
   analyze(){throw Error('A baixa depende da integração de consulta da plataforma, ainda em validação.');}
   applyDischarge(){throw Error('A baixa remota ainda está em validação.');}
-  async addWarehouse(kind,serial,provider='arya',classification='Estoque'){await this.request('warehouse?branch='+this.currentBranch,{method:'POST',body:{kind,serial,classification,...(kind==='chip'?{provider}:{})}});await this.load(this.currentBranch,{route:'warehouse'});}
-  async classifyWarehouse(id,classification){const row=this.warehouse.find(r=>r.id===id);const branch=row.branch;await this.request('warehouse/'+id+'?branch='+branch,{method:'PATCH',body:{classification,version:row.version}});await this.load(this.currentBranch,{route:'warehouse'});}
-  async removeWarehouse(id){const row=this.warehouse.find(r=>r.id===id);await this.request('warehouse/'+id+'?branch='+row.branch,{method:'DELETE',body:{version:row.version}});await this.load(this.currentBranch,{route:'warehouse'});}
-  async transfer(ids,destination,note){const items=ids.map(id=>{const r=this.warehouse.find(r=>r.id===id);return{id,version:r.version};});await this.request('warehouse-transfer?branch='+this.currentBranch,{method:'POST',body:{items,destination,note}});await this.load(this.currentBranch,{route:'warehouse'});}
-  async addBulk(rows,{branch=this.currentBranch,key}={}){const result=await this.request('bulk?branch='+encodeURIComponent(branch),{method:'POST',key,body:{rows}});try{await this.load(branch,{route:'bulk'});}catch{return {...result,refreshPending:true};}return result;}
-  async saveReport({branch,id,...data}){const result=await this.request('maintenance?branch='+branch,{method:'POST',body:data,key:id});try{await this.load(branch,{route:'maintenance'});}catch{return {...result,refreshPending:true};}return result;}
-  async updateReport(report,values){const result=await this.request('maintenance/'+report.id+'?branch='+report.branch,{method:'PATCH',body:{version:report.version,...values}});try{await this.load(report.branch,{route:'maintenance'});}catch{return {...result,refreshPending:true};}return result;}
+  async addWarehouse(kind,serial,provider='arya',classification='Estoque'){await this.request('warehouse?branch='+this.currentBranch,{method:'POST',body:{kind,serial,classification,...(kind==='chip'?{provider}:{})}});}
+  async classifyWarehouse(id,classification){const row=this.warehouse.find(r=>r.id===id);const branch=row.branch;await this.request('warehouse/'+id+'?branch='+branch,{method:'PATCH',body:{classification,version:row.version}});}
+  async removeWarehouse(id){const row=this.warehouse.find(r=>r.id===id);await this.request('warehouse/'+id+'?branch='+row.branch,{method:'DELETE',body:{version:row.version}});}
+  async transfer(ids,destination,note){const items=ids.map(id=>{const r=this.warehouse.find(r=>r.id===id);return{id,version:r.version};});await this.request('warehouse-transfer?branch='+this.currentBranch,{method:'POST',body:{items,destination,note}});}
+  async addBulk(rows,{branch=this.currentBranch,key}={}){const result=await this.request('bulk?branch='+encodeURIComponent(branch),{method:'POST',key,body:{rows}});return this.mutationResult(result);}
+  async saveReport({branch,id,...data}){const result=await this.request('maintenance?branch='+branch,{method:'POST',body:data,key:id});return this.mutationResult(result);}
+  async updateReport(report,values){const result=await this.request('maintenance/'+report.id+'?branch='+report.branch,{method:'PATCH',body:{version:report.version,...values}});return this.mutationResult(result);}
   record(){throw Error('Operação ainda não conectada ao servidor.');}
 }
