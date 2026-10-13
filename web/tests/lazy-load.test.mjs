@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import {SqlRepository} from '../public/sql-repository.js';
 const data=()=>({rows:[],visits:[],movements:[]});
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject};};
+test('refresh retains visible data, deduplicates reads and survives offline for every data group',async()=>{
+ for(const group of ['devices','history','warehouse']){
+  const r=repo(),route={devices:'stock',history:'maintenance',warehouse:'warehouse'}[group];r.currentBranch='a';
+  r.applyGroup('a',group,{rows:group==='history'?[]:[{id:'old',branch:'a'}],visits:group==='history'?[{id:'old',data:{},version:1}]:[],movements:[]});r.loaded.add('a:'+group);if(group==='history')r.loaded.add('a:devices');
+  const wait=deferred();let calls=0;r.request=()=>{calls++;return wait.promise;};r.invalidate('a',[group]);
+  assert.equal(r.ready('a',route),true);r.activate('a',route);assert.equal(r.ready('a',route),true);
+  const a=r.loadGroup('a',group),b=r.loadGroup('a',group);wait.reject(Error('offline'));await Promise.allSettled([a,b]);assert.equal(calls,1);assert.equal(r.ready('a',route),true);assert.ok(r.refreshErrors.has('a:'+group));
+  assert.equal(({devices:r.devices,history:r.reports,warehouse:r.warehouse})[group][0].id,'old');
+  r.request=async()=>data();r.invalidate('a',[group]);await r.loadGroup('a',group);assert.equal(r.stale.has('a:'+group),false);assert.equal(r.refreshErrors.has('a:'+group),false);
+ }
+});
 test('navigation retains warehouse and stock data without refetching',async()=>{
  const r=repo();r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});
  r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});assert.equal(r.calls.length,1);
@@ -12,7 +23,7 @@ test('navigation retains warehouse and stock data without refetching',async()=>{
 test('saving an ICCID invalidates warehouse so the next visit gets the movement',async()=>{
  const r=repo();r.activate('a','warehouse');await r.load('a',{route:'warehouse',force:false});
  await r.saveDevice('a',{serial:'024000001',iccid:'8955000000000000001'});
- assert.equal(r.ready('a','warehouse'),false);assert.equal(r.ready('a','stock'),false);
+ assert.equal(r.ready('a','warehouse'),true);assert.ok(r.stale.has('a:warehouse'));assert.equal(r.ready('a','stock'),false);
  assert.equal(r.calls.filter(p=>p==='devices?branch=a').length,1); // Only POST: no eager full reload.
  await r.load('a',{route:'warehouse',force:false});assert.equal(r.calls.at(-1),'warehouse?branch=a');
 });

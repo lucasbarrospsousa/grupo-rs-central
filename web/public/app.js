@@ -71,6 +71,7 @@ if(repo.real)repo.onDataUpdate=(branch,group)=>{
  clearTimeout(cacheRenderTimer);const route=state.route;
  const update=()=>{if(!state.entered||state.branch!==branch||state.route!==route)return;if(modal.open||document.activeElement?.matches('input,textarea,select')){cacheRenderTimer=setTimeout(update,500);return;}render();};cacheRenderTimer=setTimeout(update,100);
 };
+window.addEventListener('online',()=>{if(repo.real&&state.entered&&repo.user){repo.invalidate(state.branch,repo.groups(state.route));render();}});
 function render() {
   document.body.dataset.route=state.route;
   const version=++renderVersion;
@@ -113,6 +114,12 @@ function render() {
     repo.activate(state.branch,state.route);
     const restored=repo.groups(state.route).map(g=>state.branch+':'+g).filter(k=>repo.restored.has(k));
     if(restored.length){const banner=document.querySelector('.release-strip span:last-child');if(banner)banner.textContent=restored.some(k=>repo.refreshErrors.has(k))?'Cópia temporária • atualização pendente. Use Atualizar para tentar novamente.':'Cópia temporária da sessão • atualizando dados salvos…';}
+    const stale=repo.groups(state.route).filter(g=>repo.stale.has(state.branch+':'+g));
+    if(stale.length&&repo.ready(state.branch,state.route)){
+      const banner=document.querySelector('.release-strip span:last-child');
+      if(banner)banner.textContent=stale.some(g=>repo.refreshErrors.has(state.branch+':'+g))?'Últimos dados disponíveis • atualização pendente':'Atualizando em segundo plano…';
+      for(const group of stale)if(!repo.refreshErrors.has(state.branch+':'+group))void repo.loadGroup(state.branch,group).catch(()=>{});
+    }
     if(state.route!=='overview'&&!repo.ready(state.branch,state.route)){
       mountNavigation();normalizeHeader();
       const branch=state.branch,route=state.route;
