@@ -19,3 +19,7 @@ A antiga aba Inventário agora se chama Aparelhos e apresenta Gestão de aparelh
 ## Movimentações
 
 Padrão de gestão com indicadores de envios de aparelhos, destinos, registros filtrados e histórico total. Abre nos envios do mês atual (America/Fortaleza). Filtros locais por mês, destino/base ou destino manual, série/observação e escopo (envios, aparelhos, chips, todos). Histórico completo limpa os filtros e inclui registros sem data; detecções não contam como envio físico. Ordenação da lista por data decrescente, sem mutar os eventos originais; paginação reaproveita a lista filtrada. Não altera registros nem consulta provedores. Testes: warehouse-movements.test.mjs e test-warehouse-overview-ui.mjs.
+
+## Análise mensal
+
+Dashboard dedicado aos envios de aparelhos, com mês de referência, últimos 3/6/12 meses e destino (incluindo destinos livres). Mostra mês escolhido, mês anterior, variação percentual, total do período, barras por destino e tabela mensal. Mês em andamento é identificado como parcial; sem base anterior não inventa percentual. Usa apenas registros locais de envio, mantém reenvios legítimos, não soma detecção como envio e preserva registros de aparelhos removidos quando o evento guarda o tipo. Envios sem data permanecem no histórico e são sinalizados. O atalho Ver movimentações aplica mês e destino. Nenhuma escrita ou consulta a provedores. Testes: warehouse-monthly.test.mjs e regressão visual test-warehouse-overview-ui.mjs.
