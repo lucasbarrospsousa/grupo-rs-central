@@ -25,10 +25,11 @@ try{
  await page.goto('http://127.0.0.1:'+server.address().port);
  await page.locator('.wo-chart svg').waitFor(); assert.equal(await page.locator('.wo-kpi').count(),5);
  assert.equal(await page.locator('.warehouse-metrics').isVisible(),false);assert.equal(await page.locator('.warehouse-control-grid').isVisible(),false);
- await page.locator('#wo-cost-details').waitFor();assert.match(await page.locator('#wo-cost-summary').innerText(),/3,99/);
- assert.ok(await page.locator('#wo-cost-load').isDisabled());assert.equal(costCalls,1);
- await page.locator('#wo-cost-details summary').click();await page.locator('#wo-cost-search').fill('024000002');assert.match(await page.locator('#wo-cost-items').innerText(),/Não localizado/);assert.doesNotMatch(await page.locator('#wo-cost-items').innerText(),/3,99/);
- await page.locator('#wo-cost-details summary').click();
+ await page.waitForFunction(()=>document.querySelector('#wo-cost-summary')?.textContent.includes('3,99'));assert.equal(costCalls,1);
+ assert.equal(await page.locator('#wo-cost-load,#wo-cost-details,#wo-cost-tariffs').count(),0);
+ await page.locator('.wo-costs [data-wo-action="chips"]').click();await page.locator('[data-ci-section="billing"]').click();
+ await page.locator('#cb-search').fill('024000002');assert.match(await page.locator('.wc-billing-table').innerText(),/Não localizado/);assert.doesNotMatch(await page.locator('.wc-billing-table').innerText(),/3,99/);assert.equal(costCalls,1);
+ await page.locator('[data-warehouse-view="overview"]').click();
  await page.locator('.wo-costs').screenshot({path:fileURLToPath(new URL('../.sites-runtime/chip-cost-card.png',import.meta.url))});
  await page.locator('[data-wo-chip="Reserva"]').click();await page.locator('#ci-category').waitFor();assert.equal(await page.locator('#ci-category').inputValue(),'Reserva');
  await page.locator('[data-warehouse-view="overview"]').click();assert.match(await page.locator('#wo-cost-summary').innerText(),/3,99/);

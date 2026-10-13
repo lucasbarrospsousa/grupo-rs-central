@@ -25,7 +25,7 @@ export function styleWarehouse({real=false,icon,newItem,refresh,repo,onUpdate,ac
  const clear=document.createElement('button');clear.id='warehouse-clear-selection';clear.textContent='Limpar seleção';clear.type='button';transfer.querySelector('.form-actions').append(clear);
  const overview=document.createElement('section');overview.className='warehouse-overview';grid.before(overview);
  const chips=document.createElement('section');chips.className='warehouse-chips';inventory.append(chips);
- const chipControl=mountWarehouseChips(chips,{repo,icon,onUpdate,...chipActions,onHistory:()=>nav.querySelector('[data-warehouse-view="reserve"]').click(),onCosts:()=>{nav.querySelector('[data-warehouse-view="overview"]').click();overview.querySelector('.wo-costs')?.scrollIntoView({block:'nearest'});}});
+ const chipControl=mountWarehouseChips(chips,{repo,icon,onUpdate,...chipActions});
  inventory.querySelector('#warehouse-classification').addEventListener('change',e=>chipControl.filter(e.target.value));
  const showingChips=()=>view==='inventory'&&activeTab==='chip';
  page.classList.toggle('warehouse-chips-page',showingChips());
@@ -57,5 +57,5 @@ export function styleWarehouse({real=false,icon,newItem,refresh,repo,onUpdate,ac
  }
  for(const id of ['warehouse-month','warehouse-range','warehouse-kind'])page.querySelector('#'+id).onchange=()=>{const selected=page.querySelector('#warehouse-month').value;if(!/^\d{4}-\d{2}$/.test(selected))return;month=selected;months=Number(page.querySelector('#warehouse-range').value);kind=page.querySelector('#warehouse-kind').value;charts();};
  selectView(view);
- return{get base(){return page.querySelector('#warehouse-base').value;},update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;activation.update(rows);overviewControl.update(rows,movements);if(showingChips()){chipControl.update(rows);stats.hidden=true;transfer.hidden=true;page.querySelector('#warehouse-send').hidden=true;heading.querySelector('h1').textContent='Inventário de chips';heading.querySelector('p').textContent='Estoque, reserva e emergência em um só lugar.';}warehouseSummary(rows,movements).forEach((v,i)=>stats.querySelectorAll('.value')[i].textContent=v);charts();}};
+ return{get base(){return page.querySelector('#warehouse-base').value;},update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;activation.update(rows);overviewControl.update(rows,movements);if(showingChips()){chipControl.update(rows);stats.hidden=true;transfer.hidden=true;page.querySelector('#warehouse-send').hidden=true;heading.querySelector('h1').textContent='Gestão de chips';heading.querySelector('p').textContent='Estoque, mensalidades, vínculos e ativações.';}warehouseSummary(rows,movements).forEach((v,i)=>stats.querySelectorAll('.value')[i].textContent=v);charts();}};
 }

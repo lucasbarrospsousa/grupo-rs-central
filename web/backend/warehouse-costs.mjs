@@ -73,17 +73,18 @@ export async function refreshCostSnapshots(pool,user,service,devices=[]){
 }
 export function summarizeCosts(devices,input){
  const sources=Array.isArray(input)?input:[{provider:'arya',...input}],chips=new Map();let missing=0,duplicates=0;
- for(const d of devices){const iccid=String(d.iccid||'').trim();if(!/^89\d{17,18}$/.test(iccid)){missing++;continue;}if(chips.has(iccid)){duplicates++;chips.get(iccid).devices.push(d.serial);}else chips.set(iccid,{iccid,devices:[d.serial]});}
+ for(const d of devices){const iccid=String(d.iccid||'').trim();if(!/^89\d{17,18}$/.test(iccid)){missing++;continue;}const association={serial:d.serial,apn:String(d.apn||'').trim(),plate:String(d.plate||'').trim()};if(chips.has(iccid)){duplicates++;chips.get(iccid).devices.push(d.serial);chips.get(iccid).associations.push(association);}else chips.set(iccid,{iccid,devices:[d.serial],associations:[association]});}
  let total=0,confirmed=0,notFound=0,inactive=0,withoutPrice=0,conflicts=0,pending=0;const groups=new Map(),items=[];
  const providers=sources.map(s=>({provider:s.provider,name:costProviders[s.provider],checked_at:s.checked_at||null,error:s.last_error||'',refreshing:Date.parse(s.refresh_until)>Date.now(),confirmed:0,total_cents:0}));
  const incomplete=sources.length<2||sources.some(s=>!s.checked_at||s.last_error);
  for(const chip of chips.values()){
+  chip.apns=[...new Set(chip.associations.map(d=>d.apn||'Não informada'))].sort();chip.apn=chip.apns.join(' / ');
   const matches=sources.flatMap(s=>s.rows.has(chip.iccid)&&s.rows.get(chip.iccid).found!==false?[{...s.rows.get(chip.iccid),provider:s.provider,checked_at:s.checked_at||s.rows.get(chip.iccid).checked_at}]:[]),active=matches.filter(r=>r.active),r=active.length===1?active[0]:matches[0];let state;
   if(active.length>1){conflicts++;state='Conferir: ativo em dois provedores';}
   else if(!r){if(incomplete||!sources.find(s=>s.provider==='link')?.rows.has(chip.iccid)){pending++;state='Consulta dos provedores pendente';}else{notFound++;state='Não localizado nos provedores';}}
   else if(!r.active){inactive++;state='Não ativo';}
   else if(r.cents===null){withoutPrice++;state='Mensalidade não informada';}
-  else{state='Confirmado';confirmed++;total+=r.cents;const key=[r.provider,r.operator,r.cents].join('|'),g=groups.get(key)||{provider:r.provider,operator:r.operator,cents:r.cents,count:0};g.count++;groups.set(key,g);const p=providers.find(p=>p.provider===r.provider);p.confirmed++;p.total_cents+=r.cents;}
+  else{state='Confirmado';confirmed++;total+=r.cents;const key=[r.provider,r.operator,chip.apn,r.cents].join('|'),g=groups.get(key)||{provider:r.provider,operator:r.operator,apn:chip.apn,cents:r.cents,count:0};g.count++;groups.set(key,g);const p=providers.find(p=>p.provider===r.provider);p.confirmed++;p.total_cents+=r.cents;}
   items.push({...chip,state,provider:r?.provider||'',operator:r?.operator||'',checked_at:r?.checked_at||null,cents:state==='Confirmado'?r.cents:null});
  }
  const dates=sources.map(s=>s.checked_at).filter(Boolean).sort((a,b)=>Date.parse(a)-Date.parse(b));

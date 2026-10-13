@@ -1,8 +1,10 @@
-# Inventário de chips — 13/10/2026
+# Gestão de chips — 13/10/2026
 
-Armazém > Chips usa a apresentação aprovada: categorias Estoque, Reserva e Emergência, total disponível no armazém, busca local, filtros de categoria/provedor/situação, sete linhas por página e ações por item. Estoque apresenta “Chips disponíveis para uso”. O cadastro abre diretamente no tipo Chip. Inventário de aparelhos, movimentações e análise mensal mantêm seus fluxos.
+Armazém > Chips reúne Estoque e ativação, Mensalidades e vínculos e Acompanhar ativações. A visão geral mantém somente o resumo financeiro e o botão Chips. O painel financeiro detalha tarifas por provedor, operadora, APN e custo unitário, com quantidade e subtotal. Selecionar uma tarifa filtra os ICCIDs; a busca local aceita ICCID, série, placa, operadora e APN. A lista financeira tem paginação de 12 linhas e mostra aparelho, placa, situação e data da leitura.
 
-Os dados continuam vindo do repositório existente. Busca, filtros, paginação e seleção não consultam provedores. Mensalidades reaproveitam a última consulta de valores da base autorizada ao administrador, em memória na sessão; ICCIDs sem preço confirmado mostram “A consultar”. A coluna não supõe preço zero, não estima tarifa e não dispara exportações. O atalho Ver valores da base abre o painel existente; consultar valores permanece uma ação explícita.
+APNs e vínculos vêm do cadastro SQL do aparelho. APN ausente não é inferida pelo provedor. ICCID com vários vínculos é contado uma vez e mostra todos os aparelhos/APNs. Valores do armazém usam os mesmos snapshots salvos, sem somar novamente esses itens à mensalidade da base. Valores ausentes não são zero.
+
+Um cache por sessão/usuário e uma requisição em andamento compartilhada evitam leituras duplicadas ao navegar. Abrir e filtrar usam apenas GET de valores salvos; Atualizar Árya é uma ação explícita, mantém o limite existente e preserva a Link. Acompanhamento utiliza o fluxo existente, agora também dentro de Chips, com IDs distintos do painel legado.
 
 Seleção de ativação somente para candidatos definidos em warehouse-activation-model.js e usuários com permissão. Limite de 10/20, seleção entre páginas, limpeza e indicador parcial no seletor da página. Preparados, solicitados, envios em conferência e respostas incertas permanecem desabilitados. O botão usa requestActivationLot, conservando a reserva no servidor e a proteção contra reenvio. Enquanto processa, bloqueia novos cliques; ao concluir ou falhar, limpa a seleção e orienta o acompanhamento. Não foi adicionada ativação automática ou alteração no backend.
 

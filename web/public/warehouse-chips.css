@@ -11,6 +11,26 @@ body.central-ui #page.warehouse-chips-page{--wc-muted:#6782a5}
 .warehouse-chips-page .warehouse-inventory>.tabs [data-tab=movements]{display:none}
 .warehouse-chips-page .warehouse-metrics,.warehouse-chips-page #warehouse-pagination{display:none!important}
 .warehouse-chips{min-width:0}
+.warehouse-chips [hidden]{display:none!important}
+.warehouse-chips .wc-sections{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+body.central-ui #page .warehouse-chips .wc-sections button{display:flex;align-items:center;gap:7px;font-size:13px;min-height:38px;padding:8px 12px;background:#fff}
+body.central-ui #page .warehouse-chips .wc-sections button[aria-pressed=true]{background:#e9f4ff;border-color:#1686ed;color:#0875d3}
+.warehouse-chips .wc-billing-summary{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:14px;padding:16px;background:linear-gradient(110deg,#edf9f7,#f3f7ff);border-radius:12px;margin-bottom:18px}
+.warehouse-chips .wc-billing-summary>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.warehouse-chips .wc-billing-summary strong{font-size:25px;color:#126d64}.warehouse-chips .wc-billing-summary small{font-size:12px;color:#6782a5}
+.warehouse-chips .wc-billing-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:14px 0 10px}
+body.central-ui #page .warehouse-chips .wc-billing-heading h2{font-size:18px;margin:0 0 4px}.warehouse-chips .wc-billing-heading small{font-size:12px;color:#6782a5}
+body.central-ui #page .warehouse-chips .wc-billing-heading button{font-size:12px;min-height:34px;padding:7px 10px}
+.warehouse-chips .wc-tariffs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:245px;overflow:auto;padding:2px}
+body.central-ui #page .warehouse-chips .wc-tariffs button{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;padding:12px;min-width:0;background:#f8fbff;font-size:12px}
+.warehouse-chips .wc-tariffs button[aria-pressed=true]{outline:2px solid #1686ed;outline-offset:-2px}
+.warehouse-chips .wc-tariffs span{display:flex;flex-direction:column;gap:4px;min-width:0}.warehouse-chips .wc-tariffs span:last-child{text-align:right;flex-shrink:0}
+.warehouse-chips .wc-tariffs small{font-size:11px;overflow-wrap:anywhere;color:#6782a5}
+.warehouse-chips .wc-billing-table{overflow:auto}.warehouse-chips .wc-billing-table table{min-width:850px}
+.warehouse-chips .wc-billing-table td small{display:block}.warehouse-chips .wc-billing-table td:nth-child(3)>div+div{margin-top:7px}
+.warehouse-chips .wc-billing-footnote{display:block;font-size:11px;line-height:1.5;color:#6782a5;margin-top:14px}
+@media(max-width:1200px){.warehouse-chips .wc-tariffs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.warehouse-chips .wc-billing-summary{grid-template-columns:1fr 1fr;gap:12px}.warehouse-chips .wc-billing-summary>div:first-child{grid-column:1/-1}.warehouse-chips .wc-tariffs{grid-template-columns:1fr}.warehouse-chips .wc-sections button{flex:1 1 auto}.warehouse-chips .wc-billing-summary strong{font-size:22px}}
 .warehouse-chips .wc-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(160px,.7fr);gap:12px;margin:0 0 16px}
 .warehouse-chips .teal{--wc-accent:#008b73;--wc-soft:#e9f9f5}
 .warehouse-chips .violet{--wc-accent:#7341d2;--wc-soft:#f2edff}

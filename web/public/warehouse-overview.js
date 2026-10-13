@@ -5,17 +5,14 @@ const money=c=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).
 const colors=['#1686ed','#009f91','#8a59ce','#ee8a12','#47758f'];
 const paths={box:'M3 7l9-4 9 4-9 4z M3 7v10l9 4 9-4V7 M12 11v10',send:'M3 5h11v12H3z M14 9h4l3 4v4h-7 M6 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4 M18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4',chip:'M7 3h10l4 4v14H7z M10 11h8v7h-8z M3 7v14',bolt:'M13 2L4 14h7l-1 8 10-13h-8z',cash:'M3 5h18v14H3z M12 8v8 M14 9h-3a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-3',chart:'M4 3v17h17 M8 16v-5 M13 16V7 M18 16V4',clock:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 7v5l3 2',arrow:'M4 12h16 M14 6l6 6-6 6',plus:'M12 4v16 M4 12h16',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14 M15 15l6 6'};
 const icon=name=>`<svg class="wo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.box}"/></svg>`;
-const snapshots=new WeakMap();
-export function cachedWarehouseCosts(repo){
- const cached=snapshots.get(repo);
- return repo.real&&repo.user?.permissions?.owner&&cached?.username===repo.user?.username?cached.data:null;
-}
+import {cachedWarehouseCosts,loadWarehouseCosts} from './warehouse-cost-cache.js';
+export {cachedWarehouseCosts} from './warehouse-cost-cache.js';
 export function mountWarehouseOverview(root,{repo,navigate,newItem}){
- let rows=[],movements=[],month=warehouseDay(new Date()).slice(0,7),recentKind='device',busy=false,error='',query='',loaded=false;
- const username=repo.user?.username,canCost=repo.real&&repo.user?.permissions?.owner;
- const cached=()=>{const c=snapshots.get(repo);return canCost&&c?.username===username?c.data:null;};
+ let rows=[],movements=[],month=warehouseDay(new Date()).slice(0,7),recentKind='device',busy=false,error='',loaded=false;
+ const canCost=repo.real&&repo.user?.permissions?.owner;
+ const cached=()=>cachedWarehouseCosts(repo);
  const metric=(title,value,sub,glyph,tone,action)=>`<button class="wo-kpi ${tone}" data-wo-action="${action}"><span class="wo-icon-tile">${icon(glyph)}</span><span><small>${title}</small><strong>${value}</strong><em>${sub}</em></span></button>`;
- async function costs(refresh=false){if(busy||!canCost)return;busy=true;error='';draw();try{const data=await repo.request('warehouse-costs?branch=imperatriz',refresh?{method:'POST'}:{});if(data.ok!==true||!Array.isArray(data.items))throw Error('Valores não confirmados.');if(repo.user?.username===username)snapshots.set(repo,{username,data});}catch(e){error=e.message;}finally{busy=false;if(root.isConnected)draw();}}
+ async function costs(){if(busy||!canCost)return;busy=true;error='';draw();try{await loadWarehouseCosts(repo);}catch(e){error=e.message;}finally{busy=false;if(root.isConnected)draw();}}
  function draw(){if(!root.isConnected)return;const data=overviewData(rows,movements,month),cost=cached();
  root.innerHTML=`<div class="wo-metrics">
  ${metric('Aparelhos disponíveis',num(data.available),'Prontos para distribuição','box','blue','devices')}
@@ -32,26 +29,23 @@ export function mountWarehouseOverview(root,{repo,navigate,newItem}){
  root.querySelector('#wo-month').onchange=e=>{if(/^\d{4}-\d{2}$/.test(e.target.value)){month=e.target.value;draw();}};
  root.querySelectorAll('[data-wo-action]').forEach(b=>b.onclick=()=>{const action=b.dataset.woAction;if(action==='costs'){root.querySelector('.wo-costs').scrollIntoView({block:'nearest'});return costs();}navigate(action);});
  root.querySelectorAll('[data-wo-chip]').forEach(b=>b.onclick=()=>navigate('chips',b.dataset.woChip));
- root.querySelectorAll('[data-wo-kind]').forEach(b=>b.onclick=()=>{recentKind=b.dataset.woKind;draw();});root.querySelector('#wo-cost-load').onclick=()=>costs(true);
- if(cost){const input=root.querySelector('#wo-cost-search');input.value=query;input.oninput=e=>{query=e.target.value;drawCostItems(cost);};drawCostItems(cost);}
+ root.querySelectorAll('[data-wo-kind]').forEach(b=>b.onclick=()=>{recentKind=b.dataset.woKind;draw();});
  }
- function drawCostItems(cost){const q=query.trim().toLowerCase(),items=cost.items.filter(r=>[r.iccid,...r.devices].some(v=>String(v).toLowerCase().includes(q)));root.querySelector('#wo-cost-items').innerHTML=`<small>${items.length} resultados${items.length>50?' · exibindo os primeiros 50; refine a busca':''}</small>`+items.slice(0,50).map(r=>`<div><span><b>${esc(r.iccid)}</b><small>${esc(r.provider==='link'?'Link Solutions':r.provider==='arya'?'Árya':'Provedor a confirmar')} · ${esc(r.operator)}<br>Aparelho: ${esc(r.devices.join(', '))}</small></span><span>${r.cents===null?esc(r.state):money(r.cents)}</span></div>`).join('');}
  return {update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;draw();if(!loaded&&canCost){loaded=true;if(!cached())costs();}}};
 }
 function chart(data){const max=Math.max(1,...data.daily.map(d=>d.counts.reduce((a,b)=>a+b,0))),w=840,h=200,left=32,top=14,bottom=166,width=792,step=width/Math.max(1,data.daily.length),bar=Math.min(24,step*.62);let svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Envios diários de aparelhos por destino"><title>Envios de aparelhos no mês</title>`;for(let i=0;i<=4;i++){const v=Math.ceil(max/4)*i,y=bottom-(bottom-top)*v/(Math.ceil(max/4)*4);svg+=`<line x1="${left}" x2="824" y1="${y}" y2="${y}" stroke="#e8eff6"/><text x="24" y="${y+4}" text-anchor="end">${v}</text>`;}
  const scale=(bottom-top)/(Math.ceil(max/4)*4);data.daily.forEach((d,i)=>{let sum=0;d.counts.forEach((count,j)=>{const height=count*scale;svg+=`<rect x="${left+i*step+(step-bar)/2}" y="${bottom-(sum+count)*scale}" width="${bar}" height="${height}" rx="2" fill="${colors[j%colors.length]}"><title>${esc(data.destinations[j].name)} • ${d.key}: ${count}</title></rect>`;sum+=count;});if(i===0||i===data.daily.length-1||i%Math.ceil(data.daily.length/9)===0)svg+=`<text x="${left+(i+.5)*step}" y="189" text-anchor="middle">${String(d.day).padStart(2,'0')}</text>`;});return svg+'</svg>';}
 
 function costPanel(cost,canCost,busy,error){
- const providers=cost?.providers||[],fresh=providers.length===2&&providers.every(p=>p.checked_at&&!p.error&&(p.provider==='link'||Date.now()-Date.parse(p.checked_at)<1800000));
+ const providers=cost?.providers||[];
  const warnings=cost?[[cost.not_found,'não localizados'],[cost.pending,'a consultar'],[cost.without_price,'sem preço'],[cost.conflicts,'em dois provedores'],[cost.missing,'sem ICCID'],[cost.inactive,'não ativos'],[cost.duplicates,'vínculos repetidos']].filter(([n])=>n).map(([n,s])=>num(n)+' '+s).join(' · '):'';
- const providerName=p=>p==='link'?'Link Solutions':'Árya';
  return `<section class="wo-panel wo-costs"><header><h2>${icon('cash')} Mensalidade dos chips</h2><span class="wo-tag teal">Imperatriz</span></header>
  <div id="wo-cost-summary"><div class="wo-cost-head"><div class="wo-cost-total"><small>${cost?.complete?'Estimativa mensal':'Subtotal com valor conhecido'}</small><strong>${cost?.checked_at?money(cost.total_cents):'—'}</strong></div><span class="wo-cost-coverage"><b>${num(cost?.confirmed||0)} / ${num(cost?.chip_count||0)}</b><small>chips ativos com valor</small></span></div>
  <div class="wo-cost-providers">${providers.map(p=>`<div><span><b>${esc(p.name)}</b><small>${num(p.confirmed)} chips · ${p.checked_at?esc(new Date(p.checked_at).toLocaleString('pt-BR')):'Ainda não consultado'}</small></span><strong>${p.checked_at?money(p.total_cents):'—'}</strong></div>`).join('')}</div>
  ${warnings?`<p class="wo-cost-pending">${esc(warnings)}</p>`:''}</div>
  ${providers.filter(p=>p.error||p.refreshing).map(p=>`<p class="wo-cost-pending" role="status">${esc(p.error||(p.name+': consulta em andamento.'))}</p>`).join('')}
- <footer><small>${cost?.checked_at?'Valores salvos · Link preservada':'Árya + Link Solutions'}<br>Sem nova consulta ao abrir.</small><button id="wo-cost-load" ${!canCost||busy||fresh?'disabled':''} title="Atualiza a Árya no máximo a cada 30 minutos. Preços Link são preservados.">${icon('search')} ${busy?'Consultando…':fresh?'Valores atualizados':'Atualizar Árya'}</button></footer>
+ <footer><small>Mensalidade recorrente estimada</small><button data-wo-action="chips">${icon('chip')} Chips ${icon('arrow')}</button></footer>
  ${error||!canCost?`<p class="wo-cost-pending" role="status">${esc(error||'Valores disponíveis à administração.')}</p>`:''}
- ${cost?`<details id="wo-cost-tariffs"><summary>Operadoras e tarifas (${cost.groups.length})</summary><div class="wo-cost-groups">${cost.groups.map(g=>`<div><span>${esc(g.operator||'Não informada')}<small>${providerName(g.provider)} · ${num(g.count)} × ${money(g.cents)}</small></span><b>${money(g.count*g.cents)}</b></div>`).join('')||'<small>Nenhuma tarifa confirmada.</small>'}</div></details><details id="wo-cost-details"><summary>Valores e pendências por chip</summary><input id="wo-cost-search" aria-label="Buscar valor por ICCID ou aparelho" placeholder="Buscar ICCID ou série"><div id="wo-cost-items" class="wo-cost-items"></div></details>`:''}
- <small class="wo-cost-disclaimer">Mensalidade recorrente estimada; excedentes e ajustes não incluídos.</small></section>`;
+
+ <small class="wo-cost-disclaimer">Excedentes e ajustes de fatura não incluídos.</small></section>`;
 }
