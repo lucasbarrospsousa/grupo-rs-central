@@ -1,4 +1,5 @@
 import {mountWarehouseActivation} from './warehouse-activation.js';
+import {mountWarehouseOverview} from './warehouse-overview.js';
 import {warehouseBases,warehouseLabel as label,warehouseSummary,warehouseSeries,warehouseDestination,warehouseDay} from './warehouse-model.js';
 export {warehouseSummary} from './warehouse-model.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,8 +22,16 @@ export function styleWarehouse({real=false,icon,newItem,refresh,repo,onUpdate}){
  const reserve=document.createElement("section");reserve.className="panel warehouse-reserve";grid.append(reserve);const activation=mountWarehouseActivation(reserve,{repo,icon,onUpdate});
  transfer.querySelector('h2').innerHTML=icon('fork')+' Movimentar itens';transfer.querySelector('p').textContent='Origem: armazém central de Imperatriz';transfer.querySelector('.form-actions').prepend(page.querySelector('#warehouse-count'));
  const clear=document.createElement('button');clear.id='warehouse-clear-selection';clear.textContent='Limpar seleção';clear.type='button';transfer.querySelector('.form-actions').append(clear);
+ const overview=document.createElement('section');overview.className='warehouse-overview';grid.before(overview);
+ const overviewControl=mountWarehouseOverview(overview,{repo,newItem,navigate(action,classification){
+  if(['devices','chips'].includes(action)){nav.querySelector('[data-warehouse-view="inventory"]').click();document.querySelector(`[data-tab="${action==='chips'?'chip':'device'}"]`).click();if(classification){const filter=document.querySelector('#warehouse-classification');filter.value=classification;filter.dispatchEvent(new Event('change'));}}
+  else if(action==='history'||action==='reserve'){nav.querySelector('[data-warehouse-view="reserve"]').click();if(action==='history')reserve.querySelector('details').open=true;}
+  else nav.querySelector(`[data-warehouse-view="${action}"]`)?.click();
+ }});
+ heading.querySelector('div:last-child').insertAdjacentHTML('beforeend',`<button id="warehouse-send">${icon('fork')} Enviar aparelhos</button>`);
+ page.querySelector('#warehouse-send').onclick=()=>nav.querySelector('[data-warehouse-view="inventory"]').click();
  let rows=[],movements=[];
- function selectView(next){view=next;reserve.hidden=view!=='reserve';grid.dataset.view=view;nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.warehouseView===view));chart.hidden=!['overview','analysis'].includes(view);distribution.hidden=chart.hidden;recent.hidden=view!=='overview';inventory.hidden=!['inventory','movements'].includes(view);transfer.hidden=view!=='inventory';inventory.querySelector('.tabs').hidden=view==='movements';page.querySelector('#warehouse-month-totals').hidden=view!=='analysis';}
+ function selectView(next){view=next;const isOverview=view==='overview';overview.hidden=!isOverview;stats.hidden=isOverview;grid.hidden=isOverview;page.classList.toggle('warehouse-dashboard',isOverview);heading.querySelector('h1').textContent=isOverview?'Gestão do armazém':'Armazém central';heading.querySelector('p').textContent=isOverview?'Estoque, distribuição e controle de chips':'Centro de operações • Imperatriz';reserve.hidden=view!=='reserve';grid.dataset.view=view;nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.warehouseView===view));chart.hidden=view!=='analysis';distribution.hidden=chart.hidden;recent.hidden=true;inventory.hidden=!['inventory','movements'].includes(view);transfer.hidden=view!=='inventory';inventory.querySelector('.tabs').hidden=view==='movements';page.querySelector('#warehouse-month-totals').hidden=view!=='analysis';}
  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{const next=b.dataset.warehouseView;selectView(next);if(next==='movements')page.querySelector('[data-tab="movements"]').click();else if(next==='inventory')page.querySelector('[data-tab="device"]').click();});
  page.querySelector('#warehouse-history').onclick=()=>nav.querySelector('[data-warehouse-view="movements"]').click();
  page.querySelector('#warehouse-range').value=String(months);page.querySelector('#warehouse-kind').value=kind;
@@ -40,5 +49,5 @@ export function styleWarehouse({real=false,icon,newItem,refresh,repo,onUpdate}){
  }
  for(const id of ['warehouse-month','warehouse-range','warehouse-kind'])page.querySelector('#'+id).onchange=()=>{const selected=page.querySelector('#warehouse-month').value;if(!/^\d{4}-\d{2}$/.test(selected))return;month=selected;months=Number(page.querySelector('#warehouse-range').value);kind=page.querySelector('#warehouse-kind').value;charts();};
  selectView(view);
- return{get base(){return page.querySelector('#warehouse-base').value;},update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;activation.update(rows);warehouseSummary(rows,movements).forEach((v,i)=>stats.querySelectorAll('.value')[i].textContent=v);charts();page.querySelector('#warehouse-timeline').innerHTML=movements.slice(0,5).map(m=>`<article><strong>${esc(m.serial)}</strong><b>Imperatriz → ${esc(label(warehouseDestination(m.destination))||m.destination)}</b><small>${esc(m.at)} • ${esc(m.type)}${m.detected?' • Detecção na Central':''}</small></article>`).join('')||'<p class="empty">Nenhuma movimentação registrada.</p>';}};
+ return{get base(){return page.querySelector('#warehouse-base').value;},update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;activation.update(rows);overviewControl.update(rows,movements);warehouseSummary(rows,movements).forEach((v,i)=>stats.querySelectorAll('.value')[i].textContent=v);charts();}};
 }

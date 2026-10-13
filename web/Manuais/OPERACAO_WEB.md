@@ -1,5 +1,17 @@
 # Grupo RS Central — operação web
 
+## Armazém: visão geral e mensalidades — 13/10/2026
+
+A visão geral reúne indicadores, gráfico mensal de aparelhos por destino, últimas movimentações agrupadas por lote e atalhos para inventário/ativação. O seletor de mês consulta o histórico já carregado, sem chamadas adicionais. Destinos livres e movimentos históricos com tipo conhecido são preservados mesmo sem o item no inventário atual. Envio e detecção do mesmo item no destino contam uma vez; detecção não é comprovação do horário da saída física. Ativações são contadas pela data de confirmação registrada na Central. As demais abas mantêm seus fluxos.
+
+`GET /api/warehouse-costs?branch=imperatriz` exige administrador principal e vínculo com a filial. Consulta os cadastros não excluídos e não Inativos, cruza ICCIDs únicos com a exportação autenticada `POST /customer/inventary/export` da Árya (`filters: {}`, `inventaryFlag: default`). A exportação fornece `VALOR NEGOCIADO`, separado de excedentes e valor do plástico. No detalhe `GET /inventary/{iccid}`, o campo correspondente é `value_unitary`; no pedido é `unitaryValue`. Esses contratos foram observados no cliente web e conferidos por leituras autenticadas, não são uma garantia de API pública estável.
+
+O total usa centavos inteiros, apenas linhas `STATUS=ATIVO` com valor válido. ICCIDs repetidos contam uma vez. Sem ICCID, não localizado, não ativo e sem preço são estados distintos; cobertura incompleta mostra subtotal, nunca mensalidade completa nem preço ausente igual a zero. A estimativa é recorrente atual, não uma fatura nem histórico financeiro de meses passados. A busca por ICCID/série e a lista de pendências usam a resposta local, sem consultas por chip. Preços de outros provedores continuam pendentes quando não constam na Árya.
+
+A consulta é manual, pelo botão Consultar valores. Cache em memória por 30 minutos no navegador e na instância do servidor, com compartilhamento de chamadas simultâneas. Reiniciar o servidor pode exigir nova exportação; não existe cache SQL persistente ou agendamento novo. Não há ativação/reset nesse fluxo. O CSV operacional de estudo fica somente na pasta privada, fora do Git e do backup de código.
+
+Validação: `node --test web/tests/warehouse-costs.test.mjs web/tests/warehouse-overview.test.mjs`; teste visual/funcional `web/tools/test-warehouse-overview-ui.mjs` com API fictícia, incluindo busca de valores, cache, atalhos, classificação, abas anteriores e tamanhos 1917×913, 1280×720 e 390×844. Dependência Playwright configurável por `PLAYWRIGHT_MODULE`.
+
 ## Manutenções — registros de situações e soluções (11/10/2026)
 
 Formulário compacto com uma única Observação, reunindo relato, diagnóstico e descrição da solução. Na leitura de registros antigos, os textos são combinados sem repetir trechos iguais; uma edição explícita usa a nova observação, mantendo os campos legados armazenados. Modelo do veículo não é solicitado nem exibido. ICCID/telefone ficam em seção opcional expansível. Cards e botões possuem transições e feedback de interação, desativados pela preferência de movimento reduzido.

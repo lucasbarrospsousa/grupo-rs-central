@@ -314,13 +314,13 @@ export class Integrations{
   }
  }
  async aryaRequest(path,payload,{write=false,retry=true}={}){
-  if(path!==(write?'/tickets/bulk/by-iccid':'/ticket/user/table'))throw err('Operação Árya inválida.',400);
+  if(write?path!=='/tickets/bulk/by-iccid':!['/ticket/user/table','/customer/inventary/export'].includes(path))throw err('Operação Árya inválida.',400);
   const base='https://api-arya.hinovaconecta.com.br',key='carrier-arya';let auth=this.sessions.get(key);
   if(!auth||Date.now()-auth.at>900000){const secrets=this.secrets();if(!secrets.arya_password)throw err('Credenciais da Árya indisponíveis.');
    const r=await authenticate(()=>this.request(base+'/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:secrets.arya_email,password:secrets.arya_password})}));
    auth={token:r.headers.get('authorization')?.replace(/^Bearer /,'')||tokenOf(json(r.text)),at:Date.now()};if(!auth.token)throw err('Árya não confirmou autenticação.');this.sessions.set(key,auth);
   }
-  try{const r=await this.request(base+path,{method:'POST',headers:{Authorization:'Bearer '+auth.token,'Content-Type':'application/json'},body:JSON.stringify(payload)});return json(r.text);}
+  try{const r=await this.request(base+path,{method:'POST',headers:{Authorization:'Bearer '+auth.token,'Content-Type':'application/json'},body:JSON.stringify(payload)});return path==='/customer/inventary/export'?r.text:json(r.text);}
   catch(e){if(!write&&retry&&e.upstreamStatus===401){this.sessions.delete(key);return this.aryaRequest(path,payload,{retry:false});}throw e;}
  }
  async carrier(provider,iccid,retry=true){if(!['arya','link'].includes(provider)||!/^89\d{17,18}$/.test(iccid))throw err('Operadora ou ICCID inválido.',400);const s=this.secrets();const base=provider==='arya'?'https://api-arya.hinovaconecta.com.br':'https://lsm.tnsi.com.br';const key='carrier-'+provider;let auth=this.sessions.get(key);if(!auth||Date.now()-auth.at>900000){const payload=provider==='arya'?{email:s.arya_email,password:s.arya_password}:{username:s.linksolutions_email,password:s.linksolutions_password,rememberMe:true,blockInit:false};if(!payload.password)throw err('Credenciais da operadora não configuradas.');const response=await authenticate(()=>this.request(base+(provider==='arya'?'/auth':'/api/authenticate'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}));auth={token:response.headers.get('authorization')?.replace(/^Bearer /,'')||await authenticate(async()=>tokenOf(json(response.text))),at:Date.now()};if(!auth.token)throw Object.assign(err('Operadora não confirmou autenticação.'),{credentialInvalid:true});this.sessions.set(key,auth);}

@@ -1,0 +1,38 @@
+/* Overview only: existing inventory, activation and history forms retain their layout. */
+body.central-ui.warehouse-page #page [hidden]{display:none!important}
+.warehouse-overview{--wo-blue:#167fec;--wo-teal:#008977;--wo-violet:#8053ce;--wo-amber:#b97405;color:#173957}
+.wo-icon{width:22px;height:22px;flex-shrink:0;vertical-align:middle}
+.wo-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin:0 0 18px}
+body .warehouse-overview .wo-kpi{display:flex;text-align:left;gap:12px;align-items:center;min-width:0;padding:17px 15px;border:1px solid #dbe5ef;border-radius:15px;background:linear-gradient(120deg,var(--tint),#fff 78%);border-top:3px solid var(--tone);box-shadow:0 3px 14px #17395704}
+.warehouse-overview .blue{--tone:var(--wo-blue);--tint:#edf5ff}.warehouse-overview .teal{--tone:var(--wo-teal);--tint:#eaf8f4}.warehouse-overview .violet{--tone:var(--wo-violet);--tint:#f3eeff}.warehouse-overview .amber{--tone:var(--wo-amber);--tint:#fff6e5}
+.wo-icon-tile{padding:10px;border-radius:12px;background:var(--tint);color:var(--tone)}
+.wo-kpi>span:last-child{display:flex;flex-direction:column;gap:6px;min-width:0}.wo-kpi small{font-size:12px;font-weight:600;color:#55728e}.wo-kpi strong{font-size:30px;line-height:1.1;color:#153953;white-space:nowrap}.wo-kpi em{font-style:normal;font-size:11px;line-height:1.4;color:#657c94}
+.wo-grid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(340px,1fr);gap:18px;align-items:start}
+.wo-panel{background:#fff;border:1px solid #dbe5ef;border-radius:16px;padding:20px;min-width:0;box-shadow:0 5px 18px #16355504}
+.wo-panel>header,.wo-panel>footer{display:flex;justify-content:space-between;gap:10px;align-items:center}.wo-panel>header{margin-bottom:16px}.wo-panel h2{font-size:19px!important;display:flex;gap:9px;align-items:center;margin:0!important}.wo-panel h2 .wo-icon{color:#278ce9}
+.wo-panel>footer{border-top:1px solid #edf1f7;padding-top:12px;margin-top:14px;flex-wrap:wrap}.wo-panel small{color:#6b8299;font-size:11px}.wo-panel input[type=month]{font-size:13px;width:172px;padding:9px;min-height:36px}
+.wo-chart svg{width:100%;display:block;max-height:208px}.wo-chart text{font:11px 'Segoe UI',sans-serif;fill:#6b8299}.wo-destinations{display:flex;gap:16px;flex-wrap:wrap;padding-top:8px;font-size:12px}.wo-destinations span{display:flex;align-items:center;gap:6px}.wo-destinations i,.wo-dot{display:inline-block;height:8px;width:8px;border-radius:50%;background:var(--tone)}.wo-destinations b{margin-left:4px}
+body .warehouse-overview .wo-link{border:0;background:transparent;box-shadow:none;color:#087bd5;padding:4px 0;min-height:0;font-size:12px;display:inline-flex;align-items:center;gap:6px}.wo-link .wo-icon{width:16px;height:16px}
+.wo-chip-counts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.wo-chip-counts button{display:flex;flex-direction:column;gap:10px;align-items:flex-start;background:var(--tint);border:1px solid #e1eaf2;padding:14px;border-radius:10px}.wo-chip-counts strong{font-size:28px;color:var(--tone)}.wo-chip-counts small{font-size:12px;color:#47637a}
+.wo-activation-summary{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0 14px;font-size:12px}.wo-activation-summary span{display:flex;align-items:center;gap:6px}.wo-note{font-size:12px;color:#6a8098;line-height:1.55;margin:12px 0}
+.wo-buttons{display:flex;flex-direction:column;gap:10px;align-items:stretch}.wo-buttons .primary{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;font-size:13px}.wo-buttons .wo-link{align-self:center}
+.wo-segment{display:flex;gap:4px;background:#f2f6fb;padding:3px;border-radius:9px}.wo-segment button{font-size:11px;border:0;background:transparent;padding:7px 9px;min-height:0}.wo-segment button[aria-pressed=true]{background:white;color:#087bd5;box-shadow:0 1px 5px #142c4815}
+.wo-table-wrap{overflow:auto}.wo-movements table{width:100%;border-collapse:collapse;font-size:12px}.wo-movements th{background:#f5f8fc;color:#6a8299;font-size:11px;font-weight:600}.wo-movements td,.wo-movements th{padding:13px 9px;text-align:left;border-bottom:1px solid #edf2f7;white-space:nowrap}.wo-movements td .wo-icon{width:14px;height:14px;margin:0 5px;color:#91a5b8}.wo-tag{background:var(--tint);color:var(--tone);border-radius:7px;padding:5px 8px;font-size:11px;white-space:nowrap}
+.wo-cost-total{display:flex;flex-direction:column;gap:5px}.wo-cost-total strong{font-size:25px;color:#126d64}.wo-cost-groups{margin:12px 0}.wo-cost-groups>div,.wo-cost-items>div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:12px;border-bottom:1px solid #edf2f7}.wo-cost-groups span,.wo-cost-items span:first-child{display:flex;flex-direction:column;gap:4px}.wo-cost-items{max-height:260px;overflow:auto}.wo-cost-items b{overflow-wrap:anywhere}.wo-costs details{font-size:12px;margin-top:12px}.wo-costs summary{cursor:pointer;color:#087bd5}.wo-costs details input{margin:10px 0;width:100%;font-size:12px}.wo-costs footer button{font-size:12px;padding:8px;display:flex;gap:6px;align-items:center}
+body .warehouse-dashboard .warehouse-heading h1{font-size:27px}.warehouse-dashboard .warehouse-heading p{font-size:14px}.warehouse-dashboard .warehouse-views{margin-bottom:18px}.warehouse-overview button{transition:transform .15s,box-shadow .15s}.warehouse-overview button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px #17395714}.warehouse-overview button:focus-visible{outline:2px solid #1686ed;outline-offset:3px}
+body:has(.warehouse-dashboard){--developer-credit-height:32px}body:has(.warehouse-dashboard) .developer-credit{height:32px;padding:3px}.warehouse-page:has(.warehouse-dashboard) .developer-credit img{width:108px;height:25px}
+@media(max-width:1400px){.wo-kpi strong{font-size:25px}.wo-icon-tile{padding:6px}.wo-grid{grid-template-columns:minmax(0,1.5fr) minmax(310px,1fr)}.wo-panel{padding:16px}.wo-panel h2{font-size:17px!important}.wo-metrics{gap:10px}body .warehouse-overview .wo-kpi{padding:14px 10px;gap:8px}}
+@media(max-width:1100px){.wo-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.wo-grid{grid-template-columns:1fr}.wo-kpi strong{font-size:27px}}
+@media(max-width:650px){.wo-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.wo-kpi:last-child{grid-column:1/-1}.wo-panel>header{flex-wrap:wrap}.wo-panel{padding:14px}.wo-grid{gap:12px}.wo-icon-tile{display:none}.wo-chip-counts button{padding:10px}.warehouse-dashboard .warehouse-heading>div:last-child{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){.warehouse-overview button{transition:none;transform:none!important}}
+body.central-ui #page.warehouse-dashboard .warehouse-heading{margin-bottom:12px}
+body.central-ui #page .warehouse-overview{font-family:var(--ui-font)}
+body.central-ui #page .warehouse-overview .wo-panel>header{margin-bottom:10px}
+body.central-ui #page .warehouse-overview .wo-link{padding:4px 0;min-height:24px;font-size:12px}
+body.central-ui #page .warehouse-overview .wo-segment button{min-height:28px;padding:5px 8px;font-size:11px}
+body.central-ui #page .warehouse-overview .wo-panel>footer{margin-top:10px;padding-top:8px}
+body.central-ui #page .warehouse-overview .wo-chart svg{height:156px}
+body.central-ui #page .warehouse-overview .wo-panel{padding:16px}
+body.central-ui #page .warehouse-overview .wo-kpi{min-height:94px;text-align:left;justify-content:flex-start}
+body.central-ui #page .warehouse-overview .wo-chip-counts button{padding:12px;min-height:82px}
+body.central-ui #page .warehouse-overview .wo-costs footer button{padding:7px 10px;min-height:34px;font-size:12px}
