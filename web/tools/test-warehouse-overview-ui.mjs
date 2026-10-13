@@ -9,7 +9,7 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromiu
 try{
  const page=await browser.newPage({viewport:{width:1917,height:913}}),errors=[],writes=[];
  let costCalls=0; const rows=[{id:'11111111-1111-4111-8111-111111111111',kind:'chip',serial:'8955000000000000001',status:'Disponível',classification:'Emergência',chip_provider:'link',chip_operator:'Vivo',version:1},{id:'22222222-2222-4222-8222-222222222222',kind:'chip',serial:'8955000000000000002',status:'Disponível',classification:'Estoque',chip_provider:'arya',chip_operator:'Claro',version:1},{id:'33333333-3333-4333-8333-333333333333',kind:'chip',serial:'8955000000000000003',status:'Utilizado',classification:'Emergência',chip_provider:'link',chip_operator:'Vivo',version:1}].map(r=>({...r,branch:'imperatriz',received_at:'2026-10-08T10:00:00Z'}));
- rows.push(...Array.from({length:70},(_,i)=>({id:'device-'+i,kind:'device',serial:'0249'+String(i).padStart(5,'0'),branch:'imperatriz',status:'Disponível',classification:'Estoque',version:1,received_at:'2026-10-08T10:00:00Z'})));
+ rows.push(...Array.from({length:70},(_,i)=>({id:'device-'+i,kind:'device',serial:'0249'+String(i).padStart(5,'0'),branch:'imperatriz',status:'Disponível',classification:i===0?'Reserva':i===1?'Emergência':'Estoque',version:1,received_at:'2026-10-08T10:00:00Z'})));
  rows[2].usage_branch='araguaina';rows[2].usage_device_serial='024000001';rows[2].usage_detected_at='2026-10-10T12:00:00Z';
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
@@ -23,7 +23,7 @@ try{
  });
  await page.addInitScript(()=>localStorage.setItem('central-view:warehouse-ui',JSON.stringify({branch:'imperatriz',route:'warehouse'})));
  await page.goto('http://127.0.0.1:'+server.address().port);
- await page.locator('.wo-chart svg').waitFor(); assert.equal(await page.locator('.wo-kpi').count(),5);
+ await page.locator('.wo-chart svg').waitFor();assert.equal(await page.locator('[data-warehouse-view="reserve"]').count(),0);assert.equal(await page.locator('[data-warehouse-view="inventory"]').innerText(),'Aparelhos'); assert.equal(await page.locator('.wo-kpi').count(),5);
  assert.equal(await page.locator('.warehouse-metrics').isVisible(),false);assert.equal(await page.locator('.warehouse-control-grid').isVisible(),false);
  await page.waitForFunction(()=>document.querySelector('#wo-cost-summary')?.textContent.includes('3,99'));assert.equal(costCalls,1);
  assert.equal(await page.locator('#wo-cost-load,#wo-cost-details,#wo-cost-tariffs').count(),0);
@@ -35,12 +35,16 @@ try{
  await page.locator('[data-warehouse-view="overview"]').click();assert.match(await page.locator('#wo-cost-summary').innerText(),/3,99/);
  for(const viewport of [{width:1917,height:913},{width:1280,height:720},{width:390,height:844}]){await page.setViewportSize(viewport);await page.waitForTimeout(800);const size=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+2&&e.getBoundingClientRect().width).slice(0,10).map(e=>({id:e.id,cls:e.className,w:e.getBoundingClientRect().width}))}));assert.ok(size.scroll<=size.width+2,JSON.stringify(size));}
  await page.setViewportSize({width:1917,height:913});await page.waitForTimeout(900);await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:fileURLToPath(new URL('../.sites-runtime/warehouse-dashboard.png',import.meta.url))});
- await page.locator('[data-warehouse-view="inventory"]').click();await page.locator('[data-tab="chip"]').click();
+ await page.locator('[data-warehouse-view="chips"]').click();
  await page.locator('#ci-category').selectOption('Emergência');assert.equal(await page.locator('[data-ci-classify]').count(),1);
  await page.locator('#ci-status').selectOption('');assert.equal(await page.locator('[data-ci-classify]').count(),2);
  await page.locator('.wc-row-actions summary').first().click();await page.locator('[data-ci-classify="'+rows[0].id+'"]').selectOption('Reserva');await page.waitForFunction(()=>document.querySelectorAll('[data-ci-classify]').length===1);
  assert.deepEqual(writes,[{classification:'Reserva',version:1}]);
  await page.locator('[data-ci-detail="'+rows[2].id+'"]').first().click();await page.locator('dialog[open]').waitFor();assert.ok((await page.locator('dialog[open]').innerText()).includes('024000001'));await page.locator('dialog[open]').evaluate(d=>d.close());
+ await page.locator('[data-warehouse-view="overview"]').click();await page.locator('[data-wo-action="history"]').click();assert.ok(await page.locator('#chips-reserve-request').isVisible());
+ await page.locator('[data-warehouse-view="inventory"]').click();assert.equal(await page.locator('.warehouse-heading h1').first().innerText(),'Gestão de aparelhos');assert.equal(await page.locator('[data-device-category]').count(),4);assert.equal(await page.locator('.warehouse-inventory>.tabs').isVisible(),false);await page.locator('[data-device-category="Reserva"]').click();assert.equal(await page.locator('#warehouse-classification').inputValue(),'Reserva');assert.equal(await page.locator('[data-item]').count(),1);await page.locator('[data-item]').check();assert.ok(await page.locator('#review-transfer').isEnabled());assert.ok(await page.locator('#review-transfer').isVisible());
+ for(const vp of [{width:1917,height:913},{width:390,height:844}]){await page.setViewportSize(vp);await page.waitForTimeout(400);const sz=await page.evaluate(()=>({w:innerWidth,s:document.documentElement.scrollWidth}));assert.ok(sz.s<=sz.w+2,JSON.stringify(sz));}
+ await page.setViewportSize({width:1917,height:913});await page.waitForTimeout(400);await page.screenshot({path:fileURLToPath(new URL('../.sites-runtime/warehouse-devices.png',import.meta.url)),fullPage:true});
  await page.locator('[data-warehouse-view="movements"]').click();assert.ok((await page.locator('#warehouse-table').innerText()).includes('Araguaína'));
  await page.locator('#warehouse-base').selectOption('maraba');assert.ok((await page.locator('#warehouse-table').innerText()).includes('Marabá'));
  await page.locator('[data-warehouse-view="analysis"]').click();await page.locator('#warehouse-range').selectOption('3');assert.equal(await page.locator('#warehouse-month-totals th').count(),4);
