@@ -12,7 +12,7 @@ export function validateConfigurator(p){
  if(p.action==='preflight')return;
  if(p.tracker_version&&!/^V7\.\d+\.\d+$/.test(p.tracker_version))throw fail(400,'Versão física inválida.');
  if(!['hinova.br','linksolutions.br'].includes(p.apn??'hinova.br'))throw fail(400,'APN do Configurador inválida.');
- if(p.action!=='save'||!/^89\d{17,18}$/.test(p.iccid||'')||!/^\d{10,13}$/.test(p.phone||'')||!['VIVO','TIM','CLARO','MULTIOPERADORA','MULTI OPERADORA'].includes(p.operator)||!Number.isInteger(p.version)||p.version<0||!/^[a-f0-9-]{36}$/.test(p.key||''))throw fail(400,'Dados de sincronização inválidos.');
+ if(!['prepare','save'].includes(p.action)||!/^89\d{17,18}$/.test(p.iccid||'')||!/^\d{10,13}$/.test(p.phone||'')||!['VIVO','TIM','CLARO','MULTIOPERADORA','MULTI OPERADORA'].includes(p.operator)||!Number.isInteger(p.version)||p.version<0||!/^[a-f0-9-]{36}$/.test(p.key||''))throw fail(400,'Dados de sincronização inválidos.');
 }
 async function inspect(c,p){
  const matches=(await c.query('select id,branch_id,serial,data,version from central_homologacao.devices where serial=$1 and deleted_at is null',[p.serial])).rows;
@@ -32,7 +32,15 @@ export async function configuratorOperation(pool,user,p,service=integrations){
  if(!member||!['operator','admin'].includes(member.role))throw fail(403,'Filial não autorizada para o Configurador.');
  if(p.action==='preflight'){const old=await read(c=>inspect(c,p));return{ok:true,branch:p.branch,version:old?.version||0,exists:!!old,database:'Central online'};}
  const replay=async c=>{const r=(await c.query('select fingerprint,response from central_homologacao.requests where user_id=$1 and request_key=$2',[user.user_id,p.key])).rows[0];if(r&&r.fingerprint!==fingerprint)throw fail(409,'Pedido reutilizado com dados diferentes.');return r?.response;};
- const previous=await read(replay);if(previous)return previous;
+ if(p.action==='prepare')return read(async c=>{
+  await c.query("select pg_advisory_xact_lock(hashtext('central-configurator'))");
+  const previous=await replay(c);if(previous)return previous;
+  const old=await inspect(c,p);if((old?.version||0)!==p.version)throw fail(409,'Cadastro mudou. Faça nova conferência antes de gravar.');
+  const result={ok:true,pending:true,confirmed:false,branch:p.branch,serial:p.serial,message:'Dados recebidos na Central; aguardando confirmação da plataforma.',payload:{serial:p.serial,iccid:p.iccid,phone:p.phone,operator:p.operator,apn:p.apn??'hinova.br',tracker_version:p.tracker_version||''}};
+  await c.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,p.key,fingerprint,result]);
+  return result;
+ });
+ const previous=await read(replay);if(previous&&!previous.pending)return previous;
  const before=await read(c=>inspect(c,p));if((before?.version||0)!==p.version)throw fail(409,'Cadastro mudou. Faça nova conferência antes de gravar.');
  const remote=await service.equipmentPortal(p.branch,p.serial);
  if(remote.serial!==p.serial||digits(remote.iccid)!==p.iccid||phone(remote.phone)!==phone(p.phone))throw fail(409,'Série, chip ou telefone não confirmado na plataforma. Nenhuma gravação realizada.');
@@ -40,7 +48,7 @@ export async function configuratorOperation(pool,user,p,service=integrations){
   await c.query("select set_config('central.chip_source','Configurador RS300',true)");
   // Serialise all Configurador operations, including conflicts on a shared chip.
   await c.query("select pg_advisory_xact_lock(hashtext('central-configurator'))");
-  const saved=await replay(c);if(saved)return saved;
+  const saved=await replay(c);if(saved&&!saved.pending)return saved;
   const old=await inspect(c,p);if((old?.version||0)!==p.version)throw fail(409,'Cadastro mudou durante a conferência.');
   const conflict=await c.query("select id from central_homologacao.devices where data->>'iccid'=$1 and serial<>$2 and deleted_at is null limit 1",[p.iccid,p.serial]);if(conflict.rowCount)throw fail(409,'Chip associado a outro aparelho na Central.');
   const same=old&&(!p.tracker_version||old.data.tracker_version===p.tracker_version)&&old.data.iccid===p.iccid&&phone(old.data.phone)===phone(p.phone)&&old.data.carrier===p.operator&&old.data.apn===(p.apn??'hinova.br')&&old.data.remote_registration_status==='confirmado_configurador_rs300'&&(p.branch==='imperatriz'?['Reserva','Manutenção'].includes(old.data.status):old.data.status==='Estoque');
@@ -54,7 +62,7 @@ export async function configuratorOperation(pool,user,p,service=integrations){
   const confirmed=(await c.query('select data,version from central_homologacao.devices where id=$1',[id])).rows[0];if(confirmed.data.iccid!==p.iccid||confirmed.version!==version)throw fail(500,'Releitura SQL não confirmou a gravação.');
   const warehouse=await consumeConfiguredChip(c,{branch:p.branch,serial:p.serial,iccid:p.iccid,userId:user.user_id});
   const result={warehouse,ok:true,confirmed:true,created:!old,already_exists:!!same,id,version,status,branch:p.branch,database:'Central online',message:same?'Registro online já confirmado; nenhuma alteração repetida.':'Gravação e releitura confirmadas na Central online.'};
-  await c.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,p.key,fingerprint,result]);return result;
+  await c.query('insert into central_homologacao.requests values($1,$2,$3,$4,now()) on conflict (user_id,request_key) do update set response=excluded.response',[user.user_id,p.key,fingerprint,result]);return result;
  });
 }
 export async function configuratorFetch(request,pool){
