@@ -20,7 +20,7 @@ try{
   if(p==='session')result={username:'chip-inventory-test',csrf:'synthetic',lastActivityAt:new Date().toISOString(),branches:[{id:'imperatriz',name:'Imperatriz',role:readOnly?'viewer':'admin'}],permissions:{owner:!readOnly,views:['warehouse'],writes:readOnly?[]:['warehouse']}};
   if(p==='activity')result={lastActivityAt:new Date().toISOString()};
   if(p==='warehouse'){reads++;result={rows,movements:[]};}
-  if(p==='warehouse-costs'){costCalls++;result={ok:true,checked_at:new Date().toISOString(),complete:false,total_cents:399,confirmed:1,chip_count:30,device_count:30,missing:0,not_found:29,inactive:0,without_price:0,duplicates:0,groups:[],items:[{iccid:rows[26].serial,devices:['024999999'],state:'Confirmado',cents:399}]};}
+  if(p==='warehouse-costs'){costCalls++;result={ok:true,providers:[{provider:'arya',name:'Árya',checked_at:new Date().toISOString(),confirmed:1,total_cents:399},{provider:'link',name:'Link Solutions',checked_at:'2026-01-01T12:00:00Z',confirmed:0,total_cents:0}],checked_at:new Date().toISOString(),complete:false,total_cents:399,confirmed:1,chip_count:30,device_count:30,missing:0,not_found:29,inactive:0,without_price:0,duplicates:0,groups:[],items:[{iccid:rows[26].serial,devices:['024999999'],state:'Confirmado',cents:399}]};}
   if(p==='warehouse-activation'||p==='warehouse-activation-send'){
    const body=req.postDataJSON();writes.push(body);assert.ok(!readOnly);
    if(body.action==='prepare'){assert.ok(body.ids.length<=body.size);assert.ok([10,20].includes(body.size));const chosen=rows.filter(r=>body.ids.includes(r.id));assert.ok(chosen.every(r=>!r.activation_state&&r.classification==='Reserva'));for(const r of chosen){r.activation_state='prepared';r.activation_batch=lot;}result={ok:true,id:lot,state:'prepared',changes:{branch:'imperatriz',warehouse:chosen}};}
@@ -31,7 +31,7 @@ try{
   await route.fulfill({json:result});
  });
  await page.addInitScript(()=>localStorage.setItem('central-view:chip-inventory-test',JSON.stringify({branch:'imperatriz',route:'warehouse'})));
- await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('#wo-cost-load').click();await page.locator('#wo-cost-details').waitFor();
+ await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('#wo-cost-details').waitFor();
  await page.locator('[data-wo-action="chips"]').first().click();await page.locator('#ci-search').waitFor();
  assert.equal(await page.locator('.warehouse-heading h1').first().innerText(),'Inventário de chips');
  assert.match(await page.locator('[data-ci-category="Estoque"]').innerText(),/Chips disponíveis para uso/);

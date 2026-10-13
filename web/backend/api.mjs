@@ -1,5 +1,5 @@
 import {scoped} from './remote-actions.mjs';
-import {aryaCostSnapshot,summarizeCosts} from './warehouse-costs.mjs';
+import {savedCostSnapshots,refreshCostSnapshots,summarizeCosts} from './warehouse-costs.mjs';
 import {mutationReceipt} from './mutation-receipt.mjs';
 import {sendWarehouseActivation} from './warehouse-activation-send.mjs';
 import {scanConfig,scanBranch} from './code-scan.mjs';
@@ -62,14 +62,16 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     const permissions=await userAccess(pool,user);
     if(url.pathname==='/api/warehouse-costs'){
       if(!permissions.owner)throw fail(403,'Valores dos chips restritos à administração.');
-      if(req.method!=='GET')throw fail(405,'Método não permitido.');
+      if(!['GET','POST'].includes(req.method))throw fail(405,'Método não permitido.');
       const branch=url.searchParams.get('branch');
       if(!['imperatriz','araguaina','acailandia','maraba'].includes(branch))throw fail(400,'Filial inválida.');
       const membership=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rows[0];
       if(!membership)throw fail(403,'Sem acesso a esta filial.');
       const devices=await scoped(pool,user,async c=>(await c.query("select serial,data->>'iccid' as iccid from central_homologacao.devices where branch_id=$1 and deleted_at is null and coalesce(data->>'status','')<>'Inativos' order by serial",[branch])).rows);
       res.setHeader('Cache-Control','no-store');
-      reply(res,200,{...summarizeCosts(devices,await aryaCostSnapshot(integrationService)),branch});return true;
+      const currentDevices=req.method==='POST'?await scoped(pool,user,async c=>(await c.query("select distinct data->>'iccid' as iccid from central_homologacao.devices where deleted_at is null and coalesce(data->>'status','')<>'Inativos'")).rows):devices;
+      const costs=req.method==='POST'?await refreshCostSnapshots(pool,user,integrationService,currentDevices):await savedCostSnapshots(pool,user);
+      reply(res,200,{...summarizeCosts(devices,costs),branch});return true;
     }
     if(url.pathname==='/api/deployment-token'){
       if(!permissions.owner)throw fail(403,'Somente o administrador principal pode renovar o token.');
