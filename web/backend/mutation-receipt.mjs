@@ -20,7 +20,7 @@ export async function mutationReceipt(c,{path,method,body,branch,result}){
   if(method==='DELETE')changes.removedWarehouse=[{id:result.id,version:body.version+1}];
   else {
    const batch=path.startsWith('/api/warehouse-activation')?(body.batch||result.id):null;
-   const ids=path==='/api/warehouse-transfer'?body.items.map(r=>r.id):[result.id].filter(Boolean);
+   const ids=path==='/api/warehouse-transfer'?body.items.map(r=>r.id):result.ids||[result.id].filter(Boolean);
    changes.warehouse=(await c.query('select w.*,w.branch_id as branch from central_homologacao.warehouse_items w where branch_id=$1 and deleted_at is null and (id=any($2::uuid[]) or ($3::uuid is not null and activation_batch=$3))',[branch,ids,batch])).rows;
    if(path==='/api/warehouse-transfer')changes.movements=(await c.query('select id,branch_id as branch,destination,note,created_at,items from central_homologacao.warehouse_movements where branch_id=$1 and id=$2',[branch,result.id])).rows;
   }

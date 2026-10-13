@@ -3,7 +3,7 @@ import {warehouseBases,warehouseLabel as label,warehouseSummary,warehouseSeries,
 export {warehouseSummary} from './warehouse-model.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let view='overview',month=warehouseDay(new Date()).slice(0,7),months=1,kind='';
-export function styleWarehouse({real=false,icon,newItem,refresh,repo}){
+export function styleWarehouse({real=false,icon,newItem,refresh,repo,onUpdate}){
  document.querySelector('.content>.top').innerHTML='<div class="stock-app-heading"><strong>Armazém</strong></div>';
  const page=document.querySelector('#page'),stats=page.querySelector('.grid.four'),split=page.querySelector('.split'),inventory=split.querySelector('section'),transfer=split.querySelector('aside');
  stats.className='warehouse-metrics';stats.removeAttribute('style');
@@ -18,7 +18,7 @@ export function styleWarehouse({real=false,icon,newItem,refresh,repo}){
  const distribution=document.createElement('section');distribution.className='panel warehouse-distribution';distribution.innerHTML='<h2>Destinos das saídas</h2><p>Itens enviados / identificados no período selecionado</p><div id="warehouse-bases"></div>';
  const recent=document.createElement('section');recent.className='panel warehouse-recent';recent.innerHTML='<h2>Últimas movimentações</h2><p>Horário da detecção não equivale ao horário da saída física.</p><div id="warehouse-timeline"></div><button id="warehouse-history">Ver histórico completo →</button>';
  grid.append(chart,distribution,inventory,transfer,recent);
- const reserve=document.createElement("section");reserve.className="panel warehouse-reserve";grid.append(reserve);const activation=mountWarehouseActivation(reserve,{repo,icon});
+ const reserve=document.createElement("section");reserve.className="panel warehouse-reserve";grid.append(reserve);const activation=mountWarehouseActivation(reserve,{repo,icon,onUpdate});
  transfer.querySelector('h2').innerHTML=icon('fork')+' Movimentar itens';transfer.querySelector('p').textContent='Origem: armazém central de Imperatriz';transfer.querySelector('.form-actions').prepend(page.querySelector('#warehouse-count'));
  const clear=document.createElement('button');clear.id='warehouse-clear-selection';clear.textContent='Limpar seleção';clear.type='button';transfer.querySelector('.form-actions').append(clear);
  let rows=[],movements=[];

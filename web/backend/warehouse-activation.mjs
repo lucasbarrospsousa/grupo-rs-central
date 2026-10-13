@@ -1,9 +1,8 @@
-import {openAryaActivations} from './arya-activation.mjs';
+import {finishedAryaActivations} from './arya-activation.mjs';
 import {randomUUID} from 'node:crypto';
 import {activationSelection} from '../public/warehouse-activation-model.js';
 const fail=(status,message)=>Object.assign(Error(message),{status});
 const pending=v=>['0','PENDENTE','PENDING'].includes(String(v??'').trim().toUpperCase());
-const active=v=>['ATIVO','ATIVA','ACTIVE','ATIVADO'].includes(String(v??'').trim().toUpperCase());
 // Preparation and read-only reconciliation. Sending uses a separate committed fence.
 export async function warehouseActivation(c,{body,branch,role,service}){
  if(branch!=='imperatriz'||role!=='admin')throw fail(403,'Ativação restrita ao armazém de Imperatriz.');
@@ -26,31 +25,24 @@ export async function warehouseActivation(c,{body,branch,role,service}){
   await c.query("update central_homologacao.warehouse_items set activation_batch=$2,activation_state='prepared',activation_at=now(),classification='Reserva',version=version+1 where id=any($1::uuid[])",[body.ids,id]);
   return{id,response:{ok:true,id,count:selected.length,state:'prepared',iccids:serials}};
  }
- if(!/^[a-f0-9-]{36}$/.test(body.batch||''))throw fail(400,'Lote inválido.');
- const rows=(await c.query("select * from central_homologacao.warehouse_items where activation_batch=$1 and branch_id='imperatriz' order by id for update",[body.batch])).rows;
- if(!rows.length)throw fail(404,'Lote não encontrado.');
+ if((action!=='check'||body.batch)&&!/^[a-f0-9-]{36}$/.test(body.batch||''))throw fail(400,'Lote inválido.');
+ const rows=(await c.query("select * from central_homologacao.warehouse_items where ($1::uuid is null or activation_batch=$1) and activation_batch is not null and branch_id='imperatriz' and deleted_at is null order by id for update",[body.batch||null])).rows;
+ if(!rows.length&&body.batch)throw fail(404,'Lote não encontrado.');
  if(action==='requested'){
   if(body.confirmed!==true||typeof body.reference!=='string'||!body.reference.trim()||body.reference.length>120||/[<>\x00-\x1f]/.test(body.reference))throw fail(400,'Informe o protocolo ou referência da solicitação enviada na Árya.');
   if(rows.some(r=>r.activation_state!=='prepared'))throw fail(409,'Este lote já foi registrado. Atualize a lista.');
   await c.query("update central_homologacao.warehouse_items set activation_state='requested',activation_reference=$2,activation_at=now(),version=version+1 where activation_batch=$1",[body.batch,body.reference.trim()]);
   return{id:body.batch,response:{ok:true,count:rows.length,state:'requested'}};
  }
- let confirmed=0,pendingCount=0,errors=0;
- let open;try{open=await openAryaActivations(service);}catch{errors++;}
- if(open)for(const r of rows){if(['prepared','sending','uncertain'].includes(r.activation_state)&&open.has(r.serial)){
-  await c.query("update central_homologacao.warehouse_items set activation_state='requested',activation_reference=$2,activation_at=now(),version=version+1 where id=$1",[r.id,'Chamado Árya '+open.get(r.serial)]);
- }}
-
- for(const r of rows){
-  if(r.activation_state==='active'){confirmed++;continue;}
-  try{
-   const chip=await service.carrier('arya',r.serial);
-   if(chip?.ok!==true||chip.iccid!==r.serial||chip.provider!=='arya'){errors++;continue;}
-   // Numeric active statuses are undocumented: never infer activation from a phone or OFF/ON alone.
-   if(!active(chip.status)){pendingCount++;continue;}
-   const phone=String(chip.phone||'').trim();if(phone.length>40){errors++;continue;}
-   await c.query("update central_homologacao.warehouse_items set activation_state='active',activation_at=now(),chip_phone=case when $2<>'' then $2 else chip_phone end,version=version+1 where id=$1",[r.id,phone]);confirmed++;
-  }catch{errors++;}
+ const available=rows.filter(r=>r.kind==='chip'&&r.chip_provider==='arya'&&r.status==='Disponível'&&r.classification==='Reserva');
+ const tracked=available.filter(r=>['requested','sending','uncertain'].includes(r.activation_state));
+ const finished=await finishedAryaActivations(service,tracked);
+ let confirmed=0;const ids=[];
+ for(const r of available){
+  const ticket=finished.get(r.serial);
+  if(!ticket&&r.activation_state!=='active')continue;
+  await c.query("update central_homologacao.warehouse_items set activation_state='active',classification='Estoque',activation_at=now(),activation_reference=case when $2<>'' then $2 else activation_reference end,chip_phone=case when $3<>'' then $3 else chip_phone end,version=version+1 where id=$1 and status='Disponível' and classification='Reserva' and deleted_at is null",[r.id,ticket?'Chamado Árya '+ticket.id:'',ticket?.phone||'']);
+  ids.push(r.id);confirmed++;
  }
- return{id:body.batch,response:{ok:true,count:rows.length,confirmed,pending:pendingCount,errors}};
+ return{id:body.batch||randomUUID(),response:{ok:true,ids,count:available.length,confirmed,pending:tracked.length-finished.size,errors:0,message:`${confirmed} chips disponíveis no estoque • ${tracked.length-finished.size} aguardando finalização.`}};
 }
