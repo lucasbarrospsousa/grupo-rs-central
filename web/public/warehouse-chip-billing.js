@@ -10,6 +10,11 @@ export function billingGroups(items){
  }
  return [...groups.values()].sort((a,b)=>b.count-a.count);
 }
+export function operatorGroups(groups){
+ const result=new Map();
+ for(const g of groups){const key=JSON.stringify([g.provider,(g.operator||'Não informada').trim().toLocaleUpperCase('pt-BR')]);const row=result.get(key)||{key,provider:g.provider,operator:g.operator||'Não informada',count:0,total:0,groups:[]};row.count+=g.count;row.total+=g.count*g.cents;row.groups.push(g);result.set(key,row);}
+ return [...result.values()].sort((a,b)=>b.total-a.total);
+}
 export function filterBilling(items,{query='',group='',state=''}={}){
  const q=query.trim().toLocaleLowerCase('pt-BR');
  return items.filter(r=>(!state||(state==='confirmed'?r.state==='Confirmado':r.state!=='Confirmado'))&&(!group||JSON.stringify([r.provider,r.operator,r.apn||'Não informada',r.cents])===group)&&[r.iccid,r.operator,r.apn,provider(r.provider),...(r.devices||[]),...(r.associations||[]).map(a=>a.plate)].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q)));
@@ -18,12 +23,12 @@ export function mountChipBilling(root,{repo,icon}){
  let costs=cachedWarehouseCosts(repo),error='',loading=!costs,page=0,filters={query:'',group:'',state:''};
  function draw(){
   if(!root.isConnected)return;
-  const items=costs?.items||[],groups=billingGroups(items),filtered=filterBilling(items,filters);
+  const items=costs?.items||[],groups=billingGroups(items),operators=operatorGroups(groups),filtered=filterBilling(items,filters);
   page=Math.min(page,Math.max(0,Math.ceil(filtered.length/12)-1));
   root.innerHTML=`<div class="wc-billing-summary"><div><small>Tarifas atuais · Todos os fornecedores</small><strong>${costs?.checked_at?money(costs.total_cents):'—'}</strong><small>${costs?.confirmed||0} de ${costs?.chip_count||0} chips ativos com valor</small></div>${(costs?.providers||[]).map(p=>`<div><b>${esc(p.name)}</b><strong>${p.checked_at?money(p.total_cents):'—'}</strong><small>${p.confirmed} chips · ${p.checked_at?esc(new Date(p.checked_at).toLocaleDateString('pt-BR')):'Sem leitura'}</small></div>`).join('')}</div>
   <div class="wc-billing-summary"><div><small>Faturas · vencimento ${esc(costs?.billing?.month||'não informado')}</small><strong>${Number.isInteger(costs?.billing?.total_cents)?money(costs.billing.total_cents):'—'}</strong><small>${costs?.billing?.complete?'Dois fornecedores':'Cobertura parcial'} · separado das tarifas</small></div>${(costs?.billing?.invoices||[]).map(i=>`<div><b>${esc(i.name)} · ${esc(i.id)}</b><strong>${money(i.total_cents)}</strong><small>Vencimento ${esc(i.due_date)} · ${esc(i.status||'Pagamento não confirmado')}</small></div>`).join('')}</div>
-  <div class="wc-billing-heading"><div><h2>Tarifas por operadora e APN</h2><small>Selecione uma tarifa para ver seus chips. Cada ICCID é contado uma vez.</small></div><button id="cb-refresh" ${loading?'disabled':''}>${icon('refresh')} Atualizar Árya</button></div>
-  <div class="wc-tariffs">${groups.map(g=>`<button data-cb-group="${esc(g.key)}" aria-pressed="${filters.group===g.key}"><span><b>${esc(g.operator||'Operadora não informada')}</b><small>${provider(g.provider)} · ${esc(g.apn)}</small></span><span><b>${money(g.cents)} / chip</b><small>${g.count} chips · ${money(g.count*g.cents)}/mês</small></span></button>`).join('')||'<p>Nenhuma tarifa confirmada.</p>'}</div>
+  <div class="wc-billing-heading"><div><h2>Tarifas por operadora e APN</h2><small>Clique na operadora para ver os lotes por tarifa e APN.</small></div><button id="cb-refresh" ${loading?'disabled':''}>${icon('refresh')} Atualizar Árya</button></div>
+  <div class="wc-operator-table"><table><thead><tr><th>Operadora</th><th>Fornecedor</th><th>Chips</th><th>Tarifas / APNs</th><th>Mensalidade</th></tr></thead><tbody>${operators.map((g,i)=>`<tr data-cb-operator-row="${i}"><td><button class="wc-operator-link" data-cb-operator="${i}">${esc(g.operator)} <span aria-hidden="true">›</span></button></td><td>${provider(g.provider)}</td><td>${g.count.toLocaleString('pt-BR')}</td><td>${g.groups.length}</td><td class="wc-price">${money(g.total)}</td></tr>`).join('')||'<tr><td colspan="5">Nenhuma tarifa confirmada.</td></tr>'}</tbody></table></div>
   <div class="wc-billing-heading"><h2>Chips dos fornecedores e aparelhos associados</h2><button id="cb-clear" class="wc-link">Limpar filtros</button></div>
   <div class="wc-toolbar"><label class="wc-search">${icon('search')}<input id="cb-search" aria-label="Buscar mensalidade por ICCID ou aparelho" placeholder="ICCID, aparelho, placa, operadora ou APN" value="${esc(filters.query)}"></label><select id="cb-state" aria-label="Situação da mensalidade"><option value="">Todos os chips dos fornecedores</option><option value="confirmed" ${filters.state==='confirmed'?'selected':''}>Com valor confirmado</option><option value="pending" ${filters.state==='pending'?'selected':''}>Pendências e não ativos</option></select></div>
   ${filters.group?'<p class="wc-message">Exibindo a tarifa selecionada. Use Limpar filtros para ver todos.</p>':''}
@@ -32,12 +37,19 @@ export function mountChipBilling(root,{repo,icon}){
   <p class="wc-message" role="status">${esc(error||(loading?'Lendo valores…':''))}</p>
   ${(costs?.providers||[]).filter(p=>p.error||p.refreshing).map(p=>`<p class="wc-message">${esc(p.name+': '+(p.error||'consulta em andamento'))}</p>`).join('')}
   <small class="wc-billing-footnote">Tarifas atuais não são faturas. Faturas preservam os valores e períodos consultados. APN e aparelho conforme cadastro da Central; IMEI do fornecedor é informativo. Link usa relatório salvo.</small>`;
-  root.querySelectorAll('[data-cb-group]').forEach(b=>b.onclick=()=>{filters.group=filters.group===b.dataset.cbGroup?'':b.dataset.cbGroup;page=0;draw();});
+  root.querySelectorAll('[data-cb-operator]').forEach(b=>b.onclick=()=>openOperator(operators[Number(b.dataset.cbOperator)]));
+  root.querySelectorAll('[data-cb-operator-row]').forEach(row=>row.onclick=e=>{if(!e.target.closest('button'))row.querySelector('button').click();});
   root.querySelector('#cb-search').oninput=e=>{filters.query=e.target.value;page=0;const pos=e.target.selectionStart;draw();const i=root.querySelector('#cb-search');i.focus();i.setSelectionRange(pos,pos);};
   root.querySelector('#cb-state').onchange=e=>{filters.state=e.target.value;page=0;draw();};
   root.querySelector('#cb-clear').onclick=()=>{filters={query:'',group:'',state:''};page=0;draw();};
   root.querySelector('#cb-prev').onclick=()=>{page--;draw();};root.querySelector('#cb-next').onclick=()=>{page++;draw();};
   root.querySelector('#cb-refresh').onclick=()=>read(true);
+ }
+ function openOperator(operator){
+  const dialog=document.createElement('dialog');dialog.className='wc-tariff-dialog';dialog.setAttribute('aria-labelledby','cb-dialog-title');
+  dialog.innerHTML=`<header><div><small>${esc(provider(operator.provider))} · Mensalidades dos chips</small><h2 id="cb-dialog-title">${esc(operator.operator)}</h2></div><button type="button" data-cb-close aria-label="Fechar detalhes">×</button></header><div class="wc-lot-summary"><div><small>Chips com tarifa confirmada</small><strong>${operator.count.toLocaleString('pt-BR')}</strong></div><div><small>Grupos de tarifa / APN</small><strong>${operator.groups.length}</strong></div><div><small>Total mensal estimado</small><strong>${money(operator.total)}</strong></div></div><h3>Lotes por tarifa e APN</h3><p>Agrupados pelo valor mensal e pela APN; não representam lotes de compra.</p><div class="wc-lot-table"><table><thead><tr><th>APN</th><th>Chips</th><th>Valor por chip</th><th>Total mensal</th><th></th></tr></thead><tbody>${operator.groups.map((g,i)=>`<tr><td>${esc(g.apn)}</td><td>${g.count.toLocaleString('pt-BR')}</td><td>${money(g.cents)}</td><td><strong>${money(g.cents*g.count)}</strong></td><td><button data-cb-group="${i}">Ver chips</button></td></tr>`).join('')}</tbody></table></div><footer>Valores dos dados salvos. Faturas e cobranças adicionais são apresentadas separadamente.</footer>`;
+  document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.querySelector('[data-cb-close]').onclick=()=>dialog.close();dialog.onclick=e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}};
+  dialog.querySelectorAll('[data-cb-group]').forEach(b=>b.onclick=()=>{filters.group=operator.groups[Number(b.dataset.cbGroup)].key;filters.query='';filters.state='';page=0;dialog.close();draw();root.querySelector('#cb-search').focus();});dialog.showModal();
  }
  async function read(refresh=false){if(refresh&&loading)return;loading=true;error='';draw();try{await loadWarehouseCosts(repo,{refresh});costs=cachedWarehouseCosts(repo);}catch(e){error=e.message;}finally{loading=false;draw();}}
  draw();if(!costs)read();
