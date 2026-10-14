@@ -38,3 +38,13 @@ body.central-ui #page:is(#page) :is(.sms-metrics article:nth-child(4),.logs-card
  body.central-ui #page.compact-settings:is(#page) :is(.monitor-metrics,.codes-metrics) article strong{font-size:25px}
  body.central-ui #page.compact-settings:is(#page) :is(.monitor-metrics,.codes-metrics) article>span{font-size:11px}
 }
+/* Settings indicators reserve a real grid column for the icon. */
+body.central-ui #page.compact-settings:is(#page) :is(.monitor-metrics,.codes-metrics) article{
+ display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:auto auto;column-gap:9px;row-gap:4px;align-content:center;min-height:78px;padding:10px;
+}
+body.central-ui #page.compact-settings:is(#page) :is(.monitor-metrics,.codes-metrics) article::before{
+ position:static!important;transform:none!important;grid-column:1;grid-row:1 / 3;align-self:center;width:30px!important;height:38px!important;font-size:22px;
+}
+body.central-ui #page.compact-settings:is(#page) :is(.monitor-metrics,.codes-metrics) article>span{grid-column:2;grid-row:1;min-width:0;margin:0;order:0;overflow-wrap:anywhere;font-size:11px;line-height:1.3}
+body.central-ui #page.compact-settings:is(#page) :is(.monitor-metrics,.codes-metrics) article>strong{grid-column:2;grid-row:2;min-width:0;margin:0;font-size:25px;line-height:1.15}
+@media(max-width:1700px) and (min-width:1101px){body.central-ui #page.compact-settings:is(#page) .monitor-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
