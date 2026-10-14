@@ -23,3 +23,6 @@ Padrão de gestão com indicadores de envios de aparelhos, destinos, registros f
 ## Análise mensal
 
 Dashboard dedicado aos envios de aparelhos, com mês de referência, últimos 3/6/12 meses e destino (incluindo destinos livres). Mostra mês escolhido, mês anterior, variação percentual, total do período, barras por destino e tabela mensal. Mês em andamento é identificado como parcial; sem base anterior não inventa percentual. Usa apenas registros locais de envio, mantém reenvios legítimos, não soma detecção como envio e preserva registros de aparelhos removidos quando o evento guarda o tipo. Envios sem data permanecem no histórico e são sinalizados. O atalho Ver movimentações aplica mês e destino. Nenhuma escrita ou consulta a provedores. Testes: warehouse-monthly.test.mjs e regressão visual test-warehouse-overview-ui.mjs.
+
+## Cards de indicadores compartilhados
+O padrão aprovado dos Chips é aplicado aos indicadores de todas as páginas por public/indicator-cards.css, carregado após os estilos locais: degradê suave, ícone à esquerda, número destacado e descrição compacta. Mantém filtros, estados selecionados e dados existentes. Movimentações e Análise mensal usam o mesmo padrão. Validação: tools/test-indicator-cards-ui.mjs (navegação demonstrativa) e tools/test-warehouse-overview-ui.mjs (fluxos sintéticos do armazém).
