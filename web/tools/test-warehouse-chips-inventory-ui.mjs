@@ -37,6 +37,15 @@ try{
  assert.equal(await page.locator('.warehouse-heading h1').first().innerText(),'Gestão de chips');
  assert.match(await page.locator('[data-ci-category="Estoque"]').innerText(),/Chips disponíveis para uso/);
  assert.equal(await page.locator('.warehouse-transfer').isVisible(),false);assert.equal(await page.locator('.warehouse-metrics').isVisible(),false);
+ const navigationStyles=[];
+ for(const view of ['overview','inventory','chips','movements','analysis']){
+  await page.locator(`[data-warehouse-view="${view}"]`).click();
+  await page.locator('.warehouse-views button').first().hover();
+  navigationStyles.push(await page.locator('.warehouse-views button').evaluateAll(buttons=>buttons.map(b=>{const s=getComputedStyle(b);return {width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height,font:s.fontSize,padding:s.padding,transform:s.transform};})));
+  assert.equal(await page.locator('.warehouse-views button.active').count(),1);
+ }
+ for(const styles of navigationStyles)assert.deepEqual(styles,navigationStyles[0]);
+ await page.locator('[data-warehouse-view="chips"]').click();
  const initialReads=reads;
  await page.locator('#ci-search').fill(rows[26].serial);assert.equal(await page.locator('[data-ci-id]').count(),1);assert.match(await page.locator('.wc-price').innerText(),/3,99/);
  await page.locator('#ci-search').fill('none');assert.match(await page.locator('.wc-table-wrap').innerText(),/Nenhum chip/);
