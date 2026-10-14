@@ -47,7 +47,7 @@ export function mountGeneralMonitor(ctx,root){
   root.querySelector('[data-code-progress]').innerHTML=codes?[
    ['Placa',codes.vehicle_saved,codes.total,'vehicle','Códigos de veículo salvos'],
    ['Aparelho',codes.equipment_saved,codes.total,'equipment','Códigos de equipamento salvos'],
-   ['Titular',codes.owner_confirmed,codes.owner_total,'owner','Vínculos confirmados • somente instalados']
+   ['Titular',codes.owner_confirmed,codes.owner_total,'owner','Vínculos salvos • '+num(codes.owner_recent??codes.owner_confirmed)+' revisados nas últimas 6 h']
   ].map(([label,done,total,kind,hint])=>{done=Number(done)||0;total=Number(total)||0;const percent=total?Math.min(100,Math.floor(done/total*100)):0;return `<div class="monitor-code-row ${kind}"><div><b>${label}</b><strong>${num(done)} / ${num(total)} <small>· ${percent}%</small></strong></div><progress aria-label="${label}: ${esc(hint)}" value="${done}" max="${Math.max(1,total)}"></progress><small><button type="button" class="monitor-pending-link" data-code-pending="${kind}" ${total<=done?'disabled':''}>${total?num(Math.max(0,total-done))+' pendentes':'Sem itens'}</button> · ${hint}</small></div>`;}).join(''):'<small>Progresso indisponível nesta leitura.</small>';
   root.querySelectorAll('[data-code-pending]').forEach(button=>button.onclick=()=>openCodePending(ctx,{branchName:baseNames[selected],kind:button.dataset.codePending,rows:codes?.pending,at:snapshot.server_at}));
   const reviewed=d.review_cycle>0?d.review_done:d.processed;

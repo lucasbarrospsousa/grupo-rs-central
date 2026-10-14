@@ -1,0 +1,20 @@
+import {readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import assert from 'node:assert/strict';
+import {createPool} from '../backend/database.mjs';
+const pool=createPool({admin:true}),c=await pool.connect();
+try{await c.query('begin');if(!(await c.query('select 1 from central_homologacao.migrations where version=52')).rowCount)await c.query((await readFile(new URL('../migrations/052_owner_progress_priority.sql',import.meta.url),'utf8')).replace(/^BEGIN;\s*/,'').replace(/COMMIT;\s*$/,''));
+const id=randomUUID(),serial='998'+Date.now(),owner={branch:'imperatriz',serial,equipment_id:'9981',vehicle_id:'9982',plate:'ABC1234',client_id:'9983',client:'Teste fictício',checked_at:'2000-01-01T00:00:00.000Z'};
+await c.query("insert into central_homologacao.devices(id,branch_id,serial,data) values($1,'imperatriz',$2,$3)",[id,serial,{status:'Instalado',plate:'ABC1234',owner_binding:owner}]);
+await c.query("insert into central_homologacao.device_codes(device_id,serial,equipment_id,vehicle_id,api_plate,state,checked_at) values($1,$2,'9981','9982','ABC1234','confirmed',now()-interval '30 minutes')",[id,serial]);
+const progress=async()=>(await c.query('select central_homologacao.settings_code_progress() data')).rows[0].data.find(x=>x.branch_id==='imperatriz');
+const before=await progress();assert.ok(!before.pending.some(x=>x.serial===serial));assert.ok(before.owner_confirmed>before.owner_recent);
+await c.query("update central_homologacao.devices set data=data-'owner_binding' where id=$1",[id]);
+assert.ok((await progress()).pending.some(x=>x.serial===serial&&x.missing.includes('owner')));
+assert.equal((await c.query("select priority from central_homologacao.code_scan_candidates('imperatriz') where id=$1",[id])).rows[0].priority,0);
+await c.query('update central_homologacao.device_codes set checked_at=now() where device_id=$1',[id]);
+assert.ok(!(await c.query("select priority from central_homologacao.code_scan_candidates('imperatriz') where id=$1",[id])).rows.some(x=>x.priority===0));
+await c.query("update central_homologacao.devices set data=jsonb_set(data,'{owner_binding}',$2) where id=$1",[id,{...owner,vehicle_id:'9999'}]);assert.ok((await progress()).pending.some(x=>x.serial===serial));
+assert.equal((await c.query('select enabled from central_homologacao.code_scan_branches where branch_id=\'imperatriz\'')).rows[0].enabled,true);
+console.log('PASS SQL: saved vs recent, mismatched binding, pending priority, retry cooldown; synthetic records rolled back.');
+}finally{await c.query('rollback');c.release();await pool.end();}

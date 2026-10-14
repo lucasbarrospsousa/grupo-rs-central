@@ -26,3 +26,6 @@ Dashboard dedicado aos envios de aparelhos, com mês de referência, últimos 3/
 
 ## Cards de indicadores compartilhados
 O padrão aprovado dos Chips é aplicado aos indicadores de todas as páginas por public/indicator-cards.css, carregado após os estilos locais: degradê suave, ícone à esquerda, número destacado e descrição compacta. Mantém filtros, estados selecionados e dados existentes. Movimentações e Análise mensal usam o mesmo padrão. Validação: tools/test-indicator-cards-ui.mjs (navegação demonstrativa) e tools/test-warehouse-overview-ui.mjs (fluxos sintéticos do armazém).
+
+## Sondagem do titular
+Migração 052 separa vínculo confirmado salvo de revisão nas últimas 6 horas. Pendentes continuam exigindo série, placa e códigos de aparelho/veículo compatíveis. Titulares ausentes ou divergentes têm prioridade após 15 minutos da última tentativa; limites da API e revisão noturna preservados. A consulta reutiliza o equipamento já lido e o cache de associados de 30 segundos. Falhas temporárias preservam a evidência anterior; respostas incompatíveis continuam invalidando. A pesquisa local mantém nomes antigos confirmados. Testes: stock-owner, integrations, code-scan, query-priority, test-owner-progress-sql.mjs (rollback) e test-settings-codes-ui.mjs. Aplicação: node web/tools/migrate-owner-progress.mjs --apply.

@@ -65,7 +65,7 @@ export class Integrations{
  async api(branch,path,retry=true){const s=await this.session(branch);if(!s.token){if(!s.login)s.login=authenticate(async()=>{const c=this.credentials(branch,true),r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});s.token=tokenOf(json(r.text));if(!s.token)throw err('API não confirmou autenticação.');}).catch(e=>{if(e.status!==429)e.message='Autenticação da API: '+e.message;throw e;}).finally(()=>{s.login=null;});await s.login;}
  const usedToken=s.token;try{const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{headers:{Authorization:'Bearer '+usedToken,Accept:'application/json'}});return json(r.text);}catch(e){if(retry&&e.upstreamStatus===401){if(s.token===usedToken)s.token='';return this.api(branch,path,false);}if(e.upstreamStatus===401)e.credentialInvalid=true;if(e.upstreamStatus===403)e.message='Permissão recusada para esta consulta da API; as demais rotas permanecem disponíveis.';e.message='Consulta autenticada da API: '+e.message;throw e;}}
  async portal(){throw err('Consulta ao portal desativada: integração exclusiva pela API v2.',501);}
- async vehicles(branch,serial){
+ async vehicles(branch,serial,{equipment:knownEquipment}={}){
   if(!/^\d{6,17}$/.test(serial))throw err('Informe a série numérica exata.',400);
   const data=await this.api(branch,'/veiculos?q='+encodeURIComponent(serial)+'&skip=0&take=50');
   const found=rows(data);if(data.paginacao?.temMais||found.length>=50)throw err('Consulta ampla; vínculo único não confirmado.');
@@ -73,7 +73,7 @@ export class Integrations{
   if(exact.length||!found.length)return exact;
   // Summary lists omit the tracker. Confirm the relationship using the exact equipment response.
   if(found.length!==1||serialOf(found[0]))throw err('Veículo único não confirmado para esta série.',422);
-  const vehicle=normalize(found[0]),equipment=await this.equipment(branch,serial);
+  const vehicle=normalize(found[0]),equipment=knownEquipment?.ok&&knownEquipment.serial===serial?knownEquipment:await this.equipment(branch,serial);
   if(!/^[1-9]\d*$/.test(vehicle.vehicle_id)||equipment.vehicle_id!==vehicle.vehicle_id||!vehicle.plate||equipment.plate!==vehicle.plate)throw err('Vínculo divergente entre aparelho e veículo.',422);
   return[{...vehicle,serial,equipment_id:equipment.id}];
  }

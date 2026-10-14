@@ -9,3 +9,10 @@ test('RS300 internal identification remains stock',async()=>{const service=new I
 test('ambiguous and failed queries never become eligible',async()=>{const s=new Integrations({secrets,request:async url=>response(url.endsWith('/login')?{token:'synthetic'}:[{serial:'024000001'},{serial:'024000001'}])});assert.equal((await s.binding('imperatriz','024000001')).category,'review');s.request=async()=>{throw Error('offline');};await assert.rejects(s.binding('imperatriz','024000001'));});
 test('invalid serial and history range never contact platform',async()=>{const s=new Integrations({secrets,request:()=>{throw Error('should not call');}});await assert.rejects(s.binding('imperatriz','AAA - 021'),/série/);await assert.rejects(s.history('imperatriz','024000001','2026-09-01','2026-09-20'),/sete dias/);});
 test('carrier response must match exact ICCID',async()=>{const s=new Integrations({secrets:()=>({arya_email:'synthetic',arya_password:'synthetic'}),request:async url=>response(url.endsWith('/auth')?{token:'synthetic'}:{data:[{iccid:'8955300000000000001'}]})});assert.equal((await s.carrier('arya','8955300000000000000')).ok,false);});
+
+test('vehicle summary reuses matching equipment but still rejects changed association',async()=>{
+ const service=new Integrations({secrets});let requests=0;service.api=async()=>{requests++;return {data:[{codVeiculo:'3',placa:'ABC1234'}]};};service.equipment=async()=>{throw Error('Unexpected duplicate equipment lookup');};
+ const equipment={ok:true,serial:'024000001',id:'2',vehicle_id:'3',plate:'ABC1234'};
+ const result=await service.vehicles('imperatriz','024000001',{equipment});assert.equal(requests,1);assert.equal(result[0].equipment_id,'2');
+ await assert.rejects(service.vehicles('imperatriz','024000001',{equipment:{...equipment,vehicle_id:'9'}}),/divergente/);
+});

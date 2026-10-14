@@ -12,10 +12,10 @@ export async function stockOwner(pool,service,branch,serial,{equipment,fresh=fal
  let owner=null,message='Titular não confirmado';
  try{
   equipment=equipment||await service.equipment(branch,serial);
-  const rows=await service.vehicles(branch,serial);let vehicle=rows.length===1?rows[0]:null;
-  if(vehicle&&!vehicle.client&&Number(vehicle.owner_count)<=1&&context.hint){const found=await service.associationOwner(branch,vehicle,context.hint,{fresh:true});if(found)vehicle={...vehicle,...found};}
+  const rows=await service.vehicles(branch,serial,{equipment});let vehicle=rows.length===1?rows[0]:null;
+  if(vehicle&&!vehicle.client&&Number(vehicle.owner_count)<=1&&context.hint){const found=await service.associationOwner(branch,vehicle,context.hint,{fresh:false});if(found)vehicle={...vehicle,...found};}
   owner=confirmedOwner(branch,serial,equipment,vehicle);
- }catch(e){if(e.automaticDeferred)throw e;message='Titular não confirmado • consulta pendente';}
+ }catch(e){if(e.automaticDeferred)throw e;return {ok:false,message:'Titular não confirmado • consulta pendente'};}
  // Optimistic write: a swap or edit during the request must not receive the old owner.
  const saved=(await pool.query('select central_homologacao.owner_save($1,$2,$3,$4) as saved',[branch,serial,context.version,owner])).rows[0]?.saved;
  return owner&&saved?{ok:true,...owner}:{ok:false,message};
