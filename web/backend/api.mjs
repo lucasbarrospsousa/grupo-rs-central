@@ -140,7 +140,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     if(mutation){const access=(await pool.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,url.searchParams.get('branch')])).rows[0];if(!access||access.role==='reader')throw fail(403,'Usuário somente de consulta.');}
     if(url.pathname==='/api/backups/status'&&req.method==='GET'){reply(res,200,await backupStatus(pool,user.user_id));return true;}
     if(await integrationRoute({req,res,url,pool,user,permissions,readBody:body,service:integrationService}))return true;
-    if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/warehouse-activation','/api/warehouse-activation-send','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
+    if(!['/api/install','/api/devices','/api/history','/api/warehouse','/api/warehouse-transfer','/api/warehouse-pending','/api/warehouse-activation','/api/warehouse-activation-send','/api/bulk','/api/maintenance'].includes(url.pathname)&&!/^\/api\/(devices|warehouse|maintenance)\/[a-f0-9-]{36}$/.test(url.pathname))throw fail(404,'Recurso não encontrado.');
     const branch=url.searchParams.get('branch');
     if((url.pathname==='/api/history'||url.pathname.startsWith('/api/maintenance'))&&branch!=='imperatriz')throw fail(403,'Manutenções disponível somente em Imperatriz.');
     if(url.pathname.startsWith('/api/warehouse')&&branch!=='imperatriz')throw fail(403,'Armazém disponível somente em Imperatriz.');
@@ -151,6 +151,11 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       const input=await body(req),result=await sendWarehouseActivation({pool,user,branch,role:membership.role,body:input,service:integrationService});
       let receipt=result;try{receipt=await scoped(pool,user,c=>mutationReceipt(c,{path:url.pathname,method:req.method,body:input,branch,result}));}catch{receipt={...result,refreshPending:true};}
       reply(res,200,receipt);return true;
+    }
+    if(url.pathname==='/api/warehouse-pending'){
+      if(req.method!=='POST')throw fail(405,'Método não permitido.');
+      if(!permissions.owner||membership.role!=='admin')throw fail(403,'Busca restrita à administração do armazém.');
+      await refreshCostSnapshots(pool,user,integrationService);
     }
     const client=await pool.connect();
     try{

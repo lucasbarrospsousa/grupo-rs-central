@@ -1,3 +1,4 @@
+import {importPendingChips} from './warehouse-pending.mjs';
 import {warehouseActivation} from './warehouse-activation.mjs';
 import {maintenanceRecord} from './maintenance-records.mjs';
 import {verifyWarehouseChip} from './warehouse-chip.mjs';
@@ -33,6 +34,7 @@ export async function businessMutation(c,{path,method,body,branch,user,role,serv
  }
  if(role!=='admin')throw failure(403,'Armazém exige permissão administrativa nesta filial.');
  if(path.startsWith('/api/warehouse')&&branch!=='imperatriz')throw failure(403,'Armazém disponível somente em Imperatriz.');
+ if(path==='/api/warehouse-pending'&&method==='POST')return {id,response:await importPendingChips(c)};
  if(path==='/api/warehouse-activation'&&method==='POST')return warehouseActivation(c,{body,branch,role,service});
  if(path.startsWith('/api/warehouse/')&&method==='PATCH'){
   if(!['Estoque','Reserva','Emergência'].includes(body.classification)||!Number.isInteger(body.version))throw failure(400,'Informe uma classificação válida e atualize a lista.');

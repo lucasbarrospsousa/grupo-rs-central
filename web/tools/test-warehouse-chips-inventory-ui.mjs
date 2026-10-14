@@ -20,6 +20,7 @@ try{
   if(p==='session')result={username:'chip-inventory-test',csrf:'synthetic',lastActivityAt:new Date().toISOString(),branches:[{id:'imperatriz',name:'Imperatriz',role:readOnly?'viewer':'admin'}],permissions:{owner:!readOnly,views:['warehouse'],writes:readOnly?[]:['warehouse']}};
   if(p==='activity')result={lastActivityAt:new Date().toISOString()};
   if(p==='warehouse'){reads++;result={rows,movements:[]};}
+  if(p==='warehouse-pending'){result={ok:true,count:1,preserved:0,changes:{branch:'imperatriz',warehouse:[{...rows[0],id:'33333333-3333-4333-8333-333333333333',serial:'8955000000000000999',activation_state:null,activation_batch:null}]}};}
   if(p==='warehouse-costs'){costCalls++;result={ok:true,providers:[{provider:'arya',name:'Árya',checked_at:new Date().toISOString(),confirmed:1,total_cents:399},{provider:'link',name:'Link Solutions',checked_at:'2026-01-01T12:00:00Z',confirmed:0,total_cents:0}],checked_at:new Date().toISOString(),complete:false,total_cents:399,confirmed:1,chip_count:30,device_count:30,missing:0,not_found:29,inactive:0,without_price:0,duplicates:0,groups:[],items:[{iccid:rows[26].serial,devices:['024999999'],provider:'arya',operator:'ALGAR',apn:'hinova.br',associations:[{serial:'024999999',plate:'ABC1D23',apn:'hinova.br'}],state:'Confirmado',cents:399}]};}
   if(p==='warehouse-activation'||p==='warehouse-activation-send'){
    const body=req.postDataJSON();writes.push(body);assert.ok(!readOnly);
@@ -65,6 +66,12 @@ try{
  await page.locator('[data-wo-chip="Reserva"]').click();assert.equal(await page.locator('#ci-category').inputValue(),'Reserva');
  for(const viewport of [{width:1917,height:913},{width:1280,height:720},{width:390,height:844}]){await page.setViewportSize(viewport);await page.waitForTimeout(350);const measured=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(measured.scroll<=measured.width+2,JSON.stringify(measured));}
  await page.screenshot({path:fileURLToPath(new URL('../.sites-runtime/chips-inventory-mobile.png',import.meta.url)),fullPage:true});
+ await page.setViewportSize({width:1917,height:913});
+ const beforePendingReads=reads,beforePendingWrites=writes.length;
+ const top=await page.locator('#warehouse-new').boundingBox(),bottom=await page.locator('#warehouse-pending').boundingBox();assert.ok(bottom.y>=top.y+top.height);
+ await page.locator('#warehouse-pending').click();await page.getByRole('status').filter({hasText:'1 incluídos em reserva'}).waitFor();
+ await page.locator('#ci-search').fill('8955000000000000999');assert.equal(await page.locator('[data-ci-id]').count(),1);assert.equal(reads,beforePendingReads);assert.equal(writes.length,beforePendingWrites);
+ await page.screenshot({path:fileURLToPath(new URL('../.sites-runtime/chips-pending-desktop.png',import.meta.url)),fullPage:true});
  await page.setViewportSize({width:1917,height:913});readOnly=true;await page.reload();await page.locator('[data-warehouse-view="chips"]').click();assert.ok(await page.locator('#ci-request').isDisabled());assert.equal(await page.locator('[data-ci-id]:enabled').count(),0);assert.equal(await page.locator('[data-ci-section="billing"]').count(),0);
  assert.deepEqual(external,[]);assert.deepEqual(errors,[]);assert.equal(costCalls,1);
  console.log('PASS chips inventory: local filters, pagination, cached prices, 10/20 limits, pending guards, double click, registration, classification, history, overview, permissions and 3 viewports. Synthetic API only; zero external requests.');
