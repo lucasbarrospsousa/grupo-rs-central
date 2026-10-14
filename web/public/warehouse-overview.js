@@ -39,13 +39,13 @@ function chart(data){const max=Math.max(1,...data.daily.map(d=>d.counts.reduce((
 function costPanel(cost,canCost,busy,error){
  const providers=cost?.providers||[];
  const warnings=cost?[[cost.not_found,'não localizados'],[cost.pending,'a consultar'],[cost.without_price,'sem preço'],[cost.conflicts,'em dois provedores'],[cost.missing,'sem ICCID'],[cost.inactive,'não ativos'],[cost.duplicates,'vínculos repetidos']].filter(([n])=>n).map(([n,s])=>num(n)+' '+s).join(' · '):'';
- return `<section class="wo-panel wo-costs"><header><h2>${icon('cash')} Mensalidade dos chips</h2><span class="wo-tag teal">Imperatriz</span></header>
- <div id="wo-cost-summary"><div class="wo-cost-head"><div class="wo-cost-total"><small>${cost?.complete?'Estimativa mensal':'Subtotal com valor conhecido'}</small><strong>${cost?.checked_at?money(cost.total_cents):'—'}</strong></div><span class="wo-cost-coverage"><b>${num(cost?.confirmed||0)} / ${num(cost?.chip_count||0)}</b><small>chips ativos com valor</small></span></div>
+ return `<section class="wo-panel wo-costs"><header><h2>${icon('cash')} Mensalidade dos chips</h2><span class="wo-tag teal">Todos os fornecedores</span></header>
+ <div id="wo-cost-summary"><div class="wo-cost-head"><div class="wo-cost-total"><small>Tarifas atuais</small><strong>${cost?.checked_at?money(cost.total_cents):'—'}</strong></div><span class="wo-cost-coverage"><b>${num(cost?.confirmed||0)} / ${num(cost?.chip_count||0)}</b><small>chips ativos com valor</small></span></div>
  <div class="wo-cost-providers">${providers.map(p=>`<div><span><b>${esc(p.name)}</b><small>${num(p.confirmed)} chips · ${p.checked_at?esc(new Date(p.checked_at).toLocaleString('pt-BR')):'Ainda não consultado'}</small></span><strong>${p.checked_at?money(p.total_cents):'—'}</strong></div>`).join('')}</div>
  ${warnings?`<p class="wo-cost-pending">${esc(warnings)}</p>`:''}</div>
  ${providers.filter(p=>p.error||p.refreshing).map(p=>`<p class="wo-cost-pending" role="status">${esc(p.error||(p.name+': consulta em andamento.'))}</p>`).join('')}
- <footer><small>Mensalidade recorrente estimada</small><button data-wo-action="chips">${icon('chip')} Chips ${icon('arrow')}</button></footer>
+ <footer><small>Faturas ${esc(cost?.billing?.month||'')}: ${Number.isInteger(cost?.billing?.total_cents)?money(cost.billing.total_cents):'Não informadas'}${cost?.billing?.complete?'':' · parcial'}</small><button data-wo-action="chips">${icon('chip')} Chips ${icon('arrow')}</button></footer>
  ${error||!canCost?`<p class="wo-cost-pending" role="status">${esc(error||'Valores disponíveis à administração.')}</p>`:''}
 
- <small class="wo-cost-disclaimer">Excedentes e ajustes de fatura não incluídos.</small></section>`;
+ <small class="wo-cost-disclaimer">Tarifas e faturas são valores distintos. Vínculos preservados.</small></section>`;
 }

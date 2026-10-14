@@ -1,3 +1,11 @@
+# Chips e faturas — 14/10/2026
+
+O armazém calcula tarifas pelo inventário completo salvo de Árya e Link, incluindo chips sem aparelho na Central. Cadastros de todas as bases autorizadas são usados somente para exibir associações existentes; nenhuma associação é gravada. Ativos nunca conectados da Árya entram no cálculo, pendentes não. Conflitos entre fornecedores são sinalizados e não somados duas vezes.
+
+Faturas ficam no campo privado `chip_cost_snapshots.invoices` (migração 053), independentes das tarifas. O resumo agrega somente o mesmo mês de vencimento e sinaliza cobertura parcial. O detalhamento por ICCID aparece apenas quando o fornecedor tem itens conferidos; a ausência de detalhamento não significa cobrança zero. Atualizar Árya preserva as faturas. Link usa exclusivamente o relatório salvo, inclusive quando sua primeira leitura ainda está pendente.
+
+`node web/tools/import-chip-finance.mjs <json-privado>` valida em transação e reverte; `--apply` confirma. O manifesto contém snapshots normalizados e evidência de faturas. O importador preserva histórico por ID, rejeita dados mais antigos e valores inconsistentes, salva cópia privada anterior e verifica os vínculos antes/depois. Nunca altera devices nem warehouse_items. Arquivos financeiros ficam em `.secrets`, fora de Git/backup público. Testes focados: `node --test web/tests/chip-finance.test.mjs web/tests/warehouse-costs.test.mjs`.
+
 # Grupo RS Central — operação web
 
 ## Armazém: visão geral e mensalidades — 13/10/2026

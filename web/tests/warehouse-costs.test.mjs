@@ -21,7 +21,7 @@ test('Costs API enforces owner and branch membership before exporting; SQL exclu
    if(sql.startsWith('select role'))return{rows:member?[{role:'admin'}]:[]};
    if(sql.includes('from central_homologacao.chip_cost_snapshots'))return{rows:[{provider:'arya',items:[...parseAryaCosts(csv).values()],checked_at:new Date().toISOString()}]};
    if(sql.includes('from central_homologacao.warehouse_items'))return{rows:[{iccid:a,serial:'024000001'}]};
-   if(sql.includes('from central_homologacao.devices')){selected=true;assert.match(sql,/deleted_at is null/);assert.match(sql,/<>'Inativos'/);assert.deepEqual(args,['imperatriz']);return{rows:[{serial:'024000001',iccid:a}]};}
+   if(sql.includes('from central_homologacao.devices')){selected=true;assert.match(sql,/deleted_at is null/);assert.match(sql,/order by branch_id,serial/);assert.deepEqual(args,[]);return{rows:[{serial:'024000001',iccid:a}]};}
    return{rows:[]};},connect:async()=>({...pool,release(){}})};
   const req={url:'/api/warehouse-costs?branch=imperatriz',method:'GET',headers:{cookie:'central_session='+'a'.repeat(64)}},result={};
   await api(pool,{integrationService:{aryaRequest:async()=>{calls++;return csv;}}})(req,{setHeader(){},writeHead(status){result.status=status;},end(body){result.body=JSON.parse(body);}});

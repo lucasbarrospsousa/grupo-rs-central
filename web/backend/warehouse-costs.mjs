@@ -17,7 +17,7 @@ export function parseAryaCosts(text){
  const header=table.shift()?.map(s=>s.replace(/^\uFEFF/,'').trim()),required=['ICCID','STATUS','VALOR NEGOCIADO','OPERADORA'];
  if(!header||required.some(k=>header.filter(h=>h===k).length!==1))throw fail();
  const result=new Map();for(const values of table){if(values.length!==header.length)throw fail();const get=k=>values[header.indexOf(k)]?.trim()||'',iccid=get('ICCID').replace(/^="(89\d{17,18})"$/, '$1');if(!/^89\d{17,18}$/.test(iccid)||result.has(iccid))throw fail();
- result.set(iccid,{iccid,active:get('STATUS')==='ATIVO',status:get('STATUS'),cents:brlCents(get('VALOR NEGOCIADO')),operator:get('OPERADORA'),plan:get('PLANO')});}
+ result.set(iccid,{iccid,active:['ATIVO','ATIVO - NUNCA CONECTADO'].includes(get('STATUS')),status:get('STATUS'),cents:brlCents(get('VALOR NEGOCIADO')),operator:get('OPERADORA'),plan:get('PLANO'),imei:get('IMEI'),phone:get('NUMERO'),connection:get('STATUS DE CONEXAO'),last_connection:get('ULTIMA ABERTURA SESSAO'),last_session_update:get('ULTIMA ATUALIZACAO SESSAO')});}
  return result;
 }
 export async function aryaCostSnapshot(service){
@@ -46,23 +46,23 @@ export async function linkCostSnapshot(service,iccids,onBatch=async()=>{}){
  return{rows:result,checked_at:new Date().toISOString()};
 }
 export const costProviders={arya:'Árya',link:'Link Solutions'};
+export function summarizeInvoices(sources){
+ const invoices=sources.flatMap(s=>(s.invoices||[]).map(i=>({...i,provider:s.provider,name:costProviders[s.provider]}))).sort((a,b)=>b.due_date.localeCompare(a.due_date));
+ const month=invoices[0]?.due_date.slice(0,7)||null;
+ const latest=invoices.filter(i=>i.due_date.startsWith(month));
+ const complete=Object.keys(costProviders).every(p=>latest.some(i=>i.provider===p));
+ return{month,complete,total_cents:latest.length?latest.reduce((n,i)=>n+i.total_cents,0):null,invoices};
+}
 export async function savedCostSnapshots(pool,user){
- return scoped(pool,user,async c=>(await c.query('select provider,items,checked_at,last_attempt,last_error,refresh_until from central_homologacao.chip_cost_snapshots order by provider')).rows.map(r=>({...r,rows:new Map(r.items.map(x=>[x.iccid,x]))})));
+ return scoped(pool,user,async c=>(await c.query('select provider,items,invoices,checked_at,last_attempt,last_error,refresh_until from central_homologacao.chip_cost_snapshots order by provider')).rows.map(r=>({...r,rows:new Map(r.items.map(x=>[x.iccid,x]))})));
 }
 export async function refreshCostSnapshots(pool,user,service,devices=[]){
  // Durable leases and cooldown survive restarts and simultaneous browser tabs.
- for(const provider of Object.keys(costProviders)){
+ for(const provider of ['arya']){
   const acquired=await scoped(pool,user,async c=>(await c.query("update central_homologacao.chip_cost_snapshots set refresh_until=now()+interval '3 minutes',last_attempt=now() where provider=$1 and (refresh_until is null or refresh_until<now()) and (checked_at is null or (provider='arya' and checked_at<now()-interval '30 minutes')) and (last_attempt is null or last_attempt<now()-interval '2 minutes') returning provider",[provider])).rowCount);
   if(!acquired)continue;
-  try{let snapshot;
-   if(provider==='arya')snapshot=await aryaCostSnapshot(service);
-   else{const saved=await savedCostSnapshots(pool,user),arya=saved.find(s=>s.provider==='arya');
-    if(!arya?.checked_at||arya.last_error)throw Error('Aguardando consulta Árya para separar os provedores.');
-    const previous=saved.find(s=>s.provider==='link').rows;
-    const targets=devices.map(d=>String(d.iccid||'').trim()).filter(iccid=>/^89\d{17,18}$/.test(iccid)&&!arya.rows.has(iccid)&&!previous.has(iccid));
-    const loaded=await linkCostSnapshot(service,targets,async batch=>{for(const row of batch)previous.set(row.iccid,row);await scoped(pool,user,c=>c.query("update central_homologacao.chip_cost_snapshots set items=$2::jsonb,refresh_until=now()+interval '3 minutes' where provider=$1",['link',JSON.stringify([...previous.values()])]));});
-    snapshot={rows:previous,checked_at:loaded.checked_at};
-   }
+  try{const snapshot=await aryaCostSnapshot(service);
+
    await scoped(pool,user,c=>c.query('update central_homologacao.chip_cost_snapshots set items=$2::jsonb,checked_at=$3,last_error=null,refresh_until=null where provider=$1',[provider,JSON.stringify([...snapshot.rows.values()]),snapshot.checked_at]));
   }catch{
    // Keep the last good values and date; a failed read never becomes “not found”.
@@ -71,9 +71,10 @@ export async function refreshCostSnapshots(pool,user,service,devices=[]){
  }
  return savedCostSnapshots(pool,user);
 }
-export function summarizeCosts(devices,input){
+export function summarizeCosts(devices,input,{allProviders=false}={}){
  const sources=Array.isArray(input)?input:[{provider:'arya',...input}],chips=new Map();let missing=0,duplicates=0;
- for(const d of devices){const iccid=String(d.iccid||'').trim();if(!/^89\d{17,18}$/.test(iccid)){missing++;continue;}const association={serial:d.serial,apn:String(d.apn||'').trim(),plate:String(d.plate||'').trim()};if(chips.has(iccid)){duplicates++;chips.get(iccid).devices.push(d.serial);chips.get(iccid).associations.push(association);}else chips.set(iccid,{iccid,devices:[d.serial],associations:[association]});}
+ for(const d of devices){const iccid=String(d.iccid||'').trim();if(!/^89\d{17,18}$/.test(iccid)){missing++;continue;}const association={serial:d.serial,branch:d.branch_id||'',apn:String(d.apn||'').trim(),plate:String(d.plate||'').trim()};if(chips.has(iccid)){duplicates++;chips.get(iccid).devices.push(d.serial);chips.get(iccid).associations.push(association);}else chips.set(iccid,{iccid,devices:[d.serial],associations:[association]});}
+ if(allProviders)for(const s of sources)for(const [iccid,r] of s.rows)if(r.found!==false&&!chips.has(iccid))chips.set(iccid,{iccid,devices:[],associations:[]});
  let total=0,confirmed=0,notFound=0,inactive=0,withoutPrice=0,conflicts=0,pending=0;const groups=new Map(),items=[];
  const providers=sources.map(s=>({provider:s.provider,name:costProviders[s.provider],checked_at:s.checked_at||null,error:s.last_error||'',refreshing:Date.parse(s.refresh_until)>Date.now(),confirmed:0,total_cents:0}));
  const incomplete=sources.length<2||sources.some(s=>!s.checked_at||s.last_error);
@@ -83,9 +84,9 @@ export function summarizeCosts(devices,input){
   if(active.length>1){conflicts++;state='Conferir: ativo em dois provedores';}
   else if(!r){if(incomplete||!sources.find(s=>s.provider==='link')?.rows.has(chip.iccid)){pending++;state='Consulta dos provedores pendente';}else{notFound++;state='Não localizado nos provedores';}}
   else if(!r.active){inactive++;state='Não ativo';}
-  else if(r.cents===null){withoutPrice++;state='Mensalidade não informada';}
+  else if(!Number.isSafeInteger(r.cents)||r.cents<0){withoutPrice++;state='Mensalidade não informada';}
   else{state='Confirmado';confirmed++;total+=r.cents;const key=[r.provider,r.operator,chip.apn,r.cents].join('|'),g=groups.get(key)||{provider:r.provider,operator:r.operator,apn:chip.apn,cents:r.cents,count:0};g.count++;groups.set(key,g);const p=providers.find(p=>p.provider===r.provider);p.confirmed++;p.total_cents+=r.cents;}
-  items.push({...chip,state,provider:r?.provider||'',operator:r?.operator||'',checked_at:r?.checked_at||null,cents:state==='Confirmado'?r.cents:null});
+  items.push({...chip,state,provider:r?.provider||'',operator:r?.operator||'',plan:r?.plan||'',imei:r?.imei||'',connection:r?.connection||'',last_connection:r?.last_connection||'',provider_status:r?.status||'',checked_at:r?.checked_at||null,cents:state==='Confirmado'?r.cents:null});
  }
  const dates=sources.map(s=>s.checked_at).filter(Boolean).sort((a,b)=>Date.parse(a)-Date.parse(b));
  return{ok:true,checked_at:dates[0]||null,source:'Árya + Link Solutions',providers,device_count:devices.length,chip_count:chips.size,missing,duplicates,confirmed,not_found:notFound,inactive,without_price:withoutPrice,conflicts,pending,total_cents:total,complete:!incomplete&&missing===0&&notFound===0&&withoutPrice===0&&conflicts===0&&pending===0,groups:[...groups.values()].sort((a,b)=>b.count-a.count),items};
