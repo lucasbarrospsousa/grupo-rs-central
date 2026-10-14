@@ -104,3 +104,6 @@ body.central-ui #page .warehouse-chips .wc-pager button{padding:4px 10px;min-hei
  .warehouse-chips .wc-metrics{margin-bottom:12px}
  .warehouse-chips .wc-selection{padding:10px 12px}
 }
+
+.warehouse-chips .wc-menu[popover]{position:fixed;inset:auto;margin:0;width:240px;max-width:calc(100vw - 16px);box-sizing:border-box;box-shadow:0 8px 26px #15375e26;z-index:1000}
+.warehouse-chips .wc-menu[popover]:not(:popover-open){display:none}
