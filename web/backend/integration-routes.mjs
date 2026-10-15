@@ -40,7 +40,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    const body=await readBody(req);
    if(body.cancel===true){send(res,await cancelLinkQueue({pool,user,branch}));return true;}
    const result=body.items?await startLinkBatch({pool,user,branch,body,service}):await startAutoLink({pool,user,branch,body,service});
-   {const task=drainLinkQueue({pool,user,branch,service}).catch(()=>{});if(globalThis.EdgeRuntime?.waitUntil)globalThis.EdgeRuntime.waitUntil(task);else void task;}
+   {const task=(globalThis.EdgeRuntime?withServerPower(pool,()=>drainLinkQueue({pool,user,branch,service})):drainLinkQueue({pool,user,branch,service})).catch(()=>{});if(globalThis.EdgeRuntime?.waitUntil)globalThis.EdgeRuntime.waitUntil(task);else void task;}
    send(res,{ok:true,...result,message:result.message||'Vinculação na fila. Acompanhe pela lista.'});return true;
   }
   if(action==='stock-page'&&req.method==='GET'){send(res,await stockBatch({pool,user,branch,service,ids:(url.searchParams.get('ids')||'').split(','),kind:['locations','chips','identity'].includes(url.searchParams.get('kind'))?url.searchParams.get('kind'):null}));return true;}
@@ -105,3 +105,4 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
   }catch(e){await tx.query('ROLLBACK');throw e;}finally{tx.release();}
  }finally{active.set(user.user_id,(active.get(user.user_id)||1)-1);}
 }
+import {withServerPower} from './server-power.mjs';

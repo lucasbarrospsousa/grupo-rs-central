@@ -9,16 +9,27 @@ import {Buffer} from 'node:buffer';
 import {api} from '../backend/api.mjs';
 import {createPool} from '../backend/database.mjs';
 import {timingSafeEqual} from 'node:crypto';
+import {powerState,withServerPower} from '../backend/server-power.mjs';
 const pool=createPool(),handler=api(pool);
 // Only the hosted site knows this separate bridge token; user sessions and CSRF
 // are still validated by the ordinary API. No database administrative key is used.
 export async function edgeFetch(request){
+ const path=new URL(request.url).pathname;
+ const [key,header]=path.endsWith('/internal/sms-gateway')?['CENTRAL_SMS_GATEWAY_TOKEN','x-rs-gateway']:path.endsWith('/internal/configurator')?['CENTRAL_CONFIGURATOR_TOKEN','x-central-configurator']:['/internal/sync','/internal/maintenance','/internal/codes'].some(p=>path.endsWith(p))?['CENTRAL_SYNC_TOKEN','x-central-sync']:['CENTRAL_BRIDGE_TOKEN','x-central-bridge'];
+ const expected=Buffer.from(process.env[key]||''),actual=Buffer.from(request.headers.get(header)||'');
+ if(!expected.length||actual.length!==expected.length||!timingSafeEqual(actual,expected))return Response.json({error:'Acesso não autorizado.'},{status:401});
+ try{
+  if(path.endsWith('/internal/power-state')&&request.method==='GET')return Response.json(await powerState(pool),{headers:{'Cache-Control':'no-store'}});
+  return await withServerPower(pool,pending=>handleRequest(request,pending),globalThis.EdgeRuntime?.waitUntil?.bind(globalThis.EdgeRuntime));
+ }catch{return Response.json({error:'Disponibilidade da Central não confirmada.'},{status:503});}
+}
+async function handleRequest(request,pending){
  if(new URL(request.url).pathname.endsWith('/internal/sms-gateway'))return smsCloudFetch(request,pool);
  if(new URL(request.url).pathname.endsWith('/internal/configurator'))return configuratorFetch(request,pool);
  if(['/internal/sync','/internal/maintenance','/internal/codes'].some(p=>new URL(request.url).pathname.endsWith(p))){
   const expected=process.env.CENTRAL_SYNC_TOKEN||'',actual=request.headers.get('x-central-sync')||'';
   if(request.method!=='POST'||!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});
-  try{if(new URL(request.url).pathname.endsWith('/internal/sync')){const task=resumeLinkQueues(pool,guardedIntegrations(pool)).catch(()=>{});if(globalThis.EdgeRuntime?.waitUntil)globalThis.EdgeRuntime.waitUntil(task);else await task;}const branch=new URL(request.url).pathname.endsWith('/internal/codes')?scanBranch((await request.json()).branch):null;return Response.json(await (new URL(request.url).pathname.endsWith('/internal/codes')?codeTick(pool,{branch,service:guardedIntegrations(pool,undefined,{captureCodes:false,apiOnly:true})}):new URL(request.url).pathname.endsWith('/internal/maintenance')?maintenanceTick(pool):syncTick(pool)));}catch{return Response.json({error:'Atualização automática pendente.'},{status:503});}
+  try{if(new URL(request.url).pathname.endsWith('/internal/sync')){pending.push(resumeLinkQueues(pool,guardedIntegrations(pool)).catch(()=>{}));}const branch=new URL(request.url).pathname.endsWith('/internal/codes')?scanBranch((await request.json()).branch):null;return Response.json(await (new URL(request.url).pathname.endsWith('/internal/codes')?codeTick(pool,{branch,service:guardedIntegrations(pool,undefined,{captureCodes:false,apiOnly:true})}):new URL(request.url).pathname.endsWith('/internal/maintenance')?maintenanceTick(pool):syncTick(pool)));}catch{return Response.json({error:'Atualização automática pendente.'},{status:503});}
  }
  const expected=process.env.CENTRAL_BRIDGE_TOKEN||'',actual=request.headers.get('x-central-bridge')||'';
  if(!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});
