@@ -1,5 +1,5 @@
 const ttl=300000;
-const key=(branch,row,scope)=>JSON.stringify([scope,branch,row.id,row.serial,row.version??null,row.status,row.plate||'',row.client||'']);
+const key=(branch,row,scope)=>JSON.stringify([2,scope,branch,row.id,row.serial,row.version??null,row.status,row.plate||'',row.client||'']);
 export function dischargeCache(repo){
  const scope=JSON.stringify([repo.user?.user_id,repo.user?.id,repo.user?.username]);
  const cache=repo.dischargeAnalysisCache||(repo.dischargeAnalysisCache=new Map());

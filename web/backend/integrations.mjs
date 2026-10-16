@@ -194,6 +194,19 @@ export class Integrations{
   try{const r=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/veiculos/'+vehicleId+'/equipamento',{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({codEquipamento:Number(equipmentId),mover:false})});return {status:r.status,body:r.text};}
   catch(e){if(e.upstreamStatus===401)session.token='';if(e.upstreamStatus)return{status:e.upstreamStatus,body:e.upstreamBody||''};throw e;}
  }
+ async vehicleOwnerByCode(branch,equipment){
+  const id=String(equipment.vehicle_id||'');
+  if(!/^[1-9]\d*$/.test(id))throw err('Código do veículo não confirmado.',422);
+  const d=await this.api(branch,'/veiculos/'+id),raw=d.veiculo;
+  if(d.ok===false||!raw)throw err('Veículo não confirmado pela API.',422);
+  const owner=normalize(raw),compact=v=>String(v||'').replace(/[\s-]/g,'').toUpperCase();
+  if(owner.vehicle_id!==id||!owner.plate||compact(owner.plate)!==compact(equipment.plate))throw err('Vínculo do veículo diverge do aparelho. Analise novamente.',422);
+  if(owner.equipment_id&&owner.equipment_id!==equipment.id||owner.serial&&owner.serial!==equipment.serial)throw err('Veículo aponta para outro aparelho.',422);
+  const titular=raw.titular,client=value(titular,['nomeCliente']),clientId=value(titular,['codCliente']);
+  const count=value(raw,['qtdTitularesAtivos'])||value(raw,['qtdClientesVinculadosAtivos']);
+  if(!client||!/^[1-9]\d*$/.test(clientId)||count&&Number(count)!==1)return{...owner,client:'',owner_count:count,serial:equipment.serial};
+  return{...owner,client,client_id:clientId,owner_count:'1',serial:equipment.serial};
+ }
  async equipmentByCode(branch,serial,id){
   if(!/^\d{6,17}$/.test(serial)||!/^[1-9]\d*$/.test(String(id)))throw err('Código ou série inválidos.',400);
   const data=await this.api(branch,'/equipamentos/'+id),raw=data.equipamento;
