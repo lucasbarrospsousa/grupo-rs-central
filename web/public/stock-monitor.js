@@ -1,4 +1,4 @@
-import {communicationTime,ignitionLabel} from './communication-state.js';
+import {communicationStatus} from './communication-state.js';
 export function monitorDate(value,missing='Não informado'){
  if(!value)return missing;
  const text=String(value).trim().replace(' ','T');
@@ -9,12 +9,8 @@ export function monitorDate(value,missing='Não informado'){
 export const basePlatforms={imperatriz:'https://imp.ogrupors.com.br/',araguaina:'https://arg.ogrupors.com.br/',acailandia:'https://acl.ogrupors.com.br/',maraba:'https://mab.ogrupors.com.br/'};
 export const monitorLabels={on:'Ligados',off:'Desligados',stale:'Desatualizados',unknown:'Não verificados',gps:'Possível GPS'};
 export function monitorState(row,now=Date.now()){
- const sample=row.observation?.location;
- if(!sample?.ok)return 'unknown';
- const at=communicationTime(sample.updated_at);
- if(!Number.isFinite(at)||at>now+300000)return 'unknown';
- if(sample.query_error||now-at>300000)return 'stale';
- const ignition=ignitionLabel(sample.ignition);
- return ignition==='Ligado'?'on':ignition==='Desligado'?'off':'unknown';
+ const status=communicationStatus(row.observation?.location,now);
+ // Use the same cadence and query-failure semantics as the stock page.
+ return status.state==='sleep'?'stale':['on','off','stale'].includes(status.state)?status.state:'unknown';
 }
 export function monitorCounts(rows,now=Date.now()){const counts={on:0,off:0,stale:0,unknown:0,gps:0};for(const row of rows)counts[monitorState(row,now)]++;return counts;}
