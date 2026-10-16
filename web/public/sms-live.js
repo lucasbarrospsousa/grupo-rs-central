@@ -35,15 +35,18 @@ export function openSms({repo,branch,row,showModal,notify,navigate}){
  draw();void validatePhone();void validateGateway();timer=setInterval(()=>{if(!alive()){cleanup();return;}draw();void validateGateway();},30000);
 }
 export function mountSmsLive({repo,branch,notify}){
- const anchor=document.querySelector('.sms-history'),refresh=document.querySelector('#sms-refresh');let busy=false;
- if(repo.smsSubmissionResult?.branch===branch){const result=repo.smsSubmissionResult,banner=document.createElement('div');banner.className='sms-submission-result '+result.kind;banner.setAttribute('role','status');banner.textContent=result.serial+' · '+result.message;anchor.before(banner);delete repo.smsSubmissionResult;}
- document.querySelector('.sms-heading p').textContent='Acompanhamento automático • Galaxy conectado à Central';anchor.querySelector('p').textContent='Últimos 100 pedidos do site • atualiza a cada 15 segundos';
- async function update(){if(busy||!anchor.isConnected)return;busy=true;refresh.disabled=true;try{
-  const [data,health]=await Promise.all([repo.request('integrations/operations?branch='+branch),repo.request('integrations/gateway?branch='+branch)]);if(!anchor.isConnected)return;
-  const rows=data.rows.filter(r=>r.kind==='sms');document.querySelector('.sms-connection').textContent=health.mode==='cloud'&&health.connected?(health.ok?'● Galaxy conectado diretamente à Central • PC dispensável.':'● Galaxy conectado à Central • modo diagnóstico, envio desabilitado.'):health.ok?'● Galaxy conectado pela ponte local.':'● Ponte sem conexão recente. Os últimos retornos continuam preservados; nenhum pedido é reenviado automaticamente.';
-  const counts=[rows.filter(r=>['queued','pending','received','sending'].includes(r.state)).length,rows.filter(r=>['sent','delivered'].includes(r.state)).length,rows.filter(r=>r.state==='delivered').length,rows.filter(r=>['failed','expired','indeterminate'].includes(r.state)).length];document.querySelectorAll('.sms-metrics strong').forEach((s,i)=>s.textContent=counts[i]);
-  anchor.querySelector('tbody').innerHTML=rows.map((r,i)=>`<tr><td>${esc(r.serial)}<small>${esc(r.payload.phone)}</small></td><td>${esc(labels[r.state]||r.state)}</td><td>${esc(new Date(r.created_at).toLocaleString('pt-BR'))}</td><td>${r.result?.remote_at?esc(new Date(Number(r.result.remote_at)*1000).toLocaleString('pt-BR')):'—'}</td><td><button data-sms-job="${i}">Ver pedido</button></td></tr>`).join('')||'<tr><td colspan="5">Nenhum pedido criado pelo site.</td></tr>';
-  anchor.querySelectorAll('[data-sms-job]').forEach(b=>b.onclick=()=>{const r=rows[Number(b.dataset.smsJob)];document.querySelector('#sms-detail').textContent=`${r.serial} • ${labels[r.state]||r.state} • Comando: ${r.payload.command}. Sem retorno, não reenviar automaticamente.`;});
- }catch(e){if(anchor.isConnected)document.querySelector('.sms-connection').textContent='Consulta pendente: '+e.message;}finally{busy=false;refresh.disabled=false;}}
- refresh.onclick=update;void update();const timer=setInterval(()=>{if(!anchor.isConnected){clearInterval(timer);return;}void update();},15000);
+ const root=document.querySelector('#page'),panel=root.smsPanel,refresh=root.querySelector('#sms-refresh');if(!panel)return;let busy=false;
+ const alive=()=>refresh.isConnected&&root.smsPanel===panel;
+ if(repo.smsSubmissionResult?.branch===branch){panel.result(repo.smsSubmissionResult);delete repo.smsSubmissionResult;}
+ async function update(){if(busy||!alive())return;busy=true;refresh.disabled=true;
+  const results=await Promise.allSettled([repo.request('integrations/operations?branch='+branch),repo.request('integrations/gateway?branch='+branch)]);
+  if(!alive())return;
+  const [data,health]=results;
+  if(data.status==='fulfilled')panel.setRows(data.value.rows.filter(r=>r.kind==='sms'));
+  const h=health.status==='fulfilled'?health.value:null;
+  const connection=h?(h.connected&&h.send_enabled===false?'Galaxy em modo diagnóstico • envio desabilitado.':h.ok?'● Galaxy conectado'+(h.mode==='cloud'?' diretamente à Central.':' pela ponte local.'):'Galaxy sem conexão recente • pedidos e retornos preservados. Não há reenvio automático.'):'Conexão não verificada: '+health.reason.message;
+  panel.connection(connection+' • Verificado às '+new Date().toLocaleTimeString('pt-BR')+' • Atualização a cada 15 s'+(data.status==='rejected'?' • Consulta dos pedidos pendente: '+data.reason.message:''));
+  busy=false;refresh.disabled=false;
+ }
+ refresh.onclick=update;void update();const timer=setInterval(()=>{if(!alive()){clearInterval(timer);return;}void update();},15000);
 }
