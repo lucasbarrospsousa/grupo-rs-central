@@ -12,7 +12,7 @@ export function createStockLive({repo,branch,draw,showModal}){
  const samples=cache.get(branch)||new Map();cache.set(branch,samples);let paused=false;
  const observed=row=>{const data=samples.get(row?.id)||row?.observation;return data?{...data,equipment:{...localEquipment(row.id),...data.equipment}}:null;};
  const visible=()=>[...root.querySelectorAll('[data-detail]')].map(b=>b.dataset.detail);
- const progress=state=>{if(root.isConnected)heading.textContent=state==='interval'?'Consulta concluída • próxima rodada em 30 s':state==='waiting'?'Aguardando 1,3 s para consultar a página':state==='paused'?'Consultas pausadas':'Consultando um aparelho por vez • chip e comunicação';};
+ const progress=(state,{completed=0,total=0}={})=>{if(!root.isConnected)return;heading.textContent=state==='interval'?'Rodada concluída · '+total+' aparelhos':state==='waiting'?'Aguardando 1,3 s para consultar':state==='paused'?'Consultas pausadas':state==='empty'?'Nenhum aparelho nesta página':completed<total?'Consultando '+(completed+1)+' de '+total+' aparelhos':'Concluindo a rodada';const meter=document.querySelector('#stock-query-progress');if(meter){meter.max=Math.max(1,total);meter.value=completed;}};
  const localEquipment=id=>{const r=repo.list(branch).find(x=>x.id===id)||{};return{serial:r.serial,iccid:r.iccid,phone:r.phone,apn:r.apn,plate:r.plate,carrier:r.carrier};};
  const adopt=item=>{if(item?.device?.status==='Instalado'){const current=repo.devices.find(d=>d.id===item.id);if(current?.status==='Instalado'&&item.device.version>current.version){Object.assign(current,item.device);samples.delete(item.id);}}};
  const merged=id=>samples.get(id)||{equipment:localEquipment(id),location:{},chip:{}};

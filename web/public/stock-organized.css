@@ -1,0 +1,74 @@
+/* Approved stock preview. Scoped to this route; data and action controls are reused. */
+body.central-ui[data-view=stock]{background:#f2f6fb}
+body.central-ui[data-view=stock] #page{gap:16px;padding:18px 22px;overflow:auto}
+body.central-ui[data-view=stock] #page .stock-card,body.central-ui[data-view=stock] .stock-search-panel{background:#fff;background-image:none;border:1px solid #dce7f4;border-radius:15px;box-shadow:0 3px 16px #173b6104}
+body.central-ui[data-view=stock] .stock-search-panel{padding:20px 24px;flex-shrink:0}
+body.central-ui[data-view=stock] .stock-search-panel h2{margin:0 0 5px;font-size:22px;letter-spacing:-.5px;color:#102d50}
+body.central-ui[data-view=stock] .stock-search-panel p{margin:0 0 16px;color:#657d9d;font-size:13px}
+body.central-ui[data-view=stock] #page .stock-search-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:nowrap}
+body.central-ui[data-view=stock] .stock-query-field,body.central-ui[data-view=stock] .stock-status-field{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:600;color:#304d70;min-width:0}
+body.central-ui[data-view=stock] .stock-query-field{flex:1}
+body.central-ui[data-view=stock] .stock-status-field{flex:0 0 230px}
+body.central-ui[data-view=stock] #page .stock-search{min-width:0;width:100%;flex-basis:auto}
+body.central-ui[data-view=stock] #page .stock-search-row :is(input,select,button){height:46px;min-height:46px;font-size:14px;box-shadow:none}
+body.central-ui[data-view=stock] #page #stock-status{width:100%;flex:auto;border-color:#cfdded;background-color:white;color:#183b60;font-weight:400}
+body.central-ui[data-view=stock] #page #stock-search-submit{background:#087fff;color:#fff;border-color:#087fff;min-width:135px}
+body.central-ui[data-view=stock] #page #stock-clear{border-color:transparent;background:transparent;color:#087fff;padding-inline:8px}
+body.central-ui[data-view=stock] #page #stock-filters{box-shadow:none;background:#fff;border-color:#cbdff5}
+body.central-ui[data-view=stock] .stock-owner-search:empty{display:none}
+body.central-ui[data-view=stock] #page .stock-card{padding:16px;gap:12px;overflow:visible;min-height:340px;flex:1}
+body.central-ui[data-view=stock] .stock-filter-row{margin:0;flex-wrap:nowrap;min-height:44px}
+body.central-ui[data-view=stock] .stock-results-title{display:flex;align-items:center;gap:14px}
+body.central-ui[data-view=stock] .stock-results-title h2{font-size:23px;letter-spacing:-.5px;margin:0;color:#102d50}
+body.central-ui[data-view=stock] #stock-status-filters{margin:0;padding:5px 12px;border-radius:20px;background:#edf5ff;color:#0876ee;font-size:13px;white-space:nowrap}
+body.central-ui[data-view=stock] #page .stock-main-actions{margin:0;gap:8px;flex-wrap:nowrap}
+body.central-ui[data-view=stock] #page .stock-main-actions button{height:38px;min-height:38px;box-shadow:none;background:#fff;border:1px solid #d5e4f4;padding:8px 12px;font-size:13px}
+body.central-ui[data-view=stock] .ui-header-actions #stock-new{background:#087fff;color:#fff;box-shadow:none;border-color:#087fff;min-height:44px}
+body.central-ui[data-view=stock] #page .stock-live-progress{display:flex!important;align-items:center;gap:18px;margin:0;padding:11px 14px;border:1px solid #dfebf8;border-radius:9px;background:#f6faff;flex-shrink:0}
+body.central-ui[data-view=stock] .stock-live-progress small{font-size:13px;font-weight:400;max-width:none;text-align:left;margin:0;min-width:230px;color:#385779}
+body.central-ui[data-view=stock] .stock-live-progress small:before{content:'';display:inline-block;width:9px;height:9px;background:#087fff;border-radius:50%;margin-right:8px}
+body.central-ui[data-view=stock] #stock-query-progress{flex:1;width:auto;min-width:30px;height:8px;border:0;border-radius:8px;appearance:none;overflow:hidden}
+body.central-ui[data-view=stock] #stock-query-progress::-webkit-progress-bar{background:#dfe9f5;border-radius:8px}
+body.central-ui[data-view=stock] #stock-query-progress::-webkit-progress-value{background:#087fff;border-radius:8px}
+body.central-ui[data-view=stock] .stock-round-note{font-size:12px;color:#536e8c;white-space:nowrap}
+body.central-ui[data-view=stock] .stock-links-disclosure{font-size:13px;color:#1c3b5e;padding:2px 8px;flex-shrink:0}
+body.central-ui[data-view=stock] .stock-links-disclosure summary{cursor:pointer;font-weight:600;padding:5px 0}
+body.central-ui[data-view=stock] #stock-link-summary{font-weight:400;margin-left:12px;color:#078855;background:#e7f7ee;padding:4px 10px;border-radius:15px;font-size:12px}
+body.central-ui[data-view=stock] #stock-link-summary.attention{background:#fff3dc;color:#9a6500}
+body.central-ui[data-view=stock] .stock-links-disclosure #stock-link-controls{margin-top:12px}
+body.central-ui[data-view=stock] #page .stock-table-wrap{height:auto;min-height:180px;max-height:none;flex:1;overflow:auto;margin:0;border-radius:8px}
+body.central-ui[data-view=stock] #page .stock-table{table-layout:fixed;min-width:1000px;width:100%;font-size:13px}
+body.central-ui[data-view=stock] #page .stock-table :is(th,td){min-width:0;padding:9px 7px;white-space:normal;overflow-wrap:anywhere}
+body.central-ui[data-view=stock] #page .stock-table th{height:44px;font-size:12px;font-weight:600;background:#eff5fb}
+body.central-ui[data-view=stock] #page .stock-table th button{font-size:12px;white-space:normal;text-align:left}
+body.central-ui[data-view=stock] #page .stock-table td{height:62px;font-size:13px}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(1){width:3%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(2){width:17%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(3){width:9%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(4){width:9%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(5){width:15%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(6){width:9%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(7){width:10%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(8){width:8%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(9){width:9%}
+body.central-ui[data-view=stock] #page .stock-table th:nth-child(10){width:11%}
+body.central-ui[data-view=stock] .stock-series{gap:8px;min-width:0}
+body.central-ui[data-view=stock] .stock-series>div{text-align:left;min-width:0}
+body.central-ui[data-view=stock] #page .stock-series-link{font-size:13px;font-weight:700}
+body.central-ui[data-view=stock] .stock-series small{font-size:11px}
+body.central-ui[data-view=stock] #page .stock-connect{display:inline-block;min-width:0;padding:6px 9px;font-size:12px;border-radius:8px;white-space:normal;font-weight:600}
+body.central-ui[data-view=stock] #page .stock-connect.red{color:#bd2339;background:#ffebef;border:1px solid #ffd2db}
+body.central-ui[data-view=stock] #page .stock-connect.green{color:#008c59;background:#e4f8ed}
+body.central-ui[data-view=stock] #page .stock-connect.neutral{color:#617993;background:#eff3f8}
+body.central-ui[data-view=stock] #page .stock-badge{font-size:12px;padding:6px 8px}
+body.central-ui[data-view=stock] #page .stock-row-actions{min-width:0;gap:4px;justify-content:flex-end}
+body.central-ui[data-view=stock] #page .stock-row-actions>button{height:32px;min-height:32px;width:32px;padding:6px}
+body.central-ui[data-view=stock] .stock-row-popover{position:fixed;inset:auto;margin:0;padding:6px;width:200px;border:1px solid #d7e3f2;border-radius:10px;box-shadow:0 10px 35px #15395726;background:#fff}
+body.central-ui[data-view=stock] #page .stock-row-popover button{display:flex;width:100%;height:auto;min-height:36px;border:0;background:#fff;justify-content:flex-start;padding:8px;font-size:13px}
+body.central-ui[data-view=stock] .stock-row-popover button:hover{background:#f1f6fc}
+body.central-ui[data-view=stock] #page .stock-pagination{padding-top:5px;font-size:12px}
+@media(max-width:1250px){body.central-ui[data-view=stock] #page .stock-search-row{flex-wrap:wrap}body.central-ui[data-view=stock] .stock-query-field{flex-basis:60%}body.central-ui[data-view=stock] .stock-filter-row{flex-wrap:wrap}body.central-ui[data-view=stock] .stock-round-note{display:none}}
+@media(max-width:700px){body.central-ui[data-view=stock] .stock-search-panel{padding:16px}body.central-ui[data-view=stock] .stock-query-field{flex-basis:100%}body.central-ui[data-view=stock] .stock-status-field{flex:1}body.central-ui[data-view=stock] #page .stock-main-actions{flex-wrap:wrap}body.central-ui[data-view=stock] .stock-live-progress small{min-width:0}body.central-ui[data-view=stock] .stock-results-title h2{font-size:20px}body.central-ui[data-view=stock] .ui-header-actions #stock-new{font-size:12px}}
+
+body.central-ui[data-view=stock] #page .stock-live-progress{position:static;width:auto;height:auto;clip-path:none;overflow:visible;white-space:normal}
+body.central-ui[data-view=stock] #page :is(#stock-analyze,#stock-report){box-shadow:none;border-color:#d5e4f4;background:#fff}

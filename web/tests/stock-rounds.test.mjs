@@ -17,3 +17,7 @@ test('hidden/offline/pause cancels work; errors do not loop and empty pages make
  const t=clock();let calls=0;const seen=[];const q=stockRounds({...t,query:async()=>{calls++;throw Error('offline');},onResult:(_id,_kind,result)=>seen.push(result)});
  q.set([]);await t.advance(50000);assert.equal(calls,0);q.set(['a']);q.pause(true);await t.advance(50000);assert.equal(calls,0);q.pause(false);await t.advance(1300);assert.equal(calls,2);assert.equal(seen.length,2);q.set(['a']);await t.advance(29999);assert.equal(calls,2);q.suspend();await t.advance(50000);assert.equal(calls,2);q.close();
 });
+test('progress counts completed devices, including failed attempts, without changing cadence',async()=>{
+ const t=clock(),states=[];const q=stockRounds({...t,query:async()=>({results:[]}),onResult:()=>{},onState:(state,progress)=>states.push({state,...progress})});
+ q.set(['a','b']);assert.deepEqual(states.at(-1),{state:'waiting',completed:0,total:2});await t.advance(1300);assert.deepEqual(states.at(-1),{state:'interval',completed:2,total:2});assert.ok(states.some(x=>x.state==='running'&&x.completed===1));q.set([]);assert.deepEqual(states.at(-1),{state:'empty',completed:0,total:0});q.close();
+});
