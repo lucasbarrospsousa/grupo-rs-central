@@ -1,11 +1,25 @@
+import {mergeIncremental} from './incremental-cache.js';
 import {applyMutationReceipt} from './mutation-receipt.js';
 import {PagePreloadCache,preloadPlan} from './page-preload.js';
 import {communication} from './stock-live.js';
 export class SqlRepository {
-  constructor(){this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
+  constructor(){this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
   async request(path,options={}){
     const method=options.method||'GET',eligible=['settings-monitor','query-policy','read-sources','users','logs?q=&user=&module=&outcome=&from=&to=&page=1'].includes(path);
     if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
+    if(method==='GET'&&path.startsWith('integrations/inventory-counts?')){
+      const epoch=this.epoch,revision=this.writeVersion,previous=this.countSnapshots.get(path),data=await this.networkRequest(path+(previous?.cursor?'&since='+previous.cursor:''),options);
+      const result=data.unchanged&&previous?{...previous,cursor:data.cursor}:data;
+      if(data.allowed)for(const key of ['stock','warehouse','chips'])if(!data.allowed.includes(key))delete result[key];
+      if(epoch!==this.epoch||revision!==this.writeVersion)throw Error('Contagem mudou durante a consulta.');
+      this.countSnapshots.set(path,result);return result;
+    }
+    if(method==='GET'&&path.startsWith('integrations/stock-page?')&&new URLSearchParams(path.split('?')[1]).get('kind')==='locations'){
+      const branch=new URLSearchParams(path.split('?')[1]).get('branch'),key=branch+':devices',snapshot=this.incremental.get(key),epoch=this.epoch,revision=this.writeVersion,generation=this.generations.get(key)||0;
+      const data=await this.networkRequest(path+(snapshot?.cursor?'&since='+snapshot.cursor:''),options);
+      if(data.savedChanges&&epoch===this.epoch&&revision===this.writeVersion&&generation===(this.generations.get(key)||0))this.acceptIncremental(branch,'devices',data.savedChanges,true);
+      return data;
+    }
     if(method!=='GET'||!eligible)return this.networkRequest(path,options);
     if(!options.preload){const cached=this.pageCache.take(path);if(cached!==undefined)return cached;}
     if(this.getPending.has(path))return this.getPending.get(path);
@@ -21,7 +35,7 @@ export class SqlRepository {
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;await this.pageCache.bind(this.user);return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  clearPreload(){this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
+  clearPreload(){this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
   async logout(){this.clearPreload();this.receiptVersions?.clear();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){
     const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
@@ -41,7 +55,7 @@ export class SqlRepository {
     const key=branch+':'+route;
     this.activeView=key;this.currentBranch=branch;this.currentRoute=route;
     const plan=preloadPlan(this.user,branch);
-    for(const group of plan.groups){const cacheKey=branch+':'+group;if(!this.loaded.has(cacheKey)){const data=this.pageCache.snapshot(branch,group);if(data&&Array.isArray(data.rows)){this.applyGroup(branch,group,data);this.loaded.add(cacheKey);this.restored.add(cacheKey);}}}
+    for(const group of plan.groups){const cacheKey=branch+':'+group;if(!this.loaded.has(cacheKey)){const data=this.pageCache.snapshot(branch,group);if(data&&Array.isArray(data.rows)){this.applyGroup(branch,group,data);if(data.cursor)this.incremental.set(cacheKey,data);this.loaded.add(cacheKey);this.restored.add(cacheKey);}}}
     if(this.preloadBranch!==branch){this.preloadBranch=branch;void this.preloadSelected(branch);}
     const cached=this.warehouseCache.get(branch);
     this.warehouse=cached?.rows||[];this.movements=cached?.movements||[];this.warehouseBranch=cached?branch:null;
@@ -64,16 +78,26 @@ export class SqlRepository {
     if(this.pending.has(key))return this.pending.get(key);
     const hadData=this.loaded.has(key),generation=this.generations.get(key)||0,epoch=this.epoch,revision=this.writeVersion;
     const pending=(async()=>{
-      const data=await this.request(group+'?branch='+encodeURIComponent(branch));
+      const snapshot=this.incremental.get(key),data=await this.request(group+'?branch='+encodeURIComponent(branch)+(snapshot?.cursor?'&since='+snapshot.cursor:''));
       if(epoch!==this.epoch||generation!==(this.generations.get(key)||0))return;
       if(revision!==this.writeVersion)return;
-      this.applyGroup(branch,group,data);this.pageCache.save(branch,group,data);this.refreshErrors.delete(key);
+      this.acceptIncremental(branch,group,data);this.refreshErrors.delete(key);
       const wasRestored=this.restored.delete(key);this.stale.delete(key);
       this.loaded.add(key);
-      if(wasRestored||hadData)this.onDataUpdate?.(branch,group);
+      if((wasRestored||hadData)&&!data.unchanged)this.onDataUpdate?.(branch,group);
     })();
     this.pending.set(key,pending);
     try{await pending;}catch(error){if(epoch===this.epoch&&generation===(this.generations.get(key)||0)&&(hadData||this.restored.has(key))){this.refreshErrors.add(key);this.onDataUpdate?.(branch,group);}throw error;}finally{if(this.pending.get(key)===pending)this.pending.delete(key);}
+  }
+  acceptIncremental(branch,group,data,notify=false){
+    const key=branch+':'+group,previous=this.incremental.get(key);
+    if(data.delta&&(!previous||BigInt(data.cursor)<BigInt(previous.cursor)))return;
+    const merged=mergeIncremental(previous,data);
+    if(!data.unchanged){if(group==='devices')merged.rows.sort((a,b)=>String(a.serial).localeCompare(String(b.serial)));if(group==='warehouse'){merged.rows.sort((a,b)=>(Date.parse(b.received_at)||0)-(Date.parse(a.received_at)||0));merged.movements.sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0));}}
+    if(merged.cursor)this.incremental.set(key,merged);
+    if(!data.unchanged)this.applyGroup(branch,group,merged);
+    this.pageCache.save(branch,group,merged);
+    if(notify&&!data.unchanged&&data.cursor!==previous?.cursor)this.onDataUpdate?.(branch,group);
   }
   applyGroup(branch,group,data){
       if(group==='devices')this.devices=this.devices.filter(d=>d.branch!==branch).concat(data.rows.map(d=>({identification:'',model:'',communication:'Não consultado',connectivity:'Não consultado',installed_at:'',updated_at:'',...d})));

@@ -1,10 +1,12 @@
+import {incrementalRead} from './incremental-read.mjs';
+import {permitted} from './user-access.mjs';
 import {mutationReceipt,remoteMutationReceipt} from './mutation-receipt.mjs';
 import {stockOwner,confirmedOwner} from './stock-owner.mjs';
 import {equipmentSwap} from './equipment-swap.mjs';
 import {startLinkBatch,drainLinkQueue,cancelLinkQueue} from './auto-link-queue.mjs';
 import {startAutoLink} from './auto-link.mjs';
 import {lookupEquipment,inventoryCounts} from './inventory-tools.mjs';
-import {stockBatch} from './stock-batch.mjs';
+import {stockBatch,batchIds} from './stock-batch.mjs';
 import {maintenanceSnapshot} from './maintenance-monitor.mjs';
 import {integrationHealth,testBranchConnections} from './integration-health.mjs';
 import {bridgeHealth} from './sms-queue.mjs';
@@ -43,7 +45,17 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    {const task=(globalThis.EdgeRuntime?withServerPower(pool,()=>drainLinkQueue({pool,user,branch,service})):drainLinkQueue({pool,user,branch,service})).catch(()=>{});if(globalThis.EdgeRuntime?.waitUntil)globalThis.EdgeRuntime.waitUntil(task);else void task;}
    send(res,{ok:true,...result,message:result.message||'Vinculação na fila. Acompanhe pela lista.'});return true;
   }
-  if(action==='stock-page'&&req.method==='GET'){send(res,await stockBatch({pool,user,branch,service,ids:(url.searchParams.get('ids')||'').split(','),kind:['locations','chips','identity'].includes(url.searchParams.get('kind'))?url.searchParams.get('kind'):null}));return true;}
+  if(action==='stock-page'&&req.method==='GET'){
+   const ids=batchIds((url.searchParams.get('ids')||'').split(',')),kind=url.searchParams.get('kind');
+   if(!['locations','chips','identity'].includes(kind))throw fail(400,'Consulta inv�lida.');
+   const savedChanges=url.searchParams.has('since')&&permitted(permissions,'/api/devices','GET')?await scoped(pool,user,c=>incrementalRead(c,branch,'devices',url.searchParams.get('since')),{snapshot:true}):null;
+   const removed=savedChanges?(savedChanges.delta?savedChanges.removed||[]:ids.filter(id=>!savedChanges.rows.some(r=>r.id===id))):[];
+   const remaining=ids.filter(id=>!removed.includes(id));
+   const data=remaining.length?await stockBatch({pool,user,branch,service,ids:remaining,kind}):{results:[],queried_at:new Date().toISOString()};
+   for(const id of ids.filter(id=>removed.includes(id)))data.results.push({id,ok:false,message:'Cadastro removido ou transferido.'});
+   if(savedChanges)data.savedChanges=savedChanges;
+   send(res,data);return true;
+  }
   if(action==='equipment-refresh'&&req.method==='POST'){
    if(membership.role==='reader'||(!permissions?.owner&&!permissions?.writes?.includes('stock')))throw fail(403,'Sem permissão para atualizar aparelhos.');
    const body=await readBody(req);send(res,await stockBatch({pool,user,branch,service,ids:body.ids,kind:'equipment'}));return true;
@@ -54,7 +66,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
     const r=await c.query("select data->>'plate' as plate from central_homologacao.devices where branch_id=$1 and serial=$2 and deleted_at is null limit 2",[branch,serial]);
     return r.rows.length===1?r.rows[0].plate||'':'';
    });
-   if(action==='inventory-counts')data=await scoped(pool,user,c=>inventoryCounts(c,branch,permissions));
+   if(action==='inventory-counts')data=await scoped(pool,user,c=>inventoryCounts(c,branch,permissions,url.searchParams.get('since')),{snapshot:true});
    else if(action==='equipment-lookup')data=await scoped(pool,user,c=>lookupEquipment(c,service,branch,url.searchParams.get('q')));
    else if(action==='health')data=await integrationHealth(pool,user,branch);
    else if(action==='connection-test')data=await testBranchConnections(service===integrations?guardedIntegrations(pool):service,branch);

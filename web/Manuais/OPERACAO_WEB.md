@@ -1,3 +1,6 @@
+## Atualização incremental — 17/10/2026
+Consulte [ATUALIZACAO_INCREMENTAL_2026_10_17.md](ATUALIZACAO_INCREMENTAL_2026_10_17.md).
+
 # Chips e faturas — 14/10/2026
 
 O armazém calcula tarifas pelo inventário completo salvo de Árya e Link, incluindo chips sem aparelho na Central. Cadastros de todas as bases autorizadas são usados somente para exibir associações existentes; nenhuma associação é gravada. Ativos nunca conectados da Árya entram no cálculo, pendentes não. Conflitos entre fornecedores são sinalizados e não somados duas vezes.

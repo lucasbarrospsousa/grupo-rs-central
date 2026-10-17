@@ -2,7 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {bridgeHealth} from './sms-queue.mjs';
 import {prepareStandardSms,SMS_BASES} from './sms-template.mjs';
 const fail=(status,message)=>Object.assign(Error(message),{status});
-export async function scoped(pool,user,fn){const c=await pool.connect();try{await c.query('BEGIN');await c.query("select set_config('central.user_id',$1,true)",[user.user_id]);const result=await fn(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
+export async function scoped(pool,user,fn,{snapshot=false}={}){const c=await pool.connect();try{await c.query(snapshot?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');await c.query("select set_config('central.user_id',$1,true)",[user.user_id]);const result=await fn(c);await c.query('COMMIT');return result;}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}
 export async function remoteAction({action,body,branch,user,role,pool,service}){
  if(role==='reader')throw fail(403,'Usuário somente de leitura.');
  if(!['link','sms','reconcile'].includes(action))throw fail(404,'Operação inválida.');
