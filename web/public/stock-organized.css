@@ -72,3 +72,10 @@ body.central-ui[data-view=stock] #page .stock-pagination{padding-top:5px;font-si
 
 body.central-ui[data-view=stock] #page .stock-live-progress{position:static;width:auto;height:auto;clip-path:none;overflow:visible;white-space:normal}
 body.central-ui[data-view=stock] #page :is(#stock-analyze,#stock-report){box-shadow:none;border-color:#d5e4f4;background:#fff}
+/* Let results grow with their rows; the page owns vertical scrolling. */
+body.central-ui[data-view=stock] #page .stock-card{flex:0 0 auto;height:auto;min-height:0;overflow:visible}
+body.central-ui[data-view=stock] #page .stock-table-wrap{flex:0 0 auto;height:auto;min-height:0;max-height:none;overflow-x:auto;overflow-y:visible}
+body.central-ui[data-view=stock] #page .stock-pagination{flex-shrink:0;margin-top:8px;padding:12px 0 4px;min-height:48px}
+body.central-ui[data-view=stock] .stock-search-panel{padding:16px 20px}
+body.central-ui[data-view=stock] .stock-search-panel p{margin-bottom:12px}
+body.central-ui[data-view=stock] #page{padding-bottom:24px}
