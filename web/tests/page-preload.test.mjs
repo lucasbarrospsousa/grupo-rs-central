@@ -13,18 +13,18 @@ test('preload respects selected branch, hidden modules and view permissions',()=
  assert.deepEqual(preloadPlan({...user,permissions:{views:['stock']}},'imperatriz'),{groups:['devices'],paths:[]});
  assert.ok(preloadPlan(user,'imperatriz').paths.every(p=>!p.includes('integrations')));
 });
-test('temporary snapshots restore only same validated session and expire after five minutes',async()=>{
+test('persistent snapshots restore only validated access and expire after 24 hours',async()=>{
  const store=storage();let now=1000;const c=new PagePreloadCache({storage:store,now:()=>now});await c.bind(user);c.save('imperatriz','devices',data);
  const restored=new PagePreloadCache({storage:store,now:()=>now});await restored.bind(user);assert.deepEqual(restored.snapshot('imperatriz','devices'),data);assert.equal(restored.snapshot('araguaina','devices'),null);
- now+=300000;assert.equal(restored.snapshot('imperatriz','devices'),null);
- for(const change of [{username:'other'},{csrf:'another-session'},{permissions:{views:['sms']}},{branches:[{id:'araguaina'}]}]){
-  await c.bind(user);c.save('imperatriz','devices',data);await restored.bind({...user,...change});assert.equal(restored.snapshot('imperatriz','devices'),null);assert.equal(store.length,0);
+ now+=86400000;assert.equal(restored.snapshot('imperatriz','devices'),null);
+ for(const change of [{username:'other'},{permissions:{views:['sms']}},{branches:[{id:'araguaina'}]}]){
+  await c.bind(user);c.save('imperatriz','devices',data);await restored.bind({...user,...change});assert.equal(restored.snapshot('imperatriz','devices'),null);assert.equal([...Array(store.length)].map((_,i)=>store.key(i)).filter(k=>k.startsWith('central-page-cache-')).length,0);
  }
- await c.bind(user);c.save('imperatriz','devices',data);c.clear();assert.equal(store.length,0);
+ await c.bind(user);c.save('imperatriz','devices',data);c.clear();assert.equal([...Array(store.length)].map((_,i)=>store.key(i)).filter(k=>k.startsWith('central-page-cache-')).length,0);
 });
 test('storage unavailable and oversized snapshots do not prevent navigation',async()=>{
  const denied=new PagePreloadCache({storage:{get length(){throw Error('denied')}}});await denied.bind(user);assert.doesNotThrow(()=>denied.save('imperatriz','devices',data));
- const store=storage(),c=new PagePreloadCache({storage:store});await c.bind(user);c.save('imperatriz','devices',{rows:[{notes:'x'.repeat(2000001)}]});assert.equal(store.length,0);
+ const store=storage(),c=new PagePreloadCache({storage:store});await c.bind(user);c.save('imperatriz','devices',{rows:[{notes:'x'.repeat(2000001)}]});assert.equal([...Array(store.length)].map((_,i)=>store.key(i)).filter(k=>k.startsWith('central-page-cache-')).length,0);
 });
 test('preload is sequential and stops remaining work when branch changes',async()=>{
  const r=new SqlRepository();r.user=user;r.currentBranch='imperatriz';const calls=[];let running=0,max=0;
@@ -43,4 +43,32 @@ test('safe GETs deduplicate; mutation prevents an older background response from
  let release,calls=0;r.networkRequest=async p=>{if(p==='settings-monitor'){calls++;return new Promise(resolve=>release=resolve)}return data};
  const loading=r.preloadSelected('imperatriz',{delay:0});while(!release)await new Promise(x=>setTimeout(x,1));const navigation=r.request('settings-monitor');assert.equal(calls,1);
  await r.request('query-policy',{method:'POST'});release({old:true});await navigation;await loading;assert.equal(r.pageCache.take('settings-monitor'),undefined);
+});
+
+test('reopening restores devices and warehouse only after session validation, then requests deltas',async()=>{
+ const store=storage(),first=new PagePreloadCache({storage:store});await first.bind(user);
+ first.save('imperatriz','devices',{cursor:'12',rows:[{id:'d',serial:'001',branch:'imperatriz'}]});
+ first.save('imperatriz','warehouse',{cursor:'12',rows:[{id:'w',serial:'002',branch:'imperatriz'}],movements:[]});
+ const r=new SqlRepository();r.pageCache=new PagePreloadCache({storage:store});r.preloadBranch='imperatriz';
+ assert.equal(r.pageCache.snapshot('imperatriz','devices'),null);
+ let release;const calls=[];r.networkRequest=async path=>{calls.push(path);if(path==='session')return new Promise(resolve=>release=resolve);return {cursor:'13',delta:true,unchanged:true}};
+ const opening=r.session();assert.equal(r.devices.length,0);assert.equal(r.pageCache.snapshot('imperatriz','devices'),null);
+ release({...user,csrf:'renewed'});await opening;r.activate('imperatriz','warehouse');
+ assert.equal(r.devices[0].id,'d');assert.equal(r.warehouse[0].id,'w');assert.equal(r.ready('imperatriz','warehouse'),true);
+ await r.loadGroup('imperatriz','devices',{refresh:true});await r.loadGroup('imperatriz','warehouse',{refresh:true});
+ assert.deepEqual(calls,['session','devices?branch=imperatriz&since=12','warehouse?branch=imperatriz&since=12']);
+ await r.logout();assert.equal([...Array(store.length)].map((_,i)=>store.key(i)).filter(k=>k.startsWith('central-page-cache-')).length,0);assert.equal(r.devices.length,0);
+ const after=new PagePreloadCache({storage:store});await after.bind(user);assert.equal(after.snapshot('imperatriz','devices'),null);
+});
+test('logout prevents a delayed read from repopulating persistent cache',async()=>{
+ const store=storage(),r=new SqlRepository();r.user=user;r.pageCache=new PagePreloadCache({storage:store});await r.pageCache.bind(user);
+ let release;r.networkRequest=async path=>path==='logout'?{ok:true}:new Promise(resolve=>release=resolve);
+ const pending=r.loadGroup('imperatriz','devices');await r.logout();release({cursor:'2',rows:[{id:'late'}]});await pending;
+ assert.equal([...Array(store.length)].map((_,i)=>store.key(i)).filter(k=>k.startsWith('central-page-cache-')).length,0);assert.equal(r.devices.length,0);
+});
+
+test('another tab cannot recreate snapshots after logout',async()=>{
+ const store=storage(),a=new PagePreloadCache({storage:store}),b=new PagePreloadCache({storage:store});await a.bind(user);await b.bind(user);
+ a.save('imperatriz','devices',data);b.clear();a.save('imperatriz','devices',data);a.drop('imperatriz',['warehouse']);
+ assert.equal([...Array(store.length)].map((_,i)=>store.key(i)).filter(k=>k.startsWith('central-page-cache-')).length,0);
 });

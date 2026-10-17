@@ -114,7 +114,7 @@ function render() {
   if(repo.real){
     repo.activate(state.branch,state.route);
     const restored=repo.groups(state.route).map(g=>state.branch+':'+g).filter(k=>repo.restored.has(k));
-    if(restored.length){const banner=document.querySelector('.release-strip span:last-child');if(banner)banner.textContent=restored.some(k=>repo.refreshErrors.has(k))?'Cópia temporária • atualização pendente. Use Atualizar para tentar novamente.':'Cópia temporária da sessão • atualizando dados salvos…';}
+    if(restored.length){const banner=document.querySelector('.release-strip span:last-child');if(banner)banner.textContent=restored.some(k=>repo.refreshErrors.has(k))?'Cópia temporária • atualização pendente. Use Atualizar para tentar novamente.':'Cópia local • atualizando dados salvos…';}
     const stale=repo.groups(state.route).filter(g=>repo.stale.has(state.branch+':'+g));
     if(stale.length&&repo.ready(state.branch,state.route)){
       const banner=document.querySelector('.release-strip span:last-child');
