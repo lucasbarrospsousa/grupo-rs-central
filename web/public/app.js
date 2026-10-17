@@ -158,7 +158,7 @@ function overview() {
   if(repo.real){
     const branch=state.branch;page('<div id="overview-summary"><p role="status">Carregando resumo da filial…</p></div>');const summaryHost=document.querySelector('#overview-summary');
     const drawSummary=()=>{if(!summaryHost.isConnected)return;
-    const rows=repo.list(state.branch);
+    const rows=repo.summaries.get(state.branch);
     summaryHost.innerHTML=overviewSummary(rows,name(state.branch),icon);
     on('sql-open-stock','click',()=>{state.route='stock';render();});};
     if(repo.ready(branch,'overview'))drawSummary();else void repo.load(branch,{route:'overview',force:false}).then(drawSummary).catch(()=>{if(summaryHost.isConnected)summaryHost.textContent='Resumo da filial indisponível. O estoque por base continua disponível.';});return;

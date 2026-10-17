@@ -1,3 +1,4 @@
+import {devicePage} from './device-page.mjs';
 import {incrementalRead} from './incremental-read.mjs';
 import {permitted} from './user-access.mjs';
 import {mutationReceipt,remoteMutationReceipt} from './mutation-receipt.mjs';
@@ -47,13 +48,15 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
   }
   if(action==='stock-page'&&req.method==='GET'){
    const ids=batchIds((url.searchParams.get('ids')||'').split(',')),kind=url.searchParams.get('kind');
-   if(!['locations','chips','identity'].includes(kind))throw fail(400,'Consulta inválida.');
-   const savedChanges=url.searchParams.has('since')&&permitted(permissions,'/api/devices','GET')?await scoped(pool,user,c=>incrementalRead(c,branch,'devices',url.searchParams.get('since')),{snapshot:true}):null;
-   const removed=savedChanges?(savedChanges.delta?savedChanges.removed||[]:ids.filter(id=>!savedChanges.rows.some(r=>r.id===id))):[];
+   if(!['locations','chips','identity'].includes(kind))throw fail(400,'Consulta invï¿½lida.');
+   const pageParams=url.searchParams.has('pageQuery')?new URLSearchParams(url.searchParams.get('pageQuery')):null;if(pageParams){pageParams.set('scope','page');pageParams.delete('export');if(url.searchParams.has('since'))pageParams.set('since',url.searchParams.get('since'));}
+   const savedPage=pageParams&&permitted(permissions,'/api/devices','GET')?await scoped(pool,user,c=>devicePage(c,branch,pageParams),{snapshot:true}):null;
+   const savedChanges=!pageParams&&url.searchParams.has('since')&&permitted(permissions,'/api/devices','GET')?await scoped(pool,user,c=>incrementalRead(c,branch,'devices',url.searchParams.get('since')),{snapshot:true}):null;
+   const removed=savedPage&&!savedPage.unchanged?ids.filter(id=>!savedPage.rows.some(r=>r.id===id)):savedChanges?(savedChanges.delta?savedChanges.removed||[]:ids.filter(id=>!savedChanges.rows.some(r=>r.id===id))):[];
    const remaining=ids.filter(id=>!removed.includes(id));
    const data=remaining.length?await stockBatch({pool,user,branch,service,ids:remaining,kind}):{results:[],queried_at:new Date().toISOString()};
    for(const id of ids.filter(id=>removed.includes(id)))data.results.push({id,ok:false,message:'Cadastro removido ou transferido.'});
-   if(savedChanges)data.savedChanges=savedChanges;
+   if(savedChanges)data.savedChanges=savedChanges;if(savedPage)data.savedPage=savedPage;
    send(res,data);return true;
   }
   if(action==='equipment-refresh'&&req.method==='POST'){

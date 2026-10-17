@@ -1,3 +1,4 @@
+import {devicePage} from './device-page.mjs';
 import {incrementalRead} from './incremental-read.mjs';
 import {scoped} from './remote-actions.mjs';
 import {savedCostSnapshots,refreshCostSnapshots,summarizeCosts,summarizeInvoices} from './warehouse-costs.mjs';
@@ -161,6 +162,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     const client=await pool.connect();
     try{
       await client.query(req.method==='GET'?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');await client.query("select set_config('central.user_id',$1,true)",[user.user_id]);
+      if(req.method==='GET'&&url.pathname==='/api/devices'&&['page','summary'].includes(url.searchParams.get('scope'))){const data=await devicePage(client,branch,url.searchParams);await client.query('COMMIT');res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
       if(req.method==='GET'&&(url.pathname==='/api/warehouse'||url.pathname==='/api/devices'&&!url.searchParams.has('scope'))){
         const data=await incrementalRead(client,branch,url.pathname==='/api/devices'?'devices':'warehouse',url.searchParams.get('since'));
         await client.query('COMMIT');res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;

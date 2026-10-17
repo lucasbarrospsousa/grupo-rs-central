@@ -3,7 +3,7 @@ import {applyMutationReceipt} from './mutation-receipt.js';
 import {PagePreloadCache,preloadPlan} from './page-preload.js';
 import {communication} from './stock-live.js';
 export class SqlRepository {
-  constructor(){this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
+  constructor(){this.stockPages=new Map();this.summaries=new Map();this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
   async request(path,options={}){
     const method=options.method||'GET',eligible=['settings-monitor','query-policy','read-sources','users','logs?q=&user=&module=&outcome=&from=&to=&page=1'].includes(path);
     if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
@@ -16,7 +16,8 @@ export class SqlRepository {
     }
     if(method==='GET'&&path.startsWith('integrations/stock-page?')&&new URLSearchParams(path.split('?')[1]).get('kind')==='locations'){
       const branch=new URLSearchParams(path.split('?')[1]).get('branch'),key=branch+':devices',snapshot=this.incremental.get(key),epoch=this.epoch,revision=this.writeVersion,generation=this.generations.get(key)||0;
-      const data=await this.networkRequest(path+(snapshot?.cursor?'&since='+snapshot.cursor:''),options);
+      const paged=this.currentRoute==='stock'&&this.currentStockQuery?.branch===branch?this.currentStockQuery:null,oldPage=paged&&this.stockPages.get(paged.key);const data=await this.networkRequest(path+(paged?'&pageQuery='+encodeURIComponent(paged.key)+(oldPage?.cursor?'&since='+oldPage.cursor:''):(snapshot?.cursor?'&since='+snapshot.cursor:'')),options);
+      if(data.savedPage&&paged&&epoch===this.epoch&&revision===this.writeVersion)this.adoptStockPage(branch,paged.key,data.savedPage);
       if(data.savedChanges&&epoch===this.epoch&&revision===this.writeVersion&&generation===(this.generations.get(key)||0))this.acceptIncremental(branch,'devices',data.savedChanges,true);
       return data;
     }
@@ -35,9 +36,10 @@ export class SqlRepository {
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;await this.pageCache.bind(this.user);return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  clearPreload(){this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
-  async logout(){this.clearPreload();this.receiptVersions?.clear();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
+  clearPreload(){this.stockPages.clear();this.summaries.clear();this.currentStockQuery=null;this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
+  async logout(){this.clearPreload();this.receiptVersions?.clear();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];await this.pageCache.flush();try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){
+    if(route==='stock')return [];if(route==='overview')return ['summary'];
     const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
     const result=[];
     if(['overview','stock','tracking','records','route','link','bulk','maintenance'].includes(route)&&allowed(['overview','stock','tracking','records','route','link','bulk','maintenance']))result.push('devices');
@@ -46,7 +48,8 @@ export class SqlRepository {
     return result;
   }
   ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseCache.has(branch)));}
-  invalidate(branch,groups=['devices','history','warehouse']){
+  invalidate(branch,groups=['devices','history','warehouse','summary']){
+    if(groups.includes('devices'))this.stockPages.clear();
     if(groups.includes('warehouse'))for(const other of this.user?.branches||[]){this.pageCache.drop(other.id,['warehouse']);const key=other.id+':warehouse';this.stale.add(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
     this.pageCache.drop(branch,groups);
     for(const group of groups){this.refreshErrors.delete(branch+':'+group);this.restored.delete(branch+':'+group);const key=branch+':'+group;this.stale.add(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
@@ -54,22 +57,23 @@ export class SqlRepository {
   activate(branch,route){
     const key=branch+':'+route;
     this.activeView=key;this.currentBranch=branch;this.currentRoute=route;
-    const plan=preloadPlan(this.user,branch);
-    for(const group of plan.groups){const cacheKey=branch+':'+group;if(!this.loaded.has(cacheKey)){const data=this.pageCache.snapshot(branch,group);if(data&&Array.isArray(data.rows)){this.applyGroup(branch,group,data);if(data.cursor)this.incremental.set(cacheKey,data);this.loaded.add(cacheKey);this.restored.add(cacheKey);}}}
-    if(this.preloadBranch!==branch){this.preloadBranch=branch;void this.preloadSelected(branch);}
+    const plan={groups:this.groups(route)};
+    for(const group of plan.groups){const cacheKey=branch+':'+group;if(!this.loaded.has(cacheKey)){const data=this.pageCache.snapshot(branch,group);if(data&&(group==='summary'||Array.isArray(data.rows))){this.applyGroup(branch,group,data);if(data.cursor)this.incremental.set(cacheKey,data);this.loaded.add(cacheKey);this.restored.add(cacheKey);}}}
+    if(this.preloadBranch!==branch||this.preloadRoute!==route){this.preloadBranch=branch;this.preloadRoute=route;void this.preloadSelected(branch);}
     const cached=this.warehouseCache.get(branch);
     this.warehouse=cached?.rows||[];this.movements=cached?.movements||[];this.warehouseBranch=cached?branch:null;
   }
   async preloadSelected(branch,{delay=200}={}){
     const version=++this.preloadVersion,epoch=this.epoch;
     const current=()=>version===this.preloadVersion&&epoch===this.epoch&&!!this.user&&this.currentBranch===branch;
-    const plan=preloadPlan(this.user,branch),results=[];
+    const full=preloadPlan(this.user,branch),plan={groups:this.currentRoute?this.groups(this.currentRoute):full.groups,paths:this.currentRoute?[]:full.paths},results=[];
     const tasks=[...plan.groups.map(group=>()=>this.loadGroup(branch,group,{refresh:this.restored.has(branch+':'+group)})),...plan.paths.map(path=>async()=>{const revision=this.writeVersion;const data=await this.request(path,{preload:true});if(current()&&revision===this.writeVersion)this.pageCache.put(path,data);})];
     for(const task of tasks){await new Promise(r=>setTimeout(r,delay));if(!current())break;try{await task();results.push(true);}catch{results.push(false);}}
     return results;
   }
   async load(branch,{route=this.currentRoute||'overview',force=true}={}){
     if(force)this.invalidate(branch);
+    if(route==='stock'){this.stockPages.clear();return;}
     await Promise.all(this.groups(route).map(group=>this.loadGroup(branch,group)));
   }
   async loadGroup(branch,group,{refresh=false}={}){
@@ -78,7 +82,7 @@ export class SqlRepository {
     if(this.pending.has(key))return this.pending.get(key);
     const hadData=this.loaded.has(key),generation=this.generations.get(key)||0,epoch=this.epoch,revision=this.writeVersion;
     const pending=(async()=>{
-      const snapshot=this.incremental.get(key),data=await this.request(group+'?branch='+encodeURIComponent(branch)+(snapshot?.cursor?'&since='+snapshot.cursor:''));
+      const snapshot=this.incremental.get(key),data=await this.request((group==='summary'?'devices?scope=summary&branch=':group+'?branch=')+encodeURIComponent(branch)+(snapshot?.cursor?'&since='+snapshot.cursor:''));
       if(epoch!==this.epoch||generation!==(this.generations.get(key)||0))return;
       if(revision!==this.writeVersion)return;
       this.acceptIncremental(branch,group,data);this.refreshErrors.delete(key);
@@ -92,6 +96,7 @@ export class SqlRepository {
   acceptIncremental(branch,group,data,notify=false){
     const key=branch+':'+group,previous=this.incremental.get(key);
     if(data.delta&&(!previous||BigInt(data.cursor)<BigInt(previous.cursor)))return;
+    if(group==='summary'){const merged=data.unchanged?{...this.summaries.get(branch),cursor:data.cursor}:data;this.summaries.set(branch,merged);this.incremental.set(key,merged);this.pageCache.save(branch,group,merged);return;}
     const merged=mergeIncremental(previous,data);
     if(!data.unchanged){if(group==='devices')merged.rows.sort((a,b)=>String(a.serial).localeCompare(String(b.serial)));if(group==='warehouse'){merged.rows.sort((a,b)=>(Date.parse(b.received_at)||0)-(Date.parse(a.received_at)||0));merged.movements.sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0));}}
     if(merged.cursor)this.incremental.set(key,merged);
@@ -100,6 +105,7 @@ export class SqlRepository {
     if(notify&&!data.unchanged&&data.cursor!==previous?.cursor)this.onDataUpdate?.(branch,group);
   }
   applyGroup(branch,group,data){
+      if(group==='summary')this.summaries.set(branch,data);
       if(group==='devices')this.devices=this.devices.filter(d=>d.branch!==branch).concat(data.rows.map(d=>({identification:'',model:'',communication:'Não consultado',connectivity:'Não consultado',installed_at:'',updated_at:'',...d})));
       if(group==='history'){
         const legacy=data.rows.filter(r=>r.source_table==='maintenance').map(r=>({...r.data,id:r.id,branch,legacy:true,entry:r.data.created_at||r.data.opened_at||'',currentSerial:r.data.serial||'',installSerial:r.data.replacement_serial||'',medium:r.data.discovery_method||'',notes:r.data.note||''}));
@@ -115,6 +121,10 @@ export class SqlRepository {
       }
 
   }
+  stockQuery(branch,model){return new URLSearchParams({branch,scope:'page',query:model.query||'',status:model.status||'Todos',start:model.start||'',end:model.end||'',sort:model.sort||'default',direction:model.direction??-1,page:model.page||1}).toString();}
+  peekStockPage(branch,model){const key=this.stockQuery(branch,model),cached=this.stockPages.get(key);if(cached)return cached;const saved=this.pageCache.snapshot(branch,'page:'+key);return saved?this.adoptStockPage(branch,key,saved):null;}
+  adoptStockPage(branch,key,data){const old=this.stockPages.get(key)||this.pageCache.snapshot(branch,'page:'+key);if(old?.cursor&&data.cursor&&BigInt(data.cursor)<BigInt(old.cursor))return old;const result=data.unchanged?{...old,cursor:data.cursor}:data;if(!result?.rows)throw Error('Página incompleta.');this.stockPages.set(key,result);this.pageCache.save(branch,'page:'+key,result);for(const row of result.rows){const at=this.devices.findIndex(r=>r.id===row.id&&r.branch===branch);if(at>=0)this.devices[at]={...this.devices[at],...row};else this.devices.push(row);}return result;}
+  async readStockPage(branch,model,{exportAll=false}={}){const key=this.stockQuery(branch,model),old=this.peekStockPage(branch,model),epoch=this.epoch,revision=this.writeVersion;this.currentStockQuery={branch,key};const data=await this.request('devices?'+key+(exportAll?'&export=1':old?.cursor?'&since='+old.cursor:''));if(epoch!==this.epoch||revision!==this.writeVersion)throw Error('Dados alterados durante a consulta.');return exportAll?data:this.adoptStockPage(branch,key,data);}
   list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d,...(d.observation?{communication:communication(d.observation.location),connectivity:d.observation.chip?.ok?d.observation.chip.connectivity||'Não informado':'Consulta pendente'}:{})}));}
   mutationResult(result){return result.changes?result:{...result,refreshPending:true};}
   async saveDevice(branch,values,current,{key}={}){const result=await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',key,body:{data:values,...(current?{version:current.version}:{})}});if(!result.changes&&Object.hasOwn(values,'iccid'))this.invalidate(branch,['warehouse']);return this.mutationResult(result);}

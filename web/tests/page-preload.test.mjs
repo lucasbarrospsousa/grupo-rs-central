@@ -33,8 +33,8 @@ test('preload is sequential and stops remaining work when branch changes',async(
  r.invalidate('imperatriz');calls.length=0;r.request=async p=>{calls.push(p);r.currentBranch='araguaina';return data};await r.preloadSelected('imperatriz',{delay:0});assert.deepEqual(calls,['devices?branch=imperatriz']);
 });
 test('restored rows are usable immediately, then replaced; refresh failures retain explicit pending state',async()=>{
- const r=new SqlRepository();r.user=user;r.preloadBranch='imperatriz';await r.pageCache.bind(user);r.pageCache.save('imperatriz','devices',{rows:[{id:'saved',branch:'imperatriz'}]});r.activate('imperatriz','stock');
- assert.equal(r.ready('imperatriz','stock'),true);assert.equal(r.devices[0].id,'saved');let updates=0;r.onDataUpdate=()=>updates++;
+ const r=new SqlRepository();r.user=user;r.preloadBranch='imperatriz';await r.pageCache.bind(user);r.pageCache.save('imperatriz','devices',{rows:[{id:'saved',branch:'imperatriz'}]});r.activate('imperatriz','tracking');
+ assert.equal(r.ready('imperatriz','tracking'),true);assert.equal(r.devices[0].id,'saved');let updates=0;r.onDataUpdate=()=>updates++;
  r.request=async()=>{throw Error('offline')};await assert.rejects(r.loadGroup('imperatriz','devices',{refresh:true}));assert.ok(r.refreshErrors.has('imperatriz:devices'));assert.equal(r.devices[0].id,'saved');
  r.request=async()=>({rows:[{id:'fresh',branch:'imperatriz'}]});await r.loadGroup('imperatriz','devices',{refresh:true});assert.equal(r.devices[0].id,'fresh');assert.equal(r.restored.size,0);assert.equal(r.refreshErrors.size,0);assert.equal(updates,2);
 });
@@ -53,7 +53,7 @@ test('reopening restores devices and warehouse only after session validation, th
  assert.equal(r.pageCache.snapshot('imperatriz','devices'),null);
  let release;const calls=[];r.networkRequest=async path=>{calls.push(path);if(path==='session')return new Promise(resolve=>release=resolve);return {cursor:'13',delta:true,unchanged:true}};
  const opening=r.session();assert.equal(r.devices.length,0);assert.equal(r.pageCache.snapshot('imperatriz','devices'),null);
- release({...user,csrf:'renewed'});await opening;r.activate('imperatriz','warehouse');
+ release({...user,csrf:'renewed'});await opening;r.preloadSelected=async()=>[];r.activate('imperatriz','tracking');r.activate('imperatriz','warehouse');
  assert.equal(r.devices[0].id,'d');assert.equal(r.warehouse[0].id,'w');assert.equal(r.ready('imperatriz','warehouse'),true);
  await r.loadGroup('imperatriz','devices',{refresh:true});await r.loadGroup('imperatriz','warehouse',{refresh:true});
  assert.deepEqual(calls,['session','devices?branch=imperatriz&since=12','warehouse?branch=imperatriz&since=12']);

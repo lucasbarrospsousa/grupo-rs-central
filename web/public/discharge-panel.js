@@ -37,7 +37,8 @@ export function openDischarge({repo,branch,showModal,notify,render}){
  async function analyze(force=false){
   if(busy)return;busy=true;resetReview();selected.clear();controller=new AbortController();
   reused=0;const originals=new Map();
-  rows=repo.list(branch).filter(r=>r.status==='Estoque').map(r=>{originals.set(r.id,{...r});if(force)cache.clear(branch,r);const recent=force?null:cache.get(branch,r);if(recent)reused++;return{...r,plate:'',client:'',category:'pending',ok:false,message:'',...recent};});page=1;draw();
+  let source;try{source=repo.real?(await repo.request('devices?branch='+encodeURIComponent(branch)+'&scope=stock',{signal:controller.signal})).rows:repo.list(branch);}catch(e){busy=false;if(alive()){draw();get('progress').textContent=e.message;}return;}if(!alive()){busy=false;return;}
+  rows=source.filter(r=>r.status==='Estoque').map(r=>{originals.set(r.id,{...r});if(force)cache.clear(branch,r);const recent=force?null:cache.get(branch,r);if(recent)reused++;return{...r,plate:'',client:'',category:'pending',ok:false,message:'',...recent};});page=1;draw();
   await analyzeBatches(rows.filter(r=>r.category==='pending'),{signal:controller.signal,onWait:(row,seconds)=>{if(alive()){row.message=`Limite temporário de consultas. Nova tentativa em ${seconds}s…`;draw();}},onBatch:n=>{batch=n;draw();},query:row=>repo.request('integrations/binding?'+new URLSearchParams({branch,serial:row.serial}),{signal:controller.signal}),onResult:(row,result,error)=>{
    if(!alive())return;
    if(error)Object.assign(row,{category:'error',ok:false,message:error.message});
