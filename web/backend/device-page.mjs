@@ -1,3 +1,4 @@
+import {sqlDevicePage} from './device-sql-page.mjs';
 import {consultRows} from '../public/consult-page.js';
 import {filterStock,visibleStatus,statuses,stockPageNumber} from '../public/stock-model.js';
 import {stockSummary,carrierSummary} from '../public/dashboard-model.js';
@@ -16,6 +17,7 @@ export function selectDevicePage(rows,branch,options){
 export async function devicePage(c,branch,params){
  const scope=params.get('scope'),options=pageOptions(scope==='lookup'?new URLSearchParams({page:params.get('page')||1}):params),plan=await readPlan(c,branch,['devices'],params.get('since'));
  if(plan.delta&&!plan.changes.length)return {cursor:plan.cursor,unchanged:true};
+ if(scope==='page'||scope==='lookup')return {...await sqlDevicePage(c,branch,params,options),cursor:plan.cursor};
  const summary=params.get('scope')==='summary';
  const fields=summary?['status','carrier']:['client','status','carrier','identification','plate','phone','iccid','owner_binding','installed_at','updated_at','created_at','source_date','purchase_date','date','model'];
  const projection=fields.map(k=>`'${k}',d.data->'${k}'`).join(',');

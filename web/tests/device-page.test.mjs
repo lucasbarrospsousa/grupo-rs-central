@@ -15,9 +15,9 @@ test('paging searches all 3360 records and keeps existing filter, sort and batch
  assert.equal(selectDevicePage([], 'imperatriz',pageOptions(new URLSearchParams({page:'99'}))).page,1);
  for(const q of [{page:'-1'},{sort:'id;drop table'},{direction:0},{status:'wrong'},{start:'2026-11-01',end:'2026-10-01'}])assert.throws(()=>pageOptions(new URLSearchParams(q)));
 });
-test('backend reads full data only for ten IDs; unchanged response reads only the marker',async()=>{
- const calls=[];const c={query:async(sql,args)=>{calls.push({sql,args});if(sql.includes('as cursor'))return {rows:[{cursor:'12',changes:[]}]};if(sql.includes('jsonb_build_object'))return {rows:rows.map(r=>({id:r.id,serial:r.serial,data:r}))};assert.equal(args[1].length,10);return {rows:rows.filter(r=>args[1].includes(r.id)).map(r=>({id:r.id,serial:r.serial,data:r,version:1}))};}};
- const result=await devicePage(c,'imperatriz',new URLSearchParams({scope:'page'}));assert.equal(result.rows.length,10);assert.equal(result.total,3360);assert.ok(JSON.stringify(result).length<10000);assert.equal(calls.length,3);assert.ok(calls.every(c=>c.args[0]==='imperatriz'));
+test('backend sends one bounded SQL page and preserves unchanged marker behavior',async()=>{
+ const calls=[],c={query:async(sql,args)=>{calls.push({sql,args});if(sql.includes('as cursor'))return {rows:[{cursor:'12',changes:[]}]};return {rows:[{rows:rows.slice(0,10).map(r=>({id:r.id,serial:r.serial,data:r,version:1})),total:3360,page:1,counts:{Todos:3360},found:3360,missing:[],customers:[]}]};}};
+ const result=await devicePage(c,'imperatriz',new URLSearchParams({scope:'page'}));assert.equal(result.rows.length,10);assert.equal(result.total,3360);assert.equal(calls.length,2);assert.ok(calls[1].sql.includes('limit (case when'));assert.ok(calls.every(c=>c.args[0]==='imperatriz'));
  calls.length=0;assert.equal((await devicePage(c,'imperatriz',new URLSearchParams({scope:'page',since:'12'}))).unchanged,true);assert.equal(calls.length,1);
 });
 test('stock opening does not preload full lists or other modules; summaries remain independent',async()=>{

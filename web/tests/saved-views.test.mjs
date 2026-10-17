@@ -9,7 +9,7 @@ const data={rows:Array.from({length:160},(_,i)=>({id:'w'+i,branch:'imperatriz',s
 const p=o=>new URLSearchParams(o);
 test('maintenance lookup preserves identification and partial serial search across the whole branch',async()=>{
  const rows=Array.from({length:100},(_,i)=>({id:String(i),serial:'024'+String(i).padStart(6,'0'),data:{identification:'XRS - '+i,client:'Cliente '+i}}));
- const c={query:async(sql,args)=>sql.includes('as cursor')?{rows:[{cursor:'1',changes:[]}]}:sql.includes('jsonb_build_object')?{rows}:{rows:rows.filter(r=>args[1].includes(r.id))}};
+ const c={query:async(sql,args)=>{if(sql.includes('as cursor'))return {rows:[{cursor:'1',changes:[]}]};const selected=rows.filter(r=>[r.serial,r.data.identification].some(v=>v.includes(args[1])));return {rows:[{rows:selected,total:selected.length,page:1,customers:[]}]};}};
  const result=await devicePage(c,'imperatriz',p({scope:'lookup',mode:'maintenance',query:'XRS - 99'}));assert.equal(result.total,1);assert.equal(result.rows[0].serial,'024000099');
  const partial=await devicePage(c,'imperatriz',p({scope:'lookup',mode:'maintenance',query:'02400009'}));assert.equal(partial.total,10);
 });
