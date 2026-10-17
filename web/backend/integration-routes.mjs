@@ -1,3 +1,4 @@
+import {createHash as viewHash} from 'node:crypto';
 import {devicePage} from './device-page.mjs';
 import {incrementalRead} from './incremental-read.mjs';
 import {permitted} from './user-access.mjs';
@@ -79,7 +80,7 @@ export async function integrationRoute({req,res,url,pool,user,permissions,readBo
    else if(action==='link-preview'){const preview=await service.prepareLink(branch,serial,url.searchParams.get('plate'));data={ok:true,plate:preview.plate,serial:preview.serial,confirmed:preview.confirmed,create_required:preview.create_required===true};}
    else if(action==='equipment')data=await service.equipmentPortal(branch,serial);
    else if(action==='sms-template')data=await scoped(pool,user,c=>prepareStandardSms(c,branch,serial));
-   else if(action==='operations'){const kinds=['link','sms'].filter(k=>permissions?.owner||permissions?.views?.includes(k));data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 and kind=any($2::text[]) order by created_at desc limit 100',[branch,kinds])).rows)};}
+   else if(action==='operations'){const kinds=['link','sms'].filter(k=>permissions?.owner||permissions?.views?.includes(k));data={rows:await scoped(pool,user,async c=>(await c.query('select id,kind,serial,state,result,created_at,updated_at,payload from central_homologacao.remote_operations where branch_id=$1 and kind=any($2::text[]) order by created_at desc limit 100',[branch,kinds])).rows)};const cursor=viewHash('sha256').update(JSON.stringify(data)).digest('hex');data=url.searchParams.get('since')===cursor?{cursor,unchanged:true}:{...data,cursor};}
    else if(action==='maintenance')data=await maintenanceSnapshot(pool,service,branch,url.searchParams.get('refresh')==='1');
    else if(action==='binding'){data=await (service.dischargeBinding||service.binding).call(service,branch,serial);}
    else if(action==='location')data=await service.location(branch,serial,await plateHint());

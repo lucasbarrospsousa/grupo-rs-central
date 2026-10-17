@@ -3,10 +3,10 @@ import {applyMutationReceipt} from './mutation-receipt.js';
 import {PagePreloadCache,preloadPlan} from './page-preload.js';
 import {communication} from './stock-live.js';
 export class SqlRepository {
-  constructor(){this.stockPages=new Map();this.summaries=new Map();this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
+  constructor(){this.views=new Map();this.stockPages=new Map();this.summaries=new Map();this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
   async request(path,options={}){
     const method=options.method||'GET',eligible=['settings-monitor','query-policy','read-sources','users','logs?q=&user=&module=&outcome=&from=&to=&page=1'].includes(path);
-    if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
+    if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.views.clear();this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
     if(method==='GET'&&path.startsWith('integrations/inventory-counts?')){
       const epoch=this.epoch,revision=this.writeVersion,previous=this.countSnapshots.get(path),data=await this.networkRequest(path+(previous?.cursor?'&since='+previous.cursor:''),options);
       const result=data.unchanged&&previous?{...previous,cursor:data.cursor}:data;
@@ -36,17 +36,9 @@ export class SqlRepository {
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;await this.pageCache.bind(this.user);return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  clearPreload(){this.stockPages.clear();this.summaries.clear();this.currentStockQuery=null;this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
+  clearPreload(){this.views.clear();this.stockPages.clear();this.summaries.clear();this.currentStockQuery=null;this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
   async logout(){this.clearPreload();this.receiptVersions?.clear();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];await this.pageCache.flush();try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
-  groups(route){
-    if(route==='stock')return [];if(route==='overview')return ['summary'];
-    const allowed=modules=>!this.user?.permissions||this.user.permissions.owner||modules.some(m=>this.user.permissions.views.includes(m));
-    const result=[];
-    if(['overview','stock','tracking','records','route','link','bulk','maintenance'].includes(route)&&allowed(['overview','stock','tracking','records','route','link','bulk','maintenance']))result.push('devices');
-    if(route==='maintenance'&&allowed(['maintenance']))result.push('history');
-    if(route==='warehouse'&&allowed(['warehouse']))result.push('warehouse');
-    return result;
-  }
+  groups(route){return route==='overview'?['summary']:[];}
   ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseCache.has(branch)));}
   invalidate(branch,groups=['devices','history','warehouse','summary']){
     if(groups.includes('devices'))this.stockPages.clear();
@@ -121,6 +113,8 @@ export class SqlRepository {
       }
 
   }
+  peekView(branch,path){const result=this.views.get(path)||this.pageCache.snapshot(branch,'view:'+path);if(result){const target=path.startsWith('devices?')?this.devices:path.startsWith('warehouse?')&&new URLSearchParams(path.split('?')[1]).get('view')!=='movements'?this.warehouse:null;if(target)for(const row of result.rows||[]){const at=target.findIndex(r=>r.id===row.id&&r.branch===row.branch);if(at<0)target.push(row);else target[at]=row;}}return result;}
+  async readView(branch,path){const old=this.peekView(branch,path),epoch=this.epoch,revision=this.writeVersion,data=await this.request(path+(old?.cursor?'&since='+encodeURIComponent(old.cursor):''));if(epoch!==this.epoch||revision!==this.writeVersion)throw Error('Dados alterados durante a consulta.');const result=data.unchanged?{...old,cursor:data.cursor}:data;this.views.set(path,result);this.pageCache.save(branch,'view:'+path,result);if(path.startsWith('devices?'))for(const row of result.rows||[]){const at=this.devices.findIndex(r=>r.id===row.id&&r.branch===branch);if(at<0)this.devices.push(row);else this.devices[at]=row;}if(path.startsWith('warehouse?')&&new URLSearchParams(path.split('?')[1]).get('view')!=='movements')for(const row of result.rows||[]){const at=this.warehouse.findIndex(r=>r.id===row.id);if(at<0)this.warehouse.push(row);else this.warehouse[at]=row;}return result;}
   stockQuery(branch,model){return new URLSearchParams({branch,scope:'page',query:model.query||'',status:model.status||'Todos',start:model.start||'',end:model.end||'',sort:model.sort||'default',direction:model.direction??-1,page:model.page||1}).toString();}
   peekStockPage(branch,model){const key=this.stockQuery(branch,model),cached=this.stockPages.get(key);if(cached)return cached;const saved=this.pageCache.snapshot(branch,'page:'+key);return saved?this.adoptStockPage(branch,key,saved):null;}
   adoptStockPage(branch,key,data){const old=this.stockPages.get(key)||this.pageCache.snapshot(branch,'page:'+key);if(old?.cursor&&data.cursor&&BigInt(data.cursor)<BigInt(old.cursor))return old;const result=data.unchanged?{...old,cursor:data.cursor}:data;if(!result?.rows)throw Error('Página incompleta.');this.stockPages.set(key,result);this.pageCache.save(branch,'page:'+key,result);for(const row of result.rows){const at=this.devices.findIndex(r=>r.id===row.id&&r.branch===branch);if(at>=0)this.devices[at]={...this.devices[at],...row};else this.devices.push(row);}return result;}

@@ -1,3 +1,4 @@
+import {savedView} from './saved-view.js';
 import {warehouseDay,warehouseDestination,warehouseLabel} from './warehouse-model.js';
 import {filterWarehouseMovements} from './warehouse-movements-model.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,10 +14,11 @@ export function monthlyShipments(rows,movements,{month,months=6,destination='',n
  const groups=destinations.filter(d=>!destination||d.id===destination).map(d=>({...d,values:keys.map(k=>dated.filter(r=>destKey(r)===d.id&&warehouseDay(r.atISO).startsWith(k)).length)})).filter(d=>d.values.some(Boolean));
  return {keys,groups,destinations,current,previous,total:keys.reduce((n,k)=>n+count(k),0),difference:previous?Math.round((current-previous)/previous*100):null,undated:all.filter(r=>!r.atISO||!warehouseDay(r.atISO)).length,partial:month===today.slice(0,7)};
 }
-export function mountWarehouseMonthly(root,{icon,openHistory}){
+export function mountWarehouseMonthly(root,{icon,openHistory,repo}){
  let rows=[],movements=[],month=warehouseDay(new Date()).slice(0,7),months=6,destination='';
+ const remote=repo?.real?savedView(repo,repo.currentBranch,'warehouse',root,draw):null;
  function draw(){
-  const d=monthlyShipments(rows,movements,{month,months,destination}),totals=d.keys.map((_,i)=>d.groups.reduce((n,g)=>n+g.values[i],0)),max=Math.max(1,...totals),width=850,step=760/months;
+  const result=!root.hidden&&remote?.get({view:'monthly',month,months,destination});if(remote&&!result)return;const d=result?.data||monthlyShipments(rows,movements,{month,months,destination}),totals=d.keys.map((_,i)=>d.groups.reduce((n,g)=>n+g.values[i],0)),max=Math.max(1,...totals),width=850,step=760/months;
   root.innerHTML=`<div class="wm-metrics">${[['Envios no mês',d.current,label(month),'fork'],['Mês anterior',d.previous,'Comparação mensal','phone'],['Variação',d.difference===null?(d.current?'Sem base anterior':'—'):(d.difference>0?'+':'')+d.difference+'%','Em relação ao mês anterior','chart'],['Envios no período',d.total,months+' meses selecionados','list']].map(([t,v,sub,g])=>`<article class="wm-metric">${icon(g)}<small>${t}</small><strong>${v}</strong><small>${sub}</small></article>`).join('')}</div>
   <section class="wm-panel"><header><div><h2>${icon('fork')} Envios de aparelhos por mês</h2><p>${d.partial?'Mês atual em andamento; meses anteriores completos.':'Comparação dos meses completos selecionados.'}</p></div><div class="wm-filters"><input type="month" id="warehouse-month" aria-label="Mês de referência" value="${month}" max="${warehouseDay(new Date()).slice(0,7)}"><select id="warehouse-range" aria-label="Período de comparação">${[3,6,12].map(n=>`<option value="${n}" ${months===n?'selected':''}>Últimos ${n} meses</option>`).join('')}</select><select id="monthly-destination" aria-label="Destino dos envios"><option value="">Todos os destinos</option>${d.destinations.map(g=>`<option value="${esc(g.id)}" ${g.id===destination?'selected':''}>${esc(g.name)}</option>`).join('')}</select></div></header>
   <svg class="wm-chart" viewBox="0 0 ${width} 240" role="img" aria-label="Envios mensais de aparelhos por destino">${[0,1,2,3,4].map(i=>{const v=Math.ceil(max/4)*i,y=195-v/(Math.ceil(max/4)*4)*160;return `<line x1="45" x2="830" y1="${y}" y2="${y}" stroke="#e3ebf3"/><text x="32" y="${y+4}" text-anchor="end">${v}</text>`;}).join('')}${d.keys.map((k,i)=>{let sum=0;return d.groups.map((g,j)=>{const v=g.values[i],h=v/(Math.ceil(max/4)*4)*160,y=195-(sum+v)/(Math.ceil(max/4)*4)*160;sum+=v;return `<rect x="${50+i*step+step*.2}" y="${y}" width="${step*.6}" height="${h}" rx="3" fill="${colors[j%colors.length]}"><title>${esc(g.name)} · ${label(k)}: ${v}</title></rect>`;}).join('')+`<text x="${50+i*step+step*.5}" y="220" text-anchor="middle">${label(k)}</text>`;}).join('')}</svg>
@@ -25,5 +27,5 @@ export function mountWarehouseMonthly(root,{icon,openHistory}){
   for(const id of ['warehouse-month','warehouse-range','monthly-destination'])root.querySelector('#'+id).onchange=()=>{const selected=root.querySelector('#warehouse-month').value;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(selected))return;month=selected;months=Number(root.querySelector('#warehouse-range').value);destination=root.querySelector('#monthly-destination').value;draw();};
   root.querySelector('#monthly-history').onclick=()=>openHistory(month,destination);
  }
- draw();return {update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;draw();}};
+ if(!repo?.real)draw();return {update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;if(!root.hidden)draw();}};
 }

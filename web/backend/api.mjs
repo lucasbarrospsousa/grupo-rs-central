@@ -1,3 +1,6 @@
+import {costView} from './cost-view.mjs';
+import {historyView} from './history-view.mjs';
+import {warehouseView} from './warehouse-view.mjs';
 import {devicePage} from './device-page.mjs';
 import {incrementalRead} from './incremental-read.mjs';
 import {scoped} from './remote-actions.mjs';
@@ -74,7 +77,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       const currentDevices=req.method==='POST'?await scoped(pool,user,async c=>(await c.query("select distinct data->>'iccid' as iccid from central_homologacao.devices where deleted_at is null and coalesce(data->>'status','')<>'Inativos'")).rows):devices;
       const costs=req.method==='POST'?await refreshCostSnapshots(pool,user,integrationService,currentDevices):await savedCostSnapshots(pool,user);
       const inventory=branch==='imperatriz'?await scoped(pool,user,async c=>(await c.query("select serial as iccid,usage_device_serial as serial from central_homologacao.warehouse_items where branch_id=$1 and kind='chip' and deleted_at is null",[branch])).rows):[];
-      reply(res,200,{...summarizeCosts(devices,costs,{allProviders:true}),billing:summarizeInvoices(costs),inventory_items:summarizeCosts(inventory,costs).items,branch});return true;
+      const result={...summarizeCosts(devices,costs,{allProviders:true}),billing:summarizeInvoices(costs),inventory_items:summarizeCosts(inventory,costs).items,branch};reply(res,200,url.searchParams.has('view')?costView(result,url.searchParams):result);return true;
     }
     if(url.pathname==='/api/deployment-token'){
       if(!permissions.owner)throw fail(403,'Somente o administrador principal pode renovar o token.');
@@ -162,11 +165,13 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
     const client=await pool.connect();
     try{
       await client.query(req.method==='GET'?'BEGIN ISOLATION LEVEL REPEATABLE READ':'BEGIN');await client.query("select set_config('central.user_id',$1,true)",[user.user_id]);
-      if(req.method==='GET'&&url.pathname==='/api/devices'&&['page','summary'].includes(url.searchParams.get('scope'))){const data=await devicePage(client,branch,url.searchParams);await client.query('COMMIT');res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
+      if(req.method==='GET'&&url.pathname==='/api/devices'&&['page','summary','lookup','serials','available'].includes(url.searchParams.get('scope'))){const data=await devicePage(client,branch,url.searchParams);await client.query('COMMIT');res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
+      if(req.method==='GET'&&url.pathname==='/api/warehouse'&&url.searchParams.has('view')){const data=await warehouseView(client,branch,url.searchParams);await client.query('COMMIT');res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
       if(req.method==='GET'&&(url.pathname==='/api/warehouse'||url.pathname==='/api/devices'&&!url.searchParams.has('scope'))){
         const data=await incrementalRead(client,branch,url.pathname==='/api/devices'?'devices':'warehouse',url.searchParams.get('since'));
         await client.query('COMMIT');res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;
       }
+      if(req.method==='GET'&&url.pathname==='/api/history'&&url.searchParams.has('view')){const data=await historyView(client,branch,url.searchParams);await client.query('COMMIT');res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
       if(req.method==='GET'&&['/api/history','/api/warehouse'].includes(url.pathname)){
         const rows=url.pathname==='/api/history'?(await client.query('select source_id as id,source_table,branch_id,data from central_homologacao.legacy_records where branch_id=$1',[branch])).rows:
           (await client.query("select id,branch_id as branch,kind,serial,status,classification,received_at,version,activation_batch,activation_state,activation_at,activation_reference,chip_provider,chip_operator,chip_phone,usage_device_serial,usage_branch,usage_detected_at,(select d.data->>'iccid' from central_homologacao.devices d where d.serial=warehouse_items.usage_device_serial and d.branch_id=warehouse_items.usage_branch and d.deleted_at is null limit 1) as linked_iccid from central_homologacao.warehouse_items where branch_id='imperatriz' and branch_id in (select branch_id from central_homologacao.memberships where user_id=$1) and deleted_at is null order by received_at desc",[user.user_id])).rows;

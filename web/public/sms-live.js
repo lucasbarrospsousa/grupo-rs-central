@@ -38,8 +38,9 @@ export function mountSmsLive({repo,branch,notify}){
  const root=document.querySelector('#page'),panel=root.smsPanel,refresh=root.querySelector('#sms-refresh');if(!panel)return;let busy=false;
  const alive=()=>refresh.isConnected&&root.smsPanel===panel;
  if(repo.smsSubmissionResult?.branch===branch){panel.result(repo.smsSubmissionResult);delete repo.smsSubmissionResult;}
+ const operations='integrations/operations?branch='+branch,cached=repo.peekView?.(branch,operations);if(cached)panel.setRows(cached.rows.filter(r=>r.kind==='sms'));
  async function update(){if(busy||!alive())return;busy=true;refresh.disabled=true;
-  const results=await Promise.allSettled([repo.request('integrations/operations?branch='+branch),repo.request('integrations/gateway?branch='+branch)]);
+  const results=await Promise.allSettled([repo.readView?repo.readView(branch,operations):repo.request(operations),repo.request('integrations/gateway?branch='+branch)]);
   if(!alive())return;
   const [data,health]=results;
   if(data.status==='fulfilled')panel.setRows(data.value.rows.filter(r=>r.kind==='sms'));

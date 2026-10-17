@@ -1,3 +1,4 @@
+import {savedView} from './saved-view.js';
 import {overviewData} from './warehouse-overview-model.js';
 import {warehouseDay} from './warehouse-model.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -9,11 +10,12 @@ import {cachedWarehouseCosts,loadWarehouseCosts} from './warehouse-cost-cache.js
 export {cachedWarehouseCosts} from './warehouse-cost-cache.js';
 export function mountWarehouseOverview(root,{repo,navigate,newItem}){
  let rows=[],movements=[],month=warehouseDay(new Date()).slice(0,7),recentKind='device',busy=false,error='',loaded=false;
+ const remote=repo.real?savedView(repo,repo.currentBranch,'warehouse',root,draw):null;
  const canCost=repo.real&&repo.user?.permissions?.owner;
  const cached=()=>cachedWarehouseCosts(repo);
  const metric=(title,value,sub,glyph,tone,action)=>`<button class="wo-kpi ${tone}" data-wo-action="${action}"><span class="wo-icon-tile">${icon(glyph)}</span><span><small>${title}</small><strong>${value}</strong><em>${sub}</em></span></button>`;
  async function costs(){if(busy||!canCost)return;busy=true;error='';draw();try{await loadWarehouseCosts(repo);}catch(e){error=e.message;}finally{busy=false;if(root.isConnected)draw();}}
- function draw(){if(!root.isConnected)return;const data=overviewData(rows,movements,month),cost=cached();
+ function draw(){if(!root.isConnected)return;const result=remote?.get({view:'overview',month});if(remote&&!result)return;const data=result?.data||overviewData(rows,movements,month),cost=cached();
  root.innerHTML=`<div class="wo-metrics">
  ${metric('Aparelhos disponíveis',num(data.available),'Prontos para distribuição','box','blue','devices')}
  ${metric('Enviados / identificados',num(data.sent),'Aparelhos no mês selecionado','send','teal','movements')}
@@ -31,7 +33,7 @@ export function mountWarehouseOverview(root,{repo,navigate,newItem}){
  root.querySelectorAll('[data-wo-chip]').forEach(b=>b.onclick=()=>navigate('chips',b.dataset.woChip));
  root.querySelectorAll('[data-wo-kind]').forEach(b=>b.onclick=()=>{recentKind=b.dataset.woKind;draw();});
  }
- return {update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;draw();if(!loaded&&canCost){loaded=true;if(!cached())costs();}}};
+ return {update(nextRows,nextMovements){rows=nextRows;movements=nextMovements;if(root.hidden)return;draw();if(!loaded&&canCost){loaded=true;if(!cached())costs();}}};
 }
 function chart(data){const max=Math.max(1,...data.daily.map(d=>d.counts.reduce((a,b)=>a+b,0))),w=840,h=200,left=32,top=14,bottom=166,width=792,step=width/Math.max(1,data.daily.length),bar=Math.min(24,step*.62);let svg=`<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Envios diários de aparelhos por destino"><title>Envios de aparelhos no mês</title>`;for(let i=0;i<=4;i++){const v=Math.ceil(max/4)*i,y=bottom-(bottom-top)*v/(Math.ceil(max/4)*4);svg+=`<line x1="${left}" x2="824" y1="${y}" y2="${y}" stroke="#e8eff6"/><text x="24" y="${y+4}" text-anchor="end">${v}</text>`;}
  const scale=(bottom-top)/(Math.ceil(max/4)*4);data.daily.forEach((d,i)=>{let sum=0;d.counts.forEach((count,j)=>{const height=count*scale;svg+=`<rect x="${left+i*step+(step-bar)/2}" y="${bottom-(sum+count)*scale}" width="${bar}" height="${height}" rx="2" fill="${colors[j%colors.length]}"><title>${esc(data.destinations[j].name)} • ${d.key}: ${count}</title></rect>`;sum+=count;});if(i===0||i===data.daily.length-1||i%Math.ceil(data.daily.length/9)===0)svg+=`<text x="${left+(i+.5)*step}" y="189" text-anchor="middle">${String(d.day).padStart(2,'0')}</text>`;});return svg+'</svg>';}
