@@ -1,5 +1,5 @@
 const pauseMs=750,minIntervalMs=2500,cacheMs=5*60000;
-export function mountOwnerSearch(host,{repo,branch,input,onSelect}){
+export function mountOwnerSearch(host,{repo,branch,input,onSelect,manual=false}){
  host.className='stock-owner-search';
  host.innerHTML='<select aria-label="Selecionar titular" hidden></select><span role="status"></span>';
  const select=host.querySelector('select'),status=host.querySelector('span'),cache=new Map(),bindings=new Map();
@@ -26,9 +26,11 @@ export function mountOwnerSearch(host,{repo,branch,input,onSelect}){
   catch(e){if(current(id,q))status.textContent='Consulta pendente: '+e.message;}
   finally{busy=false;}
  }
- function changed(){revision++;clearTimeout(timer);select.hidden=true;select.disabled=false;status.textContent='';if(!composing&&eligible(text()))schedule();}
+ function changed(){revision++;clearTimeout(timer);select.hidden=true;select.disabled=false;status.textContent='';if(!manual&&!composing&&eligible(text()))schedule();}
  const clear=()=>input.dispatchEvent(new Event('input'));
  const clearButton=host.closest('section')?.querySelector('#stock-clear');clearButton?.addEventListener('click',clear);
+ const submitted=()=>{changed();if(eligible(text()))schedule(1300);};
+ input.addEventListener('stock-search',submitted);
  input.addEventListener('input',changed);
  input.addEventListener('compositionstart',()=>{composing=true;changed();});
  input.addEventListener('compositionend',()=>{composing=false;changed();});
@@ -46,6 +48,6 @@ export function mountOwnerSearch(host,{repo,branch,input,onSelect}){
   finally{if(current(id,q))select.disabled=false;}
  }
  select.onchange=()=>{const option=select.selectedOptions[0];if(option?.value)void choose({id:option.value,name:option.dataset.name});};
- const observer=new MutationObserver(()=>{if(!host.isConnected){stopped=true;revision++;clearTimeout(timer);observer.disconnect();clearButton?.removeEventListener('click',clear);input.removeEventListener('input',changed);cache.clear();bindings.clear();}});
+ const observer=new MutationObserver(()=>{if(!host.isConnected){stopped=true;revision++;clearTimeout(timer);observer.disconnect();clearButton?.removeEventListener('click',clear);input.removeEventListener('input',changed);input.removeEventListener('stock-search',submitted);cache.clear();bindings.clear();}});
  observer.observe(document.body,{childList:true,subtree:true});
 }

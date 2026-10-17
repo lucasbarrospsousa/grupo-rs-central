@@ -168,3 +168,7 @@ body.central-ui #modal.location-dialog{width:min(1280px,94vw);padding:20px;overf
 .location-pin-popup .pin-field .location-glyph{width:13px;height:13px;flex-basis:13px;color:#6389b0}
 .location-pin-popup .pin-field b{margin-top:5px;font-size:15px}
 .stock-location-map .stock-map-pin{display:flex;align-items:center;justify-content:center}
+
+/* Explicit search: draft filters do not fetch until submitted. */
+.stock-search-row #stock-status{width:210px;flex:0 0 210px;height:44px;border:1px solid #cbdcf0;border-radius:10px;background:#fff;color:#173c60;padding:0 12px;font:inherit}.stock-search-row #stock-search-submit{white-space:nowrap}.stock-status-filters{color:#6481a3;font-size:14px}
+@media(max-width:1250px){.stock-search-row{flex-wrap:wrap}.stock-search-row .stock-search{flex-basis:100%}}
