@@ -1,8 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {validateConfigurator,configuredData,configuratorFetch} from '../backend/configurator.mjs';
 const payload={action:'save',branch:'imperatriz',serial:'024999991',iccid:'8955000000000000001',phone:'99999999999',operator:'CLARO',version:0,key:'11111111-1111-1111-1111-111111111111'};
-test('all branches accept any nine-digit serial prefix in preflight and save',()=>{
- for(const branch of ['imperatriz','araguaina','acailandia','maraba'])for(const serial of ['024999991','040999991','123999991','000999991'])for(const action of ['preflight','save']){
+test('all branches accept nine-digit serial or full 15-digit identity without a prefix restriction in preflight and save',()=>{
+ for(const branch of ['imperatriz','araguaina','acailandia','maraba'])for(const serial of ['024999991','040999991','123999991','000999991','862874040181815','000000040181815'])for(const action of ['preflight','save']){
   validateConfigurator({...payload,branch,serial,action});
   assert.equal(configuredData(null,{...payload,branch,serial}).serial,serial);
  }

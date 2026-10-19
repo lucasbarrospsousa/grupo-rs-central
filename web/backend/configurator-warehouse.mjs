@@ -2,12 +2,12 @@ import {randomUUID} from 'node:crypto';
 const fail=message=>Object.assign(Error(message),{status:409});
 // Run in the caller's transaction after the device write has been confirmed.
 export async function consumeConfiguredChip(c,{branch,serial,iccid,userId}){
- const item=(await c.query("select id,branch_id,status,version from central_homologacao.warehouse_items where kind='chip' and serial=$1 and deleted_at is null for update",[iccid])).rows[0];
+ const item=(await c.query("select id,branch_id,status,version,usage_device_serial,usage_branch from central_homologacao.warehouse_items where kind='chip' and serial=$1 and deleted_at is null for update",[iccid])).rows[0];
  if(!item)return {found:false,changed:false}; // A chip may legitimately come from outside the warehouse.
  const devices=(await c.query("select serial,branch_id from central_homologacao.devices where data->>'iccid'=$1 and deleted_at is null",[iccid])).rows;
  if(devices.length!==1||devices[0].serial!==serial||devices[0].branch_id!==branch)throw fail('Uso do chip não confirmado em um único aparelho da filial.');
- if(item.status==='Utilizado')return {found:true,changed:false,status:'Utilizado'};
- if(!['Disponível','Enviado'].includes(item.status))throw fail('Chip já foi movimentado. Confira o destino antes de utilizar.');
+ if(item.status==='Utilizado'&&item.usage_device_serial===serial&&item.usage_branch===branch)return {found:true,changed:false,status:'Utilizado'};
+ if(!['Disponível','Enviado','Utilizado'].includes(item.status))throw fail('Chip já foi movimentado. Confira o destino antes de utilizar.');
  const movementId=randomUUID();
  await c.query("update central_homologacao.warehouse_items set status='Utilizado',usage_device_serial=$2,usage_branch=$3,usage_detected_at=now(),version=version+1 where id=$1",[item.id,serial,branch]);
  await c.query('insert into central_homologacao.warehouse_movements(id,user_id,branch_id,destination,note,items) values($1,$2,$3,$4,$5,$6)',[movementId,userId,item.branch_id,`${branch} • Aparelho ${serial}`,'Uso confirmado pelo Configurador RS300',JSON.stringify([{id:item.id,serial:iccid,kind:'chip',action:'Utilizado',device_serial:serial}])]);

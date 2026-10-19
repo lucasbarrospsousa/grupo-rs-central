@@ -6,7 +6,7 @@ function fixture(){
  const client={release(){},async query(sql,a=[]){
   const rows=x=>({rows:x,rowCount:x.length});
   if(['BEGIN','COMMIT','ROLLBACK'].includes(sql)||sql.startsWith('select set_config')||sql.startsWith('select pg_advisory'))return rows([]);
-  if(sql.startsWith('select role'))return rows(state.role?[{role:state.role}]:[]);
+  if(sql.startsWith('select role'))return rows(state.role?[{role:a[1]===p.branch?state.role:(state.originRole||state.role)}]:[]);
   if(sql.startsWith('select fingerprint'))return rows(state.requests.has(a[1])?[state.requests.get(a[1])]:[]);
   if(sql.startsWith('select id,branch_id,serial'))return rows(state.device?[state.device]:[]);
   if(sql.startsWith('insert into central_homologacao.requests')){state.requests.set(a[1],{fingerprint:a[2],response:a[3]});return rows([]);}
@@ -39,7 +39,7 @@ test('platform mismatch retains pending and never writes device; incompatible re
 test('prepare preserves branch and version checks',async()=>{
  const f=fixture(),user={user_id:'synthetic'};
  f.state.role='reader';await assert.rejects(configuratorOperation(f.pool,user,p,f.service),e=>e.status===403);
- f.state.role='operator';f.state.device={branch_id:'maraba',version:0};await assert.rejects(configuratorOperation(f.pool,user,p,f.service),e=>e.status===409);
+ f.state.role='operator';f.state.originRole='reader';f.state.device={branch_id:'maraba',version:0,data:{}};await assert.rejects(configuratorOperation(f.pool,user,p,f.service),e=>e.status===403);
  f.state.device={branch_id:'imperatriz',version:2};await assert.rejects(configuratorOperation(f.pool,user,p,f.service),e=>e.status===409);
  assert.equal(f.state.requests.size,0);
 });

@@ -1,4 +1,5 @@
 import {arrangeStockLayout,arrangeStockRowActions} from './stock-layout.js';
+import {savedStockWatch} from './saved-stock-watch.js';
 import {isReader} from './access-control.js';
 import {mountOwnerSearch} from './stock-owner-search.js';
 import {setupAutoLink} from './auto-link.js';
@@ -165,5 +166,19 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   for(const k of ['query','start','end'])document.querySelector('#stock-'+k).value=model[k];
   if(repo.real)mountOwnerSearch(document.querySelector('#stock-owner-search'),{repo,branch,input:document.querySelector('#stock-query'),manual:true,onSelect:rows=>{for(const owner of rows){const row=repo.devices?.find(r=>r.branch===branch&&r.serial===owner.serial);if(row&&stockOwnerName({...row,owner_binding:owner},branch))row.owner_binding=owner;}ownerSerials=new Set(rows.map(r=>r.serial));model.page=1;draw();}});
   draw();
+  if(repo.real){
+    const stop=savedStockWatch({
+      active:()=>bodyHost.isConnected&&document.querySelector('#stock-body')===bodyHost&&!document.hidden&&navigator.onLine!==false&&!!repo.user&&!document.querySelector('#modal[open]'),
+      read:async()=>{
+        if(!remoteResult)return false;
+        const key=repo.stockQuery(branch,remoteModel()),previous=repo.peekStockPage(branch,remoteModel());
+        const result=await repo.readStockPage(branch,remoteModel());
+        if(key!==repo.stockQuery(branch,remoteModel())||!bodyHost.isConnected)return false;
+        return result.rows!==previous?.rows;
+      },changed:draw
+    });
+    const watcher=new MutationObserver(()=>{if(!bodyHost.isConnected){stop();watcher.disconnect();}});
+    watcher.observe(document.body,{childList:true,subtree:true});
+  }
   linking.start();
 }
