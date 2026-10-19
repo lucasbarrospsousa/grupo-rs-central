@@ -21,3 +21,5 @@ A lista visível verifica alterações salvas a cada 10 segundos, sem chamar API
 Identificadores aceitos pelo endpoint: texto numérico de 9 ou 15 dígitos, sem restrição de prefixo; zeros iniciais são preservados.
 
 Validação: `node --test web/tests/configurator.test.mjs web/tests/configurator-pending.test.mjs web/tests/saved-stock-watch.test.mjs`; `node web/tools/test-configurator-transfer.mjs` e `node web/tools/test-configurator-transfer.mjs --runtime`. Os testes SQL usam dados fictícios em transação com rollback, plataforma simulada e nenhum comando ao aparelho. O teste administrativo confere auditoria/observações; o de runtime usa as permissões SQL da aplicação e não amplia acesso ao histórico.
+
+A migração 059 também arquiva os códigos internos da plataforma de origem junto à observação e os retira do cache ativo. A próxima consulta resolve os códigos no destino; não são reutilizados códigos de outra base. Teste adicional: `node --test web/tests/configurator-warehouse.test.mjs`.

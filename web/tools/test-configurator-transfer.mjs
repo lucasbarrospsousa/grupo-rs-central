@@ -15,12 +15,14 @@ const adapter={connect:async()=>({release(){},query:(sql,args)=>c.query(sql==='B
 try{
  await c.query('BEGIN');await c.query("SET LOCAL lock_timeout='3s'");await c.query("SET LOCAL statement_timeout='15s'");
  if(!runtime && !(await c.query('select 1 from central_homologacao.migrations where version=58')).rowCount)await c.query((await readFile(new URL('../migrations/058_configurator_transfer.sql',import.meta.url),'utf8')).replace(/^BEGIN;/,'').replace(/COMMIT;\s*$/,''));
+ if(!runtime && !(await c.query('select 1 from central_homologacao.migrations where version=59')).rowCount)await c.query((await readFile(new URL('../migrations/059_transfer_platform_codes.sql',import.meta.url),'utf8')).replace(/^BEGIN;/,'').replace(/COMMIT;\s*$/,''));
  await c.query("select set_config('central.user_id',$1,true)",[uid]);
- const serial=String(randomInt(700000000,799999999)),id=randomUUID(),iccid='89'+String(randomInt(100000000,999999999))+String(randomInt(100000000,999999999));
+ const serial='862874'+String(randomInt(700000000,799999999)),id=randomUUID(),iccid='89'+String(randomInt(100000000,999999999))+String(randomInt(100000000,999999999));
  assert.equal((await c.query("select 1 from central_homologacao.devices where serial=$1 or data->>'iccid'=$2",[serial,iccid])).rowCount,0);
  await c.query("insert into central_homologacao.devices(id,branch_id,serial,data) values($1,'acailandia',$2,$3)",[id,serial,{status:'Instalado',plate:'TEST000',client:'Synthetic origin',model:'V7.3.5',iccid,owner_binding:{client:'Synthetic origin'},remote_vehicle_id:'old-platform'}]);
  if(!runtime)await c.query("insert into central_homologacao.device_observations(device_id,branch_id,cycle,data) values($1,'acailandia',0,$2)",[id,{location:{ok:true},chip:{ok:true}}]);
  await c.query("select set_config('central.user_id',$1,true)",[uid]);
+ if(!runtime)await c.query("insert into central_homologacao.device_codes(device_id,serial,equipment_id,vehicle_id,state) values($1,$2,'123','456','confirmed')",[id,serial]);
  const user={user_id:uid},service={equipmentPortal:async(branch,s)=>{calls++;return {serial:s,iccid,phone:'99999999999'};}};
  let branch='imperatriz',version=1;
  for(const destination of ['imperatriz','araguaina','maraba','acailandia']){
@@ -43,6 +45,7 @@ try{
   passed++;if(!runtime)assert.equal((await c.query("select count(*)::int as n from central_homologacao.audit_events where entity_id=$1 and action='RS300_CONFIGURATOR_TRANSFER'",[id])).rows[0].n,2*passed);
  }
  if(!runtime)assert.equal((await c.query("select details->'observation'->'data'->'location'->>'ok' as ok from central_homologacao.audit_events where entity_id=$1 and action='RS300_CONFIGURATOR_TRANSFER' and details->>'previousVersion'='1' limit 1",[id])).rows[0].ok,'true');
+ if(!runtime){assert.equal((await c.query('select 1 from central_homologacao.device_codes where device_id=$1',[id])).rowCount,0);assert.equal((await c.query("select details->'observation'->'previous_device_codes'->>'equipment_id' as code from central_homologacao.audit_events where entity_id=$1 and action='RS300_CONFIGURATOR_TRANSFER' and details->>'previousVersion'='1' limit 1",[id])).rows[0].code,'123');}
  assert.equal((await c.query('select 1 from central_homologacao.device_observations where device_id=$1',[id])).rowCount,0);
  // A fresh attempt with an old version cannot overwrite the successful transfer.
  await assert.rejects(configuratorOperation(adapter,{user_id:uid},{action:'save',branch:'imperatriz',serial,iccid,phone:'99999999999',operator:'CLARO',version:1,key:randomUUID()},service),e=>e.status===409);
