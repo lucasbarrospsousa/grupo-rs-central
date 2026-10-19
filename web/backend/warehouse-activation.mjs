@@ -15,6 +15,7 @@ export async function warehouseActivation(c,{body,branch,role,service}){
   const rows=(await c.query("select * from central_homologacao.warehouse_items where id=any($1::uuid[]) and branch_id='imperatriz' and deleted_at is null order by id for update",[body.ids])).rows;
   let selected;try{selected=activationSelection(rows,body.ids,body.size);}catch(e){throw fail(409,e.message);}
   const serials=selected.map(r=>r.serial);
+  if(!Array.isArray(body.iccids)||body.iccids.length!==serials.length||new Set(body.iccids).size!==serials.length||!serials.every(x=>body.iccids.includes(x)))throw fail(409,'A seleção mudou ou a página está desatualizada. Recarregue e confira os ICCIDs.');
   const duplicates=await c.query('select id from central_homologacao.warehouse_items where serial=any($1::text[]) and activation_state is not null',[serials]);
   if(duplicates.rowCount)throw fail(409,'Um desses ICCIDs já pertence a um lote. Nenhuma nova reserva criada.');
   for(const r of selected){
@@ -22,6 +23,7 @@ export async function warehouseActivation(c,{body,branch,role,service}){
    if(chip?.ok!==true||chip.iccid!==r.serial||chip.provider!=='arya'||!pending(chip.status))throw fail(409,'Chip '+r.serial+': situação pendente não confirmada. Nenhum lote criado.');
   }
   const id=randomUUID();
+  await c.query("insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values('imperatriz',current_setting('central.user_id')::uuid,'CONFIRM_ARYA_SELECTION',$1,$2)",[id,{count:selected.length,ids:selected.map(r=>r.id),iccids:serials}]);
   await c.query("update central_homologacao.warehouse_items set activation_batch=$2,activation_state='prepared',activation_at=now(),classification='Reserva',version=version+1 where id=any($1::uuid[])",[body.ids,id]);
   return{id,response:{ok:true,id,count:selected.length,state:'prepared',iccids:serials}};
  }

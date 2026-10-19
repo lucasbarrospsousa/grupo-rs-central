@@ -12,9 +12,10 @@ export async function sendWarehouseActivation({pool,user,role,branch,body,servic
   if(!rows.length||rows.length>20)throw fail(409,'Lote não encontrado ou fora do limite.');
   if(rows.some(r=>['sending','uncertain'].includes(r.activation_state)))return [];
   rows=rows.filter(r=>r.activation_state==='prepared');if(!rows.length)return [];
+  if(!Array.isArray(body.iccids)||body.iccids.length!==rows.length||new Set(body.iccids).size!==rows.length||!rows.every(r=>body.iccids.includes(r.serial)))throw fail(409,'ICCIDs do lote diferentes da seleção confirmada. Recarregue e revise antes de enviar.');
   if(rows.some(r=>r.deleted_at||r.kind!=='chip'||r.chip_provider!=='arya'||r.status!=='Disponível'||!/^89\d{17,18}$/.test(r.serial)))throw fail(409,'O lote mudou. Confira os chips.');
   await c.query("update central_homologacao.warehouse_items set activation_state='sending',activation_at=now(),version=version+1 where id=any($1::uuid[])",[rows.map(r=>r.id)]);
-  await c.query("insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values('imperatriz',$1,'PREPARE_ARYA_ACTIVATION',$2,$3)",[user.user_id,batch,{count:rows.length}]);
+  await c.query("insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values('imperatriz',$1,'PREPARE_ARYA_ACTIVATION',$2,$3)",[user.user_id,batch,{count:rows.length,iccids:rows.map(r=>r.serial)}]);
   return rows;
  });
  if(!items.length)return {ok:true,state:'pending',message:'Este lote já possui tentativa registrada. Use Conferir ativação; nenhum reenvio foi feito.'};
@@ -36,6 +37,6 @@ export async function sendWarehouseActivation({pool,user,role,branch,body,servic
  let accepted=false;
  try{accepted=(await submitAryaActivation(service,selected.map(r=>r.serial))).accepted;}catch{/* No retry: provider may have accepted the job. */}
  await update(selected.map(r=>r.id),accepted?'requested':'uncertain',accepted?'Fila Árya aceita':'Resposta não confirmada');
- await tx(c=>c.query("insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values('imperatriz',$1,'SUBMIT_ARYA_ACTIVATION',$2,$3)",[user.user_id,batch,{count:selected.length,accepted,skipped}]));
+ await tx(c=>c.query("insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values('imperatriz',$1,'SUBMIT_ARYA_ACTIVATION',$2,$3)",[user.user_id,batch,{count:selected.length,accepted,skipped,iccids:selected.map(r=>r.serial)}]));
  return {ok:true,state:accepted?'requested':'uncertain',sent:selected.length,skipped,message:accepted?`Lote enviado à fila da Árya: ${selected.length} chips. ${skipped} já pendentes foram ignorados. Aguarde a operadora.`:'Resposta do envio não confirmada. Lote bloqueado contra reenvio; use Conferir ativação.'};
 }

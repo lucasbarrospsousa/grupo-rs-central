@@ -1,3 +1,11 @@
+## Ativação: seleção exata e revisão — 19/10/2026
+
+Limite de lote não completa a seleção: somente os IDs e ICCIDs explicitamente selecionados e revisados são preparados. A confirmação apresenta quantidade e todos os ICCIDs. A interface compara o retorno da preparação com a seleção congelada; diferenças bloqueiam o envio. O servidor também exige correspondência exata dos ICCIDs na preparação e antes da cerca de envio. Clientes antigos precisam recarregar a página.
+
+A seleção é limpa após sucesso, cancelamento, erro, troca de página, filtro ou aba. Solicitações simultâneas no mesmo adaptador são bloqueadas; atualização do painel pai não reconstrói o componente durante a operação. Lotes preparados no histórico são relidos e revisados antes de enviar. A auditoria registra IDs/ICCIDs confirmados e ICCIDs enviados; não reescreve registros antigos. Nenhuma reativação ou cancelamento retroativo foi realizado.
+
+Validação sem provedores reais: testes `warehouse-activation*.test.mjs`, `test-activation-selection-ui.mjs` (51 chips fictícios selecionados manualmente em 10+10+10+10+10+1 com limite 20, 51 únicos) e `test-warehouse-tabs-ui.mjs`. Reproduzidas antes da correção: seleção retida após erro e ausência de comparação dos ICCIDs retornados na preparação. Essas brechas não estabelecem a causa histórica dos envios anteriores.
+
 ## Armazém: consultas SQL e navegação parcial — 19/10/2026
 
 Visão geral, movimentações e análise mensal agregam e filtram no SQL, usando o papel runtime e as mesmas regras por filial. A página de movimentações recebe até oito registros; contagens, destinos e pesquisa consideram toda a base autorizada. Aparelhos e chips mantêm a paginação SQL existente. Deduplicação de envio/detecção na visão geral e contagem de cada envio na análise mensal continuam distintas. Sem migração ou alteração de dados.

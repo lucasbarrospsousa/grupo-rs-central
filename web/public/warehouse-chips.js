@@ -27,13 +27,13 @@ export function mountWarehouseChips(root,{repo,icon,onUpdate=()=>{},onDetail,onC
  const option=(value,text,current)=>`<option value="${value}" ${value===current?'selected':''}>${text}</option>`;
  async function request(){
   if(busy||!canWrite()||!selected.size)return;
-  busy=true;message='Conferindo chips e solicitando ativação…';draw();
-  try{const result=await requestActivationLot(repo,[...selected],size);message=result.message||'Solicitação registrada. Acompanhe a confirmação da ativação.';}
+  const ids=[...selected];busy=true;message='Conferindo chips e solicitando ativação…';draw();
+  try{const result=await requestActivationLot(repo,ids,size);message=result.message||'Solicitação registrada. Acompanhe a confirmação da ativação.';}
   catch(e){message=e.message+' Confira o acompanhamento antes de tentar novamente.';}
   finally{selected.clear();busy=false;rows=repo.warehouse;if(root.isConnected){draw();onUpdate();}}
  }
  function draw(){
-  if(!root.isConnected||root.hidden)return;
+  if(!root.isConnected||root.hidden||activation?.busy)return;
   const result=remote?.get({view:'chips',...filters,page});if(remote&&!result)return;const inventory=result?.rows||rows;
   const available=rows.filter(r=>r.kind==='chip'&&r.status==='Disponível'),list=result?.rows||filterChips(rows,filters),costs=prices?.get({view:'prices',iccids:(result?.rows||[]).slice(0,7).map(r=>r.serial).join(',')})||cachedWarehouseCosts(repo);
   selected=new Set([...selected].filter(id=>canWrite()&&rows.some(r=>r.id===id&&activationCandidate(r))));
@@ -46,19 +46,19 @@ export function mountWarehouseChips(root,{repo,icon,onUpdate=()=>{},onDetail,onC
   }).join('')||'<tr><td colspan="7" class="empty">Nenhum chip encontrado para estes filtros.</td></tr>'}</tbody></table></div>
   <div class="wc-selection"><div><strong>${chipIcon('check')} ${selected.size} chips selecionados</strong><select id="ci-size" aria-label="Tamanho do lote de ativação" ${busy?'disabled':''}>${[10,20].map(n=>option(String(n),'Lote: até '+n,String(size))).join('')}</select><button id="ci-request" class="primary" ${!canWrite()||busy||!selected.size?'disabled':''}>${chipIcon('bolt')} ${busy?'Processando…':'Solicitar ativação do lote'}</button><button class="wc-link" id="ci-clear" ${busy||!selected.size?'disabled':''}>Limpar seleção</button></div><div class="wc-bottom"><small>Chips com solicitação pendente não serão reenviados.</small><button class="wc-link" id="ci-history">Acompanhar ativações →</button><span class="wc-pager"><small>Mostrando ${(result?.total??list.length)?page*7+1:0}–${Math.min((page+1)*7,result?.total??list.length)} de ${result?.total??list.length} chips</small><button id="ci-prev" aria-label="Página anterior" ${page===0?'disabled':''}>‹</button><b>${page+1}</b><button id="ci-next" aria-label="Próxima página" ${(page+1)*7>=(result?.total??list.length)?'disabled':''}>›</button></span></div></div>
   <p class="wc-message" role="status">${esc(message||(!repo.real?'Demonstração: solicitações de ativação desabilitadas.':''))}</p></section><section class="wc-panel wc-billing" ${section!=='billing'?'hidden':''}></section><section class="wc-panel wc-activation" ${section!=='activation'?'hidden':''}></section>`;
-  root.querySelectorAll('[data-ci-section]').forEach(b=>b.onclick=()=>{section=b.dataset.ciSection;draw();});
+  root.querySelectorAll('[data-ci-section]').forEach(b=>b.onclick=()=>{if(busy||activation?.busy)return;selected.clear();activation?.clearSelection();section=b.dataset.ciSection;draw();});
   if(section==='billing')mountChipBilling(root.querySelector('.wc-billing'),{repo,icon});
   if(section==='activation'){activation=mountWarehouseActivation(root.querySelector('.wc-activation'),{repo,icon,onUpdate,idPrefix:'chips-'});activation.update(inventory);}
 
-  root.querySelectorAll('[data-ci-category]').forEach(b=>b.onclick=()=>{section='inventory';filters.category=b.dataset.ciCategory;page=0;draw();});
-  for(const [id,key] of [['ci-category','category'],['ci-provider','provider'],['ci-status','status']])root.querySelector('#'+id).onchange=e=>{filters[key]=e.target.value;page=0;draw();};
-  root.querySelector('#ci-search').oninput=e=>{filters.query=e.target.value;page=0;const position=e.target.selectionStart;draw();const input=root.querySelector('#ci-search');input.focus();input.setSelectionRange(position,position);};
+  root.querySelectorAll('[data-ci-category]').forEach(b=>b.onclick=()=>{selected.clear();activation?.clearSelection();section='inventory';filters.category=b.dataset.ciCategory;page=0;draw();});
+  for(const [id,key] of [['ci-category','category'],['ci-provider','provider'],['ci-status','status']])root.querySelector('#'+id).onchange=e=>{selected.clear();filters[key]=e.target.value;page=0;draw();};
+  root.querySelector('#ci-search').oninput=e=>{selected.clear();filters.query=e.target.value;page=0;const position=e.target.selectionStart;draw();const input=root.querySelector('#ci-search');input.focus();input.setSelectionRange(position,position);};
   root.querySelectorAll('[data-ci-id]').forEach(c=>c.onchange=()=>{if(!busy&&canWrite()){if(c.checked&&selected.size<size)selected.add(c.dataset.ciId);else selected.delete(c.dataset.ciId);}draw();});
   root.querySelector('#ci-select-page').onchange=e=>{if(busy||!canWrite())return;for(const r of visible.filter(activationCandidate)){if(!e.target.checked)selected.delete(r.id);else if(selected.size<size)selected.add(r.id);}draw();};
   const eligiblePage=visible.filter(activationCandidate),selectedPage=eligiblePage.filter(r=>selected.has(r.id)).length;
   root.querySelector('#ci-select-page').indeterminate=selectedPage>0&&selectedPage<eligiblePage.length;
   root.querySelector('#ci-size').onchange=e=>{size=Number(e.target.value);selected.clear();draw();};root.querySelector('#ci-clear').onclick=()=>{selected.clear();draw();};root.querySelector('#ci-request').onclick=request;
-  root.querySelector('#ci-prev').onclick=()=>{page--;draw();};root.querySelector('#ci-next').onclick=()=>{page++;draw();};root.querySelector('#ci-history').onclick=()=>{section='activation';draw();};
+  root.querySelector('#ci-prev').onclick=()=>{selected.clear();page--;draw();};root.querySelector('#ci-next').onclick=()=>{selected.clear();page++;draw();};root.querySelector('#ci-history').onclick=()=>{section='activation';draw();};
   root.querySelectorAll('.wc-row-actions details').forEach(details=>{
    const menu=details.querySelector('.wc-menu'),trigger=details.querySelector('summary');
    trigger.onclick=e=>{e.preventDefault();if(menu.matches(':popover-open')){menu.hidePopover();return;}details.open=true;menu.showPopover();const anchor=trigger.getBoundingClientRect(),box=menu.getBoundingClientRect();menu.style.left=Math.max(8,Math.min(anchor.right-box.width,innerWidth-box.width-8))+'px';menu.style.top=Math.max(8,anchor.bottom+box.height+8>innerHeight?anchor.top-box.height-6:anchor.bottom+6)+'px';};
@@ -68,5 +68,5 @@ export function mountWarehouseChips(root,{repo,icon,onUpdate=()=>{},onDetail,onC
   root.querySelectorAll('[data-ci-classify]').forEach(s=>s.onchange=()=>{s.disabled=true;onClassify(s.dataset.ciClassify,s.value);});
   root.querySelectorAll('[data-ci-remove]').forEach(b=>b.onclick=()=>onRemove(b.dataset.ciRemove));
  }
- return {update(next){rows=next;if(root.hidden)return;if(!busy){if(section==='activation'&&activation)activation.update(rows);else if(section!=='billing'||!root.querySelector('#cb-search'))draw();}if(!loadingCosts&&!cachedWarehouseCosts(repo)&&repo.real&&repo.user?.permissions?.owner){loadingCosts=true;loadWarehouseCosts(repo).then(()=>{if(section==='inventory'&&!busy)draw();}).catch(()=>{});}},filter(category){section='inventory';filters.category=category;page=0;draw();}};
+ return {clearSelection(){selected.clear();activation?.clearSelection();},update(next){rows=next;if(root.hidden)return;if(!busy){if(section==='activation'&&activation)activation.update(rows);else if(section!=='billing'||!root.querySelector('#cb-search'))draw();}if(!loadingCosts&&!cachedWarehouseCosts(repo)&&repo.real&&repo.user?.permissions?.owner){loadingCosts=true;loadWarehouseCosts(repo).then(()=>{if(section==='inventory'&&!busy)draw();}).catch(()=>{});}},filter(category){selected.clear();activation?.clearSelection();section='inventory';filters.category=category;page=0;draw();}};
 }

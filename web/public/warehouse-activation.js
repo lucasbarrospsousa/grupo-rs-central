@@ -1,14 +1,35 @@
 import {savedView} from './saved-view.js';
-import {reserveChip,activationCandidate,activationLabels} from './warehouse-activation-model.js';
+import {reserveChip,activationCandidate,activationLabels,activationSelection} from './warehouse-activation-model.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const portal='https://arya.hinovaconecta.com.br/suporte/acoes-em-lote';
-// One user action, retaining the server's committed reservation and send fence.
-export async function requestActivationLot(repo,ids,size){
- const eligible=[...new Set(ids)].filter(id=>repo.warehouse.some(r=>r.id===id&&activationCandidate(r)));
- if(!eligible.length)throw Error('Nenhum chip disponível para solicitar. Os pendentes não serão reenviados.');
- const prepared=await repo.request('warehouse-activation?branch=imperatriz',{method:'POST',body:{action:'prepare',ids:eligible,size,confirmed:true}});
- if(prepared.ok!==true||prepared.state!=='prepared'||!prepared.id)throw Error('Não foi possível confirmar a reserva do lote. Nenhum envio iniciado.');
- return repo.request('warehouse-activation-send?branch=imperatriz',{method:'POST',body:{action:'send',batch:prepared.id,confirmed:true}});
+const sending=new WeakSet();
+export const sameActivationIccids=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&new Set(a).size===a.length&&new Set(b).size===b.length&&a.every(x=>typeof x==='string'&&b.includes(x));
+const review=iccids=>typeof globalThis.confirm==='function'&&globalThis.confirm(`Solicitar ativação de exatamente ${iccids.length} chips?\n\n${iccids.join('\n')}\n\nConfira os ICCIDs. Nenhum outro chip será incluído.`);
+// Snapshot the intent before awaiting anything. Never silently shrink or extend it.
+export async function requestActivationLot(repo,ids,size,{confirm=review}={}){
+ if(sending.has(repo))throw Error('Há uma solicitação em andamento. Aguarde a conclusão.');
+ sending.add(repo);
+ try{
+  const selected=activationSelection(repo.warehouse,[...ids],size).map(r=>({id:r.id,serial:r.serial})),iccids=selected.map(r=>r.serial);
+  if(!iccids.length||!sameActivationIccids(iccids,iccids))throw Error('Seleção inválida. Confira os chips.');
+  if(!await confirm([...iccids]))return {ok:true,cancelled:true,message:'Solicitação cancelada. Nenhum lote enviado.'};
+  const current=activationSelection(repo.warehouse,selected.map(r=>r.id),size);
+  if(!current.every((r,i)=>r.serial===selected[i].serial))throw Error('Os chips mudaram durante a revisão. Selecione novamente.');
+  const prepared=await repo.request('warehouse-activation?branch=imperatriz',{method:'POST',body:{action:'prepare',ids:selected.map(r=>r.id),iccids:[...iccids],size,confirmed:true}});
+  if(prepared.ok!==true||prepared.state!=='prepared'||!prepared.id||prepared.count!==iccids.length||!sameActivationIccids(prepared.iccids,iccids))throw Error('Lote preparado diferente da seleção confirmada. Envio bloqueado; confira o lote.');
+  return await repo.request('warehouse-activation-send?branch=imperatriz',{method:'POST',body:{action:'send',batch:prepared.id,iccids:[...iccids],confirmed:true}});
+ }finally{sending.delete(repo);}
+}
+export async function sendPreparedActivationLot(repo,batch,{confirm=review}={}){
+ if(sending.has(repo))throw Error('Há uma solicitação em andamento.');
+ sending.add(repo);
+ try{
+  const result=await repo.readView(repo.currentBranch,'warehouse?'+new URLSearchParams({branch:repo.currentBranch,view:'batch',id:batch}));
+  const iccids=result.rows.filter(r=>r.activation_state==='prepared').map(r=>r.serial);
+  if(!iccids.length||iccids.length>20||!sameActivationIccids(iccids,iccids))throw Error('Lote indisponível. Atualize a lista.');
+  if(!await confirm([...iccids]))return {ok:true,cancelled:true,message:'Envio cancelado.'};
+  return await repo.request('warehouse-activation-send?branch=imperatriz',{method:'POST',body:{action:'send',batch,iccids,confirmed:true}});
+ }finally{sending.delete(repo);}
 }
 export function mountWarehouseActivation(root,{repo,icon,onUpdate=()=>{},idPrefix=''} ){
  const find=selector=>root.querySelector(selector.replace('#reserve-','#'+idPrefix+'reserve-'));
@@ -17,9 +38,9 @@ export function mountWarehouseActivation(root,{repo,icon,onUpdate=()=>{},idPrefi
  const canWrite=()=>repo.real&&repo.user?.branches?.some(b=>b.id==='imperatriz'&&b.role==='admin')&&(repo.user?.permissions?.owner||repo.user?.permissions?.writes?.includes('warehouse'));
  async function call(body){
   if(busy||!canWrite())return;busy=true;message=body.action==='check'?'Conferindo ativação…':'Conferindo chips e solicitando ativação…';draw();
-  try{const result=body.action==='request'?await requestActivationLot(repo,body.ids,body.size):await repo.request((body.action==='send'?'warehouse-activation-send':'warehouse-activation')+'?branch=imperatriz',{method:'POST',body});selected.clear();message=result.message|| (body.action==='check'?`${result.confirmed} ativos confirmados • ${result.pending} sem confirmação de ativação • ${result.errors} falhas de consulta`:'Solicitação registrada. Aguarde a ativação pela operadora.');
+  try{const result=body.action==='request'?await requestActivationLot(repo,body.ids,body.size):body.action==='send'?await sendPreparedActivationLot(repo,body.batch):await repo.request((body.action==='send'?'warehouse-activation-send':'warehouse-activation')+'?branch=imperatriz',{method:'POST',body});selected.clear();message=result.message|| (body.action==='check'?`${result.confirmed} ativos confirmados • ${result.pending} sem confirmação de ativação • ${result.errors} falhas de consulta`:'Solicitação registrada. Aguarde a ativação pela operadora.');
   }catch(e){message=e.message+' Atualize a lista antes de tentar novamente.';}
-  finally{rows=repo.warehouse;busy=false;draw();if(root.isConnected)onUpdate();}
+  finally{selected.clear();rows=repo.warehouse;busy=false;draw();if(root.isConnected)onUpdate();}
  }
  function draw(){
   if(!root.isConnected)return;
@@ -37,14 +58,14 @@ export function mountWarehouseActivation(root,{repo,icon,onUpdate=()=>{},idPrefi
   <details><summary>${icon('file')} Lotes e histórico (${result?.batches.length??batches.size})</summary><div class="reserve-batches">${(result?result.batches.map(b=>[b.id,[],b]):[...batches]).reverse().map(([id,items,batch])=>{const prepared=batch?.prepared??(items.some(r=>r.activation_state==='prepared')&&!items.some(r=>['sending','uncertain'].includes(r.activation_state))),uncertain=batch?.uncertain??items.some(r=>['sending','uncertain'].includes(r.activation_state)),done=batch?.done??items.every(r=>r.activation_state==='active');return `<article><strong>Lote ${esc(id.slice(0,8))} • ${batch?.count??items.length} chips</strong><span class="pill ${done?'green':'purple'}">${done?'Ativos confirmados':uncertain?'Envio em conferência • sem reenvio':prepared?'Preparado • pronto para enviar':'Solicitação registrada / em acompanhamento'}</span><small>${esc((batch?.at||items[0]?.activation_at)?new Date(batch?.at||items[0]?.activation_at).toLocaleString('pt-BR'):'')} ${esc(batch?.reference||items[0]?.activation_reference||'')}</small><details data-batch-detail="${esc(id)}"><summary>Ver ICCIDs do lote</summary><textarea readonly aria-label="ICCIDs do lote ${esc(id.slice(0,8))}">${items.map(r=>esc(r.serial)).join(';')}</textarea></details>${prepared?`<button class="primary" data-send-batch="${id}" ${!canWrite()||busy?'disabled':''}>${icon('right')} Solicitar ativação do lote</button>`:''}${uncertain?'<p class="muted">A resposta pode ter se perdido. Conferir ativação consulta a Árya e atualiza o estoque, sem repetir o envio.</p>':''}<button data-check-batch="${id}" ${!canWrite()||busy||done?'disabled':''}>${icon('refresh')} Conferir ativação</button></article>`;}).join('')||'<p class="muted">Nenhum lote preparado.</p>'}</div></details>`;
   root.querySelectorAll('[data-batch-detail]').forEach(el=>el.ontoggle=async()=>{if(!remote||!el.open||el.dataset.loaded)return;const out=el.querySelector('textarea');out.value='Consultando…';try{const data=await repo.readView(repo.currentBranch,'warehouse?'+new URLSearchParams({branch:repo.currentBranch,view:'batch',id:el.dataset.batchDetail}));if(el.isConnected){out.value=data.rows.map(r=>r.serial).join(';');el.dataset.loaded='1';}}catch(e){out.value=e.message;}});
   root.querySelector('#'+idPrefix+'activation-check-all').onclick=()=>call({action:'check'});
-  find('#reserve-search').oninput=e=>{query=e.target.value.toLowerCase();page=0;const position=e.target.selectionStart;draw();const input=find('#reserve-search');input.focus();input.setSelectionRange(position,position);};
+  find('#reserve-search').oninput=e=>{selected.clear();query=e.target.value.toLowerCase();page=0;const position=e.target.selectionStart;draw();const input=find('#reserve-search');input.focus();input.setSelectionRange(position,position);};
   find('#reserve-size').onchange=e=>{size=Number(e.target.value);selected.clear();draw();};
   find('#reserve-select').onclick=()=>{selected=new Set(list.filter(activationCandidate).slice(0,size).map(r=>r.id));draw();};
   root.querySelectorAll('[data-reserve-id]').forEach(c=>c.onchange=()=>{if(c.checked&&selected.size<size)selected.add(c.dataset.reserveId);else selected.delete(c.dataset.reserveId);draw();});
-  find('#reserve-prev').onclick=()=>{page--;draw();};find('#reserve-next').onclick=()=>{page++;draw();};
+  find('#reserve-prev').onclick=()=>{selected.clear();page--;draw();};find('#reserve-next').onclick=()=>{selected.clear();page++;draw();};
   find('#reserve-request').onclick=()=>call({action:'request',ids:[...selected],size});
   root.querySelectorAll('[data-send-batch]').forEach(b=>b.onclick=()=>call({action:'send',batch:b.dataset.sendBatch,confirmed:true}));
   root.querySelectorAll('[data-check-batch]').forEach(b=>b.onclick=()=>call({action:'check',batch:b.dataset.checkBatch}));
  }
- return {update(next){if(busy)return;rows=next;draw();}};
+ return {get busy(){return busy;},clearSelection(){selected.clear();},update(next){if(busy)return;rows=next;draw();}};
 }

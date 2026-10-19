@@ -18,7 +18,7 @@ function fixture(n=10){
   assert.equal(path,'/tickets/bulk/by-iccid');posts++;assert.ok(commits>0);assert.equal(p.type,3);assert.ok(p.iccids.every(iccid=>saved.some(r=>r.serial===iccid&&r.activation_state==='sending')));assert.ok(p.iccids.every(i=>!open.has(i)));
   if(mode==='timeout')throw Error('Timeout after acceptance');return {status:mode!=='rejected'};
  }};
- return {run:(extra={})=>sendWarehouseActivation({pool,user:{user_id:'test'},role:'admin',branch:'imperatriz',body:{batch,confirmed:true},service,...extra}),get saved(){return saved;},get posts(){return posts;},set mode(v){mode=v;},open,service};
+ return {run:(extra={})=>sendWarehouseActivation({pool,user:{user_id:'test'},role:'admin',branch:'imperatriz',body:{batch,confirmed:true,iccids:saved.filter(r=>r.activation_state==='prepared').map(r=>r.serial)},service,...extra}),get saved(){return saved;},get posts(){return posts;},set mode(v){mode=v;},open,service};
 }
 test('10/20: durable fence, single send, repeated and concurrent clicks do not resend',async()=>{
  for(const n of [10,20]){const f=fixture(n);await Promise.all([f.run(),f.run()]);assert.equal(f.posts,1);assert.ok(f.saved.every(r=>r.activation_state==='requested'));await f.run();assert.equal(f.posts,1);}
@@ -46,4 +46,8 @@ test('transport uses only activation type 3, validates limits and does not retry
  let writes=0;const s=new Integrations({secrets:()=>({arya_email:'mock',arya_password:'mock'}),request:async(url,opts)=>{if(url.endsWith('/auth'))return {text:'{"token":"mock"}',headers:new Headers()};writes++;assert.equal(url,'https://api-arya.hinovaconecta.com.br/tickets/bulk/by-iccid');assert.equal(JSON.parse(opts.body).type,3);throw Object.assign(Error('401'),{upstreamStatus:401});}});
  await assert.rejects(submitAryaActivation(s,['8955000000000000001']));assert.equal(writes,1);
  await assert.rejects(submitAryaActivation(s,Array(21).fill('8955000000000000001')));assert.equal(writes,1);
+});
+
+test('server blocks a batch whose ICCIDs differ from the reviewed selection before any provider call',async()=>{
+ const f=fixture();await assert.rejects(f.run({body:{batch,confirmed:true,iccids:['8955000000000099999']}}),/diferentes/);assert.equal(f.posts,0);assert.ok(f.saved.every(r=>r.activation_state==='prepared'));
 });
