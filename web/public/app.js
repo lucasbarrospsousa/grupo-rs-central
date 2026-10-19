@@ -1,3 +1,4 @@
+import {startMaintenanceRefresh} from './maintenance-refresh.js';
 import {landingView} from './startup-preload.js';
 import {savedView} from './saved-view.js';
 import {overviewSummary} from './overview-summary.js';
@@ -278,7 +279,7 @@ function settings() { mountSettings({repo,branch:state.branch,branchName:name(st
 async function enterSql(){
  if(!repo.user.branches.length)throw Error('Usuário sem filial autorizada.');
  Object.assign(state,landingView(repo.user));
- state.entered=true;render();
+ state.entered=true;render();startMaintenanceRefresh(repo);
 
 }
 // Opening the document always requires an explicit login.

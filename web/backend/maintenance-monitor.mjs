@@ -9,12 +9,15 @@ export function confirmedIgnition(row,result){
  if(state==='unknown')throw Error('Ignição não informada pela plataforma.');
  return{ignition:state,communication_at:result.updated_at||null,warning:''};
 }
-export async function maintenanceSnapshot(pool,service,branch,force=false){
+export async function maintenanceSnapshot(pool,service,branch,mode=false){
  const read=async(data=null,warning=null)=>(await pool.query('select central_homologacao.maintenance_snapshot($1,$2,$3) as data',[branch,data,warning])).rows[0].data;
- const previous=await read();
- if(previous&&!force)return previous;
+ const previous=await read(),pending={rows:[],count:null,pending:true,refresh_warning:'Aguardando consulta automática.'};
+ if(mode==='saved'||previous&&!mode)return previous||pending;
+ const lease=randomUUID(),claimed=(await pool.query('select central_homologacao.maintenance_refresh_claim($1,$2,$3) as ok',[branch,lease,mode===true])).rows[0].ok;
+ if(!claimed)return previous||pending;
  try{return await read(await service.maintenance(branch));}
  catch(e){if(e.automaticDeferred)throw e;const saved=await read(null,e.message);if(saved)return saved;throw e;}
+ finally{await pool.query('select central_homologacao.maintenance_refresh_release($1,$2)',[branch,lease]);}
 }
 export function maintenanceTick(pool,options={}){return trackQueries(pool,'automatic',()=>run(pool,options),'maintenance');}
 async function run(pool,{service,budgetMs=40000,now=Date.now}={}){
@@ -22,7 +25,7 @@ async function run(pool,{service,budgetMs=40000,now=Date.now}={}){
  if(!batch.rows)return{processed:0};
  const start=now();let processed=0,stopped=false;service??=guardedIntegrations(pool);
  try{
-  if(batch.branch)try{await maintenanceSnapshot(pool,service,batch.branch,true);}catch(e){if(e.automaticDeferred)return{processed,deferred:e.reason};}
+  if(batch.branch)try{await maintenanceSnapshot(pool,service,batch.branch,'automatic');}catch(e){if(e.automaticDeferred)return{processed,deferred:e.reason};}
   // Sequential within this routine; shared policy arbitrates other routines.
   let cursor=0;await Promise.all(Array.from({length:1},async()=>{while(!stopped&&cursor<batch.rows.length&&now()-start<budgetMs){
    const row=batch.rows[cursor++];let result;

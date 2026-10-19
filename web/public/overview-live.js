@@ -1,9 +1,10 @@
+import {maintenanceState,loadMaintenance} from './maintenance-refresh.js';
 import {ignitionState,ignitionLabels,ignitionRows,ignitionCounts} from './maintenance-ignition.js';
 import {maintenanceShare} from './maintenance-share.js';
 import {filterVehicles} from './domain.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arrow='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 9 7 7 7-7"/></svg>';
-const cache=new Map();
+
 export function mountLiveOverview({repo,showModal,notify,render}){
  const p=document.createElement('section');p.className='live-overview';p.innerHTML=`<section class="panel" id="maintenance-panorama"><div class="live-heading"><h2>Veículos em manutenção <span class="pill" id="live-complete"></span></h2><button id="live-refresh" aria-label="Atualizar manutenções">Atualizar</button></div><div class="maintenance-summary"><div><strong class="total" id="base-total">—</strong><span> veículos</span><p>% da frota de cada base</p></div><div class="ignition-control"><span>Ignição</span><div class="ignition-segments" role="group" aria-label="Filtrar gráfico por ignição"><button data-chart-ignition="" aria-pressed="true">Todas</button><button data-chart-ignition="on" aria-pressed="false">Ligada</button><button data-chart-ignition="off" aria-pressed="false">Desligada</button><button data-chart-ignition="unknown" aria-pressed="false" title="Somente veículos sem ignição informada">Não informada</button></div></div></div><div id="base-chart"></div><p id="total-note" class="maintenance-note" role="status">Aguardando consulta</p><div class="live-progress" id="base-progress" role="status"></div></section>`;document.querySelector('#page').prepend(p);
  const results=new Map(),errors=new Map();let running=false,ignitionFilter='',redrawList=null;
@@ -45,8 +46,8 @@ export function mountLiveOverview({repo,showModal,notify,render}){
   const unknown=rows.reduce((n,r)=>n+r.unknown,0);if(unknown)p.querySelector('#total-note').textContent+=' '+unknown+' sem ignição informada; coleta em segundo plano. Ligada/Desligada são parciais.';
   p.querySelectorAll('[data-base]').forEach(b=>b.onclick=()=>{const r=results.get(b.dataset.base);if(r)list(r.base,r);});
  }
- async function refresh(force=false){if(running)return;running=true;p.querySelector('#live-refresh').disabled=true;errors.clear();paint();for(const base of repo.user.branches){if(!p.isConnected)break;try{let item=cache.get(base.id);if(force||!item||Date.now()-item.at>60000){item={data:await repo.request('integrations/maintenance?branch='+base.id+(force?'&refresh=1':'')),at:Date.now()};cache.set(base.id,item);}if(!p.isConnected)break;const previous=results.get(base.id);results.set(base.id,previous?Object.assign(previous,item.data):{base,...item.data});redrawList?.();if(item.data.refresh_warning)errors.set(base.id,item.data.refresh_warning);}catch(e){errors.set(base.id,e.message);}if(p.isConnected)paint();}running=false;if(p.isConnected){paint();p.querySelector('#live-refresh').disabled=false;}}
+ async function refresh(force=false){if(running)return;running=true;p.querySelector('#live-refresh').disabled=true;errors.clear();paint();for(const base of repo.user.branches){if(!p.isConnected)break;try{const data=await loadMaintenance(repo,base.id,force?'force':'saved');if(data.pending)throw Error(data.refresh_warning||'Aguardando consulta automática.');const item={data};if(!p.isConnected)break;const previous=results.get(base.id);results.set(base.id,previous?Object.assign(previous,item.data):{base,...item.data});redrawList?.();if(item.data.refresh_warning)errors.set(base.id,item.data.refresh_warning);}catch(e){errors.set(base.id,e.message);}if(p.isConnected)paint();}running=false;if(p.isConnected){paint();p.querySelector('#live-refresh').disabled=false;}}
  p.querySelectorAll('[data-chart-ignition]').forEach(button=>button.onclick=()=>{ignitionFilter=button.dataset.chartIgnition;p.querySelectorAll('[data-chart-ignition]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));paint();});
  p.querySelector('#live-refresh').onclick=()=>refresh(true);refresh();
- const poll=setInterval(()=>{if(!p.isConnected){clearInterval(poll);return;}if(!document.hidden)void refresh();},60000);
+ const shared=maintenanceState(repo),updated=()=>{if(!p.isConnected){shared.listeners.delete(updated);return;}if(!running)void refresh();};shared.listeners.add(updated);
 }

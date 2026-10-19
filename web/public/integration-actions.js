@@ -64,6 +64,6 @@ export function mountIntegrationActions({repo,branch,route,showModal,notify,rend
   };
   if(route==='stock')document.querySelector('#stock-integrations').onclick=mountQueryPanel;else mountQueryPanel();
  }
- if(route==='overview')mountLiveOverview({repo,showModal,notify,render});
+ if(route==='maintenance'&&(repo.user.permissions?.owner||repo.user.permissions?.views?.includes('overview')))mountLiveOverview({repo,showModal,notify,render});
  if(['records','route'].includes(route))mountLiveTracking({repo,branch,route,query,notify,render});
 }
