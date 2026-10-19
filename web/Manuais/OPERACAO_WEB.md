@@ -483,3 +483,19 @@ Cada abertura/recarregamento apresenta login, sem restaurar sessão ou última r
 A interface aparece antes das leituras. Fila de até duas consultas prepara resumo, páginas SQL iniciais e as cinco visões do armazém. Não baixa inventários completos nem consulta operadoras durante essa preparação. As respostas são compartilhadas com a navegação, com validade de 30 segundos em memória; mudanças e atualização explícita invalidam o reaproveitamento. Pesquisas e demais páginas são consultadas sob demanda.
 Migração 060: índice parcial concorrente para filial/tipo/situação/ordem de entrada; executar fora de transação. O SQL das páginas permite utilizar esse índice. Nenhum dado operacional é modificado.
 Validação: testes startup-preload, page-preload, saved-views, login-session e warehouse-aggregate; fixture local tools/startup-fixture.mjs, sem APIs externas. A medição SQL isolada não representa o tempo total da rede/interface.
+
+## Teste manual de carga inicial unificada — 19/10/2026
+
+Página de diagnóstico autenticada: `/startup-benchmark`. Ela não integra o fluxo habitual de entrada.
+`GET /api/startup-bundle?branch=...` reúne o plano inicial autorizado; não aceita caminhos SQL ou endpoints enviados pelo navegador.
+A sessão e a associação à filial são verificadas antes das leituras. Até duas conexões, transações READ ONLY e isolamento de falhas por painel. Os logs reutilizam a conexão quando chamados pelo pacote.
+O experimento usa somente dados salvos, sem chamar manutenção externa, atualização de operadora, ativações ou outras ações. Registros técnicos normais de sessão/auditoria permanecem ativos.
+O navegador mantém apenas os resultados da rodada em memória; não usa snapshots persistidos para a comparação.
+
+Escopo em Imperatriz para o administrador: 16 respostas, incluindo resumo do estoque, cinco painéis do armazém, consulta inicial de aparelhos, indicadores de histórico, operações salvas, páginas administrativas, primeira página do estoque e resumo dos custos salvos.
+Não inclui exportação integral, detalhes abertos sob demanda, resultados de pesquisas ainda não executadas ou panorama externo de manutenção. Dados compartilhados podem atender mais de uma aba.
+Medição no Chrome pelo domínio publicado, em ordem separado/unificado/unificado/separado: 30.089 / 11.655 / 11.146 / 31.258 ms. Todas as rodadas: 16 painéis e nenhuma falha.
+Médias: separado 30.674 ms; unificado 11.401 ms, redução aproximada de 62,8%. São duas amostras por modo, não um SLA.
+Tempo do pacote dentro do servidor: 9.330 e 8.868 ms. O tempo total começa após autenticação, no clique, e termina com recebimento e interpretação das respostas; não mede digitação de senha nem renderização completa de todas as abas.
+Não foi aplicada mudança automática ao login ou à navegação. A página exige clique por rodada e não faz polling.
+Testes offline: `node --test tests/startup-bundle.test.mjs tests/startup-preload.test.mjs tests/system-logs.test.mjs tests/login-session.test.mjs` (20 testes aprovados).
