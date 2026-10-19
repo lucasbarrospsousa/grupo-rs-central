@@ -1,3 +1,11 @@
+## Armazém: consultas SQL e navegação parcial — 19/10/2026
+
+Visão geral, movimentações e análise mensal agregam e filtram no SQL, usando o papel runtime e as mesmas regras por filial. A página de movimentações recebe até oito registros; contagens, destinos e pesquisa consideram toda a base autorizada. Aparelhos e chips mantêm a paginação SQL existente. Deduplicação de envio/detecção na visão geral e contagem de cada envio na análise mensal continuam distintas. Sem migração ou alteração de dados.
+
+Trocar de aba conserva a estrutura da página e os componentes, atualiza somente o painel selecionado e preserva filtros por aba. A verificação incremental usa o marcador de alterações existente; nenhuma consulta a operadoras ou portais é adicionada. Atualização manual e intervalo econômico existentes permanecem ativos.
+
+Validação: `CENTRAL_SQL_READ_TEST=1 node --test web/tests/warehouse-aggregate.test.mjs` usa fixtures SQL somente de leitura; `node web/tools/test-warehouse-tabs-ui.mjs` usa navegador isolado e respostas simuladas com bloqueio de saída externa. Comparação somente de leitura dos registros salvos de Imperatriz confirmou contagens e resultados; identidade sem associação retornou zero linhas. Amostra do backend: visão geral 443 ms, movimentações 355 ms, mensal 340 ms (medição local, não SLA).
+
 ## Atualização incremental — 17/10/2026
 Consulte [ATUALIZACAO_INCREMENTAL_2026_10_17.md](ATUALIZACAO_INCREMENTAL_2026_10_17.md).
 

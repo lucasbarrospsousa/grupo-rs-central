@@ -33,7 +33,7 @@ export function mountWarehouseChips(root,{repo,icon,onUpdate=()=>{},onDetail,onC
   finally{selected.clear();busy=false;rows=repo.warehouse;if(root.isConnected){draw();onUpdate();}}
  }
  function draw(){
-  if(!root.isConnected)return;
+  if(!root.isConnected||root.hidden)return;
   const result=remote?.get({view:'chips',...filters,page});if(remote&&!result)return;const inventory=result?.rows||rows;
   const available=rows.filter(r=>r.kind==='chip'&&r.status==='Disponível'),list=result?.rows||filterChips(rows,filters),costs=prices?.get({view:'prices',iccids:(result?.rows||[]).slice(0,7).map(r=>r.serial).join(',')})||cachedWarehouseCosts(repo);
   selected=new Set([...selected].filter(id=>canWrite()&&rows.some(r=>r.id===id&&activationCandidate(r))));

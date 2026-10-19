@@ -1,3 +1,4 @@
+import {sqlWarehouseAggregate} from './warehouse-aggregate.mjs';
 import {reserveChip,activationCandidate} from '../public/warehouse-activation-model.js';
 import {incrementalRead,readPlan} from './incremental-read.mjs';
 import {overviewData} from '../public/warehouse-overview-model.js';
@@ -54,6 +55,7 @@ export async function warehouseView(c,branch,params){
   for(const r of result.categories){if(counts[r.kind]){counts[r.kind][r.category]=r.count;counts[r.kind].total+=r.count;}}
   return {cursor:plan.cursor,rows:result.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR',{timeZone:'America/Fortaleza'})})),total:result.total,page:result.page,counts};
  }
+ if(['overview','monthly','movements'].includes(params.get('view')))return {...await sqlWarehouseAggregate(c,branch,params),cursor:plan.cursor};
  const data=await incrementalRead(c,branch,'warehouse',null);
  return {...selectWarehouseView(data,params),cursor:data.cursor};
 }

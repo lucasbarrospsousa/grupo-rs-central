@@ -15,7 +15,7 @@ export function mountWarehouseOverview(root,{repo,navigate,newItem}){
  const cached=()=>cachedWarehouseCosts(repo);
  const metric=(title,value,sub,glyph,tone,action)=>`<button class="wo-kpi ${tone}" data-wo-action="${action}"><span class="wo-icon-tile">${icon(glyph)}</span><span><small>${title}</small><strong>${value}</strong><em>${sub}</em></span></button>`;
  async function costs(){if(busy||!canCost)return;busy=true;error='';draw();try{await loadWarehouseCosts(repo);}catch(e){error=e.message;}finally{busy=false;if(root.isConnected)draw();}}
- function draw(){if(!root.isConnected)return;const result=remote?.get({view:'overview',month});if(remote&&!result)return;const data=result?.data||overviewData(rows,movements,month),cost=cached();
+ function draw(){if(!root.isConnected||root.hidden)return;const result=remote?.get({view:'overview',month});if(remote&&!result)return;const data=result?.data||overviewData(rows,movements,month),cost=cached();
  root.innerHTML=`<div class="wo-metrics">
  ${metric('Aparelhos disponíveis',num(data.available),'Prontos para distribuição','box','blue','devices')}
  ${metric('Enviados / identificados',num(data.sent),'Aparelhos no mês selecionado','send','teal','movements')}
