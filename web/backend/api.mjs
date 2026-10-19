@@ -66,7 +66,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       reply(res,200,{lastActivityAt:updated.rows[0].last_activity_at});return true;
     }
     const permissions=await userAccess(pool,user);
-    if(url.pathname==='/api/startup-bundle'&&req.method==='GET'){const data=await startupBundle(pool,user,permissions,url.searchParams.get('branch'));res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
+    if(url.pathname==='/api/startup-bundle'&&req.method==='GET'){const data=await startupBundle(pool,user,permissions,url.searchParams.get('branch'),{background:url.searchParams.get('phase')==='background'});res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
     if(url.pathname==='/api/warehouse-costs'){
       if(!permissions.owner)throw fail(403,'Valores dos chips restritos à administração.');
       if(!['GET','POST'].includes(req.method))throw fail(405,'Método não permitido.');

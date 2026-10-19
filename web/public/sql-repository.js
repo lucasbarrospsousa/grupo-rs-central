@@ -9,6 +9,17 @@ export class SqlRepository {
   async request(path,options={}){
     const method=options.method||'GET',eligible=['settings-monitor','query-policy','read-sources','users','logs?q=&user=&module=&outcome=&from=&to=&page=1'].includes(path);
     if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.views.clear();this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
+    if(method==='GET'&&this.startupBatch?.current()){
+      const batch=this.startupBatch,[endpoint,query]=path.split('?'),params=new URLSearchParams(query);params.delete('since');
+      const normalized=canonicalView(endpoint+(query===undefined?'':'?'+params));
+      if(batch.paths.has(normalized)){
+        const panels=await batch.flight;
+        if(!batch.current())throw Error('Dados alterados durante a consulta.');
+        const panel=panels.get(normalized);
+        if(!panel?.ok)throw Error(panel?.error||'Painel indisponível. Tente novamente.');
+        return structuredClone(panel.data);
+      }
+    }
     if(method==='GET'&&path.startsWith('integrations/inventory-counts?')){
       const epoch=this.epoch,revision=this.writeVersion,previous=this.countSnapshots.get(path),data=await this.networkRequest(path+(previous?.cursor?'&since='+previous.cursor:''),options);
       const result=data.unchanged&&previous?{...previous,cursor:data.cursor}:data;
@@ -38,7 +49,7 @@ export class SqlRepository {
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;await this.pageCache.bind(this.user);return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  clearPreload(){this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.views.clear();this.stockPages.clear();this.summaries.clear();this.currentStockQuery=null;this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
+  clearPreload(){this.startupBatch=null;this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.views.clear();this.stockPages.clear();this.summaries.clear();this.currentStockQuery=null;this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
   async logout(){this.clearPreload();this.receiptVersions?.clear();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];await this.pageCache.flush();try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){return route==='overview'?['summary']:[];}
   ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseCache.has(branch)));}
@@ -59,15 +70,32 @@ export class SqlRepository {
     this.warehouse=cached?.rows||[];this.movements=cached?.movements||[];this.warehouseBranch=cached?branch:null;
   }
   async preloadSelected(branch,{delay=80,warehouseOnly=false}={}){
-    const version=++this.preloadVersion,epoch=this.epoch,revision=this.writeVersion;this.preloadRunning=version;
-    const current=()=>version===this.preloadVersion&&epoch===this.epoch&&revision===this.writeVersion&&!!this.user&&this.currentBranch===branch;
+    const version=++this.preloadVersion,epoch=this.epoch,revision=this.writeVersion,generation=this.viewGeneration||0;this.preloadRunning=version;
+    const current=()=>version===this.preloadVersion&&epoch===this.epoch&&revision===this.writeVersion&&generation===(this.viewGeneration||0)&&!!this.user&&this.currentBranch===branch;
     const plan=initialReadPlan(this.user,branch),results=[];
     const tasks=(warehouseOnly?warehousePreloadPaths(this.user,branch):plan.views).map(path=>()=>this.readView(branch,path));
     if(this.user?.permissions?.owner&&plan.views.some(p=>p.startsWith('warehouse?')))tasks.push(()=>loadWarehouseCosts(this));
     if(!warehouseOnly){
-      if(plan.summary)tasks.unshift(()=>this.loadGroup(branch,'summary',{refresh:this.restored.has(branch+':summary')}));
+      // The visible overview has priority; other panels share one background response.
       if(plan.stock)tasks.push(()=>this.readStockPage(branch,{}, {preload:true}));
       tasks.push(...plan.paths.map(path=>async()=>{const data=await this.request(path,{preload:true});if(current())this.pageCache.put(path,data);}));
+    }
+    if(!warehouseOnly){
+      const paths=[...plan.views,...plan.paths];
+      if(plan.stock)paths.push('devices?'+this.stockQuery(branch,{}));
+      if(this.user?.permissions?.owner&&plan.views.some(p=>p.startsWith('warehouse?')))paths.push('warehouse-costs?branch='+branch+'&view=summary');
+      const summary=plan.summary?this.loadGroup(branch,'summary',{refresh:this.restored.has(branch+':summary')}):Promise.resolve();
+      const batch={current,paths:new Set(paths.map(canonicalView)),flight:null};
+      batch.flight=summary.catch(()=>{}).then(async()=>{
+        if(!current())throw Error('Dados alterados durante a consulta.');
+        if(!paths.length)return new Map();
+        const result=await this.networkRequest('startup-bundle?branch='+encodeURIComponent(branch)+'&phase=background');
+        if(!current())throw Error('Dados alterados durante a consulta.');
+        return new Map(result.panels.map(panel=>[canonicalView(panel.path),panel]));
+      });
+      this.startupBatch=batch;
+      try{return await Promise.all([summary,batch.flight,...tasks.map(task=>task())].map(task=>Promise.resolve(task).then(()=>true,()=>false)));}
+      finally{if(this.startupBatch===batch)this.startupBatch=null;if(this.preloadRunning===version)this.preloadRunning=null;}
     }
     // Small bounded queue; navigation shares pending reads and fresh results.
     let next=0;

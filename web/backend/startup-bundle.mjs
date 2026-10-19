@@ -33,9 +33,9 @@ async function readPanel(c,path,branch,user,permissions){
  }
  throw Error('Painel não permitido.');
 }
-export async function startupBundle(pool,user,permissions,branch,{reader=readPanel}={}){
+export async function startupBundle(pool,user,permissions,branch,{reader=readPanel,background=false}={}){
  const start=performance.now(),branches=(await pool.query('select branch_id as id,role from central_homologacao.memberships where user_id=$1',[user.user_id])).rows;
- const paths=bundlePaths(user,permissions,branches,branch),panels=new Array(paths.length);let next=0;
+ const paths=bundlePaths(user,permissions,branches,branch).filter(path=>!background||new URLSearchParams(path.split('?')[1]).get('scope')!=='summary'),panels=new Array(paths.length);let next=0;
  const worker=async()=>{
   const c=await pool.connect();try{
    await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');await c.query("select set_config('central.user_id',$1,true)",[user.user_id]);
@@ -48,5 +48,5 @@ export async function startupBundle(pool,user,permissions,branch,{reader=readPan
   }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
  };
  if(paths.length)await Promise.all(Array.from({length:Math.min(2,paths.length)},worker));
- return {ok:panels.every(p=>p.ok),branch,panels,serverMs:Math.round(performance.now()-start),source:'saved-sql',experimental:true};
+ return {ok:panels.every(p=>p.ok),branch,panels,serverMs:Math.round(performance.now()-start),source:'saved-sql',experimental:false};
 }

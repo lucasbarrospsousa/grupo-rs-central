@@ -499,3 +499,9 @@ Médias: separado 30.674 ms; unificado 11.401 ms, redução aproximada de 62,8%.
 Tempo do pacote dentro do servidor: 9.330 e 8.868 ms. O tempo total começa após autenticação, no clique, e termina com recebimento e interpretação das respostas; não mede digitação de senha nem renderização completa de todas as abas.
 Não foi aplicada mudança automática ao login ou à navegação. A página exige clique por rodada e não faz polling.
 Testes offline: `node --test tests/startup-bundle.test.mjs tests/startup-preload.test.mjs tests/system-logs.test.mjs tests/login-session.test.mjs` (20 testes aprovados).
+
+## Carregamento unificado aplicado — 19/10/2026
+Substitui a fila inicial descrita acima: a interface continua abrindo em Visão geral sem aguardar os painéis. O resumo visível usa sua leitura prioritária; após concluir essa tentativa, os demais dados iniciais vêm de uma única chamada a `startup-bundle?branch=...&phase=background`, que exclui o resumo para não repeti-lo.
+A navegação para uma primeira página durante a busca compartilha a resposta em andamento. São reutilizados os mesmos adaptadores, filtros, caches, permissões e invalidação existentes. Alteração, saída ou troca de filial descartam respostas antigas; painel com falha não é transformado em resultado vazio nem provoca repetição automática de todas as buscas.
+As rotinas independentes já existentes (panorama de manutenção, status, backups, alertas) não foram incorporadas ao pacote nem tiveram agendas alteradas.
+Validação: 24 testes focados aprovados; teste de navegador em `node tools/startup-fixture.mjs` com dados fictícios e CSP limitada à origem local. Confirmados resumo prioritário, uma chamada de pacote e navegação nas cinco abas do armazém. Nenhuma API externa usada nos testes. A medição de 11,40 s acima refere-se ao experimento anterior, não a uma nova medição do fluxo integrado.
