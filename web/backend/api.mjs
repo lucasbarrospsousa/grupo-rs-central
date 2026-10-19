@@ -43,8 +43,8 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       req.auditUser={user_id:u.id,username:u.username};
       if(u.password_hash.startsWith('legacy-sha256:'))await pool.query('update central_homologacao.users set password_hash=$2 where id=$1',[u.id,passwordHash(b.password)]);
       const sid=token(),csrf=hash(sid+':csrf');
-      await pool.query(`insert into central_homologacao.sessions(token_hash,user_id,csrf_hash,expires_at) values($1,$2,$3,now()+$4::interval)`,[hash(sid),u.id,hash(csrf),b.remember?'30 days':'12 hours']);
-      res.setHeader('Set-Cookie',`central_session=${sid}; HttpOnly; SameSite=Strict; Path=/${b.remember?'; Max-Age=2592000':''}${process.env.COOKIE_SECURE==='1'?'; Secure':''}`);
+      await pool.query(`insert into central_homologacao.sessions(token_hash,user_id,csrf_hash,expires_at) values($1,$2,$3,now()+$4::interval)`,[hash(sid),u.id,hash(csrf),'12 hours']);
+      res.setHeader('Set-Cookie',`central_session=${sid}; HttpOnly; SameSite=Strict; Path=/${process.env.COOKIE_SECURE==='1'?'; Secure':''}`);
       reply(res,200,{csrf});return true;
     }
     const user=await session(pool,req);if(!user)throw fail(401,'Entre no sistema para continuar.');

@@ -39,8 +39,8 @@ export function mountSmsLive({repo,branch,notify}){
  const alive=()=>refresh.isConnected&&root.smsPanel===panel;
  if(repo.smsSubmissionResult?.branch===branch){panel.result(repo.smsSubmissionResult);delete repo.smsSubmissionResult;}
  const operations='integrations/operations?branch='+branch,cached=repo.peekView?.(branch,operations);if(cached)panel.setRows(cached.rows.filter(r=>r.kind==='sms'));
- async function update(){if(busy||!alive())return;busy=true;refresh.disabled=true;
-  const results=await Promise.allSettled([repo.readView?repo.readView(branch,operations):repo.request(operations),repo.request('integrations/gateway?branch='+branch)]);
+ async function update(force=false){if(busy||!alive())return;busy=true;refresh.disabled=true;
+  const results=await Promise.allSettled([repo.readView?repo.readView(branch,operations,{force}):repo.request(operations),repo.request('integrations/gateway?branch='+branch)]);
   if(!alive())return;
   const [data,health]=results;
   if(data.status==='fulfilled')panel.setRows(data.value.rows.filter(r=>r.kind==='sms'));
@@ -49,5 +49,5 @@ export function mountSmsLive({repo,branch,notify}){
   panel.connection(connection+' • Verificado às '+new Date().toLocaleTimeString('pt-BR')+' • Atualização a cada 15 s'+(data.status==='rejected'?' • Consulta dos pedidos pendente: '+data.reason.message:''));
   busy=false;refresh.disabled=false;
  }
- refresh.onclick=update;void update();const timer=setInterval(()=>{if(!alive()){clearInterval(timer);return;}void update();},15000);
+ refresh.onclick=()=>update(true);void update();const timer=setInterval(()=>{if(!alive()){clearInterval(timer);return;}void update();},15000);
 }

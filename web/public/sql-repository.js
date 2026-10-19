@@ -1,12 +1,14 @@
+import {loadWarehouseCosts} from './warehouse-cost-cache.js';
+import {canonicalView,initialReadPlan,warehousePreloadPaths} from './startup-preload.js';
 import {mergeIncremental} from './incremental-cache.js';
 import {applyMutationReceipt} from './mutation-receipt.js';
 import {PagePreloadCache,preloadPlan} from './page-preload.js';
 import {communication} from './stock-live.js';
 export class SqlRepository {
-  constructor(){this.views=new Map();this.stockPages=new Map();this.summaries=new Map();this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
+  constructor(){this.viewFlights=new Map();this.viewFresh=new Map();this.stockFlights=new Map();this.stockFresh=new Map();this.views=new Map();this.stockPages=new Map();this.summaries=new Map();this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
   async request(path,options={}){
     const method=options.method||'GET',eligible=['settings-monitor','query-policy','read-sources','users','logs?q=&user=&module=&outcome=&from=&to=&page=1'].includes(path);
-    if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.views.clear();this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
+    if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.views.clear();this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
     if(method==='GET'&&path.startsWith('integrations/inventory-counts?')){
       const epoch=this.epoch,revision=this.writeVersion,previous=this.countSnapshots.get(path),data=await this.networkRequest(path+(previous?.cursor?'&since='+previous.cursor:''),options);
       const result=data.unchanged&&previous?{...previous,cursor:data.cursor}:data;
@@ -36,11 +38,12 @@ export class SqlRepository {
   }
   async session(){this.user=await this.request('session');this.csrf=this.user.csrf;await this.pageCache.bind(this.user);return this.user;}
   async login(username,password,remember){await this.request('login',{method:'POST',body:{username,password,remember}});return this.session();}
-  clearPreload(){this.views.clear();this.stockPages.clear();this.summaries.clear();this.currentStockQuery=null;this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
+  clearPreload(){this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.views.clear();this.stockPages.clear();this.summaries.clear();this.currentStockQuery=null;this.incremental.clear();this.countSnapshots.clear();this.stale.clear();this.preloadVersion++;this.writeVersion++;this.refreshErrors.clear();this.preloadBranch=null;this.pageCache.clear();this.restored.clear();this.getPending.clear();}
   async logout(){this.clearPreload();this.receiptVersions?.clear();this.epoch++;this.activeView=null;this.warehouseCache.clear();this.stockSamples.clear();this.dischargeAnalysisCache?.clear();this.warehouseBranch=null;this.loaded.clear();this.pending.clear();this.devices=[];this.reports=[];this.warehouse=[];this.movements=[];await this.pageCache.flush();try{await this.request('logout',{method:'POST'});}finally{this.user=null;}}
   groups(route){return route==='overview'?['summary']:[];}
   ready(branch,route){return this.groups(route).every(group=>this.loaded.has(branch+':'+group)&&(group!=='warehouse'||this.warehouseCache.has(branch)));}
   invalidate(branch,groups=['devices','history','warehouse','summary']){
+    this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.viewGeneration=(this.viewGeneration||0)+1;
     if(groups.includes('devices'))this.stockPages.clear();
     if(groups.includes('warehouse'))for(const other of this.user?.branches||[]){this.pageCache.drop(other.id,['warehouse']);const key=other.id+':warehouse';this.stale.add(key);this.pending.delete(key);this.generations.set(key,(this.generations.get(key)||0)+1);}
     this.pageCache.drop(branch,groups);
@@ -51,17 +54,25 @@ export class SqlRepository {
     this.activeView=key;this.currentBranch=branch;this.currentRoute=route;
     const plan={groups:this.groups(route)};
     for(const group of plan.groups){const cacheKey=branch+':'+group;if(!this.loaded.has(cacheKey)){const data=this.pageCache.snapshot(branch,group);if(data&&(group==='summary'||Array.isArray(data.rows))){this.applyGroup(branch,group,data);if(data.cursor)this.incremental.set(cacheKey,data);this.loaded.add(cacheKey);this.restored.add(cacheKey);}}}
-    if(this.preloadBranch!==branch||this.preloadRoute!==route){this.preloadBranch=branch;this.preloadRoute=route;void this.preloadSelected(branch);}
+    if(this.preloadBranch!==branch){this.preloadBranch=branch;void this.preloadSelected(branch);}else if(route==='warehouse'&&this.preloadRoute!==route&&!this.preloadRunning){void this.preloadSelected(branch,{warehouseOnly:true});}this.preloadRoute=route;
     const cached=this.warehouseCache.get(branch);
     this.warehouse=cached?.rows||[];this.movements=cached?.movements||[];this.warehouseBranch=cached?branch:null;
   }
-  async preloadSelected(branch,{delay=200}={}){
-    const version=++this.preloadVersion,epoch=this.epoch;
-    const current=()=>version===this.preloadVersion&&epoch===this.epoch&&!!this.user&&this.currentBranch===branch;
-    const full=preloadPlan(this.user,branch),plan={groups:this.currentRoute?this.groups(this.currentRoute):full.groups,paths:this.currentRoute?[]:full.paths},results=[];
-    const tasks=[...plan.groups.map(group=>()=>this.loadGroup(branch,group,{refresh:this.restored.has(branch+':'+group)})),...plan.paths.map(path=>async()=>{const revision=this.writeVersion;const data=await this.request(path,{preload:true});if(current()&&revision===this.writeVersion)this.pageCache.put(path,data);})];
-    for(const task of tasks){await new Promise(r=>setTimeout(r,delay));if(!current())break;try{await task();results.push(true);}catch{results.push(false);}}
-    return results;
+  async preloadSelected(branch,{delay=80,warehouseOnly=false}={}){
+    const version=++this.preloadVersion,epoch=this.epoch,revision=this.writeVersion;this.preloadRunning=version;
+    const current=()=>version===this.preloadVersion&&epoch===this.epoch&&revision===this.writeVersion&&!!this.user&&this.currentBranch===branch;
+    const plan=initialReadPlan(this.user,branch),results=[];
+    const tasks=(warehouseOnly?warehousePreloadPaths(this.user,branch):plan.views).map(path=>()=>this.readView(branch,path));
+    if(this.user?.permissions?.owner&&plan.views.some(p=>p.startsWith('warehouse?')))tasks.push(()=>loadWarehouseCosts(this));
+    if(!warehouseOnly){
+      if(plan.summary)tasks.unshift(()=>this.loadGroup(branch,'summary',{refresh:this.restored.has(branch+':summary')}));
+      if(plan.stock)tasks.push(()=>this.readStockPage(branch,{}, {preload:true}));
+      tasks.push(...plan.paths.map(path=>async()=>{const data=await this.request(path,{preload:true});if(current())this.pageCache.put(path,data);}));
+    }
+    // Small bounded queue; navigation shares pending reads and fresh results.
+    let next=0;
+    const worker=async()=>{while(next<tasks.length){await new Promise(r=>setTimeout(r,delay));if(!current())break;const task=tasks[next++];if(!task)break;try{await task();results.push(true);}catch{results.push(false);}}};
+    try{await Promise.all([worker(),worker()]);return results;}finally{if(this.preloadRunning===version)this.preloadRunning=null;}
   }
   async load(branch,{route=this.currentRoute||'overview',force=true}={}){
     if(force)this.invalidate(branch);
@@ -113,12 +124,29 @@ export class SqlRepository {
       }
 
   }
-  peekView(branch,path){const result=this.views.get(path)||this.pageCache.snapshot(branch,'view:'+path);if(result){const target=path.startsWith('devices?')?this.devices:path.startsWith('warehouse?')&&new URLSearchParams(path.split('?')[1]).get('view')!=='movements'?this.warehouse:null;if(target)for(const row of result.rows||[]){const at=target.findIndex(r=>r.id===row.id&&r.branch===row.branch);if(at<0)target.push(row);else target[at]=row;}}return result;}
-  async readView(branch,path){const old=this.peekView(branch,path),epoch=this.epoch,revision=this.writeVersion,data=await this.request(path+(old?.cursor?'&since='+encodeURIComponent(old.cursor):''));if(epoch!==this.epoch||revision!==this.writeVersion)throw Error('Dados alterados durante a consulta.');const result=data.unchanged?{...old,cursor:data.cursor}:data;this.views.set(path,result);this.pageCache.save(branch,'view:'+path,result);if(path.startsWith('devices?'))for(const row of result.rows||[]){const at=this.devices.findIndex(r=>r.id===row.id&&r.branch===branch);if(at<0)this.devices.push(row);else this.devices[at]=row;}if(path.startsWith('warehouse?')&&new URLSearchParams(path.split('?')[1]).get('view')!=='movements')for(const row of result.rows||[]){const at=this.warehouse.findIndex(r=>r.id===row.id);if(at<0)this.warehouse.push(row);else this.warehouse[at]=row;}return result;}
+  peekView(branch,path){path=canonicalView(path);const result=this.views.get(path)||this.pageCache.snapshot(branch,'view:'+path);if(result){const target=path.startsWith('devices?')?this.devices:path.startsWith('warehouse?')&&new URLSearchParams(path.split('?')[1]).get('view')!=='movements'?this.warehouse:null;if(target)for(const row of result.rows||[]){const at=target.findIndex(r=>r.id===row.id&&r.branch===row.branch);if(at<0)target.push(row);else target[at]=row;}}return result;}
+  async readView(branch,path,{force=false}={}){
+    path=canonicalView(path);const fresh=this.viewFresh.get(path);
+    if(!force&&fresh&&fresh.revision===this.writeVersion&&Date.now()-fresh.at<(path.startsWith('integrations/operations?')?12000:30000))return this.peekView(branch,path);
+    if(this.viewFlights.has(path))return this.viewFlights.get(path);
+    const generation=this.viewGeneration||0,epoch=this.epoch,revision=this.writeVersion;
+    const flight=this.fetchView(branch,path,generation).then(result=>{if(epoch===this.epoch&&revision===this.writeVersion&&generation===(this.viewGeneration||0))this.viewFresh.set(path,{revision,at:Date.now()});return result;});
+    this.viewFlights.set(path,flight);try{return await flight;}finally{if(this.viewFlights.get(path)===flight)this.viewFlights.delete(path);}
+  }
+  async fetchView(branch,path,generation){const old=this.peekView(branch,path),epoch=this.epoch,revision=this.writeVersion,data=await this.request(path+(old?.cursor?'&since='+encodeURIComponent(old.cursor):''));if(epoch!==this.epoch||revision!==this.writeVersion||generation!==(this.viewGeneration||0))throw Error('Dados alterados durante a consulta.');const result=data.unchanged?{...old,cursor:data.cursor}:data;this.views.set(path,result);this.pageCache.save(branch,'view:'+path,result);if(path.startsWith('devices?'))for(const row of result.rows||[]){const at=this.devices.findIndex(r=>r.id===row.id&&r.branch===branch);if(at<0)this.devices.push(row);else this.devices[at]=row;}if(path.startsWith('warehouse?')&&new URLSearchParams(path.split('?')[1]).get('view')!=='movements')for(const row of result.rows||[]){const at=this.warehouse.findIndex(r=>r.id===row.id);if(at<0)this.warehouse.push(row);else this.warehouse[at]=row;}return result;}
   stockQuery(branch,model){return new URLSearchParams({branch,scope:'page',query:model.query||'',status:model.status||'Todos',start:model.start||'',end:model.end||'',sort:model.sort||'default',direction:model.direction??-1,page:model.page||1}).toString();}
   peekStockPage(branch,model){const key=this.stockQuery(branch,model),cached=this.stockPages.get(key);if(cached)return cached;const saved=this.pageCache.snapshot(branch,'page:'+key);return saved?this.adoptStockPage(branch,key,saved):null;}
   adoptStockPage(branch,key,data){const old=this.stockPages.get(key)||this.pageCache.snapshot(branch,'page:'+key);if(old?.cursor&&data.cursor&&BigInt(data.cursor)<BigInt(old.cursor))return old;const result=data.unchanged?{...old,cursor:data.cursor}:data;if(!result?.rows)throw Error('Página incompleta.');this.stockPages.set(key,result);this.pageCache.save(branch,'page:'+key,result);for(const row of result.rows){const at=this.devices.findIndex(r=>r.id===row.id&&r.branch===branch);if(at>=0)this.devices[at]={...this.devices[at],...row};else this.devices.push(row);}return result;}
-  async readStockPage(branch,model,{exportAll=false}={}){const key=this.stockQuery(branch,model),old=this.peekStockPage(branch,model),epoch=this.epoch,revision=this.writeVersion;this.currentStockQuery={branch,key};const data=await this.request('devices?'+key+(exportAll?'&export=1':old?.cursor?'&since='+old.cursor:''));if(epoch!==this.epoch||revision!==this.writeVersion)throw Error('Dados alterados durante a consulta.');return exportAll?data:this.adoptStockPage(branch,key,data);}
+  async readStockPage(branch,model,options={}){
+    if(options.exportAll)return this.fetchStockPage(branch,model,options);
+    const key=this.stockQuery(branch,model),fresh=this.stockFresh.get(key);
+    if(!options.preload)this.currentStockQuery={branch,key};
+    if(fresh&&fresh.revision===this.writeVersion&&Date.now()-fresh.at<30000)return this.peekStockPage(branch,model);
+    if(this.stockFlights.has(key))return this.stockFlights.get(key);
+    const revision=this.writeVersion,epoch=this.epoch,generation=this.viewGeneration||0,flight=this.fetchStockPage(branch,model,{...options,generation}).then(result=>{if(epoch===this.epoch&&revision===this.writeVersion&&generation===(this.viewGeneration||0))this.stockFresh.set(key,{revision,at:Date.now()});return result;});
+    this.stockFlights.set(key,flight);try{return await flight;}finally{if(this.stockFlights.get(key)===flight)this.stockFlights.delete(key);}
+  }
+  async fetchStockPage(branch,model,{exportAll=false,preload=false,generation=this.viewGeneration||0}={}){const key=this.stockQuery(branch,model),old=this.peekStockPage(branch,model),epoch=this.epoch,revision=this.writeVersion;if(!preload)this.currentStockQuery={branch,key};const data=await this.request('devices?'+key+(exportAll?'&export=1':old?.cursor?'&since='+old.cursor:''));if(epoch!==this.epoch||revision!==this.writeVersion||generation!==(this.viewGeneration||0))throw Error('Dados alterados durante a consulta.');return exportAll?data:this.adoptStockPage(branch,key,data);}
   list(branch){return this.devices.filter(d=>d.branch===branch).map(d=>({...d,...(d.observation?{communication:communication(d.observation.location),connectivity:d.observation.chip?.ok?d.observation.chip.connectivity||'Não informado':'Consulta pendente'}:{})}));}
   mutationResult(result){return result.changes?result:{...result,refreshPending:true};}
   async saveDevice(branch,values,current,{key}={}){const result=await this.request('devices'+(current?'/'+current.id:'')+'?branch='+encodeURIComponent(branch),{method:current?'PATCH':'POST',key,body:{data:values,...(current?{version:current.version}:{})}});if(!result.changes&&Object.hasOwn(values,'iccid'))this.invalidate(branch,['warehouse']);return this.mutationResult(result);}

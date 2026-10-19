@@ -26,11 +26,11 @@ test('storage unavailable and oversized snapshots do not prevent navigation',asy
  const denied=new PagePreloadCache({storage:{get length(){throw Error('denied')}}});await denied.bind(user);assert.doesNotThrow(()=>denied.save('imperatriz','devices',data));
  const store=storage(),c=new PagePreloadCache({storage:store});await c.bind(user);c.save('imperatriz','devices',{rows:[{notes:'x'.repeat(2000001)}]});assert.equal([...Array(store.length)].map((_,i)=>store.key(i)).filter(k=>k.startsWith('central-page-cache-')).length,0);
 });
-test('preload is sequential and stops remaining work when branch changes',async()=>{
+test('preload has at most two SQL reads and stops remaining work when branch changes',async()=>{
  const r=new SqlRepository();r.user=user;r.currentBranch='imperatriz';const calls=[];let running=0,max=0;
  r.request=async p=>{calls.push(p);max=Math.max(max,++running);await new Promise(x=>setTimeout(x,1));running--;return data};
- await r.preloadSelected('imperatriz',{delay:0});assert.equal(max,1);assert.equal(calls.length,8);
- r.invalidate('imperatriz');calls.length=0;r.request=async p=>{calls.push(p);r.currentBranch='araguaina';return data};await r.preloadSelected('imperatriz',{delay:0});assert.deepEqual(calls,['devices?branch=imperatriz']);
+ await r.preloadSelected('imperatriz',{delay:0});assert.equal(max,2);assert.equal(calls.length,16);
+ r.invalidate('imperatriz');calls.length=0;r.request=async p=>{calls.push(p);r.currentBranch='araguaina';return data};await r.preloadSelected('imperatriz',{delay:0});assert.deepEqual(calls,['devices?scope=summary&branch=imperatriz']);
 });
 test('restored rows are usable immediately, then replaced; refresh failures retain explicit pending state',async()=>{
  const r=new SqlRepository();r.user=user;r.preloadBranch='imperatriz';await r.pageCache.bind(user);r.pageCache.save('imperatriz','devices',{rows:[{id:'saved',branch:'imperatriz'}]});r.activate('imperatriz','tracking');r.applyGroup('imperatriz','devices',r.pageCache.snapshot('imperatriz','devices'));r.loaded.add('imperatriz:devices');r.restored.add('imperatriz:devices');

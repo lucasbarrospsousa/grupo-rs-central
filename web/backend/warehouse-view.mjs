@@ -42,10 +42,10 @@ export async function warehouseView(c,branch,params){
   const chips=params.get('view')==='chips',size=chips?7:8,page=Number(params.get('page')||0),query=(params.get('query')||'').trim().toLocaleLowerCase('pt-BR');
   if(!Number.isSafeInteger(page)||page<0||query.length>16000)throw Object.assign(Error('Filtros inválidos.'),{status:400});
   const values=[branch,chips?'chip':params.get('kind')||'device',params.get('status')||'',params.get('category')||'',params.get('provider')||'',params.get('destination')||'',query,size,page,chips];
-  const result=(await c.query(`with inventory as materialized (
+  const result=(await c.query(`with inventory as not materialized (
    select id,branch_id as branch,kind,serial,status,classification,received_at,version,activation_batch,activation_state,activation_at,activation_reference,chip_provider,chip_operator,chip_phone,usage_device_serial,usage_branch,usage_detected_at
    from central_homologacao.warehouse_items where branch_id=$1 and deleted_at is null
-  ), filtered as materialized (
+  ), filtered as not materialized (
    select * from inventory where kind=$2 and ($3='' or status=$3) and ($4='' or coalesce(nullif(classification,''),'Estoque')=$4) and ($5='' or chip_provider=$5) and ($6='' or usage_branch=$6)
    and ($7='' or exists(select 1 from unnest(array[serial,chip_phone,chip_operator,case when $10::boolean then case chip_provider when 'arya' then 'Árya' when 'link' then 'Link Solutions' else 'Não informado' end else usage_device_serial end]) value where strpos(lower(coalesce(value,'')),$7)>0))
   ), totals as (select count(*)::int as total from filtered), paging as (select total,least($9::int,greatest(0,ceil(total::numeric/$8::int)::int-1)) as page from totals)

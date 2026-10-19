@@ -1,3 +1,4 @@
+import {landingView} from './startup-preload.js';
 import {savedView} from './saved-view.js';
 import {overviewSummary} from './overview-summary.js';
 import {notify,clearNotices,installNoticeAlerts} from './notices.js';
@@ -58,9 +59,9 @@ function confirmAction(title, description, apply) {
 }
 function login() {
   if(repo.real){
-    app.innerHTML=`<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>CENTRAL DE OPERAÇÕES</small><h1>Sua operação.<br>Mais perto de você.</h1><p>Equipamentos, estoque e filiais em um só lugar.<br>Clareza para cada decisão do seu dia.</p><p>Uma central. Todas as suas bases.<br>Acesso organizado por filial.</p><small>DESENVOLVIDO POR SideraCode</small></section><section class="login-main"><span class="pill">${mode==='production'?'CENTRAL ONLINE • ACESSO EXCLUSIVO':'HOMOLOGAÇÃO • SQL'}</span><p>Bem-vindo de volta</p><h1>Acesse sua central</h1><p>Informe seu usuário e senha para continuar.</p><form id="real-login"><label class="field">Usuário<input name="username" autocomplete="username" placeholder="Seu usuário" required></label><label class="field">Senha<input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required></label><button type="button" id="reveal-password">Mostrar senha</button><label class="field"><span><input name="remember" type="checkbox" checked> Manter conectado neste computador</span></label><button class="primary" type="submit">Entrar no sistema →</button><p id="login-error" role="alert"></p></form><p class="muted">${mode==='production'?'Acesso exclusivo. Suas alterações são salvas na Central online.':'Acesso restrito a usuários autorizados. Cópia isolada de testes.'}</p></section></main>`;
+    app.innerHTML=`<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>CENTRAL DE OPERAÇÕES</small><h1>Sua operação.<br>Mais perto de você.</h1><p>Equipamentos, estoque e filiais em um só lugar.<br>Clareza para cada decisão do seu dia.</p><p>Uma central. Todas as suas bases.<br>Acesso organizado por filial.</p><small>DESENVOLVIDO POR SideraCode</small></section><section class="login-main"><span class="pill">${mode==='production'?'CENTRAL ONLINE • ACESSO EXCLUSIVO':'HOMOLOGAÇÃO • SQL'}</span><p>Bem-vindo de volta</p><h1>Acesse sua central</h1><p>Informe seu usuário e senha para continuar.</p><form id="real-login"><label class="field">Usuário<input name="username" autocomplete="username" placeholder="Seu usuário" required></label><label class="field">Senha<input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required></label><button type="button" id="reveal-password">Mostrar senha</button><button class="primary" type="submit">Entrar no sistema →</button><p id="login-error" role="alert"></p></form><p class="muted">${mode==='production'?'Acesso exclusivo. Suas alterações são salvas na Central online.':'Acesso restrito a usuários autorizados. Cópia isolada de testes.'}</p></section></main>`;
     on('reveal-password','click',e=>{const p=document.querySelector('#login-password');p.type=p.type==='password'?'text':'password';e.target.textContent=p.type==='password'?'Mostrar senha':'Ocultar senha';});
-    on('real-login','submit',async e=>{e.preventDefault();const btn=e.target.querySelector('[type=submit]');btn.disabled=true;try{const f=new FormData(e.target);await repo.login(f.get('username'),f.get('password'),f.has('remember'));await enterSql();}catch(error){document.querySelector('#login-error').textContent=error.message;btn.disabled=false;}});
+    on('real-login','submit',async e=>{e.preventDefault();const btn=e.target.querySelector('[type=submit]');btn.disabled=true;try{const f=new FormData(e.target);await repo.login(f.get('username'),f.get('password'),false);await enterSql();}catch(error){document.querySelector('#login-error').textContent=error.message;btn.disabled=false;}});
     return;
   }
   app.innerHTML = `<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>GRUPO RS CENTRAL</small><h1>Uma Central.<br>Todas as bases.</h1><p>Estoque, manutenção e operação em um só lugar.</p></section><section class="login-main"><span class="pill">VERSÃO WEB • PRÉVIA LOCAL</span><h1>Acesse a Central</h1><p>A estrutura web está em preparação. Você pode explorar os fluxos com dados demonstrativos, sem informar senha.</p><label class="field">Filial inicial<select id="login-branch">${branchOptions(state.branch)}</select></label>${button('Explorar demonstração', 'enter', 'primary', 'right')}<div class="gate" style="margin-top:25px"><strong>Conexão com o banco pendente</strong><br>O login real será conectado após sua autorização. Os exemplos são reiniciados ao recarregar a página.</div></section></main>`;
@@ -95,7 +96,6 @@ function render() {
 
   document.body.classList.toggle('read-only',repo.real&&isReader(repo.user,state.branch,state.route));
   if (!state.entered) return login();
-  if(repo.real)try{localStorage.setItem("central-view:"+repo.user.username,JSON.stringify({branch:state.branch,route:state.route}));}catch{}
   const route = routes.find(r => r[0] === state.route) || routes[0];
   app.innerHTML = `<div class="app-layout"><aside class="sidebar"><div class="brand"><img src="logo.png" alt="Grupo RS"><div><small>GRUPO RS</small><br><b>CENTRAL</b></div></div><div class="nav-label">CENTRAL DE OPERAÇÕES</div>${routes.filter(([id])=>branchRouteVisible(state.branch,id)).map(([id, label, glyph]) => `<a href="#${id}" data-route="${id}" class="${state.route === id ? 'active' : ''}">${icon(glyph)}${label}</a>`).join('')}<div class="bottom"><small><span class="status-dot"></span>Ambiente demonstrativo</small><a href="#exit" id="exit">${icon('out')}Sair</a></div></aside><main class="content"><header class="top"><div><h1>${route[1]}</h1><p>${state.route === 'overview' ? 'Todas as bases e sua filial em um só lugar.' : 'Grupo RS Central • ' + name(state.branch)}</p></div><div class="actions"><select id="branch" aria-label="Filial">${branchOptions(state.branch)}</select>${button('Atualizar', 'refresh', '', 'refresh')}</div></header><div class="demo-strip"><span><strong>PRÉVIA WEB</strong> • Dados fictícios, apenas nesta sessão</span><span>Banco e integrações reais aguardam autorização</span></div><div id="page"></div><div class="footer-note">Grupo RS Central • Migração web em preparação</div></main></div>`;
   app.querySelectorAll('[data-route]').forEach(a => a.onclick = e => { e.preventDefault(); state.route = a.dataset.route; state.selected.clear(); render(); });
@@ -277,23 +277,12 @@ function bulk() { mountBulk({repo,branch:state.branch,branchName:name(state.bran
 function settings() { mountSettings({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 async function enterSql(){
  if(!repo.user.branches.length)throw Error('Usuário sem filial autorizada.');
- let saved={};try{saved=JSON.parse(localStorage.getItem('central-view:'+repo.user.username)||'{}')||{};}catch{}
- state.branch=repo.user.branches.find(b=>b.id===saved.branch)?.id||repo.user.branches.find(b=>b.id==='imperatriz')?.id||repo.user.branches[0].id;
- state.route=routes.some(r=>r[0]===saved.route)?saved.route:'overview';
- const alertParams=new URLSearchParams(location.search),alertBranch=alertParams.get('alertBranch'),alertRoute=alertParams.get('alertRoute');
- if(repo.user.branches.some(b=>b.id===alertBranch)&&['stock','warehouse'].includes(alertRoute)){state.branch=alertBranch;state.route=alertRoute;history.replaceState(null,'',location.pathname);}
+ Object.assign(state,landingView(repo.user));
  state.entered=true;render();
 
 }
-async function restoreSession(){
- app.innerHTML='<main class="login-main"><h1>Grupo RS Central</h1><p role="status">Restaurando sua sessão e carregando a última página…</p></main>';
- try{await repo.session();await enterSql();}
- catch(error){if(error.status===401){state.entered=false;login();return;}
- app.innerHTML='<main class="login-main"><h1>Não foi possível carregar a Central</h1><p role="alert">'+escape(error.message)+'</p><button id="retry-session" class="primary">Tentar novamente</button></main>';
- on('retry-session','click',restoreSession);
- }
-}
-if(repo.real)void restoreSession();else render();
+// Opening the document always requires an explicit login.
+render();
 
 function records() { mountRecords({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 
