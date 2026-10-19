@@ -17,10 +17,4 @@ test('permissões e filial bloqueiam antes de consultar a operadora',async()=>{
  assert.equal(permitted({owner:false,views:['warehouse'],writes:['warehouse']},'/api/warehouse-activation','POST'),true);
 });
 
-test('prepare validates exact reviewed ICCIDs and audits the selected IDs',async()=>{
- const chips=[{id:'11111111-1111-4111-8111-111111111111',serial:'8955000000000000001',kind:'chip',status:'Disponível',classification:'Reserva',chip_provider:'arya'}],queries=[];let reads=0;
- const c={query:async(sql,args)=>{queries.push({sql,args});if(sql.startsWith('select *'))return {rows:chips};if(sql.startsWith('select id'))return {rows:[],rowCount:0};return {rows:[]};}},service={carrier:async(provider,iccid)=>{reads++;return {ok:true,provider,iccid,status:'0'};}};
- const input={branch:'imperatriz',role:'admin',service,body:{action:'prepare',confirmed:true,size:20,ids:chips.map(r=>r.id),iccids:['8955000000000099999']}};
- await assert.rejects(warehouseActivation(c,input),/seleção/);assert.equal(reads,0);assert.ok(!queries.some(q=>q.sql.startsWith('update')));
- input.body.iccids=chips.map(r=>r.serial);const r=await warehouseActivation(c,input);assert.equal(r.response.count,1);assert.deepEqual(r.response.iccids,input.body.iccids);const audit=queries.find(q=>q.sql.includes('CONFIRM_ARYA_SELECTION'));assert.deepEqual(audit.args[1].ids,input.body.ids);assert.deepEqual(audit.args[1].iccids,input.body.iccids);
-});
+test('old prepare/request actions are retired before any SQL or provider read',async()=>{for(const action of ['prepare','requested','send'])await assert.rejects(warehouseActivation({query:()=>assert.fail('No SQL')},{body:{action},branch:'imperatriz',role:'admin',service:{}}),{status:410});});

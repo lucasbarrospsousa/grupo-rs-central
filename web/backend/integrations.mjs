@@ -327,7 +327,8 @@ export class Integrations{
   }
  }
  async aryaRequest(path,payload,{write=false,retry=true}={}){
-  if(write?path!=='/tickets/bulk/by-iccid':!['/ticket/user/table','/customer/inventary/export'].includes(path))throw err('Operação Árya inválida.',400);
+  if(write)throw err('Envio de ativações desativado na Central.',410);
+  if(!['/ticket/user/table','/customer/inventary/export'].includes(path))throw err('Operação Árya inválida.',400);
   const base='https://api-arya.hinovaconecta.com.br',key='carrier-arya';let auth=this.sessions.get(key);
   if(!auth||Date.now()-auth.at>900000){const secrets=this.secrets();if(!secrets.arya_password)throw err('Credenciais da Árya indisponíveis.');
    const r=await authenticate(()=>this.request(base+'/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:secrets.arya_email,password:secrets.arya_password})}));

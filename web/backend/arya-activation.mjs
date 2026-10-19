@@ -43,9 +43,4 @@ export async function openAryaActivations(service){
  }
  return found;
 }
-export async function submitAryaActivation(service,iccids){
- if(!Array.isArray(iccids)||!iccids.length||iccids.length>20||new Set(iccids).size!==iccids.length||iccids.some(v=>typeof v!=='string'||!/^89\d{17,18}$/.test(v)))throw Error('Lote de ativação inválido.');
- // Never retry this POST, including authentication errors or timeouts.
- const result=await service.aryaRequest('/tickets/bulk/by-iccid',{iccids,type:3},{write:true});
- return {accepted:result?.status===true};
-}
+export async function submitAryaActivation(){throw Object.assign(Error('Envio de ativações desativado na Central.'),{status:410});}

@@ -20,8 +20,8 @@ export function parseAryaCosts(text){
  result.set(iccid,{iccid,active:['ATIVO','ATIVO - NUNCA CONECTADO'].includes(get('STATUS')),status:get('STATUS'),cents:brlCents(get('VALOR NEGOCIADO')),operator:get('OPERADORA'),plan:get('PLANO'),imei:get('IMEI'),phone:get('NUMERO'),connection:get('STATUS DE CONEXAO'),last_connection:get('ULTIMA ABERTURA SESSAO'),last_session_update:get('ULTIMA ATUALIZACAO SESSAO')});}
  return result;
 }
-export async function aryaCostSnapshot(service){
- let entry=cache.get(service);if(entry&&Date.now()-entry.at<30*60*1000)return entry.promise;
+export async function aryaCostSnapshot(service,{maxAgeMs=30*60*1000}={}){
+ let entry=cache.get(service);if(entry&&Date.now()-entry.at<maxAgeMs)return entry.promise;
  entry={at:Date.now(),promise:null};entry.promise=(async()=>({rows:parseAryaCosts(await service.aryaRequest('/customer/inventary/export',{filters:{},inventaryFlag:'default'})),checked_at:new Date().toISOString()}))();cache.set(service,entry);
  try{return await entry.promise;}catch(e){if(cache.get(service)===entry)cache.delete(service);throw e;}
 }

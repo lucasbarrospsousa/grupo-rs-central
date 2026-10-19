@@ -1,3 +1,13 @@
+## Chips: ativação exclusivamente manual — 19/10/2026
+
+A Central não prepara nem envia ativações. Endpoints antigos, lotes preparados e transporte de escrita da Árya recusam envio antes de acessar o provedor. O histórico permanece salvo.
+
+Selecionar chips oferece Copiar ICCIDs: texto exato, separado por ponto e vírgula, sem completar lotes nem converter números. A seleção fica limitada à página visível, é limpa depois de copiar e ao trocar página/filtro/aba; falha na área de transferência conserva a seleção. Copiar não chama a API.
+
+Atualizar situação consulta o inventário da Árya em uma leitura conjunta, incluindo chips ativados manualmente sem lote da Central. Cache de até 60 segundos evita leituras repetidas. Apenas chips Árya Disponíveis/Reserva, confirmados como ATIVO ou ATIVO - NUNCA CONECTADO, passam a Estoque; telefone válido é incorporado, lote e referências anteriores preservados. Não localizado, não ativo e falha de consulta são distintos. Não há novo agendamento. Link continua com o fluxo existente, sem ativação pela Central.
+
+Validação offline: testes warehouse-activation*, warehouse-chips e warehouse-costs; seleção de 51 ICCIDs em grupos, caminhos legados bloqueados, evidência inválida sem gravação, permissões, cache e falhas. Teste no Chrome com dados fictícios e conexões externas bloqueadas confirmou cópia/colagem, troca de página e acompanhamento. As descrições históricas de envio abaixo estão substituídas por esta política.
+
 ## Ativação: seleção exata e revisão — 19/10/2026
 
 Limite de lote não completa a seleção: somente os IDs e ICCIDs explicitamente selecionados e revisados são preparados. A confirmação apresenta quantidade e todos os ICCIDs. A interface compara o retorno da preparação com a seleção congelada; diferenças bloqueiam o envio. O servidor também exige correspondência exata dos ICCIDs na preparação e antes da cerca de envio. Clientes antigos precisam recarregar a página.

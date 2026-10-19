@@ -1,4 +1,4 @@
-export const activationLabels={prepared:'Lote preparado',sending:'Envio em conferência',uncertain:'Resposta não confirmada',requested:'Ativação solicitada',active:'Ativo confirmado'};
+export const activationLabels={prepared:'Preparação antiga • envio desativado',sending:'Envio em conferência',uncertain:'Resposta não confirmada',requested:'Ativação solicitada',active:'Ativo confirmado'};
 export const reserveChip=r=>r.kind==='chip'&&r.status==='Disponível'&&r.activation_state!=='active'&&(r.classification==='Reserva'||!r.chip_phone||r.activation_state);
 export const activationCandidate=r=>reserveChip(r)&&r.chip_provider==='arya'&&!r.activation_state;
 export function activationSelection(rows,ids,size){

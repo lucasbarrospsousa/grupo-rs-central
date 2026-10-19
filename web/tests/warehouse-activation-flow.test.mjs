@@ -1,38 +1,35 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
+import test from 'node:test';import assert from 'node:assert/strict';
+import {copySelectedIccids,selectedIccids} from '../public/warehouse-chip-copy.js';
 import {requestActivationLot,sendPreparedActivationLot,mountWarehouseActivation} from '../public/warehouse-activation.js';
-const batch='11111111-1111-4111-8111-111111111111',confirm=()=>true;
-const chip=i=>({id:'qa-'+i,kind:'chip',status:'Disponível',classification:'Reserva',chip_provider:'arya',serial:'895500000000000'+String(i).padStart(4,'0')});
-const warehouse=Array.from({length:51},(_,i)=>chip(i));
-function fixture(){const calls=[];return {calls,repo:{warehouse:structuredClone(warehouse),request:async(path,options)=>{calls.push({path,...options});return options.body.action==='prepare'?{ok:true,id:batch,state:'prepared',count:options.body.iccids.length,iccids:[...options.body.iccids]}:{ok:true,state:'requested'};}}};}
-test('limit 20, manual lots 10+10+10+10+10+1: exact IDs and ICCIDs, never fill the limit',async()=>{
- const f=fixture();for(let start=0;start<51;start+=10){const selected=f.repo.warehouse.slice(start,start+10),ids=selected.map(r=>r.id),iccids=selected.map(r=>r.serial);let shown;
- await requestActivationLot(f.repo,ids,20,{confirm:x=>(shown=x,true)});assert.deepEqual(shown,iccids);assert.deepEqual(f.calls.at(-2).body.ids,ids);assert.deepEqual(f.calls.at(-1).body.iccids,iccids);
- }assert.equal(f.calls.filter(c=>c.body.action==='send').flatMap(c=>c.body.iccids).length,51);
+const warehouse=Array.from({length:51},(_,i)=>({id:'qa-'+i,kind:'chip',status:'Disponível',classification:'Reserva',chip_provider:'arya',serial:'895500000000000'+String(i).padStart(4,'0')}));
+test('51 selected in groups 10+10+10+10+10+1 copy exact strings, never filling any lot',async()=>{
+ const copies=[];for(let i=0;i<51;i+=10){const chosen=warehouse.slice(i,i+10);await copySelectedIccids(warehouse,chosen.map(r=>r.id),{writeText:async text=>copies.push(text)});}
+ assert.deepEqual(copies.flatMap(s=>s.split(';')),warehouse.map(r=>r.serial));
+ assert.equal(new Set(copies.flatMap(s=>s.split(';'))).size,51);
 });
-test('cancel, missing/changed selection and duplicates cannot silently send another selection',async()=>{
- const f=fixture();await requestActivationLot(f.repo,['qa-0'],20,{confirm:()=>false});assert.equal(f.calls.length,0);
- for(const ids of [['missing'],['qa-0','qa-0']])await assert.rejects(requestActivationLot(f.repo,ids,20,{confirm}));
- f.repo.warehouse[0].activation_state='requested';await assert.rejects(requestActivationLot(f.repo,['qa-0','qa-1'],20,{confirm}));assert.equal(f.calls.length,0);
+test('copy preserves order and leading zeroes; rejects missing, duplicate and numeric serials',()=>{
+ const rows=[{id:'a',kind:'chip',serial:'00123456789012345678'},{id:'b',kind:'chip',serial:'895445500008854741'}];
+ assert.equal(selectedIccids(rows,['b','a']),'895445500008854741;00123456789012345678');
+ for(const ids of [[],['a','a'],['x']])assert.throws(()=>selectedIccids(rows,ids));
+ assert.throws(()=>selectedIccids([{...rows[0],serial:1234567890123}],['a']));
 });
-test('mismatched prepared ICCIDs/count block send; exact set may be reordered',async()=>{
- for(const bad of [{iccids:['8955000000000099999'],count:1},{iccids:[warehouse[0].serial],count:2},{iccids:undefined,count:1}]){const f=fixture();f.repo.request=async(path,options)=>{f.calls.push(options);return {ok:true,state:'prepared',id:batch,...bad};};await assert.rejects(requestActivationLot(f.repo,['qa-0'],20,{confirm}),/diferente/);assert.equal(f.calls.length,1);}
+test('legacy frontend entrypoints cannot contact an API',async()=>{
+ const repo={request:()=>assert.fail('No API'),readView:()=>assert.fail('No API')};
+ await assert.rejects(requestActivationLot(repo,['qa-0'],20),/não envia/);
+ await assert.rejects(sendPreparedActivationLot(repo,'old'),/não envia/);
 });
-test('concurrent panel calls and lost responses never send twice automatically',async()=>{
- const f=fixture();let release;const original=f.repo.request;f.repo.request=async(...args)=>{if(args[1].body.action==='prepare')await new Promise(r=>release=r);return original(...args);};
- const pending=requestActivationLot(f.repo,['qa-0'],20,{confirm});await Promise.resolve();await assert.rejects(requestActivationLot(f.repo,['qa-1'],20,{confirm}),/andamento/);release();await pending;assert.equal(f.calls.length,2);
- const g=fixture();g.repo.request=async(path,o)=>{g.calls.push(o);if(o.body.action==='send')throw Error('timeout');return {ok:true,state:'prepared',id:batch,count:1,iccids:[warehouse[0].serial]};};await assert.rejects(requestActivationLot(g.repo,['qa-0'],20,{confirm}),/timeout/);assert.equal(g.calls.length,2);
-});
-test('prepared history lot is re-read and reviewed before explicit sending',async()=>{
- const f=fixture();f.repo.readView=async()=>({rows:[{...warehouse[2],activation_state:'prepared'}]});let reviewed;
- await sendPreparedActivationLot(f.repo,batch,{confirm:x=>(reviewed=x,true)});assert.deepEqual(reviewed,[warehouse[2].serial]);assert.deepEqual(f.calls[0].body.iccids,reviewed);
-});
-test('failed attempt clears selection, and filters/page changes clear hidden selections',async()=>{
+test('monitor copying and page/filter changes clear selection; failed copy preserves it',async()=>{
  const elements=new Map(),root={isConnected:true,innerHTML:'',querySelector(s){if(!elements.has(s))elements.set(s,{focus(){},setSelectionRange(){}});return elements.get(s);},querySelectorAll(){return [];}};
- const repo={real:true,user:{branches:[{id:'imperatriz',role:'admin'}],permissions:{owner:true}},warehouse:structuredClone(warehouse),request:async()=>{throw Error('Falha simulada');}};
- const old=globalThis.confirm;globalThis.confirm=confirm;
- try{mountWarehouseActivation(root,{repo,icon:()=>''}).update(repo.warehouse);root.querySelector('#reserve-size').onchange({target:{value:'20'}});root.querySelector('#reserve-select').onclick();await root.querySelector('#reserve-request').onclick();assert.match(root.innerHTML,/0\/20 selecionados/);
- root.querySelector('#reserve-select').onclick();root.querySelector('#reserve-next').onclick();assert.match(root.innerHTML,/0\/20 selecionados/);
- root.querySelector('#reserve-select').onclick();root.querySelector('#reserve-search').oninput({target:{value:'99999',selectionStart:5}});assert.match(root.innerHTML,/0\/20 selecionados/);
- }finally{globalThis.confirm=old;}
+ const repo={real:true,user:{branches:[{id:'imperatriz',role:'admin'}],permissions:{owner:true}},warehouse,request:()=>assert.fail('Copy cannot call API')};
+ const old=Object.getOwnPropertyDescriptor(globalThis,'navigator');let copied='';
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:async v=>{copied=v;}}}});
+ try{
+  mountWarehouseActivation(root,{repo,icon:()=>''}).update(warehouse);
+  assert.doesNotMatch(root.innerHTML,/Solicitar ativação|data-send-batch|reserve-size/);
+  root.querySelector('#reserve-select').onclick();await root.querySelector('#reserve-copy').onclick();
+  assert.equal(copied,warehouse.slice(0,20).map(r=>r.serial).join(';'));assert.match(root.innerHTML,/0 selecionados/);
+  root.querySelector('#reserve-select').onclick();root.querySelector('#reserve-next').onclick();assert.match(root.innerHTML,/0 selecionados/);
+  root.querySelector('#reserve-select').onclick();root.querySelector('#reserve-search').oninput({target:{value:'8955',selectionStart:4}});assert.match(root.innerHTML,/0 selecionados/);
+  navigator.clipboard.writeText=async()=>{throw Error('Clipboard negado');};root.querySelector('#reserve-select').onclick();await root.querySelector('#reserve-copy').onclick();assert.match(root.innerHTML,/20 selecionados/);assert.match(root.innerHTML,/Clipboard negado/);
+ }finally{if(old)Object.defineProperty(globalThis,'navigator',old);else delete globalThis.navigator;}
 });

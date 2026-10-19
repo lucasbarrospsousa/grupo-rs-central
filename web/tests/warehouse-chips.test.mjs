@@ -11,7 +11,7 @@ test('chip filters preserve ICCID text and combine category, provider and situat
  assert.equal(filterChips(rows,{query:'not found'}).length,0);
 });
 test('activation states are distinct from classification; absent evidence is not declared active',()=>{
- assert.equal(chipSituation(chip)[0],'Pronto para solicitar');
+ assert.equal(chipSituation(chip)[0],'Aguardando ativação manual');
  assert.equal(chipSituation({...chip,activation_state:'requested'})[0],'Ativação solicitada');
  assert.equal(chipSituation({...chip,activation_state:'uncertain'})[0],'Resposta não confirmada');
  assert.equal(chipSituation({...chip,activation_state:'active'})[0],'Ativo confirmado');
