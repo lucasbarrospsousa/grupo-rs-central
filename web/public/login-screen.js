@@ -1,4 +1,13 @@
+import {initialReadPlan} from './startup-preload.js';
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export async function prepareLoginOverview(repo,preferred){
+ const user=repo.user,destination=loginDestination(user,preferred);
+ if(initialReadPlan(user,destination.branch).summary){
+   await repo.loadGroup(destination.branch,'summary',{refresh:true});
+   if(repo.user!==user||!repo.ready(destination.branch,'overview'))throw Error('Sessão alterada. Entre novamente.');
+ }
+ return destination;
+}
 export function loginDestination(user,preferred){
  const branch=user?.branches?.find(b=>b.id===preferred)||user?.branches?.find(b=>b.id==='imperatriz')||user?.branches?.[0];
  if(!branch)throw Error('Usuário sem filial autorizada.');

@@ -1,4 +1,4 @@
-import {mountLogin,loginDestination} from './login-screen.js';
+import {mountLogin,prepareLoginOverview} from './login-screen.js';
 import {startMaintenanceRefresh} from './maintenance-refresh.js';
 import {savedView} from './saved-view.js';
 import {mountOverviewSummary} from './overview-summary.js';
@@ -273,7 +273,7 @@ function bulk() { mountBulk({repo,branch:state.branch,branchName:name(state.bran
 function settings() { mountSettings({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 async function enterSql(preferred){
  if(!repo.user.branches.length)throw Error('Usuário sem filial autorizada.');
- Object.assign(state,loginDestination(repo.user,preferred));
+ Object.assign(state,await prepareLoginOverview(repo,preferred));
  state.entered=true;render();if(preferred&&preferred!==state.branch)notify('A filial selecionada não está disponível para seu usuário. Aberta a filial autorizada '+name(state.branch)+'.');startMaintenanceRefresh(repo);
 
 }

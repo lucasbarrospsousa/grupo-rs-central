@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SqlRepository} from '../public/sql-repository.js';
 import {bundlePaths} from '../backend/startup-bundle.mjs';
+import {prepareLoginOverview} from '../public/login-screen.js';
 const branch='imperatriz',user={username:'fixture',user_id:'id',branches:[{id:branch,role:'admin'}],permissions:{owner:true,views:[],writes:[]}};
 const tick=()=>new Promise(r=>setImmediate(r));
 function setup(){const r=new SqlRepository();r.user=user;r.currentBranch=branch;let resolveSummary,resolveBundle;const calls=[];
@@ -32,4 +33,20 @@ test('background endpoint excludes summary without changing allowed panel set',a
  const {startupBundle}=await import('../backend/startup-bundle.mjs');const db={query:async()=>({rows:user.branches}),connect:async()=>({query:async()=>({rows:[]}),release(){}})};
  const result=await startupBundle(db,user,user.permissions,branch,{background:true,reader:async()=>({})});
  assert.equal(result.panels.length,16);assert.ok(result.panels.every(p=>!p.path.includes('scope=summary')));
+});
+test('login waits only for authorized summary; render starts background without repeating summary',async()=>{
+ const f=setup();let entered=false;
+ const entry=prepareLoginOverview(f.r,'araguaina').then(destination=>{entered=true;f.r.activate(destination.branch,destination.route);return destination;});
+ await tick();assert.equal(entered,false);assert.equal(f.calls.length,1);assert.match(f.calls[0],/branch=imperatriz/);
+ f.summary();assert.deepEqual(await entry,{branch,route:'overview'});
+ assert.equal(f.r.ready(branch,'overview'),true);assert.equal(f.r.summaries.get(branch).total,12);
+ await tick();assert.equal(f.calls.length,2);assert.match(f.calls[1],/phase=background/);
+ assert.ok(f.r.preloadRunning);f.bundle();await tick();
+});
+test('summary failure keeps login pending for retry; denied overview does not query summary',async()=>{
+ const f=setup();f.r.networkRequest=async()=>{throw Error('Resumo indisponível');};
+ await assert.rejects(prepareLoginOverview(f.r,branch),/Resumo indisponível/);
+ assert.equal(f.r.ready(branch,'overview'),false);
+ f.r.user={...user,permissions:{views:['stock'],owner:false}};
+ assert.deepEqual(await prepareLoginOverview(f.r,branch),{branch,route:'overview'});
 });
