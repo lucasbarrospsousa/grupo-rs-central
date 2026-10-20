@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {loginDestination} from '../public/login-screen.js';
+test('selected branch is honored only when authorized and always lands on overview',()=>{const u={branches:[{id:'imperatriz'},{id:'maraba'}]};assert.deepEqual(loginDestination(u,'maraba'),{branch:'maraba',route:'overview'});assert.equal(loginDestination(u,'araguaina').branch,'imperatriz');assert.equal(loginDestination({branches:[{id:'acailandia'}]},'imperatriz').branch,'acailandia');assert.throws(()=>loginDestination({branches:[]},'maraba'));});

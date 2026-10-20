@@ -1,5 +1,5 @@
+import {mountLogin,loginDestination} from './login-screen.js';
 import {startMaintenanceRefresh} from './maintenance-refresh.js';
-import {landingView} from './startup-preload.js';
 import {savedView} from './saved-view.js';
 import {mountOverviewSummary} from './overview-summary.js';
 import {notify,clearNotices,installNoticeAlerts} from './notices.js';
@@ -60,9 +60,7 @@ function confirmAction(title, description, apply) {
 }
 function login() {
   if(repo.real){
-    app.innerHTML=`<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>CENTRAL DE OPERAÇÕES</small><h1>Sua operação.<br>Mais perto de você.</h1><p>Equipamentos, estoque e filiais em um só lugar.<br>Clareza para cada decisão do seu dia.</p><p>Uma central. Todas as suas bases.<br>Acesso organizado por filial.</p><small>DESENVOLVIDO POR SideraCode</small></section><section class="login-main"><span class="pill">${mode==='production'?'CENTRAL ONLINE • ACESSO EXCLUSIVO':'HOMOLOGAÇÃO • SQL'}</span><p>Bem-vindo de volta</p><h1>Acesse sua central</h1><p>Informe seu usuário e senha para continuar.</p><form id="real-login"><label class="field">Usuário<input name="username" autocomplete="username" placeholder="Seu usuário" required></label><label class="field">Senha<input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required></label><button type="button" id="reveal-password">Mostrar senha</button><button class="primary" type="submit">Entrar no sistema →</button><p id="login-error" role="alert"></p></form><p class="muted">${mode==='production'?'Acesso exclusivo. Suas alterações são salvas na Central online.':'Acesso restrito a usuários autorizados. Cópia isolada de testes.'}</p></section></main>`;
-    on('reveal-password','click',e=>{const p=document.querySelector('#login-password');p.type=p.type==='password'?'text':'password';e.target.textContent=p.type==='password'?'Mostrar senha':'Ocultar senha';});
-    on('real-login','submit',async e=>{e.preventDefault();const btn=e.target.querySelector('[type=submit]');btn.disabled=true;try{const f=new FormData(e.target);await repo.login(f.get('username'),f.get('password'),false);await enterSql();}catch(error){document.querySelector('#login-error').textContent=error.message;btn.disabled=false;}});
+    mountLogin(app,{branches,production:mode==='production',submit:async(username,password,branch)=>{await repo.login(username,password,false);await enterSql(branch);}});
     return;
   }
   app.innerHTML = `<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>GRUPO RS CENTRAL</small><h1>Uma Central.<br>Todas as bases.</h1><p>Estoque, manutenção e operação em um só lugar.</p></section><section class="login-main"><span class="pill">VERSÃO WEB • PRÉVIA LOCAL</span><h1>Acesse a Central</h1><p>A estrutura web está em preparação. Você pode explorar os fluxos com dados demonstrativos, sem informar senha.</p><label class="field">Filial inicial<select id="login-branch">${branchOptions(state.branch)}</select></label>${button('Explorar demonstração', 'enter', 'primary', 'right')}<div class="gate" style="margin-top:25px"><strong>Conexão com o banco pendente</strong><br>O login real será conectado após sua autorização. Os exemplos são reiniciados ao recarregar a página.</div></section></main>`;
@@ -273,10 +271,10 @@ function sms() { mountSms({repo,branch:state.branch,branchName:name(state.branch
 function linking() { state.route='stock';render(); }
 function bulk() { mountBulk({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
 function settings() { mountSettings({repo,branch:state.branch,branchName:name(state.branch),icon,showModal,notify,navigate:route=>{state.route=route;render();}}); }
-async function enterSql(){
+async function enterSql(preferred){
  if(!repo.user.branches.length)throw Error('Usuário sem filial autorizada.');
- Object.assign(state,landingView(repo.user));
- state.entered=true;render();startMaintenanceRefresh(repo);
+ Object.assign(state,loginDestination(repo.user,preferred));
+ state.entered=true;render();if(preferred&&preferred!==state.branch)notify('A filial selecionada não está disponível para seu usuário. Aberta a filial autorizada '+name(state.branch)+'.');startMaintenanceRefresh(repo);
 
 }
 // Opening the document always requires an explicit login.
