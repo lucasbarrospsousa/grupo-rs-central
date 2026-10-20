@@ -37,8 +37,8 @@ export function startEconomyPolling(task,{interval=120000,cost=1,active=()=>true
 }
 
 const effectiveLimits={hour:90,day:700};let effectiveFactor=2,lastPolicy=0,policyFlight=null;
-const portal='https://portal-sidera-code.lucasbarrosp.chatgpt.site/api/economy';
-const systems={'grupo-rs-central.lucasbarrosp.chatgpt.site':'central','sos-vendas-web.lucasbarrosp.chatgpt.site':'vendas','sos-24horas.lucasbarrosp.chatgpt.site':'24horas'};
+const portal='https://portal-sidera-code.lucasbarrospereira13.workers.dev/api/economy';
+const systems={'grupo-rs-central-avaliacao.lucasbarrospereira13.workers.dev':'central','grupo-rs-central.lucasbarrosp.chatgpt.site':'central','sos-vendas-web.lucasbarrosp.chatgpt.site':'vendas','sos-24horas.lucasbarrosp.chatgpt.site':'24horas'};
 export function validPolicy(p,now=Date.now()){return !!p&&['normal','economy','restricted','essential'].includes(p.mode)&&Number.isFinite(p.factor)&&p.factor>=1&&p.factor<=10&&Number.isInteger(p.hour)&&p.hour>=1&&p.hour<=120&&Number.isInteger(p.day)&&p.day>=1&&p.day<=1000&&Number.isFinite(p.validUntil)&&p.validUntil>now&&p.validUntil<=now+3600000;}
 async function syncPolicy(){
  if(policyFlight)return policyFlight;if(Date.now()-lastPolicy<900000)return;

@@ -27,6 +27,10 @@ export default {
       request = new Request(canonical, {method:request.method, headers,
         body:mutation ? request.body : undefined, ...(mutation ? {duplex:'half'} : {})});
     }
-    return site.fetch(request, env, ctx);
+    const response = await site.fetch(request, env, ctx);
+    const result = new Response(response.body, response);
+    const policy = result.headers.get('Content-Security-Policy');
+    if (policy) result.headers.set('Content-Security-Policy', policy.replace("connect-src 'self'", "connect-src 'self' https://portal-sidera-code.lucasbarrospereira13.workers.dev"));
+    return result;
   }
 };
