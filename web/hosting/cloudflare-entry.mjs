@@ -1,6 +1,6 @@
 import site from './worker.mjs';
 
-// Separate evaluation deployment. The existing Sites entry remains unchanged.
+// The existing Sites entry remains unchanged for rollback.
 const backendOrigin = 'https://grupo-rs-central.lucasbarrosp.chatgpt.site';
 const savedReads = new Set(['/api/session','/api/startup-bundle','/api/devices','/api/warehouse','/api/history','/api/maintenance','/api/backups/status','/api/integrations/sync-status','/api/warehouse-costs']);
 // Audit events keep the original permission checks and write no business data.
@@ -14,7 +14,8 @@ export default {
     if (mutation && request.headers.get('origin') !== url.origin) return denied(403, 'Origem inválida.');
     if (url.pathname.startsWith('/api/')) {
       // Never enable operational integrations just by opening this test copy.
-      if (!(request.method === 'GET' && savedReads.has(url.pathname)) &&
+      if (env.CENTRAL_HOSTING_MODE !== 'production' &&
+          !(request.method === 'GET' && savedReads.has(url.pathname)) &&
           !(request.method === 'POST' && sessionWrites.has(url.pathname))) {
         return denied(403, 'Cópia de avaliação: somente dados salvos. Operações e consultas externas estão bloqueadas.');
       }
