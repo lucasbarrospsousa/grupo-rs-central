@@ -38,7 +38,7 @@ incluindo explicitamente o resumo de baixas. Testes de permissoes, sessoes
 ausentes/expiradas, CSRF no transporte, mesma origem, bloqueios e carregamento
 unificado foram preservados. Isso nao mede latencia nem capacidade em producao.
 
-## Pendencias de publicacao
+## Publicacao e verificacoes
 
 Build validado por Wrangler 4.45.0 com deploy --dry-run: Worker 4.88 KiB,
 1.94 KiB gzip, binding ASSETS reconhecido. Pasta public: 149 arquivos, 7.63 MB.
@@ -47,12 +47,18 @@ Execucao local no runtime oficial via wrangler dev: styles.css 200 (109 ms),
 mode.js 200 (10 ms), session sem secret 503 (19 ms), ativacao bloqueada 403
 (13 ms). Medicoes locais pontuais, nao representam latencia na internet.
 Compatibility date 2025-10-11 fixada para o runtime validado, sem fallback.
-Autorizacao OAuth do Wrangler aberta; publicacao depende de autorizacao do usuario.
+Publicado em 20/10/2026: https://grupo-rs-central-avaliacao.lucasbarrospereira13.workers.dev
+Worker grupo-rs-central-avaliacao, versao inicial 5de97a97-9cdc-483b-b180-1970592cafb4.
+Segredo da ponte cadastrado pelo stdin do Wrangler sem exibir valor. Nao houve
+alteracao da API, banco, dominio Sites, agendamentos ou permissao dos usuarios.
+Nao foi contratado plano pago.
 
-Publicar em workers.dev proprio, sem
-substituir o dominio Sites. Autenticar Wrangler na conta escolhida; cadastrar
-secret somente pelo canal protegido; configurar nome de avaliacao. Concluir
-build no Wrangler e medir abertura/login/resumo com leituras autorizadas.
+Verificacao HTTPS: / 200 em 2076 ms, /styles.css 200 em 237 ms, /api/session sem
+sessao 401 em 1677 ms, rota de ativacao bloqueada 403 em 210 ms. Amostra unica
+feita do computador local, sem teste de carga; inclui latencia de rede/Supabase.
+Tela de login e logos originais conferidas no navegador. Entrada autenticada,
+tempo ate numeros da Visao geral e navegacao com dados reais aguardam login do usuario.
+
 Nao afirmar atendimento de carga sem medir concorrencia, erros, CPU e latencia
 do Supabase. Recursos estaticos e proxy leve sao compativeis com Workers; limites
 da API/banco permanecem os atuais e nao aumentam por trocar a interface.
