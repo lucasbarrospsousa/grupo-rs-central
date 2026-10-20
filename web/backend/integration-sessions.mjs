@@ -1,7 +1,8 @@
 import {createHash} from 'node:crypto';
 
 // Share authentication only within this backend/pool, never cached query results
-// or per-batch guards. A new runtime deliberately starts with empty sessions.
+// or per-batch guards. Hosted runtimes may restore encrypted authentication
+// through durable-sessions; local tests remain memory-only.
 const stores=new WeakMap();
 export function integrationSessions(pool){
  if(!stores.has(pool))stores.set(pool,{api:new Map(),web:new Map()});

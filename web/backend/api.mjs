@@ -1,3 +1,4 @@
+import {guardedIntegrations} from './background-sync.mjs';
 import {startupBundle} from './startup-bundle.mjs';
 import {costView} from './cost-view.mjs';
 import {historyView} from './history-view.mjs';
@@ -28,7 +29,7 @@ const states=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const reply=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
 const fail=(status,message)=>Object.assign(Error(message),{status});
 async function body(req){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>131072)throw fail(413,'Solicitação muito grande.');}try{return JSON.parse(raw||'{}');}catch{throw fail(400,'JSON inválido.');}}
-export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(pool);return audited(pool,(req,res)=>trackQueries(pool,'page',async()=>{
+export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(pool);if(integrationService===integrations)integrationService=guardedIntegrations(pool);return audited(pool,(req,res)=>trackQueries(pool,'page',async()=>{
   const url=new URL(req.url,'http://localhost');
   if(!url.pathname.startsWith('/api/'))return false;
   try{

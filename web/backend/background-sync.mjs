@@ -1,4 +1,5 @@
 import {integrationSessions} from './integration-sessions.mjs';
+import {durableIntegrations} from './durable-sessions.mjs';
 import {savedChipStatus} from './chip-status.mjs';
 import {codeResult} from './code-scan.mjs';
 import {setApiBudgetPool} from './api-budget.mjs';
@@ -19,8 +20,8 @@ export function guardedIntegrations(pool,service=new Integrations({sessionStore:
  if(captureCodes&&typeof service.equipment==='function'){const equipment=service.equipment.bind(service);service.equipment=async(branch,serial)=>{const result=await equipment(branch,serial);try{await pool.query('select central_homologacao.capture_device_codes($1,$2,$3)',[branch,serial,codeResult({serial,plate:result.plate},result)]);}catch{ /* Capture failure never prevents the original consultation. */ }return result;};}
  if(typeof service.equipmentLocation==='function'){const location=service.equipmentLocation.bind(service);service.equipmentLocation=async(branch,serial)=>{const codes=(await pool.query('select central_homologacao.location_device_codes($1,$2) as codes',[branch,serial])).rows[0]?.codes;return location(branch,serial,codes);};}
  service.savedEquipmentCode=async(branch,serial)=>(await pool.query('select central_homologacao.binding_device_code($1,$2) as code',[branch,serial])).rows[0]?.code||null;
- if(apiOnly)return service;
- return sourceIntegrations(service,async branch=>{const r=await pool.query('select mode from central_homologacao.read_sources where branch_id=$1',[branch]);if(!r.rows.length)throw Error('Fonte de consulta não configurada para esta base.');return r.rows[0].mode;});
+ const facade=apiOnly?service:sourceIntegrations(service,async branch=>{const r=await pool.query('select mode from central_homologacao.read_sources where branch_id=$1',[branch]);if(!r.rows.length)throw Error('Fonte de consulta não configurada para esta base.');return r.rows[0].mode;});
+ return durableIntegrations(pool,integrationSessions(pool),facade);
 }
 export function syncTick(pool,options={}){return trackQueries(pool,'automatic',()=>runTick(pool,options),'stock');}
 async function runTick(pool,{service,budgetMs=45000,now=Date.now}={}){

@@ -31,7 +31,7 @@ export class PortalRead{
  }
  async page(branch,path,retry=true){
   let s=this.sessions.get(branch);if(!s||Date.now()-s.at>900000){s={cookies:new Map(),at:Date.now(),ready:false};this.sessions.set(branch,s);}
-  if(!s.ready){if(!s.login)s.login=(async()=>{const c=this.api.credentials(branch);await this.request(branch,'/login.php',{usuario:c.username,senha:c.password});s.ready=true;s.generation=(s.generation||0)+1;})().finally(()=>{s.login=null;});try{await s.login;}catch(e){if(e.automaticDeferred&&queryContext().mode==='page'&&retry)return this.page(branch,path,false);throw e;}}
+  if(!s.ready){if(!s.login)s.login=(async()=>{const c=this.api.credentials(branch);await this.request(branch,'/login.php',{usuario:c.username,senha:c.password});s.ready=true;s.at=Date.now();s.generation=(s.generation||0)+1;})().finally(()=>{s.login=null;});try{await s.login;}catch(e){if(e.automaticDeferred&&queryContext().mode==='page'&&retry)return this.page(branch,path,false);throw e;}}
   const generation=s.generation,html=await this.request(branch,path);
   if(/(?:<form[^>]*(?:loginForm|login\.php)|<title>\s*GRUPO RS\s*<\/title>)/i.test(html)){if(s.generation===generation)s.ready=false;if(retry)return this.page(branch,path,false);throw fail('Sessão web recusada nesta base.',502);}return html;
  }
