@@ -1,7 +1,7 @@
 import {startMaintenanceRefresh} from './maintenance-refresh.js';
 import {landingView} from './startup-preload.js';
 import {savedView} from './saved-view.js';
-import {overviewSummary} from './overview-summary.js';
+import {mountOverviewSummary} from './overview-summary.js';
 import {notify,clearNotices,installNoticeAlerts} from './notices.js';
 installNoticeAlerts();
 import {branchRouteVisible} from './branch-navigation.js';
@@ -159,10 +159,7 @@ const colors = ['#f32c4d', '#ff8808', '#edb20b', '#13b468'];
 function overview() {
   if(repo.real){
     const branch=state.branch;page('<div id="overview-summary"><p role="status">Carregando resumo da filial…</p></div>');const summaryHost=document.querySelector('#overview-summary');
-    const drawSummary=()=>{if(!summaryHost.isConnected)return;
-    const rows=repo.summaries.get(state.branch);
-    summaryHost.innerHTML=overviewSummary(rows,name(state.branch),icon);
-    on('sql-open-stock','click',()=>{state.route='stock';render();});};
+    const drawSummary=()=>{if(!summaryHost.isConnected)return;mountOverviewSummary(summaryHost,{repo,branch,branchName:name(branch),icon,openStock:()=>{state.route='stock';render();}});};
     if(repo.ready(branch,'overview'))drawSummary();else void repo.load(branch,{route:'overview',force:false}).then(drawSummary).catch(()=>{if(summaryHost.isConnected)summaryHost.textContent='Resumo da filial indisponível. O estoque por base continua disponível.';});return;
   }
 

@@ -513,3 +513,13 @@ Abrir Manutenções faz somente leitura salva (`saved=1`); não provoca consulta
 A verificação automática (`automatic=1`) respeita a política existente de consultas automáticas e reaproveita a cópia ainda válida. A rotina do servidor continua existente e compartilha a trava por base da migração 061 com o navegador; não há nova agenda cron. Lease de 3 minutos impede trabalho simultâneo; ao terminar, o próximo ciclo fica para pelo menos uma hora. Falhas preservam a última lista válida.
 A migração 061 adiciona apenas os campos de lease e duas funções de coordenação. O utilitário `node tools/apply-maintenance-refresh.mjs` valida exclusão mútua e intervalo em transação revertida antes de aplicar. Não consulta plataformas externas.
 Validação: 23 testes focados aprovados; navegador com fixture local confirmou ausência do panorama na visão geral, presença em Manutenções, permanência em Registros e uma chamada automática após o minuto inicial. Não foram usadas APIs externas nos testes.
+
+## Visão geral — indicadores de inventário (19/10/2026)
+
+- Seis indicadores: aparelhos da base em Estoque, Reserva e Manutenção (rótulo Reparo); chips disponíveis do armazém classificados em Estoque e Reserva; total de aparelhos disponíveis no armazém.
+- Dados do armazém respeitam o acesso já existente e sua disponibilidade em Imperatriz. Outras filiais/perfis exibem indisponibilidade, nunca zero inventado. Logos, autenticação e políticas não foram alteradas.
+- Distribuição por operadora conta somente chips disponíveis de warehouse_items, incluindo Emergência; não confunde operadoras dos aparelhos instalados com chips físicos disponíveis. Sem operadora permanece Não informada. Nomes equivalentes são agrupados.
+- O agregado de operadoras integra a mesma consulta SQL da visão geral do armazém e a mesma resposta unificada inicial; não há nova chamada externa nem nova tabela/rotina. A visão geral aparece antes dos painéis em segundo plano.
+- O gráfico diário usa movimentações salvas (envios e identificações), com mês filtrável. Não representa saldo histórico: o banco não fornece uma série completa de saldos diários. Título e nota deixam essa diferença explícita; nenhum histórico é estimado.
+- Tooltips por mouse e foco do teclado, destaque de cartões, barras, segmentos e pontos; movimento reduzido respeitado.
+- Validação: 16 testes focados aprovados, incluindo SQL SELECT com fixtures sintéticas em transação somente leitura. Navegador local isolado; nenhuma API operacional consultada.

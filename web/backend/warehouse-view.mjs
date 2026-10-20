@@ -5,6 +5,7 @@ import {overviewData} from '../public/warehouse-overview-model.js';
 import {monthlyShipments} from '../public/warehouse-monthly.js';
 import {filterWarehouseMovements} from '../public/warehouse-movements-model.js';
 import {warehouseDestination} from '../public/warehouse-model.js';
+import {carrierSummary} from '../public/dashboard-model.js';
 export function warehouseRows(data){
  const rows=data.rows.map(r=>({...r,received:new Date(r.received_at).toLocaleString('pt-BR',{timeZone:'America/Fortaleza'})}));
  const movements=data.movements.flatMap(m=>m.items.map(item=>({id:m.id,branch:m.branch,type:item.action||'Envio',kind:item.kind,serial:item.serial,deviceSerial:item.device_serial||'',phone:item.phone||'',note:m.note||'',detected:item.time_basis==='detection',atISO:item.detected_at||m.created_at,at:new Date(item.detected_at||m.created_at).toLocaleString('pt-BR',{timeZone:'America/Fortaleza'}),destination:m.destination})));
@@ -17,7 +18,7 @@ export function selectWarehouseView(data,p){
  const page=Number(p.get('page')||0),size=view==='chips'?7:8;
  if(!Number.isSafeInteger(page)||page<0||query.length>16000||month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw Object.assign(Error('Filtros inválidos.'),{status:400});
  const counts=Object.fromEntries(['device','chip'].map(k=>[k,Object.fromEntries(['Estoque','Reserva','Emergência','total'].map(c=>[c,rows.filter(r=>r.kind===k&&r.status==='Disponível'&&(c==='total'||(r.classification||'Estoque')===c)).length]))]));
- if(view==='overview'){const result=overviewData(rows,movements,month);result.batches=['device','chip'].flatMap(k=>result.batches.filter(b=>b.kind===k).slice(0,4));return {data:result,counts};}
+ if(view==='overview'){const result=overviewData(rows,movements,month);result.batches=['device','chip'].flatMap(k=>result.batches.filter(b=>b.kind===k).slice(0,4));return {data:result,counts,carriers:carrierSummary(rows.filter(r=>r.kind==='chip'&&r.status==='Disponível').map(r=>({carrier:r.chip_operator})))};}
  if(view==='monthly')return {data:monthlyShipments(rows,movements,{month,months:Number(p.get('months')||6),destination}),counts};
  if(view==='detail'){const row=rows.find(r=>r.id===p.get('id'));if(!row)throw Object.assign(Error('Item não encontrado.'),{status:404});return {rows:[row],movements:movements.filter(m=>m.serial===row.serial)};}
  if(view==='batch')return {rows:rows.filter(r=>r.kind==='chip'&&r.activation_batch===p.get('id'))};

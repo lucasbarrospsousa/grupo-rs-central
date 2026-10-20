@@ -1,4 +1,5 @@
 import {warehouseLabel} from '../public/warehouse-model.js';
+import {carrierSummary} from '../public/dashboard-model.js';
 
 // Aggregations run under the caller's transaction/RLS. No service credentials or provider calls.
 const base = `with inventory as materialized (
@@ -73,6 +74,7 @@ export function warehouseAggregateQuery(branch,p,now=new Date()){
  batches as (select id,resolved_kind as kind,destination_name,coalesce(detected,false) as detected,count(*)::int as count,max(at_ts) as at_ts from selected group by id,resolved_kind,destination_name,coalesce(detected,false)),
  recent as (select *,row_number() over(partition by kind order by at_ts desc,id) as position from batches)
  select ${categories},
+ coalesce((select jsonb_agg(jsonb_build_object('label',coalesce(nullif(trim(chip_operator),''),'Não informada'),'count',n)) from (select chip_operator,count(*)::int n from inventory where kind='chip' and status='Disponível' group by chip_operator) c),'[]') as carriers,
  (select count(*)::int from inventory where kind='chip' and activation_state='active' and to_char(activation_at at time zone 'America/Fortaleza','YYYY-MM')=$2) as activated,
  (select count(*)::int from inventory where kind='chip' and activation_state in ('requested','sending','uncertain')) as pending,
  coalesce((select jsonb_agg(jsonb_build_object('name',name,'count',count) order by count desc,first_at,name) from destinations),'[]') as destinations,
@@ -87,7 +89,8 @@ export async function sqlWarehouseAggregate(c,branch,p,now=new Date()){
  const month=p.get('month'),today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
  if(p.get('view')==='overview'){
   const [year,m]=month.split('-').map(Number),days=new Date(Date.UTC(year,m,0)).getUTCDate(),lookup=new Map(r.daily.map(d=>[d.day+'|'+d.name,d.count]));
-  return {counts,data:{available:counts.device.Estoque,chipTotal:counts.chip.total,chipCounts:['Estoque','Reserva','Emergência'].map(name=>({name,count:counts.chip[name]})),sent:r.destinations.reduce((n,d)=>n+d.count,0),activated:r.activated,pending:r.pending,destinations:r.destinations,batches:r.batches,
+  const carriers=carrierSummary((r.carriers||[]).map(r=>({carrier:r.label,quantity:r.count})),true);
+  return {counts,carriers,data:{available:counts.device.Estoque,chipTotal:counts.chip.total,chipCounts:['Estoque','Reserva','Emergência'].map(name=>({name,count:counts.chip[name]})),sent:r.destinations.reduce((n,d)=>n+d.count,0),activated:r.activated,pending:r.pending,destinations:r.destinations,batches:r.batches,
   daily:Array.from({length:days},(_,i)=>({day:i+1,key:month+'-'+String(i+1).padStart(2,'0')})).filter(d=>d.key<=today).map(d=>({...d,counts:r.destinations.map(dest=>lookup.get(d.key+'|'+dest.name)||0)}))}};
  }
  const months=Number(p.get('months')||6),destination=p.get('destination')||'',[year,m]=month.split('-').map(Number),key=offset=>new Date(Date.UTC(year,m-1+offset,1)).toISOString().slice(0,7),keys=Array.from({length:months},(_,i)=>key(i-months+1));
