@@ -7,10 +7,6 @@ export function dischargeSeries(month,rows,now=new Date()){
 }
 export async function dischargeSummary(c,branch,month,now=new Date()){
  dischargeSeries(month,[],now);
- const {rows}=await c.query(`select to_char(occurred_at at time zone 'America/Fortaleza','YYYY-MM-DD') as day,count(*)::int as count
- from central_homologacao.audit_events where branch_id=$1 and action in ('DISCHARGE','POST /api/install')
- and occurred_at >= (to_date($2||'-01','YYYY-MM-DD')::timestamp at time zone 'America/Fortaleza')
- and occurred_at < ((to_date($2||'-01','YYYY-MM-DD')+interval '1 month')::timestamp at time zone 'America/Fortaleza')
- group by day order by day`,[branch,month]);
+ const {rows}=await c.query('select day,count from central_homologacao.discharge_daily_counts($1,$2)',[branch,month]);
  return dischargeSeries(month,rows,now);
 }
