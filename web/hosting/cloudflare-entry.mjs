@@ -2,8 +2,9 @@ import site from './worker.mjs';
 
 // Separate evaluation deployment. The existing Sites entry remains unchanged.
 const backendOrigin = 'https://grupo-rs-central.lucasbarrosp.chatgpt.site';
-const savedReads = new Set(['/api/session','/api/startup-bundle','/api/devices','/api/warehouse','/api/history','/api/maintenance']);
-const sessionWrites = new Set(['/api/login','/api/logout','/api/activity']);
+const savedReads = new Set(['/api/session','/api/startup-bundle','/api/devices','/api/warehouse','/api/history','/api/maintenance','/api/backups/status','/api/integrations/sync-status','/api/warehouse-costs']);
+// Audit events keep the original permission checks and write no business data.
+const sessionWrites = new Set(['/api/login','/api/logout','/api/activity','/api/ui-event']);
 const denied = (status, error) => Response.json({error}, {status, headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 
 export default {

@@ -23,7 +23,7 @@ test('Cloudflare evaluation preserves authenticated transport and denies externa
     assert.equal(calls[0].options.headers.get('cookie'),'central_session=fixture');
     assert.match(calls[0].url,/supabase.co\/functions\/v1\/central-api\/api\/login$/);
     for (const source of ['https://evil.test','null','']) assert.equal((await worker.fetch(post('/api/login',source),env)).status,403);
-    for (const path of ['/api/devices','/api/install','/api/warehouse-activation-send']) assert.equal((await worker.fetch(post(path),env)).status,403);
+    for (const path of ['/api/warehouse-costs','/api/devices','/api/install','/api/warehouse-activation-send']) assert.equal((await worker.fetch(post(path),env)).status,403);
     for (const path of ['/api/integrations','/api/maintenance-refresh','/api/deployment-token','/api/unknown']) assert.equal((await worker.fetch(new Request(origin+path),env)).status,403);
     assert.equal(calls.length,1);
     await worker.fetch(new Request(origin+'/api/startup-bundle?branch=imperatriz'),env);
@@ -33,5 +33,8 @@ test('Cloudflare evaluation preserves authenticated transport and denies externa
     assert.equal(calls.length,2);
     assert.equal((await worker.fetch(post('/api/login'),{...env,CENTRAL_BRIDGE_TOKEN:''})).status,503);
     assert.equal(calls.length,2);
+    for (const path of ['/api/backups/status','/api/integrations/sync-status','/api/warehouse-costs']) assert.equal((await worker.fetch(new Request(origin+path),env)).status,200);
+    assert.equal((await worker.fetch(post('/api/ui-event'),env)).status,200);
+    assert.equal(calls.length,6);
   } finally { globalThis.fetch=original; }
 });
