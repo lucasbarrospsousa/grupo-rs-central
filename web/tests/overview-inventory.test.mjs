@@ -13,5 +13,5 @@ test('overview preserves real zeros and unavailable values separately and escape
  const loading=overviewSummary({statuses:[]},'Base',()=>'',{allowed:true});assert.match(loading,/Carregando distribuição/);assert.match(loading,/Chips em estoque[\s\S]*?<strong>—<\/strong>/);
 });
 test('charts expose keyboard tooltips and zero-safe daily values without accumulation',()=>{
- const chart=lineChart([{day:1,key:'2026-10-01',counts:[2,3]},{day:2,key:'2026-10-02',counts:[1]}]);assert.match(chart,/2026-10-01: 5 aparelhos/);assert.match(chart,/2026-10-02: 1 aparelhos/);assert.match(chart,/tabindex="0"/);assert.ok(!chart.includes('NaN'));assert.match(donut([]),/Nenhum chip/);assert.ok(!donut([{label:'<img>',count:2}]).includes('<img>'));
+ const chart=lineChart([{day:1,key:'2026-10-01',counts:[2,3]},{day:2,key:'2026-10-02',counts:[1]}]);assert.match(chart,/2026-10-01: 5 baixas/);assert.match(chart,/2026-10-02: 1 baixas/);assert.match(chart,/tabindex="0"/);assert.ok(!chart.includes('NaN'));assert.match(donut([]),/Nenhum chip/);assert.ok(!donut([{label:'<img>',count:2}]).includes('<img>'));
 });

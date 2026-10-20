@@ -523,3 +523,9 @@ Validação: 23 testes focados aprovados; navegador com fixture local confirmou 
 - O gráfico diário usa movimentações salvas (envios e identificações), com mês filtrável. Não representa saldo histórico: o banco não fornece uma série completa de saldos diários. Título e nota deixam essa diferença explícita; nenhum histórico é estimado.
 - Tooltips por mouse e foco do teclado, destaque de cartões, barras, segmentos e pontos; movimento reduzido respeitado.
 - Validação: 16 testes focados aprovados, incluindo SQL SELECT com fixtures sintéticas em transação somente leitura. Navegador local isolado; nenhuma API operacional consultada.
+
+## Gráfico de baixas — 20/10/2026
+- Substitui movimentações do armazém por baixas confirmadas da filial: audit_events com action DISCHARGE ou POST /api/install. Contagem pela data occurred_at no fuso America/Fortaleza, sem acumular. Não estima baixas a partir do status instalado/importações; histórico sem eventos não é incluído.
+- Consulta agregada mensal em devices?scope=discharges, sob a autorização existente de leitura de aparelhos/visão geral e vínculo com a filial. Apenas quantidades diárias são retornadas; nenhum detalhe de auditoria é exposto.
+- Resumo integra a resposta de carregamento em segundo plano. Filtro mensal atualiza somente a leitura de baixas, sem repetir consultas do armazém; erros não viram zero. Nenhuma API externa, migração ou escrita operacional.
+- Validação: 16 testes focados passaram, incluindo limites de mês/fuso, separação por filial e eventos não elegíveis em SQL SELECT sintético, mais navegador local.

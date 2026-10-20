@@ -31,5 +31,5 @@ test('partial failure preserves successful panels and never fans out retries',as
 test('background endpoint excludes summary without changing allowed panel set',async()=>{
  const {startupBundle}=await import('../backend/startup-bundle.mjs');const db={query:async()=>({rows:user.branches}),connect:async()=>({query:async()=>({rows:[]}),release(){}})};
  const result=await startupBundle(db,user,user.permissions,branch,{background:true,reader:async()=>({})});
- assert.equal(result.panels.length,15);assert.ok(result.panels.every(p=>!p.path.includes('scope=summary')));
+ assert.equal(result.panels.length,16);assert.ok(result.panels.every(p=>!p.path.includes('scope=summary')));
 });

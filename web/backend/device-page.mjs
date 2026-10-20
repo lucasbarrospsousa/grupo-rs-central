@@ -1,3 +1,4 @@
+import {dischargeSummary} from './discharge-summary.mjs';
 import {sqlDevicePage} from './device-sql-page.mjs';
 import {consultRows} from '../public/consult-page.js';
 import {filterStock,visibleStatus,statuses,stockPageNumber} from '../public/stock-model.js';
@@ -15,6 +16,7 @@ export function selectDevicePage(rows,branch,options){
 }
 // Only small search/sort fields are read for the whole branch; full records are read for ten IDs.
 export async function devicePage(c,branch,params){
+ if(params.get('scope')==='discharges')return dischargeSummary(c,branch,params.get('month')||'');
  const scope=params.get('scope'),options=pageOptions(scope==='lookup'?new URLSearchParams({page:params.get('page')||1}):params),plan=await readPlan(c,branch,['devices'],params.get('since'));
  if(plan.delta&&!plan.changes.length)return {cursor:plan.cursor,unchanged:true};
  if(scope==='page'||scope==='lookup')return {...await sqlDevicePage(c,branch,params,options),cursor:plan.cursor};
