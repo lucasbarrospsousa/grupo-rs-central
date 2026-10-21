@@ -1,4 +1,4 @@
-import {mountLogin,prepareLoginOverview} from './login-screen.js';
+import {mountLogin,prepareLoginOverview,loginDestination} from './login-screen.js';
 import {startMaintenanceRefresh} from './maintenance-refresh.js';
 import {savedView} from './saved-view.js';
 import {mountOverviewSummary} from './overview-summary.js';
@@ -60,7 +60,7 @@ function confirmAction(title, description, apply) {
 }
 function login() {
   if(repo.real){
-    mountLogin(app,{branches,production:mode==='production',submit:async(username,password,branch)=>{await repo.login(username,password,false);await enterSql(branch);}});
+    mountLogin(app,{branches,production:mode==='production',submit:async(username,password,branch,progress)=>{await repo.login(username,password,false);const authorized=loginDestination(repo.user,branch);progress(name(authorized.branch));await enterSql(branch);}});
     return;
   }
   app.innerHTML = `<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>GRUPO RS CENTRAL</small><h1>Uma Central.<br>Todas as bases.</h1><p>Estoque, manutenção e operação em um só lugar.</p></section><section class="login-main"><span class="pill">VERSÃO WEB • PRÉVIA LOCAL</span><h1>Acesse a Central</h1><p>A estrutura web está em preparação. Você pode explorar os fluxos com dados demonstrativos, sem informar senha.</p><label class="field">Filial inicial<select id="login-branch">${branchOptions(state.branch)}</select></label>${button('Explorar demonstração', 'enter', 'primary', 'right')}<div class="gate" style="margin-top:25px"><strong>Conexão com o banco pendente</strong><br>O login real será conectado após sua autorização. Os exemplos são reiniciados ao recarregar a página.</div></section></main>`;
