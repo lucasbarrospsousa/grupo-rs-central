@@ -1,3 +1,4 @@
+import {warehouseChipTick} from '../backend/warehouse-chip-monitor.mjs';
 import {resumeLinkQueues} from '../backend/auto-link-queue.mjs';
 import {smsCloudFetch} from '../backend/sms-cloud.mjs';
 import {codeTick,scanBranch} from '../backend/code-scan.mjs';
@@ -29,7 +30,7 @@ async function handleRequest(request,pending){
  if(['/internal/sync','/internal/maintenance','/internal/codes'].some(p=>new URL(request.url).pathname.endsWith(p))){
   const expected=process.env.CENTRAL_SYNC_TOKEN||'',actual=request.headers.get('x-central-sync')||'';
   if(request.method!=='POST'||!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});
-  try{if(new URL(request.url).pathname.endsWith('/internal/sync')){pending.push(resumeLinkQueues(pool,guardedIntegrations(pool)).catch(()=>{}));}const branch=new URL(request.url).pathname.endsWith('/internal/codes')?scanBranch((await request.json()).branch):null;return Response.json(await (new URL(request.url).pathname.endsWith('/internal/codes')?codeTick(pool,{branch,service:guardedIntegrations(pool,undefined,{captureCodes:false,apiOnly:true})}):new URL(request.url).pathname.endsWith('/internal/maintenance')?maintenanceTick(pool):syncTick(pool)));}catch{return Response.json({error:'Atualização automática pendente.'},{status:503});}
+  try{if(new URL(request.url).pathname.endsWith('/internal/sync')){pending.push(warehouseChipTick(pool).catch(()=>{}));pending.push(resumeLinkQueues(pool,guardedIntegrations(pool)).catch(()=>{}));}const branch=new URL(request.url).pathname.endsWith('/internal/codes')?scanBranch((await request.json()).branch):null;return Response.json(await (new URL(request.url).pathname.endsWith('/internal/codes')?codeTick(pool,{branch,service:guardedIntegrations(pool,undefined,{captureCodes:false,apiOnly:true})}):new URL(request.url).pathname.endsWith('/internal/maintenance')?maintenanceTick(pool):syncTick(pool)));}catch{return Response.json({error:'Atualização automática pendente.'},{status:503});}
  }
  const expected=process.env.CENTRAL_BRIDGE_TOKEN||'',actual=request.headers.get('x-central-bridge')||'';
  if(!expected||actual.length!==expected.length||!timingSafeEqual(Buffer.from(actual),Buffer.from(expected)))return Response.json({error:'Acesso não autorizado.'},{status:401});
