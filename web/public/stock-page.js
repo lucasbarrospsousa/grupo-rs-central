@@ -1,7 +1,7 @@
 import {arrangeStockLayout,arrangeStockRowActions} from './stock-layout.js';
 import {savedStockWatch} from './saved-stock-watch.js';
 import {isReader} from './access-control.js';
-import {mountOwnerSearch} from './stock-owner-search.js';
+import {mountOwnerSearch,isOwnerQuery} from './stock-owner-search.js';
 import {setupAutoLink} from './auto-link.js';
 import {openSms} from './sms-live.js';
 import {trackerClassification} from './tracker-classification.js';
@@ -21,7 +21,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   const model = {query:'',status:'Todos',start:'',end:'',sort:'default',direction:-1,page:1};
   const plateDrafts = new Map();
   const viewKey='central-stock-view:'+(repo.user?.username||'demo')+':'+branch;
-  const vehicleLabel=r=>{const name=stockOwnerName(r,branch);return escape(r.status==='Instalado'?r.plate:'—')+(name?`<small class="stock-owner-name" title="${escape(name)}">${escape(name)}</small>`:'');};
+  const vehicleLabel=r=>{const name=stockOwnerName(r,branch);return escape(r.status==='Instalado'?r.plate:'—')+(name?`<small class="stock-owner-name" title="${escape(name)}">${escape(name)}</small><small>Última conferência: ${escape(r.owner_binding?.checked_at?new Date(r.owner_binding.checked_at).toLocaleString('pt-BR',{timeZone:'America/Fortaleza'}):'não informada')}</small>`:'');};
   const selected = new Set(); const perPage = 10; let current = [];
   const linking=setupAutoLink({repo,branch,showModal,notify,refresh:async()=>{await repo.load(branch,{force:true});draw();}});
   const regional = branch !== 'imperatriz';
@@ -81,7 +81,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     try{localStorage.setItem(viewKey,JSON.stringify(model));}catch{}
     syncSelection(rows);
     if(focused){const input=[...document.querySelectorAll("[data-vehicle-plate]")].find(el=>el.dataset.vehiclePlate===focused);if(input){input.focus({preventScroll:true});input.setSelectionRange(caret,caret);}}
-    if(live)queueMicrotask(()=>live.refresh());
+    if(live&&!isOwnerQuery(model.query))queueMicrotask(()=>live.refresh());
     if(pendingOwnerSearch){pendingOwnerSearch=false;document.querySelector('#stock-query').dispatchEvent(new Event('stock-search'));}
   }
   function syncSelection(rows) {

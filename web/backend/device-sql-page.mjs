@@ -1,3 +1,4 @@
+import {ownerValidSql} from './saved-owners.mjs';
 // All predicates run inside the caller's authenticated, RLS-protected transaction.
 const fold=x=>`lower(regexp_replace(normalize(coalesce(${x},''),NFD),'[̀-ͯ]','','g'))`;
 const natural=x=>`array(select case when part[1] ~ '^[0-9]+$' then lpad(ltrim(part[1],'0'),100,'0') else part[1] end from regexp_matches(coalesce(${x},''),'[0-9]+|[^0-9]+','g') part) collate "pt-x-icu"`;
@@ -8,7 +9,7 @@ export function deviceSqlQuery(branch,params,options){
  const text=query.trim(),compact=text.toLocaleLowerCase('pt-BR').replace(/[\s-]/g,''),connectivity=!lookup&&options.sort==='connectivity';
  const values=[branch,text,batch,wanted,lookup?params.get('status')||'':options.status,options.start,options.end,options.page,params.get('customer')||'',params.get('export')==='1',compact];
  const status=`coalesce(d.data->>'status','')`,client=`coalesce(d.data->>'client','')`;
- const owner=`case when ${status}='Instalado' and d.data->'owner_binding'->>'branch'=$1 and d.data->'owner_binding'->>'serial'=d.serial and upper(regexp_replace(coalesce(d.data->'owner_binding'->>'plate','undefined'),'[^a-zA-Z0-9_]','','g'))=upper(regexp_replace(coalesce(d.data->>'plate','undefined'),'[^a-zA-Z0-9_]','','g')) then d.data->'owner_binding'->>'client' else '' end`;
+ const owner=`case when ${ownerValidSql} then d.data->'owner_binding'->>'client' else '' end`;
  const searchFields=lookup?(maintenance?['d.serial',...['plate','identification','client'].map(k=>`d.data->>'${k}'`)]:['d.serial',`d.data->>'client'`,`d.data->>'plate'`]):['d.serial',...['identification','plate','phone','iccid','carrier'].map(k=>`d.data->>'${k}'`),owner];
  const textMatch=lookup?searchFields.map(x=>`strpos(lower(coalesce(${x},'')),lower($2))>0${maintenance?'':` or strpos(regexp_replace(lower(coalesce(${x},'')),'[\\s-]','','g'),$11)>0`}`).join(' or '):searchFields.map(x=>`strpos(${fold(x)},${fold('$2')})>0`).join(' or ');
  const match=lookup?`($2='' or ${maintenance?'':`case when $11 ~ '^[0-9]+$' then d.serial=$11 else `}(${textMatch})${maintenance?'':' end'})${maintenance?'':` and ($5='' or ${status}=$5)`}`:`case when $3 then d.serial=any($4::text[]) else (${textMatch}) end`;
