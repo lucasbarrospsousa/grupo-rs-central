@@ -24,3 +24,10 @@ test('configurator rejects invalid identity and denies unauthenticated requests 
  assert.throws(()=>validateConfigurator({...payload,serial:'ABC1D23'}));assert.throws(()=>validateConfigurator({...payload,version:-1}));
  const result=await configuratorFetch(new Request('https://example.invalid/internal/configurator',{method:'POST'}),{query:()=>{throw Error('must not query');}});assert.equal(result.status,401);
 });
+
+test('explicit status validates before preflight and applies to new devices without inventing links',()=>{
+ for(const branch of ['imperatriz','araguaina','acailandia','maraba'])for(const status of ['Estoque','Reserva','Instalado','Manutenção']){
+  const p={...payload,branch,status};validateConfigurator(p);const d=configuredData(null,p);assert.equal(d.status,status);assert.equal(d.quantity,status==='Estoque'?1:0);assert.equal(d.plate,'');assert.equal(d.installed_at,'');
+ }
+ for(const status of ['Reparo','Ativo','',null])for(const action of ['preflight','save'])assert.throws(()=>validateConfigurator({...payload,status,action}));
+});

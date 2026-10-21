@@ -13,6 +13,8 @@ function fixture(){
   if(sql.startsWith('select id from central_homologacao.devices'))return rows([]);
   if(sql.startsWith('insert into central_homologacao.devices')){state.device={id:a[0],branch_id:a[1],serial:a[2],data:a[3],version:1};state.deviceWrites++;return rows([]);}
   if(sql.startsWith('insert into central_homologacao.audit_events'))return rows([]);
+  if(sql.startsWith('update central_homologacao.devices')){state.device={...state.device,data:a[0],version:state.device.version+1,branch_id:a[3]};state.deviceWrites++;return rows([{version:state.device.version}]);}
+  if(sql.startsWith('insert into central_homologacao.visits'))return rows([]);
   if(sql.startsWith('select data,version'))return rows([state.device]);
   if(sql.includes('warehouse_items'))return rows([]);
   throw Error('Unexpected SQL: '+sql);
@@ -42,4 +44,15 @@ test('prepare preserves branch and version checks',async()=>{
  f.state.role='operator';f.state.originRole='reader';f.state.device={branch_id:'maraba',version:0,data:{}};await assert.rejects(configuratorOperation(f.pool,user,p,f.service),e=>e.status===403);
  f.state.device={branch_id:'imperatriz',version:2};await assert.rejects(configuratorOperation(f.pool,user,p,f.service),e=>e.status===409);
  assert.equal(f.state.requests.size,0);
+});
+
+test('explicit status applies to existing installed devices in every branch, keeps links and prevents replay changes',async()=>{
+ for(const branch of ['imperatriz','araguaina','acailandia','maraba'])for(const status of ['Estoque','Reserva','Instalado','Manutenção']){
+  const f=fixture(),user={user_id:'synthetic'},request={...p,branch,status,version:1,action:'save'};
+  f.state.device={id:'synthetic',branch_id:branch,serial:p.serial,version:1,data:{status:'Instalado',plate:'ABC1D23',client:'Fixture',installed_at:'2026-01-01'}};
+  const preflight=await configuratorOperation(f.pool,user,{action:'preflight',branch,serial:p.serial,status},f.service);assert.equal(preflight.exists,true);
+  const saved=await configuratorOperation(f.pool,user,request,f.service);assert.equal(saved.status,status);assert.equal(f.state.device.data.plate,'ABC1D23');assert.equal(f.state.device.data.client,'Fixture');assert.equal(f.state.device.data.stock,status==='Estoque'?1:0);
+  assert.deepEqual(await configuratorOperation(f.pool,user,request,f.service),saved);assert.equal(f.state.deviceWrites,1);
+  await assert.rejects(configuratorOperation(f.pool,user,{...request,status:status==='Reserva'?'Estoque':'Reserva'},f.service),e=>e.status===409);
+ }
 });

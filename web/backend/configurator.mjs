@@ -9,6 +9,7 @@ const digits=v=>String(v||'').replace(/\D/g,'');
 const phone=v=>digits(v).replace(/^55(?=\d{10,11}$)/,'');
 export function validateConfigurator(p){
  if(!branches.includes(p.branch)||typeof p.serial!=='string'||! /^(?:[0-9]{9}|[0-9]{15})$/.test(p.serial))throw fail(400,'Filial ou série RS300 inválida.');
+ if(p.status!==undefined&&!['Estoque','Reserva','Instalado','Manutenção'].includes(p.status))throw fail(400,'Situação do Configurador inválida.');
  if(p.action==='preflight')return;
  if(p.tracker_version&&!/^V7\.\d+\.\d+$/.test(p.tracker_version))throw fail(400,'Versão física inválida.');
  if(!['hinova.br','linksolutions.br'].includes(p.apn??'hinova.br'))throw fail(400,'APN do Configurador inválida.');
@@ -21,19 +22,19 @@ async function inspect(c,p,user){
  if(old&&old.branch_id!==p.branch){
   const origin=(await c.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,old.branch_id])).rows[0];
   if(!origin||!['operator','admin'].includes(origin.role))throw fail(403,'Transferência exige autorização também na filial de origem.');
- }else if(old&&p.branch!=='imperatriz'&&old.data.status==='Instalado')throw fail(409,'Aparelho instalado na filial. Gravação automática bloqueada.');
+ }else if(old&&p.branch!=='imperatriz'&&old.data.status==='Instalado'&&p.status===undefined)throw fail(409,'Aparelho instalado na filial. Gravação automática bloqueada.');
  return old;
 }
 export function configuredData(old,p){
  const transfer=old?.branch_id&&old.branch_id!==p.branch;
  // Branch-specific links belong to the origin history, never to the new stock.
  if(transfer)old={data:{model:old.data.model,tracker_version:old.data.tracker_version}};
- const status=p.branch!=='imperatriz'?'Estoque':old&&!transfer?'Manutenção':'Reserva';
- return{...(old?.data||{}),serial:p.serial,iccid:p.iccid,phone:p.phone,carrier:p.operator,model:p.tracker_version||old?.data.model||'RS300',...(p.tracker_version?{tracker_version:p.tracker_version}:{}),apn:p.apn??'hinova.br',status,quantity:status==='Estoque'?1:0,stock:status==='Estoque'?1:0,installed_at:'',updated_at:new Date().toISOString(),remote_registration_status:'confirmado_configurador_rs300',...(old&&!transfer?{}:{plate:'',client:'',identification:''})};
+ const status=p.status??(p.branch!=='imperatriz'?'Estoque':old&&!transfer?'Manutenção':'Reserva');
+ return{...(old?.data||{}),serial:p.serial,iccid:p.iccid,phone:p.phone,carrier:p.operator,model:p.tracker_version||old?.data.model||'RS300',...(p.tracker_version?{tracker_version:p.tracker_version}:{}),apn:p.apn??'hinova.br',status,quantity:status==='Estoque'?1:0,stock:status==='Estoque'?1:0,installed_at:status==='Instalado'?(old?.data.installed_at||''):'',updated_at:new Date().toISOString(),remote_registration_status:'confirmado_configurador_rs300',...(old&&!transfer?{}:{plate:'',client:'',identification:''})};
 }
 export async function configuratorOperation(pool,user,p,service=integrations){
  validateConfigurator(p);
- const fingerprint=createHash('sha256').update(JSON.stringify([p.branch,p.serial,p.iccid,p.phone,p.operator,p.version,...(p.apn==='linksolutions.br'?[p.apn]:[]),...(p.tracker_version?[p.tracker_version]:[])])).digest('hex');
+ const fingerprint=createHash('sha256').update(JSON.stringify([p.branch,p.serial,p.iccid,p.phone,p.operator,p.version,...(p.apn==='linksolutions.br'?[p.apn]:[]),...(p.tracker_version?[p.tracker_version]:[]),...(p.status!==undefined?[p.status]:[])])).digest('hex');
  const read=fn=>scoped(pool,user,fn);
  const member=await read(async c=>(await c.query('select role from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,p.branch])).rows[0]);
  if(!member||!['operator','admin'].includes(member.role))throw fail(403,'Filial não autorizada para o Configurador.');
@@ -43,7 +44,7 @@ export async function configuratorOperation(pool,user,p,service=integrations){
   await c.query("select pg_advisory_xact_lock(hashtext('central-configurator'))");
   const previous=await replay(c);if(previous)return previous;
   const old=await inspect(c,p,user);if((old?.version||0)!==p.version)throw fail(409,'Cadastro mudou. Faça nova conferência antes de gravar.');
-  const result={ok:true,pending:true,confirmed:false,branch:p.branch,serial:p.serial,message:'Dados recebidos na Central; aguardando confirmação da plataforma.',payload:{serial:p.serial,iccid:p.iccid,phone:p.phone,operator:p.operator,apn:p.apn??'hinova.br',tracker_version:p.tracker_version||''}};
+  const result={ok:true,pending:true,confirmed:false,branch:p.branch,serial:p.serial,message:'Dados recebidos na Central; aguardando confirmação da plataforma.',payload:{serial:p.serial,iccid:p.iccid,phone:p.phone,operator:p.operator,apn:p.apn??'hinova.br',tracker_version:p.tracker_version||'',...(p.status!==undefined?{status:p.status}:{})}};
   await c.query('insert into central_homologacao.requests values($1,$2,$3,$4,now())',[user.user_id,p.key,fingerprint,result]);
   return result;
  });
@@ -63,7 +64,7 @@ export async function configuratorOperation(pool,user,p,service=integrations){
    const pending=await c.query("select id from central_homologacao.remote_operations where serial=$1 and branch_id=$2 and state in ('prepared','submitted','queued','pending','received','sending','indeterminate') limit 1",[p.serial,old.branch_id]);
    if(pending.rowCount)throw fail(409,'Há uma operação pendente na origem. Conclua ou confira antes de transferir.');
   }
-  const same=old&&!transferring&&(!p.tracker_version||old.data.tracker_version===p.tracker_version)&&old.data.iccid===p.iccid&&phone(old.data.phone)===phone(p.phone)&&old.data.carrier===p.operator&&old.data.apn===(p.apn??'hinova.br')&&old.data.remote_registration_status==='confirmado_configurador_rs300'&&(p.branch==='imperatriz'?['Reserva','Manutenção'].includes(old.data.status):old.data.status==='Estoque');
+  const same=old&&!transferring&&(!p.tracker_version||old.data.tracker_version===p.tracker_version)&&old.data.iccid===p.iccid&&phone(old.data.phone)===phone(p.phone)&&old.data.carrier===p.operator&&old.data.apn===(p.apn??'hinova.br')&&old.data.remote_registration_status==='confirmado_configurador_rs300'&&(p.status!==undefined?old.data.status===p.status:(p.branch==='imperatriz'?['Reserva','Manutenção'].includes(old.data.status):old.data.status==='Estoque'));
   const id=old?.id||randomUUID();let version=old?.version||1,status=old?.data.status;
   if(!same){const data=configuredData(old,p);status=data.status;
    if(old){const changed=await c.query('update central_homologacao.devices set data=$1,version=version+1,updated_at=now(),branch_id=$4 where id=$2 and version=$3 and deleted_at is null returning version',[data,id,p.version,p.branch]);if(!changed.rowCount)throw fail(409,'Cadastro mudou durante a gravação.');version=changed.rows[0].version;}
@@ -78,7 +79,7 @@ export async function configuratorOperation(pool,user,p,service=integrations){
    }
    if(old&&status==='Manutenção')await c.query('insert into central_homologacao.visits(id,branch_id,device_id,data) values($1,$2,$3,$4)',[randomUUID(),p.branch,id,{serial:p.serial,currentSerial:p.serial,plate:old.data.plate||'',client:old.data.client||'',status:'Em análise',entry:new Date().toISOString(),medium:'Configurador RS300',reason:'Reconfiguração de aparelho',notes:'Chip, telefone e operadora confirmados na plataforma.'}]);
   }
-  const confirmed=(await c.query('select data,version from central_homologacao.devices where id=$1',[id])).rows[0];if(confirmed.data.iccid!==p.iccid||confirmed.version!==version)throw fail(500,'Releitura SQL não confirmou a gravação.');
+  const confirmed=(await c.query('select data,version from central_homologacao.devices where id=$1',[id])).rows[0];if(confirmed.data.iccid!==p.iccid||confirmed.version!==version||(p.status!==undefined&&confirmed.data.status!==p.status))throw fail(500,'Releitura SQL não confirmou a gravação.');
   const warehouse=await consumeConfiguredChip(c,{branch:p.branch,serial:p.serial,iccid:p.iccid,userId:user.user_id});
   const result={warehouse,ok:true,confirmed:true,created:!old,already_exists:!!same,id,version,status,branch:p.branch,...(transferring?{transferred:true,previous_branch:old.branch_id}:{}),database:'Central online',message:transferring?'Transferência e releitura confirmadas na Central online. Histórico da origem preservado.':same?'Registro online já confirmado; nenhuma alteração repetida.':'Gravação e releitura confirmadas na Central online.'};
   await c.query('insert into central_homologacao.requests values($1,$2,$3,$4,now()) on conflict (user_id,request_key) do update set response=excluded.response',[user.user_id,p.key,fingerprint,result]);return result;
