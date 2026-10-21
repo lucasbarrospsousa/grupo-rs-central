@@ -1,3 +1,4 @@
+import {retainChipSelection} from './warehouse-chip-selection.js';
 import {copyCandidate,copySelectedIccids} from './warehouse-chip-copy.js';
 import {savedView} from './saved-view.js';
 import {activationCandidate,activationLabels} from './warehouse-activation-model.js';
@@ -20,6 +21,7 @@ export function filterChips(rows,{query='',category='',provider='',status='Dispo
 }
 export function mountWarehouseChips(root,{repo,icon,onUpdate=()=>{},onDetail,onClassify,onRemove}){
  let section='inventory',activation=null,loadingCosts=false;
+ const selectionRows=new Map();
  let copyRows=[],rows=[],selected=new Set(),page=0,busy=false,message='',filters={query:'',category:'',provider:'',status:'Disponível'};
  const remote=repo.real?savedView(repo,repo.currentBranch,'warehouse',root,draw):null;
  const prices=repo.real&&repo.user?.permissions?.owner?savedView(repo,repo.currentBranch,'warehouse-costs',root,draw,{revision:()=>repo.costRevision||0}):null;
@@ -38,7 +40,7 @@ export function mountWarehouseChips(root,{repo,icon,onUpdate=()=>{},onDetail,onC
   const result=remote?.get({view:'chips',...filters,page});if(remote&&!result)return;const inventory=result?.rows||rows;
   const available=rows.filter(r=>r.kind==='chip'&&r.status==='Disponível'),list=result?.rows||filterChips(rows,filters),costs=prices?.get({view:'prices',iccids:(result?.rows||[]).slice(0,7).map(r=>r.serial).join(',')})||cachedWarehouseCosts(repo);
 
-  page=Math.min(page,Math.max(0,Math.ceil((result?.total??list.length)/7)-1));const visible=remote?list:list.slice(page*7,page*7+7);copyRows=visible;selected=new Set([...selected].filter(id=>canWrite()&&visible.some(r=>r.id===id&&copyCandidate(r))));
+  page=Math.min(page,Math.max(0,Math.ceil((result?.total??list.length)/7)-1));const visible=remote?list:list.slice(page*7,page*7+7);copyRows=retainChipSelection(selectionRows,selected,visible,canWrite());
   root.innerHTML=`<nav class="wc-sections" aria-label="Gestão de chips"><button data-ci-section="inventory" aria-pressed="${section==='inventory'}">${icon('chip')} Estoque de chips</button>${repo.user?.permissions?.owner?`<button data-ci-section="billing" aria-pressed="${section==='billing'}">${icon('list')} Mensalidades e vínculos</button>`:''}<button data-ci-section="activation" aria-pressed="${section==='activation'}">${chipIcon('bolt')} Acompanhar ativações</button></nav><div class="wc-metrics">${[['Estoque','box','Chips disponíveis para uso'],['Reserva','chip','Chips aguardando ativação'],['Emergência','alert','Separados para emergência']].map(([c,g,sub])=>`<button class="wc-metric ${tone(c)}" data-ci-category="${c}" aria-pressed="${filters.category===c}"><span class="wc-icon-tile">${g==='alert'?chipIcon('alert'):icon(g)}</span><span><small>${c}</small><strong>${result?.counts?.chip?.[c]??available.filter(r=>(r.classification||'Estoque')===c).length}</strong><em>${sub}</em></span></button>`).join('')}<button class="wc-metric blue" data-ci-category="" aria-pressed="${!filters.category}"><span class="wc-icon-tile">${icon('chip')}</span><span><small>Total de chips</small><strong>${result?.counts?.chip?.total??available.length}</strong><em>No armazém</em></span></button></div>
   <section class="wc-panel wc-inventory-panel" ${section!=='inventory'?'hidden':''}><div class="wc-toolbar"><label class="wc-search">${icon('search')}<input id="ci-search" aria-label="Buscar chips no inventário" placeholder="Buscar ICCID, telefone ou operadora…" value="${esc(filters.query)}"></label><select id="ci-category" aria-label="Categoria dos chips">${[['','Todas as categorias'],['Estoque','Estoque'],['Reserva','Reserva'],['Emergência','Emergência']].map(([v,t])=>option(v,t,filters.category)).join('')}</select><select id="ci-provider" aria-label="Provedor dos chips">${[['','Todos os provedores'],['arya','Árya'],['link','Link Solutions']].map(([v,t])=>option(v,t,filters.provider)).join('')}</select><select id="ci-status" aria-label="Situação no armazém">${[['Disponível','No armazém'],['','Todas as situações'],['Enviado','Enviados'],['Utilizado','Utilizados']].map(([v,t])=>option(v,t,filters.status)).join('')}</select></div>
   <div class="wc-table-wrap"><table><thead><tr><th><input id="ci-select-page" type="checkbox" aria-label="Selecionar elegíveis desta página" ${!canWrite()||busy||!visible.some(copyCandidate)?'disabled':''} ${visible.some(copyCandidate)&&visible.filter(copyCandidate).every(r=>selected.has(r.id))?'checked':''}></th><th>ICCID / operadora</th><th>Telefone / aparelho</th><th>Categoria</th><th>Situação</th><th>Mensalidade</th><th>Ações</th></tr></thead><tbody>${visible.map(r=>{
@@ -53,13 +55,13 @@ export function mountWarehouseChips(root,{repo,icon,onUpdate=()=>{},onDetail,onC
 
   root.querySelectorAll('[data-ci-category]').forEach(b=>b.onclick=()=>{selected.clear();activation?.clearSelection();section='inventory';filters.category=b.dataset.ciCategory;page=0;draw();});
   for(const [id,key] of [['ci-category','category'],['ci-provider','provider'],['ci-status','status']])root.querySelector('#'+id).onchange=e=>{selected.clear();filters[key]=e.target.value;page=0;draw();};
-  root.querySelector('#ci-search').oninput=e=>{selected.clear();filters.query=e.target.value;page=0;const position=e.target.selectionStart;draw();const input=root.querySelector('#ci-search');input.focus();input.setSelectionRange(position,position);};
+  root.querySelector('#ci-search').oninput=e=>{filters.query=e.target.value;page=0;const position=e.target.selectionStart;draw();const input=root.querySelector('#ci-search');input.focus();input.setSelectionRange(position,position);};
   root.querySelectorAll('[data-ci-id]').forEach(c=>c.onchange=()=>{if(!busy&&canWrite()){if(c.checked)selected.add(c.dataset.ciId);else selected.delete(c.dataset.ciId);}draw();});
   root.querySelector('#ci-select-page').onchange=e=>{if(busy||!canWrite())return;for(const r of visible.filter(copyCandidate)){if(!e.target.checked)selected.delete(r.id);else selected.add(r.id);}draw();};
   const eligiblePage=visible.filter(copyCandidate),selectedPage=eligiblePage.filter(r=>selected.has(r.id)).length;
   root.querySelector('#ci-select-page').indeterminate=selectedPage>0&&selectedPage<eligiblePage.length;
   root.querySelector('#ci-clear').onclick=()=>{selected.clear();draw();};root.querySelector('#ci-copy').onclick=copy;
-  root.querySelector('#ci-prev').onclick=()=>{selected.clear();page--;draw();};root.querySelector('#ci-next').onclick=()=>{selected.clear();page++;draw();};root.querySelector('#ci-history').onclick=()=>{selected.clear();section='activation';draw();};
+  root.querySelector('#ci-prev').onclick=()=>{page--;draw();};root.querySelector('#ci-next').onclick=()=>{page++;draw();};root.querySelector('#ci-history').onclick=()=>{selected.clear();section='activation';draw();};
   root.querySelectorAll('.wc-row-actions details').forEach(details=>{
    const menu=details.querySelector('.wc-menu'),trigger=details.querySelector('summary');
    trigger.onclick=e=>{e.preventDefault();if(menu.matches(':popover-open')){menu.hidePopover();return;}details.open=true;menu.showPopover();const anchor=trigger.getBoundingClientRect(),box=menu.getBoundingClientRect();menu.style.left=Math.max(8,Math.min(anchor.right-box.width,innerWidth-box.width-8))+'px';menu.style.top=Math.max(8,anchor.bottom+box.height+8>innerHeight?anchor.top-box.height-6:anchor.bottom+6)+'px';};
