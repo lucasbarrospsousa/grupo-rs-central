@@ -89,5 +89,5 @@ export function summarizeCosts(devices,input,{allProviders=false}={}){
   items.push({...chip,state,provider:r?.provider||'',operator:r?.operator||'',plan:r?.plan||'',imei:r?.imei||'',connection:r?.connection||'',last_connection:r?.last_connection||'',provider_status:r?.status||'',checked_at:r?.checked_at||null,cents:state==='Confirmado'?r.cents:null});
  }
  const dates=sources.map(s=>s.checked_at).filter(Boolean).sort((a,b)=>Date.parse(a)-Date.parse(b));
- return{ok:true,checked_at:dates[0]||null,source:'Árya + Link Solutions',providers,device_count:devices.length,chip_count:chips.size,missing,duplicates,confirmed,not_found:notFound,inactive,without_price:withoutPrice,conflicts,pending,total_cents:total,complete:!incomplete&&missing===0&&notFound===0&&withoutPrice===0&&conflicts===0&&pending===0,groups:[...groups.values()].sort((a,b)=>b.count-a.count),items};
+ return{ok:true,active_count:confirmed+withoutPrice,checked_at:dates[0]||null,source:'Árya + Link Solutions',providers,device_count:devices.length,chip_count:chips.size,missing,duplicates,confirmed,not_found:notFound,inactive,without_price:withoutPrice,conflicts,pending,total_cents:total,complete:!incomplete&&missing===0&&notFound===0&&withoutPrice===0&&conflicts===0&&pending===0,groups:[...groups.values()].sort((a,b)=>b.count-a.count),items};
 }

@@ -1,3 +1,4 @@
+export const permissionRoute=route=>String(route||'').split(':')[0];
 export const IDLE_MS=2*60*60*1000;
 export const isReader=(user,branch,route)=>user?.permissions?(user.permissions.owner?false:!user.permissions.writes.includes(route)):user?.branches?.find(b=>b.id===branch)?.role==='reader';
 export const restrictedRoute=route=>['link','bulk','settings'].includes(route);
@@ -6,7 +7,7 @@ export function accessControl(repo){
  let deadline=0,username='',lastSent=0,busy=false;
  const expire=()=>{if(!repo.user)return;repo.user=null;document.querySelector('#modal')?.close();location.reload();};
  const apply=()=>{
-  if(repo.user?.permissions){document.querySelectorAll('[data-nav],[data-route]').forEach(e=>{const r=e.dataset.nav||e.dataset.route;if(['users','logs'].includes(r)?!repo.user.permissions.owner:!repo.user.permissions.views.includes(r))e.hidden=true;});if(!repo.user.permissions.owner&&!repo.user.permissions.writes.includes('sms'))document.querySelectorAll('[data-sms]').forEach(e=>{e.hidden=true;});}
+  if(repo.user?.permissions){document.querySelectorAll('[data-nav],[data-route]').forEach(e=>{const r=permissionRoute(e.dataset.nav||e.dataset.route);if(['users','logs'].includes(r)?!repo.user.permissions.owner:!repo.user.permissions.views.includes(r))e.hidden=true;});if(!repo.user.permissions.owner&&!repo.user.permissions.writes.includes('sms'))document.querySelectorAll('[data-sms]').forEach(e=>{e.hidden=true;});}
   if(!document.body.classList.contains('read-only'))return;
   const canDischarge=repo.user?.permissions?.owner||repo.user?.permissions?.writes.includes('stock');
   document.querySelectorAll(writes).forEach(e=>{if(canDischarge&&e.matches('[data-discharge],#stock-analyze'))return;e.hidden=true;});
