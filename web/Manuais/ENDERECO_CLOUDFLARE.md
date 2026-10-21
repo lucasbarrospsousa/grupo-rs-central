@@ -1,0 +1,3 @@
+
+## Endereco curto — 21/10/2026
+Endereco publico: https://central.sinderacode.workers.dev . Alias HTTP por service binding para o Worker existente; URL, origem, cookies e permissoes preservados. Sem copia de banco ou mudanca de credenciais. Configuracoes dos aliases: Portal Sinderacode/hosting/aliases. Sufixo da conta passa de lucasbarrospereira13 para sinderacode; os antigos links workers.dev deixam de ser validos. Agenda fora do escopo; black-store-api sem uso conforme usuario, sem exclusao. Retorno exige reverter sufixo, URLs nos fontes, origem do Scanner e destinos dos coletores. Extensao ponte 1.4.0 precisa ser atualizada no Chrome.

@@ -4,7 +4,7 @@ import worker from '../hosting/cloudflare-entry.mjs';
 
 test('production forwards operations only after origin validation and preserves backend authorization', async()=>{
  const previous=globalThis.fetch, calls=[];
- const origin='https://grupo-rs-central-avaliacao.lucasbarrospereira13.workers.dev';
+ const origin='https://central.sinderacode.workers.dev';
  const env={CENTRAL_HOSTING_MODE:'production',CENTRAL_BRIDGE_TOKEN:'synthetic',ASSETS:{fetch:async()=>new Response('asset')}};
  globalThis.fetch=async(url,options)=>{calls.push({url,options,body:options.body?await new Response(options.body).text():null});return Response.json({error:'Permission denied by backend'},{status:403});};
  try {

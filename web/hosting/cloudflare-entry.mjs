@@ -30,7 +30,7 @@ export default {
     const response = await site.fetch(request, env, ctx);
     const result = new Response(response.body, response);
     const policy = result.headers.get('Content-Security-Policy');
-    if (policy) result.headers.set('Content-Security-Policy', policy.replace("connect-src 'self'", "connect-src 'self' https://portal-sidera-code.lucasbarrospereira13.workers.dev"));
+    if (policy) result.headers.set('Content-Security-Policy', policy.replace("connect-src 'self'", "connect-src 'self' https://portal.sinderacode.workers.dev"));
     return result;
   }
 };
