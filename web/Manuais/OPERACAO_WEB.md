@@ -1,3 +1,7 @@
+## Busca em lote por série, placa ou identificação — 21/10/2026
+
+No Estoque, ponto e vírgula ou quebra de linha aceita lista mista de séries, placas e identificações. Série exata preserva zeros; placa/identificação ignora espaços, hífens e caixa, sem correspondência parcial. Resultados não duplicam aparelhos e ausências usam os três campos. Filtros, paginação e exportação seguem o mesmo recorte por filial autorizada. Busca usa dados salvos; não executa varredura de APIs. A ação Colar lista explica o formato. Validado com testes locais e SQL somente leitura com dados sintéticos.
+
 ## Filtro de ignição no estoque — 21/10/2026
 
 Grupo Ignição / comunicação: Todos, Ligado, Desligado, Desatualizado e Sem comunicação. Usa observações salvas da filial autorizada, aplica filtros antes de paginação e exportação e preserva a consulta de conectividade existente. Não dispara varredura de APIs. Desatualizado inclui sleep: ligado acima de 15 min ou desligado acima de 2 h. Sem comunicação agrupa ausência de leitura válida, falha, horário inválido/futuro e ignição desconhecida; o motivo original permanece na linha. Limpar retorna a Todos. Filtros específicos recalculam o estado temporal mesmo sem mudança do cursor.

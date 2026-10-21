@@ -16,13 +16,15 @@ export function stockRows(rows) {
     phone: '', iccid: '', ...r
   }));
 }
+export const batchIdentifier=v=>String(v??'').trim().toUpperCase().replace(/[\s-]/g,'');
+export function stockBatchMatch(row,token){const key=batchIdentifier(token);return row.serial===token||!!key&&[row.plate,row.identification].some(v=>batchIdentifier(v)===key);}
 export function filterStock(rows, { ignition = 'all', query = '', status = 'Todos', start = '', end = '', branch = 'imperatriz', sort = 'default', direction = -1 } = {}) {
   if (start && end && start > end) throw Error('A data final não pode ser anterior à data inicial.');
   const batch = /[;\r\n]/.test(query);
   const wanted = [...new Set(query.split(/[;\r\n]+/).map(s => s.trim()).filter(Boolean))];
   const normalize=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
   const text = normalize(query.trim());
-  const matched = rows.filter(r => batch ? wanted.includes(r.serial) :
+  const matched = rows.filter(r => batch ? wanted.some(token=>stockBatchMatch(r,token)) :
     [r.serial, r.identification, r.plate, r.phone, r.iccid, r.carrier, stockOwnerName(r,branch)].some(v => normalize(v).includes(text)));
   const filtered = matched.filter(r => {
     // Same priority as _inventory_product_date; period is NOT installation date.
@@ -46,7 +48,7 @@ export function filterStock(rows, { ignition = 'all', query = '', status = 'Todo
     return av.localeCompare(bv,'pt-BR',{numeric:true}) * direction || a.serial.localeCompare(b.serial);
   });
   return { rows: filtered, batch, requested: wanted.length, found: matched.length,
-    missing: batch ? wanted.filter(s => !matched.some(r => r.serial === s)) : [] };
+    missing: batch ? wanted.filter(s => !matched.some(r => stockBatchMatch(r,s))) : [] };
 }
 export function csvText(rows) {
   const cell = v => { let s = String(v ?? ''); if (/^[=+@\-\t\r]/.test(s)) s = "'" + s; return '"' + s.replaceAll('"','""') + '"'; };
