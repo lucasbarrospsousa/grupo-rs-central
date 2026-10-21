@@ -79,3 +79,5 @@ body.central-ui[data-view=stock] #page .stock-pagination{flex-shrink:0;margin-to
 body.central-ui[data-view=stock] .stock-search-panel{padding:16px 20px}
 body.central-ui[data-view=stock] .stock-search-panel p{margin-bottom:12px}
 body.central-ui[data-view=stock] #page{padding-bottom:24px}
+
+.stock-ignition-filter{border:0;padding:0;margin:20px 0 0;display:flex;flex-wrap:wrap;gap:8px}.stock-ignition-filter legend{font-weight:600;margin-bottom:10px;color:#173b5b}.stock-ignition-filter label{position:relative;cursor:pointer}.stock-ignition-filter input{position:absolute;opacity:0;width:1px;height:1px}.stock-ignition-filter span{display:block;padding:9px 17px;border:1px solid #cbdff7;border-radius:9px;color:#244766;background:#fff;transition:background .15s,border-color .15s}.stock-ignition-filter input:checked+span{background:#087eff;border-color:#087eff;color:#fff}.stock-ignition-filter input:focus-visible+span{outline:3px solid #80bfff;outline-offset:2px}.stock-ignition-filter label:hover span{border-color:#087eff}.stock-ignition-filter small{flex-basis:100%;color:#6281a4;margin-top:3px;font-size:12px}

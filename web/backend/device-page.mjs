@@ -1,3 +1,4 @@
+import {communicationFilters} from '../public/communication-state.js';
 import {savedOwners} from './saved-owners.mjs';
 import {dischargeSummary} from './discharge-summary.mjs';
 import {sqlDevicePage} from './device-sql-page.mjs';
@@ -7,8 +8,8 @@ import {stockSummary,carrierSummary} from '../public/dashboard-model.js';
 import {readPlan} from './incremental-read.mjs';
 const bad=message=>Object.assign(Error(message),{status:400});
 export function pageOptions(params){
- const o={query:params.get('query')||'',status:params.get('status')||'Todos',start:params.get('start')||'',end:params.get('end')||'',sort:params.get('sort')||'default',direction:Number(params.get('direction')||-1),page:Number(params.get('page')||1)};
- if(o.query.length>16000||!statuses.includes(o.status)||!['default','serial','connectivity','carrier','status','installed_at'].includes(o.sort)||![1,-1].includes(o.direction)||!Number.isSafeInteger(o.page)||o.page<1||[o.start,o.end].some(x=>x&&!/^\d{4}-\d{2}-\d{2}$/.test(x))||o.start&&o.end&&o.start>o.end)throw bad('Filtros inválidos.');
+ const o={ignition:params.get('ignition')||'all',query:params.get('query')||'',status:params.get('status')||'Todos',start:params.get('start')||'',end:params.get('end')||'',sort:params.get('sort')||'default',direction:Number(params.get('direction')||-1),page:Number(params.get('page')||1)};
+ if(!Object.hasOwn(communicationFilters,o.ignition)||o.query.length>16000||!statuses.includes(o.status)||!['default','serial','connectivity','carrier','status','installed_at'].includes(o.sort)||![1,-1].includes(o.direction)||!Number.isSafeInteger(o.page)||o.page<1||[o.start,o.end].some(x=>x&&!/^\d{4}-\d{2}-\d{2}$/.test(x))||o.start&&o.end&&o.start>o.end)throw bad('Filtros inválidos.');
  return o;
 }
 export function selectDevicePage(rows,branch,options){
@@ -20,7 +21,7 @@ export async function devicePage(c,branch,params){
  if(params.get('scope')==='owners')return savedOwners(c,branch,params.get('query'));
  if(params.get('scope')==='discharges')return dischargeSummary(c,branch,params.get('month')||'');
  const scope=params.get('scope'),options=pageOptions(scope==='lookup'?new URLSearchParams({page:params.get('page')||1}):params),plan=await readPlan(c,branch,['devices'],params.get('since'));
- if(plan.delta&&!plan.changes.length)return {cursor:plan.cursor,unchanged:true};
+ if(options.ignition==='all'&&plan.delta&&!plan.changes.length)return {cursor:plan.cursor,unchanged:true};
  if(scope==='page'||scope==='lookup')return {...await sqlDevicePage(c,branch,params,options),cursor:plan.cursor};
  const summary=params.get('scope')==='summary';
  const fields=summary?['status','carrier']:['client','status','carrier','identification','plate','phone','iccid','owner_binding','installed_at','updated_at','created_at','source_date','purchase_date','date','model'];

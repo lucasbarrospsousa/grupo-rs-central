@@ -1,3 +1,4 @@
+import {communicationFilterSql} from './communication-filter-sql.mjs';
 import {ownerValidSql} from './saved-owners.mjs';
 // All predicates run inside the caller's authenticated, RLS-protected transaction.
 const fold=x=>`lower(regexp_replace(normalize(coalesce(${x},''),NFD),'[̀-ͯ]','','g'))`;
@@ -6,8 +7,8 @@ export function deviceSqlQuery(branch,params,options){
  const lookup=params.get('scope')==='lookup',maintenance=lookup&&params.get('mode')==='maintenance',query=lookup?params.get('query')||'':options.query;
  if(query.length>16000)throw Object.assign(Error('Busca muito longa.'),{status:400});
  const batch=!lookup&&/[;\r\n]/.test(query),wanted=[...new Set(query.split(/[;\r\n]+/).map(s=>s.trim()).filter(Boolean))];
- const text=query.trim(),compact=text.toLocaleLowerCase('pt-BR').replace(/[\s-]/g,''),connectivity=!lookup&&options.sort==='connectivity';
- const values=[branch,text,batch,wanted,lookup?params.get('status')||'':options.status,options.start,options.end,options.page,params.get('customer')||'',params.get('export')==='1',compact];
+ const text=query.trim(),compact=text.toLocaleLowerCase('pt-BR').replace(/[\s-]/g,''),connectivity=!lookup&&options.sort==='connectivity',ignition=!lookup&&options.ignition&&options.ignition!=='all';
+ const values=[branch,text,batch,wanted,lookup?params.get('status')||'':options.status,options.start,options.end,options.page,params.get('customer')||'',params.get('export')==='1',compact,options.ignition||'all'];
  const status=`coalesce(d.data->>'status','')`,client=`coalesce(d.data->>'client','')`;
  const owner=`case when ${ownerValidSql} then d.data->'owner_binding'->>'client' else '' end`;
  const searchFields=lookup?(maintenance?['d.serial',...['plate','identification','client'].map(k=>`d.data->>'${k}'`)]:['d.serial',`d.data->>'client'`,`d.data->>'plate'`]):['d.serial',...['identification','plate','phone','iccid','carrier'].map(k=>`d.data->>'${k}'`),owner];
@@ -22,11 +23,11 @@ export function deviceSqlQuery(branch,params,options){
   else order=`(sort_value=''),${natural('sort_value')} ${options.direction===1?'asc':'desc'},serial collate "pt-x-icu",id`;
  }
  const sortValue=connectivity?`case when o.data->'chip'->>'ok'='true' then coalesce(nullif(o.data->'chip'->>'connectivity',''),'Não informado') else 'Consulta pendente' end`:options.sort==='serial'?'d.serial':`coalesce(d.data->>'${['carrier','status','installed_at'].includes(options.sort)?options.sort:'status'}','')`;
- const sql=`with parameters as (select $1::text,$2::text,$3::boolean,$4::text[],$5::text,$6::text,$7::text,$8::int,$9::text,$10::boolean,$11::text), inventory as materialized (
- select d.id,d.serial,${status} as raw_status,${visible} as visible_status,${client} as client,${date} as product_date,${install} as installed,${sortValue} as sort_value,(${match}) as matched
- from central_homologacao.devices d ${connectivity?'left join central_homologacao.device_observations o on o.device_id=d.id':''}
+ const sql=`with parameters as (select $1::text,$2::text,$3::boolean,$4::text[],$5::text,$6::text,$7::text,$8::int,$9::text,$10::boolean,$11::text,$12::text), inventory as materialized (
+ select d.id,d.serial,${status} as raw_status,${visible} as visible_status,${client} as client,${date} as product_date,${install} as installed,${sortValue} as sort_value,(${match}) as matched,${ignition?communicationFilterSql():"'all'"} as ignition_state
+ from central_homologacao.devices d ${connectivity||ignition?'left join central_homologacao.device_observations o on o.device_id=d.id':''}
  where d.branch_id=$1 and d.deleted_at is null
- ), filtered as materialized (select * from inventory where matched and ${lookup?"($9='' or client=$9)":"($5='Todos' or visible_status=$5) and (($6='' and $7='') or (product_date<>'' and ($6='' or product_date>=$6) and ($7='' or product_date<=$7)))"}),
+ ), filtered as materialized (select * from inventory where matched and ($12='all' or ignition_state=$12) and ${lookup?"($9='' or client=$9)":"($5='Todos' or visible_status=$5) and (($6='' and $7='') or (product_date<>'' and ($6='' or product_date>=$6) and ($7='' or product_date<=$7)))"}),
  totals as (select count(*)::int as total from filtered), paging as (select total,least($8::int,greatest(1,ceil(total::numeric/10)::int)) as page from totals),
  selected as (select *,row_number() over(order by ${order}) as ordinal from filtered order by ${order} limit (case when $10::boolean then null else 10 end) offset (case when $10::boolean then 0 else (select (page-1)*10 from paging) end))
  select total,page,

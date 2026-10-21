@@ -1,3 +1,9 @@
+## Filtro de ignição no estoque — 21/10/2026
+
+Grupo Ignição / comunicação: Todos, Ligado, Desligado, Desatualizado e Sem comunicação. Usa observações salvas da filial autorizada, aplica filtros antes de paginação e exportação e preserva a consulta de conectividade existente. Não dispara varredura de APIs. Desatualizado inclui sleep: ligado acima de 15 min ou desligado acima de 2 h. Sem comunicação agrupa ausência de leitura válida, falha, horário inválido/futuro e ignição desconhecida; o motivo original permanece na linha. Limpar retorna a Todos. Filtros específicos recalculam o estado temporal mesmo sem mudança do cursor.
+
+Validação: 22 testes focados; SQL diferencial com fixtures sintéticas em transação somente leitura; navegação local com APIs bloqueadas em 1917×917 e 390×844. Teste antigo de preload em device-page falha também no código anterior (espera nenhuma chamada, porém o fluxo já carrega resumo e background); não alterado nesta entrega.
+
 ## Chips: ativação exclusivamente manual — 19/10/2026
 
 A Central não prepara nem envia ativações. Endpoints antigos, lotes preparados e transporte de escrita da Árya recusam envio antes de acessar o provedor. O histórico permanece salvo.

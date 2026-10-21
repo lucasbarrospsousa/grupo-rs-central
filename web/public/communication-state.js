@@ -35,3 +35,6 @@ export function latestCommunication(previous,next){
  if(previous?.ok&&((Number.isFinite(before)&&(!Number.isFinite(after)||after<before))||(Number.isFinite(oldEvent)&&Number.isFinite(newEvent)&&newEvent<oldEvent)))return {...previous,pending:false};
  return {...next,pending:false,query_error:''};
 }
+
+export const communicationFilters={all:'Todos',on:'Ligado',off:'Desligado',stale:'Desatualizado',unknown:'Sem comunicação'};
+export function communicationFilter(sample,now=Date.now()){const state=communicationStatus(sample,now).state;return state==='sleep'?'stale':state;}

@@ -1,3 +1,4 @@
+import {communicationFilter} from './communication-state.js';
 export function stockOwnerName(r,branch){return r.status==='Instalado' && r.owner_binding?.branch===branch && r.owner_binding?.serial===r.serial && String(r.owner_binding.plate).replace(/\W/g,'').toUpperCase()===String(r.plate).replace(/\W/g,'').toUpperCase() ? r.owner_binding.client : '';}
 export const stockStatusLabel=value=>value==='Manutenção'?'Reparo':value;
 // Port of inventory search/date rules; no network or persistence.
@@ -15,7 +16,7 @@ export function stockRows(rows) {
     phone: '', iccid: '', ...r
   }));
 }
-export function filterStock(rows, { query = '', status = 'Todos', start = '', end = '', branch = 'imperatriz', sort = 'default', direction = -1 } = {}) {
+export function filterStock(rows, { ignition = 'all', query = '', status = 'Todos', start = '', end = '', branch = 'imperatriz', sort = 'default', direction = -1 } = {}) {
   if (start && end && start > end) throw Error('A data final não pode ser anterior à data inicial.');
   const batch = /[;\r\n]/.test(query);
   const wanted = [...new Set(query.split(/[;\r\n]+/).map(s => s.trim()).filter(Boolean))];
@@ -26,7 +27,7 @@ export function filterStock(rows, { query = '', status = 'Todos', start = '', en
   const filtered = matched.filter(r => {
     // Same priority as _inventory_product_date; period is NOT installation date.
     const date = (r.updated_at || r.created_at || r.source_date || r.purchase_date || r.date || '').slice(0,10);
-    return (status === 'Todos' || visibleStatus(r, branch) === status) && (!(start || end) || (date && (!start || date >= start) && (!end || date <= end)));
+    return (ignition === 'all' || communicationFilter(r.observation?.location) === ignition) && (status === 'Todos' || visibleStatus(r, branch) === status) && (!(start || end) || (date && (!start || date >= start) && (!end || date <= end)));
   });
   const rank={Estoque:0,Reserva:1,'Manutenção':2,Instalado:3,Inativos:4,Inativo:4};
   const installationTime=r=>{const value=Date.parse(r.installed_at||'');return Number.isFinite(value)?value:null;};
