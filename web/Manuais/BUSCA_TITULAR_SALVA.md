@@ -4,7 +4,7 @@ A busca do estoque usa GET /api/devices?scope=owners&branch=...&query=..., mante
 
 A consulta valida estado Instalado, filial, série, placa, código do titular, códigos atuais de aparelho/veículo e ausência de troca em andamento. Preserva checked_at e mostra a última conferência em Fortaleza; vínculo salvo consistente não significa confirmação externa atual. Cadastros sem confirmação suficiente aparecem como quantidade pendente. Titulares homônimos continuam separados pelo identificador.
 
-A seleção usa os vínculos da própria resposta, sem segunda consulta externa. Pesquisas com formato de nome não iniciam rodadas automáticas de comunicação/chips. Botões operacionais explícitos, incluindo análise de baixa, mantêm suas verificações anteriores.
+A seleção usa os vínculos da própria resposta, sem segunda consulta externa. Correção de 21/10/2026: após a busca salva, os aparelhos visíveis retomam normalmente as rodadas de comunicação/chips. Somente a identificação do titular é local; status de comunicação e chip continuam consultados pelas integrações. Botões operacionais explícitos, incluindo análise de baixa, mantêm suas verificações anteriores.
 
 Validação: testes unitários de acesso, busca, datas e respostas atrasadas; SQL sintético em transação somente leitura; leitura de titular real salvo; endpoint publicado acessado com sessão do usuário. Nenhuma API operacional RS/SGA acionada pelos testes. Não há alteração de esquema/índices; medição atual não justificou uma migração de índice.
 

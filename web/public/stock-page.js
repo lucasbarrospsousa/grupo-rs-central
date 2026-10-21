@@ -1,7 +1,7 @@
 import {arrangeStockLayout,arrangeStockRowActions} from './stock-layout.js';
 import {savedStockWatch} from './saved-stock-watch.js';
 import {isReader} from './access-control.js';
-import {mountOwnerSearch,isOwnerQuery} from './stock-owner-search.js';
+import {mountOwnerSearch} from './stock-owner-search.js';
 import {setupAutoLink} from './auto-link.js';
 import {openSms} from './sms-live.js';
 import {trackerClassification} from './tracker-classification.js';
@@ -81,7 +81,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
     try{localStorage.setItem(viewKey,JSON.stringify(model));}catch{}
     syncSelection(rows);
     if(focused){const input=[...document.querySelectorAll("[data-vehicle-plate]")].find(el=>el.dataset.vehiclePlate===focused);if(input){input.focus({preventScroll:true});input.setSelectionRange(caret,caret);}}
-    if(live&&!isOwnerQuery(model.query))queueMicrotask(()=>live.refresh());
+    if(live)queueMicrotask(()=>live.refresh());
     if(pendingOwnerSearch){pendingOwnerSearch=false;document.querySelector('#stock-query').dispatchEvent(new Event('stock-search'));}
   }
   function syncSelection(rows) {

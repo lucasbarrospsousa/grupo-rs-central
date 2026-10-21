@@ -9,7 +9,7 @@ test('saved search binds inputs, retains dates, excludes invalid and ambiguous o
  await assert.rejects(savedOwners(c,'imperatriz','ab'),e=>e.status===400);
 });
 test('predicate checks all identity keys and in-flight swaps',()=>{for(const s of ['equipment_id','vehicle_id','client_id','checked_at','branch','serial','plate','move_sent','return_sent'])assert.ok(ownerValidSql.includes(s));});
-test('name UI only uses saved devices and does not start automatic stock rounds',()=>{const ui=readFileSync(new URL('../public/stock-owner-search.js',import.meta.url),'utf8'),page=readFileSync(new URL('../public/stock-page.js',import.meta.url),'utf8');assert.doesNotMatch(ui,/integrations\/|1300|owner_save/);assert.match(ui,/scope:'owners'/);assert.match(page,/if\(live&&!isOwnerQuery\(model.query\)\)/);assert.equal(isOwnerQuery('José Silva'),true);assert.equal(isOwnerQuery('ABC-1234'),false);});
+test('name lookup uses saved devices while visible stock polling remains enabled',()=>{const ui=readFileSync(new URL('../public/stock-owner-search.js',import.meta.url),'utf8'),page=readFileSync(new URL('../public/stock-page.js',import.meta.url),'utf8');assert.doesNotMatch(ui,/integrations\/|1300|owner_save/);assert.match(ui,/scope:'owners'/);assert.match(page,/if\(live\)queueMicrotask/);assert.doesNotMatch(page,/live&&!isOwnerQuery/);assert.equal(isOwnerQuery('José Silva'),true);assert.equal(isOwnerQuery('ABC-1234'),false);});
 
 test('UI selects saved bindings without a second request and ignores stale search responses',async()=>{
  const {mountOwnerSearch}=await import('../public/stock-owner-search.js');const listeners={};let selected,requests=0,resolve;
