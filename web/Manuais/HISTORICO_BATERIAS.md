@@ -23,3 +23,7 @@ Retirada confirmada: duas leituras consecutivas, externa ≥12 V e depois 0 V, i
 CTEs agregam no SQL, sem transportar a frota completa ao navegador. Tabela paginada de 20 aparelhos inclui todos os cadastrados; busca afeta a tabela, indicadores mantêm o recorte da filial. Ver eventos mostra ciclos confirmados, em páginas de 50. Zero nos indicadores não equivale a frota saudável se falta histórico. Permissão stock e memberships continuam verificadas no backend, inclusive em Todas autorizadas; RLS permanece ativo. Nenhuma migração necessária.
 
 Validação: battery-dashboard/history/chart.test.mjs; tools/test-battery-dashboard-sql.mjs usa fixtures sintéticas em transação READ ONLY com rollback (não consulta provedores); Chrome local com rede externa bloqueada em 1917×917 e 390×844. Leitura real do agregado em 809 ms: cobertura limitada, sem inventar observações. Não salva dados de clientes nos testes/fontes.
+
+## Aba retirada — 22/10/2026
+
+Por solicitação do usuário, a aba Histórico de baterias foi removida da navegação e do roteador da Central. Dados salvos, coleta passiva já autorizada e permissões permanecem preservados para análise técnica, sem novas chamadas aos provedores. Os módulos visuais anteriores ficam inativos como referência no controle de versão. Estudos operacionais não são publicados no GitHub.

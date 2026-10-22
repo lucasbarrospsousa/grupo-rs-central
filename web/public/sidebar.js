@@ -2,7 +2,7 @@ import {branchRouteVisible} from './branch-navigation.js';
 let collapsed=false,expandedGroup,scrollTop=0;
 // Hide navigation only; tracking routes and functions remain intact.
 const hiddenGroups = new Set(['tracking']);
-const groups = {warehouse:[['warehouse:chip','Chips','chip'],['warehouse:device','Aparelhos','box'],['warehouse:values','Valores','chart']],equipment:[['stock','Estoque','box'],['batteries','Histórico de baterias','chart'],['bulk','Cadastro em massa','file'],['maintenance','Manutenções','tool'],['sms','Painel SMS','mail']],tracking:[['tracking','Consultar veículo','search'],['records','Histórico de posições','file'],['route','Trajeto','map']]};
+const groups = {warehouse:[['warehouse:chip','Chips','chip'],['warehouse:device','Aparelhos','box'],['warehouse:values','Valores','chart']],equipment:[['stock','Estoque','box'],['bulk','Cadastro em massa','file'],['maintenance','Manutenções','tool'],['sms','Painel SMS','mail']],tracking:[['tracking','Consultar veículo','search'],['records','Histórico de posições','file'],['route','Trajeto','map']]};
 export function mountSidebar({route,branch,icon,navigate,logout,username,warehouseTab='chip',canWarehouse=true,canValues=false}) {
  const sidebar=document.querySelector('.sidebar'); sidebar.className='sidebar central-sidebar';
  sidebar.id='central-navigation';
