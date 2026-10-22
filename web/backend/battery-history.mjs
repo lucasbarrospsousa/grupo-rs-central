@@ -16,8 +16,11 @@ export async function batteryHistory(pool,user,permissions,params){
  if(!permissions.owner&&!permissions.views.includes('stock'))throw Object.assign(Error('Sem acesso ao Estoque.'),{status:403});
  const branch=params.get('branch'),q=(params.get('q')||'').trim(),page=Number(params.get('page')||1);
  if(!['imperatriz','araguaina','acailandia','maraba'].includes(branch)||q.length>80||!Number.isInteger(page)||page<1||page>100000)throw Object.assign(Error('Filtro inválido.'),{status:400});
+ const chart=params.get('view')==='chart',serial=params.get('serial')||'',after=params.get('after')||'0';
+ if(chart&&(!/^\d{6,17}$/.test(serial)||!/^\d{1,19}$/.test(after)||BigInt(after)>9223372036854775807n))throw Object.assign(Error('Aparelho ou cursor inválido.'),{status:400});
  return scoped(pool,user,async c=>{
  if(!(await c.query('select 1 from central_homologacao.memberships where user_id=$1 and branch_id=$2',[user.user_id,branch])).rowCount)throw Object.assign(Error('Sem acesso à filial.'),{status:403});
+ if(chart){const result=await c.query("select id::text,serial,model,sample,created_at from central_homologacao.battery_history where branch_id=$1 and serial=$2 and observed_at>=now()-interval '30 days' and id>$3::bigint order by id limit 1001",[branch,serial,after]);const rows=result.rows.slice(0,1000);return {rows,next:result.rows.length>1000?rows.at(-1).id:null};}
  const result=await c.query(`select count(*) over()::integer as total,serial,model,sample,created_at from central_homologacao.battery_history where branch_id=$1 and observed_at>=now()-interval '30 days' and ($2='' or position(lower($2) in lower(serial))>0) order by observed_at desc,id desc limit 50 offset $3`,[branch,q,(page-1)*50]);
  return {rows:result.rows,total:result.rows[0]?.total||0,page};
  });
