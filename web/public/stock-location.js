@@ -2,11 +2,11 @@ import {mountEquipmentSwap} from './equipment-swap.js';
 import {communicationAge,communicationStatus,ignitionLabel,latestCommunication} from './communication-state.js';
 import {positionMap} from './maps.js';
 import {validPoint} from './tracking-model.js';
-import {gpsStatus} from './gps-status.js';
+import {gpsStatus,gpsOutdated} from './gps-status.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icons={chip:'M6 6h12v12H6zM9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4',power:'M12 2v10M6 5a9 9 0 1 0 12 0',car:'M4 10l2-6h12l2 6M3 10h18v8H3zM6 18v3m12-3v3M6 14h2m8 0h2',clock:'M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',calendar:'M4 5h16v16H4zM4 10h16M8 2v6m8-6v6',battery:'M2 6h18v12H2zM20 10h2v4h-2M6 12h6m-3-3v6',moon:'M20 15A9 9 0 0 1 9 3a9 9 0 1 0 11 12'};
 const glyph=key=>'<svg class="location-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="'+icons[key]+'"/></svg>';
-export function markerColor(loc){const label=ignitionLabel(loc?.ignition);return label==='Ligado'?'#129568':label==='Desligado'?'#d62f49':'#728397';}
+export function markerColor(loc){if(gpsOutdated(loc))return '#8046cf';const label=ignitionLabel(loc?.ignition);return label==='Ligado'?'#129568':label==='Desligado'?'#d62f49':'#728397';}
 export function deviceIdentity(row={}){
  const raw=String(row.tracker_version||row.hardware_version||row.model||'').trim();
  const version=raw.match(/^(?:RS300\s*)?V?(\d+\.\d+\.\d+(?:\s*[/,]\s*V?\d+\.\d+\.\d+)*)$/i)?.[1]||'';

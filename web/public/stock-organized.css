@@ -79,3 +79,4 @@ body.central-ui[data-view=stock] #page .stock-pagination{flex-shrink:0;margin-to
 body.central-ui[data-view=stock] .stock-search-panel{padding:16px 20px}
 body.central-ui[data-view=stock] .stock-search-panel p{margin-bottom:12px}
 body.central-ui[data-view=stock] #page{padding-bottom:24px}
+body.central-ui[data-view=stock] #page .stock-pin.gps-outdated{color:#8046cf;background:transparent}

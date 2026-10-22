@@ -17,3 +17,5 @@ export function gpsStatus(loc,now=Date.now()){
  if(String(loc.gps_signal)!=='1')return{tone:'neutral',label:'Posição disponível',detail:'Sinal GPS não informado; diagnóstico limitado.'};
  return{tone:'success',label:'Sinal GPS válido',detail:'Posição recente na última comunicação; sem indício imediato.'};
 }
+
+export const gpsOutdated=(loc,now=Date.now())=>gpsStatus(loc,now).label==='GPS desatualizado';
