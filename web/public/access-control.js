@@ -1,4 +1,4 @@
-export const permissionRoute=route=>String(route||'').split(':')[0];
+export const permissionRoute=route=>(String(route||'').split(':')[0]==='batteries'?'stock':String(route||'').split(':')[0]);
 export const IDLE_MS=2*60*60*1000;
 export const isReader=(user,branch,route)=>user?.permissions?(user.permissions.owner?false:!user.permissions.writes.includes(route)):user?.branches?.find(b=>b.id===branch)?.role==='reader';
 export const restrictedRoute=route=>['link','bulk','settings'].includes(route);

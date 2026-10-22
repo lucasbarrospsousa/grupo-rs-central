@@ -1,3 +1,4 @@
+import {mountBatteries} from './battery-history.js';
 import {mountLogin,prepareLoginOverview,loginDestination} from './login-screen.js';
 import {startMaintenanceRefresh} from './maintenance-refresh.js';
 import {savedView} from './saved-view.js';
@@ -14,7 +15,7 @@ import {installPageMotion} from './page-motion.js';
 import {mountSystemLogs,installActionJournal} from './system-logs.js';
 import {mountUsers} from './users-page.js';
 import {mountSidebar} from './sidebar.js';
-import {accessControl,isReader,restrictedRoute} from './access-control.js';
+import {accessControl,isReader,restrictedRoute,permissionRoute} from './access-control.js';
 
 import {mountIntegrationActions} from './integration-actions.js';
 import { mountSettings } from './settings-page.js';
@@ -66,7 +67,7 @@ function login() {
   app.innerHTML = `<main class="login"><section class="login-brand"><img src="logo.png" alt="Grupo RS"><small>GRUPO RS CENTRAL</small><h1>Uma Central.<br>Todas as bases.</h1><p>Estoque, manutenção e operação em um só lugar.</p></section><section class="login-main"><span class="pill">VERSÃO WEB • PRÉVIA LOCAL</span><h1>Acesse a Central</h1><p>A estrutura web está em preparação. Você pode explorar os fluxos com dados demonstrativos, sem informar senha.</p><label class="field">Filial inicial<select id="login-branch">${branchOptions(state.branch)}</select></label>${button('Explorar demonstração', 'enter', 'primary', 'right')}<div class="gate" style="margin-top:25px"><strong>Conexão com o banco pendente</strong><br>O login real será conectado após sua autorização. Os exemplos são reiniciados ao recarregar a página.</div></section></main>`;
   on('enter', 'click', () => { state.branch = document.querySelector('#login-branch').value; state.entered = true; render(); });
 }
-const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings'], ['logs','Logs do sistema','file']];
+const routes = [['overview', 'Visão geral', 'home'], ['stock', 'Estoque', 'box'], ['batteries','Histórico de baterias','chart'], ['bulk', 'Cadastro em massa', 'file'], ['maintenance', 'Manutenções', 'tool'], ['tracking', 'Rastreamento', 'map'], ['warehouse', 'Armazém', 'fork'], ['sms', 'Painel SMS', 'mail'], ['settings', 'Configurações', 'settings'], ['users','Usuários e permissões','settings'], ['logs','Logs do sistema','file']];
 let renderVersion=0,cacheRenderTimer;
 if(repo.real)repo.onDataUpdate=(branch,group)=>{
  if(!state.entered||state.branch!==branch||!repo.groups(state.route).includes(group))return;
@@ -77,12 +78,12 @@ window.addEventListener('online',()=>{if(repo.real&&state.entered&&repo.user){re
 function render() {
   document.body.dataset.route=state.route;
   const version=++renderVersion;
-  const allowedRoute=id=>branchRouteVisible(state.branch,id)&&(!repo.real||!repo.user?.permissions||repo.user.permissions.owner||repo.user.permissions.views.includes(id));
+  const allowedRoute=id=>branchRouteVisible(state.branch,id)&&(!repo.real||!repo.user?.permissions||repo.user.permissions.owner||repo.user.permissions.views.includes(permissionRoute(id)));
   if(!allowedRoute(state.route))state.route=routes.find(([id])=>allowedRoute(id))?.[0]||'overview';
   document.body.classList.toggle('central-ui',state.entered);
   document.body.dataset.view=state.route;
   document.body.classList.toggle('logs-page',state.entered&&state.route==='logs');
-  document.body.classList.toggle('stock-page', state.entered && ['stock','link','bulk','maintenance','tracking','records','route','warehouse','sms','settings','users','logs'].includes(state.route));
+  document.body.classList.toggle('stock-page', state.entered && ['batteries','stock','link','bulk','maintenance','tracking','records','route','warehouse','sms','settings','users','logs'].includes(state.route));
   document.body.classList.toggle('link-page', state.entered && state.route === 'link');
   document.body.classList.toggle('bulk-page', state.entered && state.route === 'bulk');
   document.body.classList.toggle('maintenance-page', state.entered && state.route === 'maintenance');
@@ -105,7 +106,7 @@ function render() {
     document.querySelector('.demo-strip').innerHTML='<strong>HOMOLOGAÇÃO SQL</strong><span>Cópia do backup • ações persistem somente nesta área de testes</span>';
     document.querySelector('.bottom small').textContent='Conectado • '+repo.user.username;
     if(mode==='production'){document.querySelector('.demo-strip').className='release-strip';document.querySelector('.release-strip').innerHTML='<span>Acesso exclusivo • '+escape(repo.user.username)+'</span><span>Dados salvos na Central online</span>';document.querySelector('.footer-note').textContent='Grupo RS Central • versão 1.0';}
-    if(!['stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms','users','logs'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
+    if(!['batteries','stock','overview','tracking','records','route','maintenance','settings','link','bulk','warehouse','sms','users','logs'].includes(state.route)){page('<section class="panel"><h2>Integração em validação</h2><p>Este módulo ainda não foi conectado ao SQL. O estoque já usa a cópia do backup. A interface demonstrativa continua disponível na prévia separada.</p></section>');return;}
   }
   const headerControls={branch:document.querySelector('#branch'),refresh:document.querySelector('#refresh')};
   const normalizeHeader=()=>unifyPageHeader(({stock:'Estoque de equipamentos',records:'Histórico de posições',route:'Trajeto'})[state.route]||route[1],headerControls);
@@ -134,7 +135,7 @@ function render() {
       return;
     }
   }
-  ({ overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk,logs:()=>mountSystemLogs({repo,showModal}),users:()=>mountUsers({repo,showModal,notify}) })[state.route]();
+  ({ batteries:()=>mountBatteries({repo,branch:state.branch}), overview, stock, warehouse, maintenance, tracking, records, route: routePage, sms, settings, link: linking, bulk,logs:()=>mountSystemLogs({repo,showModal}),users:()=>mountUsers({repo,showModal,notify}) })[state.route]();
   mountNavigation();
   if(repo.real){
     for(const selector of ['.link-demo','.consult-intro']){const el=document.querySelector(selector);if(el)el.textContent='Dados da Central • consulte a plataforma para conferir o estado atual.';}

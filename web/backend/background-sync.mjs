@@ -1,3 +1,4 @@
+import {captureBatteries} from './battery-history.mjs';
 import {integrationSessions} from './integration-sessions.mjs';
 import {durableIntegrations} from './durable-sessions.mjs';
 import {savedChipStatus} from './chip-status.mjs';
@@ -21,7 +22,7 @@ export function guardedIntegrations(pool,service=new Integrations({sessionStore:
  if(typeof service.equipmentLocation==='function'){const location=service.equipmentLocation.bind(service);service.equipmentLocation=async(branch,serial)=>{const codes=(await pool.query('select central_homologacao.location_device_codes($1,$2) as codes',[branch,serial])).rows[0]?.codes;return location(branch,serial,codes);};}
  service.savedEquipmentCode=async(branch,serial)=>(await pool.query('select central_homologacao.binding_device_code($1,$2) as code',[branch,serial])).rows[0]?.code||null;
  const facade=apiOnly?service:sourceIntegrations(service,async branch=>{const r=await pool.query('select mode from central_homologacao.read_sources where branch_id=$1',[branch]);if(!r.rows.length)throw Error('Fonte de consulta não configurada para esta base.');return r.rows[0].mode;});
- return durableIntegrations(pool,integrationSessions(pool),facade);
+ return captureBatteries(pool,durableIntegrations(pool,integrationSessions(pool),facade));
 }
 export function syncTick(pool,options={}){return trackQueries(pool,'automatic',()=>runTick(pool,options),'stock');}
 async function runTick(pool,{service,budgetMs=45000,now=Date.now}={}){

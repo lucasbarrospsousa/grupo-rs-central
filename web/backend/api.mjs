@@ -1,3 +1,4 @@
+import {batteryHistory} from './battery-history.mjs';
 import {guardedIntegrations} from './background-sync.mjs';
 import {startupBundle} from './startup-bundle.mjs';
 import {costView} from './cost-view.mjs';
@@ -67,6 +68,7 @@ export function api(pool,{integrationService=integrations}={}){setApiBudgetPool(
       reply(res,200,{lastActivityAt:updated.rows[0].last_activity_at});return true;
     }
     const permissions=await userAccess(pool,user);
+    if(url.pathname==='/api/battery-history'){if(req.method!=='GET')throw fail(405,'Método não permitido.');res.setHeader('Cache-Control','no-store');reply(res,200,await batteryHistory(pool,user,permissions,url.searchParams));return true;}
     if(url.pathname==='/api/startup-bundle'&&req.method==='GET'){const data=await startupBundle(pool,user,permissions,url.searchParams.get('branch'),{background:url.searchParams.get('phase')==='background'});res.setHeader('Cache-Control','no-store');reply(res,200,data);return true;}
     if(url.pathname==='/api/warehouse-costs'){
       if(!permissions.owner)throw fail(403,'Valores dos chips restritos à administração.');
