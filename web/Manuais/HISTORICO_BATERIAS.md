@@ -13,3 +13,13 @@ Validação: tests/battery-history.test.mjs e testes stock-monitor/stock-live; t
 ## Gráfico por aparelho
 
 Botão Ver gráfico em cada leitura. Consulta apenas battery_history, série exata e filial autorizada, últimos 30 dias. Paginação por id em lotes de 1000, sem limitar o gráfico às 50 linhas da tabela. Eixo esquerdo 0–100% (interna), direito em volts (externa); ordenação pela comunicação. Null e intervalos acima de duas horas quebram a linha. Valores zero são preservados. Não altera captura, consultas upstream ou permissões. Testes: battery-chart.test.mjs e battery-history.test.mjs; renderização local com rede externa bloqueada.
+
+## Dashboard de frota — 22/10/2026
+
+Substitui a tela inicial de leituras pelo painel aprovado no estilo da Central. Todos os aparelhos cadastrados como Multi/Multioperadora, inclusive sem histórico, por filial ou todas as filiais autorizadas. Recorte móvel de 20 dias, sem backfill, varredura externa ou alteração da retenção de 30 dias. Cobertura informa dias distintos com leitura e primeira/última comunicação; não presume continuidade.
+
+Retirada confirmada: duas leituras consecutivas, externa ≥12 V e depois 0 V, interna inicial ≥95%, intervalo de no máximo duas horas. Episódio termina com retorno de alimentação, externa ausente ou lacuna acima de duas horas. Faixas ~90% [85,95) e ~80% [75,85); não infere passagem por faixa não observada. Um aparelho conta uma vez em cada indicador. Abaixo de 80% considera qualquer leitura interna do período, independente de episódio confirmado. Tempo por faixa usa a primeira ocorrência de cada aparelho e faixa, desde a última leitura alimentada, não desde um instante presumido de retirada. Não mede capacidade, saúde ou vida útil.
+
+CTEs agregam no SQL, sem transportar a frota completa ao navegador. Tabela paginada de 20 aparelhos inclui todos os cadastrados; busca afeta a tabela, indicadores mantêm o recorte da filial. Ver eventos mostra ciclos confirmados, em páginas de 50. Zero nos indicadores não equivale a frota saudável se falta histórico. Permissão stock e memberships continuam verificadas no backend, inclusive em Todas autorizadas; RLS permanece ativo. Nenhuma migração necessária.
+
+Validação: battery-dashboard/history/chart.test.mjs; tools/test-battery-dashboard-sql.mjs usa fixtures sintéticas em transação READ ONLY com rollback (não consulta provedores); Chrome local com rede externa bloqueada em 1917×917 e 390×844. Leitura real do agregado em 809 ms: cobertura limitada, sem inventar observações. Não salva dados de clientes nos testes/fontes.

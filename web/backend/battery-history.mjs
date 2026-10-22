@@ -1,3 +1,4 @@
+import {batteryDashboard} from './battery-dashboard.mjs';
 import {scoped} from './remote-actions.mjs';
 export function batterySample(raw){
  if(raw?.ok!==true||raw.query_error)return null;
@@ -13,6 +14,7 @@ export function captureBatteries(pool,service){
  return async(branch,serial,...args)=>{const result=await original.call(target,branch,serial,...args),sample=batterySample(result);if(sample)try{await pool.query('select central_homologacao.capture_battery($1,$2,$3)',[branch,serial,sample]);}catch{result.battery_history_warning='Não foi possível salvar esta leitura no histórico.';}return result;};}});
 }
 export async function batteryHistory(pool,user,permissions,params){
+ if(['dashboard','events'].includes(params.get('view')))return batteryDashboard(pool,user,permissions,params);
  if(!permissions.owner&&!permissions.views.includes('stock'))throw Object.assign(Error('Sem acesso ao Estoque.'),{status:403});
  const branch=params.get('branch'),q=(params.get('q')||'').trim(),page=Number(params.get('page')||1);
  if(!['imperatriz','araguaina','acailandia','maraba'].includes(branch)||q.length>80||!Number.isInteger(page)||page<1||page>100000)throw Object.assign(Error('Filtro inválido.'),{status:400});
