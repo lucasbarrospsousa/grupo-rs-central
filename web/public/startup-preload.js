@@ -6,7 +6,9 @@ export function landingView(user){if(!user?.branches?.length)throw Error('Usuár
 export function warehousePreloadPaths(user,branch,now=new Date()){
  if(!canPreload(user,branch,'warehouse'))return [];
  const month=warehouseDay(now).slice(0,7),common={query:'',status:'Disponível',category:'',destination:'',page:0};
- return [{view:'overview',month},{view:'items',kind:'device',...common,month:''},{view:'chips',query:'',category:'',provider:'',status:'Disponível',page:0},{view:'movements',kind:'movements',...common,status:'shipments',month},{view:'monthly',month,months:6,destination:''}].map(p=>canonicalView('warehouse?'+new URLSearchParams({branch,...p})));
+ // Chips is the default warehouse landing page: warm it before secondary panels.
+ // Keep the same bounded queue and requests; visible navigation remains independent.
+ return [{view:'chips',query:'',category:'',provider:'',status:'Disponível',page:0},{view:'overview',month},{view:'items',kind:'device',...common,month:''},{view:'movements',kind:'movements',...common,status:'shipments',month},{view:'monthly',month,months:6,destination:''}].map(p=>canonicalView('warehouse?'+new URLSearchParams({branch,...p})));
 }
 export function initialReadPlan(user,branch,now=new Date()){
  const views=warehousePreloadPaths(user,branch,now);

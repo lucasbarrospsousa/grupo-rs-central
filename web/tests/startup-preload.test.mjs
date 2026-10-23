@@ -11,7 +11,7 @@ test('login landing is overview, ignores previous route and keeps authorized bra
 });
 test('five bounded warehouse panels; no supplier API or full inventory reads',()=>{
  const paths=warehousePreloadPaths(user,branch,new Date('2026-10-19T12:00:00Z'));
- assert.equal(paths.length,5);assert.deepEqual(paths.map(p=>new URLSearchParams(p.split('?')[1]).get('view')),['overview','items','chips','movements','monthly']);
+ assert.equal(paths.length,5);assert.deepEqual(paths.map(p=>new URLSearchParams(p.split('?')[1]).get('view')),['chips','overview','items','movements','monthly']);
  assert.ok(paths.every(p=>p.startsWith('warehouse?')&&!p.includes('export')));
  assert.equal(warehousePreloadPaths(user,'maraba').length,0);
  const p=initialReadPlan({...user,permissions:{views:['stock']}},branch);
