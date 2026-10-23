@@ -578,4 +578,3 @@ A aba Acompanhar ativações foi removida. O servidor consulta Árya/Link por IC
 - Validação hospedada: endpoint autenticado retornou HTTP 200, com 200 aparelhos lidos e 5 reservas analisadas na rodada controlada; estágio persistido e relatório Árya atualizado. Primeira varredura ainda em andamento, sem afirmar conclusão das quatro bases. 21 testes unitários focados distintos aprovados; navegação/cálculos verificados em 1917×917 com dados SQL reais.
 
 Publicação da melhoria de leitura em 23/10/2026: API central-api versão 271; Worker c289f6a7-f495-40de-a74e-a05b42a10375. Assets conferidos no endereço público; /api/session sem sessão retornou 401 com região us-west-2. Nenhuma consulta operacional usada nessa verificação.
-
