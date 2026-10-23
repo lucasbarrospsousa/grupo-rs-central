@@ -24,6 +24,10 @@ export async function devicePage(c,branch,params){
  if(options.ignition==='all'&&plan.delta&&!plan.changes.length)return {cursor:plan.cursor,unchanged:true};
  if(scope==='page'||scope==='lookup')return {...await sqlDevicePage(c,branch,params,options),cursor:plan.cursor};
  const summary=params.get('scope')==='summary';
+ if(summary){
+  const grouped=(await c.query("select coalesce(d.data->>'status','') as status,coalesce(d.data->>'carrier','') as carrier,count(*)::int as quantity from central_homologacao.devices d where d.branch_id=$1 and d.deleted_at is null group by 1,2",[branch])).rows;
+  return {cursor:plan.cursor,total:grouped.reduce((n,r)=>n+r.quantity,0),statuses:stockSummary([]).map(s=>({...s,count:grouped.filter(r=>r.status===s.label).reduce((n,r)=>n+r.quantity,0)})),carriers:carrierSummary(grouped,true)};
+ }
  const fields=summary?['status','carrier']:['client','status','carrier','identification','plate','phone','iccid','owner_binding','installed_at','updated_at','created_at','source_date','purchase_date','date','model'];
  const projection=fields.map(k=>`'${k}',d.data->'${k}'`).join(',');
  const compact=(await c.query(`select d.id,d.serial,jsonb_build_object(${projection}) as data${summary?'':",o.data->'chip' as chip"} from central_homologacao.devices d ${summary?'':'left join central_homologacao.device_observations o on o.device_id=d.id'} where d.branch_id=$1 and d.deleted_at is null order by d.serial`,[branch])).rows.map(r=>({...r.data,id:r.id,serial:r.serial,connectivity:r.chip?.ok?r.chip.connectivity||'Não informado':'Consulta pendente'}));

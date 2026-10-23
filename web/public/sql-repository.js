@@ -8,18 +8,7 @@ export class SqlRepository {
   constructor(){this.viewFlights=new Map();this.viewFresh=new Map();this.stockFlights=new Map();this.stockFresh=new Map();this.views=new Map();this.stockPages=new Map();this.summaries=new Map();this.incremental=new Map();this.countSnapshots=new Map();this.stale=new Set();this.pageCache=new PagePreloadCache();this.restored=new Set();this.refreshErrors=new Set();this.writeVersion=0;this.preloadVersion=0;this.preloadBranch=null;this.getPending=new Map();this.real=true;this.devices=[];this.vehicles=[];this.warehouse=[];this.reports=[];this.movements=[];this.csrf='';this.user=null;this.loaded=new Set();this.pending=new Map();this.generations=new Map();this.epoch=0;this.warehouseCache=new Map();this.stockSamples=new Map();}
   async request(path,options={}){
     const method=options.method||'GET',eligible=['settings-monitor','query-policy','read-sources','users','logs?q=&user=&module=&outcome=&from=&to=&page=1'].includes(path);
-    if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.views.clear();this.writeVersion++;this.pageCache.dropSnapshots();this.getPending.clear();}
-    if(method==='GET'&&this.startupBatch?.current()){
-      const batch=this.startupBatch,[endpoint,query]=path.split('?'),params=new URLSearchParams(query);params.delete('since');
-      const normalized=canonicalView(endpoint+(query===undefined?'':'?'+params));
-      if(batch.paths.has(normalized)){
-        const panels=await batch.flight;
-        if(!batch.current())throw Error('Dados alterados durante a consulta.');
-        const panel=panels.get(normalized);
-        if(!panel?.ok)throw Error(panel?.error||'Painel indisponível. Tente novamente.');
-        return structuredClone(panel.data);
-      }
-    }
+    if(method!=='GET'&&!['activity','ui-event'].includes(path)){this.viewFresh.clear();this.viewFlights.clear();this.stockFresh.clear();this.stockFlights.clear();this.views.clear();this.writeVersion++;this.pageCache.dropForMutation(path,options.body);this.getPending.clear();}
     if(method==='GET'&&path.startsWith('integrations/inventory-counts?')){
       const epoch=this.epoch,revision=this.writeVersion,previous=this.countSnapshots.get(path),data=await this.networkRequest(path+(previous?.cursor?'&since='+previous.cursor:''),options);
       const result=data.unchanged&&previous?{...previous,cursor:data.cursor}:data;
@@ -76,31 +65,18 @@ export class SqlRepository {
     const tasks=(warehouseOnly?warehousePreloadPaths(this.user,branch):plan.views).map(path=>()=>this.readView(branch,path));
     if(this.user?.permissions?.owner&&plan.views.some(p=>p.startsWith('warehouse?')))tasks.push(()=>loadWarehouseCosts(this));
     if(!warehouseOnly){
-      // The visible overview has priority; other panels share one background response.
+      // Warm saved pages without blocking visible navigation.
       if(plan.stock)tasks.push(()=>this.readStockPage(branch,{}, {preload:true}));
       tasks.push(...plan.paths.map(path=>async()=>{const data=await this.request(path,{preload:true});if(current())this.pageCache.put(path,data);}));
     }
-    if(!warehouseOnly){
-      const paths=[...plan.views,...plan.paths];
-      if(plan.stock)paths.push('devices?'+this.stockQuery(branch,{}));
-      if(this.user?.permissions?.owner&&plan.views.some(p=>p.startsWith('warehouse?')))paths.push('warehouse-costs?branch='+branch+'&view=summary');
-      const summary=plan.summary?this.loadGroup(branch,'summary',{refresh:this.restored.has(branch+':summary')}):Promise.resolve();
-      const batch={current,paths:new Set(paths.map(canonicalView)),flight:null};
-      batch.flight=summary.catch(()=>{}).then(async()=>{
-        if(!current())throw Error('Dados alterados durante a consulta.');
-        if(!paths.length)return new Map();
-        const result=await this.networkRequest('startup-bundle?branch='+encodeURIComponent(branch)+'&phase=background');
-        if(!current())throw Error('Dados alterados durante a consulta.');
-        return new Map(result.panels.map(panel=>[canonicalView(panel.path),panel]));
-      });
-      this.startupBatch=batch;
-      try{return await Promise.all([summary,batch.flight,...tasks.map(task=>task())].map(task=>Promise.resolve(task).then(()=>true,()=>false)));}
-      finally{if(this.startupBatch===batch)this.startupBatch=null;if(this.preloadRunning===version)this.preloadRunning=null;}
-    }
+    // Each panel resolves independently; visible navigation never waits for a bundle.
+    const summary=!warehouseOnly&&plan.summary
+      ?this.loadGroup(branch,'summary',{refresh:this.restored.has(branch+':summary')}).then(()=>true,()=>false)
+      :Promise.resolve(true);
     // Small bounded queue; navigation shares pending reads and fresh results.
     let next=0;
     const worker=async()=>{while(next<tasks.length){await new Promise(r=>setTimeout(r,delay));if(!current())break;const task=tasks[next++];if(!task)break;try{await task();results.push(true);}catch{results.push(false);}}};
-    try{await Promise.all([worker(),worker()]);return results;}finally{if(this.preloadRunning===version)this.preloadRunning=null;}
+    try{await Promise.all([summary,worker()]);return results;}finally{if(this.preloadRunning===version)this.preloadRunning=null;}
   }
   async load(branch,{route=this.currentRoute||'overview',force=true}={}){
     if(force)this.invalidate(branch);

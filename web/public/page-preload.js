@@ -25,6 +25,13 @@ export class PagePreloadCache{
  snapshot(branch,group){if(!this.allowed(branch,group))return null;const entry=this.snapshots[branch+':'+group];return entry&&entry.at<=this.now()&&this.now()-entry.at<MAX_AGE?entry.data:null;}
  save(branch,group,data){try{if(this.storage.getItem('central-cache-logout')!==this.logoutStamp)return;}catch{}if(!this.key||!this.allowed(branch,group))return;this.snapshots[branch+':'+group]={at:this.now(),data};try{for(const [key,e] of Object.entries(this.snapshots))if(this.now()-e.at>=MAX_AGE)delete this.snapshots[key];const entries=Object.entries(this.snapshots).sort((a,b)=>b[1].at-a[1].at);for(const [key] of entries.slice(80))delete this.snapshots[key];this.persist();}catch{}}
  drop(branch,groups){try{if(this.storage.getItem('central-cache-logout')!==this.logoutStamp){this.snapshots={};return;}}catch{}for(const group of groups)delete this.snapshots[branch+':'+group];this.persist();this.memory.clear();}
+ dropForMutation(path,body){
+  const [endpoint,query]=path.split('?'),branch=new URLSearchParams(query).get('branch')||body?.branch;
+  // Warehouse dependencies and access changes must not retain stale snapshots.
+  if(!branch||!/^(devices(?:\/[^/]+)?|maintenance(?:\/[^/]+)?|bulk|install)$/.test(endpoint)){this.dropSnapshots();return;}
+  for(const key of Object.keys(this.snapshots))if(key.startsWith(branch+':')||key.includes(':warehouse')||key.includes(':view:warehouse'))delete this.snapshots[key];
+  this.memory.clear();this.generation++;this.persist();
+ }
  dropSnapshots(){this.snapshots={};this.memory.clear();this.generation++;this.persist();}
  put(path,data){this.memory.set(path,{data:structuredClone(data),at:this.now()});}
  take(path){const entry=this.memory.get(path);this.memory.delete(path);return entry&&this.now()-entry.at<60000?structuredClone(entry.data):undefined;}

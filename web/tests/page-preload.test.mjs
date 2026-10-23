@@ -29,7 +29,7 @@ test('storage unavailable and oversized snapshots do not prevent navigation',asy
 test('preload has at most two SQL reads and stops remaining work when branch changes',async()=>{
  const r=new SqlRepository();r.user=user;r.currentBranch='imperatriz';const calls=[];let running=0,max=0;
  r.request=async p=>{calls.push(p);max=Math.max(max,++running);await new Promise(x=>setTimeout(x,1));running--;return data};
- await r.preloadSelected('imperatriz',{delay:0});assert.equal(max,2);assert.equal(calls.length,16);
+ await r.preloadSelected('imperatriz',{delay:0});assert.ok(max>=1&&max<=2);assert.equal(calls.length,17);
  r.invalidate('imperatriz');calls.length=0;r.request=async p=>{calls.push(p);r.currentBranch='araguaina';return data};await r.preloadSelected('imperatriz',{delay:0});assert.deepEqual(calls,['devices?scope=summary&branch=imperatriz']);
 });
 test('restored rows are usable immediately, then replaced; refresh failures retain explicit pending state',async()=>{
