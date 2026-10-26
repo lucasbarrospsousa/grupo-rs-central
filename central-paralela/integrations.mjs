@@ -179,6 +179,20 @@ export class Integrations{
   return json(response.text);
  }
  async equipmentPortal(branch,serial){return this.equipment(branch,serial);}
+ async equipmentLocation(branch,serial,codes=null){
+  const e=codes||await this.equipment(branch,serial);
+  if(!/^[1-9]\d*$/.test(e.vehicle_id))throw err('Aparelho sem veículo confirmado.',422);
+  const d=await this.api(branch,'/veiculos/'+e.vehicle_id+'/comunicacao');
+  if(value(d.veiculo,['codVeiculo'])!==e.vehicle_id||serialOf(d.equipamento)!==serial||(e.equipment_id&&value(d.equipamento,['codEquipamento'])!==String(e.equipment_id))||!d.comunicacao||typeof d.comunicacao!=='object')throw err('Comunicação não confirmou este aparelho. Atualize aparelhos para conferir os códigos salvos.',422);
+  const telemetry=normalize(d.comunicacao);
+  // The provider exposes internal battery on location, but not yet on communication.
+  if(telemetry.internal_battery===''||telemetry.internal_battery_voltage===''){
+   try{const extra=await this.api(branch,'/veiculos/'+e.vehicle_id+'/localizacao'),raw=extra.localizacao,position=normalize(raw||{});
+    if(extra.ok!==false&&raw&&value(raw,['codVeiculo'])===e.vehicle_id&&position.updated_at&&position.updated_at===telemetry.updated_at&&position.gps_at===telemetry.gps_at){telemetry.internal_battery=position.internal_battery;telemetry.internal_battery_voltage=position.internal_battery_voltage;telemetry.internal_battery_voltage_origin=position.internal_battery_voltage_origin;}
+   }catch(error){telemetry.internal_battery_warning='Bateria interna indisponível nesta consulta.';}
+  }
+  return{...telemetry,ok:true,serial,plate:value(d.veiculo,['placa']),vehicle_id:e.vehicle_id,source:ORIGINS[branch],queried_at:new Date().toISOString()};
+ }
  async location(branch,serial,plateHint=''){
   let matches=await this.vehicles(branch,serial),fromPlate=false;
   if(!matches.length&&plateHint){
