@@ -1,3 +1,4 @@
+import {swapInventory} from './swap-inventory.mjs';
 // Inventory transactions share the Operations single writer with telemetry.
 import {standardSms} from './sms-template.mjs';
 import {digest,randomToken} from './auth-crypto.mjs';
@@ -21,6 +22,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
  if(action==='lookup'){if(!/^\d{9}$/.test(b.serial||''))fail(400,'Série deve ter 9 dígitos.');const e=await service.equipment(b.branch,b.serial);return {row:Object.fromEntries(['serial',...fields].map(k=>[k,e[k]||'']))};}
  if(action==='gateway-pair'){if(!user.permissions.owner)fail(403,'Somente administrador.');const token=randomToken();data.gateway={token_hash:digest(token),created_at:new Date().toISOString(),last_seen:null};await doc.save();return {token,endpoint:'/api/galaxy',branch:b.branch};}
  if(!['create'].includes(action)&&!row)fail(404,'Aparelho não encontrado nesta filial.');
+ if(action.startsWith('swap-'))return swapInventory({action,input:b,user,doc,row,service});
  if(action==='sms-template'){if(!(user.permissions.owner||user.permissions.writes?.includes('sms')))fail(403,'Sem permissão de SMS.');return standardSms(row.serial,row.apn);}
  if(action==='analyze'){const result=await service.binding(b.branch,row.serial);return {result};}
  const version=Number(row?.version||1);

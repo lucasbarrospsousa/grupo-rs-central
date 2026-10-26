@@ -48,13 +48,13 @@ api('session').then(showSession).catch(e=>{if(e.status!==401)message.textContent
 
 $('#toggle-sidebar').addEventListener('click',()=>{const collapsed=$('#dashboard').classList.toggle('sidebar-collapsed'),button=$('#toggle-sidebar');button.setAttribute('aria-expanded',String(!collapsed));button.setAttribute('aria-label',collapsed?'Expandir menu lateral':'Recolher menu lateral');button.title=button.getAttribute('aria-label');button.textContent=collapsed?'»':'«';});
 
-async function queryDevice(d,run){
- const result=await api('live',{branch:d.branch,serial:d.serial,kind:'status'});
+async function queryDevice(d,run,kind='status'){
+ const result=await api('live',{branch:d.branch,serial:d.serial,kind});
  if(run!==generation||!session)return null;
  if(result.serial!==d.serial||result.branch!==d.branch)throw Error('A API retornou outro aparelho.');
  for(const row of devices.filter(r=>r.branch===d.branch&&r.serial===d.serial)){row.live=result.live;if(result.live.chip.ok){row.connectivity=result.live.chip.connectivity;row.checked_at=result.live.chip.queried_at;}}
  const saved=(cache.tracking||[]).find(s=>s.branch.id===d.branch)?.rows.find(r=>r.serial===d.serial);if(saved)Object.assign(saved,{live:result.live,...(result.live.chip.ok?{connectivity:result.live.chip.connectivity,checked_at:result.live.chip.queried_at}:{})});
- renderTracking();if(detailDevice?.branch===d.branch&&detailDevice?.serial===d.serial){detailDevice=devices.find(r=>r.branch===d.branch&&r.serial===d.serial);renderDetails(detailDevice);}return result;
+ renderTracking();if(typeof updateLocationView==='function')updateLocationView();if(detailDevice?.branch===d.branch&&detailDevice?.serial===d.serial){detailDevice=devices.find(r=>r.branch===d.branch&&r.serial===d.serial);renderDetails(detailDevice);}return result;
 }
 $('#refresh-page').addEventListener('click',async()=>{
  clearTimeout(autoMonitorTimer);autoMonitorTimer=null;autoMonitorStarted=true;

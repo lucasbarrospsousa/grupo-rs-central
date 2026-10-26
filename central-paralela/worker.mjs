@@ -2,7 +2,7 @@ export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard} from './drive.mjs';
 export {AuthService} from './auth.mjs';
 const routes = new Map([['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
-const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
   const result = new Response(response.body, response);
   for (const [key,value] of Object.entries({'Cache-Control':'no-store','Content-Security-Policy':policy,'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Permissions-Policy':'camera=(), microphone=(), geolocation=()','Strict-Transport-Security':'max-age=31536000'})) result.headers.set(key,value);
@@ -14,7 +14,7 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       if (!['GET','HEAD'].includes(request.method)) return error(405,'Método não permitido.');
-      if (!['/','/index.html','/styles.css','/app.js','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
+      if (!['/','/index.html','/styles.css','/app.js','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js'].includes(url.pathname)) return error(404,'Página não encontrada.');
       return secure(await env.ASSETS.fetch(request));
     }
     if (!routes.has(url.pathname)) return error(404,'Recurso não disponível nesta Central.');

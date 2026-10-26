@@ -24,7 +24,7 @@ export function guardQueries(service,storage){
  return service;
 }
 
-export async function queryStatus(service,branch,row){
+export async function queryStatus(service,branch,row,{chip:readChip=true}={}){
  const capture=async fn=>{try{return await fn();}catch(e){return{ok:false,message:e.message};}};
  // Reuse only codes confirmed for this exact branch/serial. Missing contacts are
  // refreshed once; established page monitoring never probes both carriers.
@@ -36,7 +36,7 @@ export async function queryStatus(service,branch,row){
  const contacts=exact?{iccid:equipment.iccid,apn:equipment.apn}:row;
  const [location,chip]=await Promise.all([
   equipment&&!exact&&!codes?Promise.resolve({ok:false,message:equipment.message||'Cadastro não confirmado.'}):capture(()=>service.equipmentLocation(branch,row.serial,nextCodes||codes||(exact?equipment:null))),
-  savedChipStatus(service,contacts)
+  readChip?savedChipStatus(service,contacts):Promise.resolve(row.live?.chip||{ok:false,message:'Chip não consultado nesta atualização.'})
  ]);
  if(nextCodes)row.api_codes=nextCodes;
  // A changed remote binding must be re-resolved on the next round.

@@ -20,16 +20,16 @@ export class Operations {
    const b=await request.json();
    if(new URL(request.url).pathname==='/galaxy')return reply(200,await galaxy({input:b.input,token:b.token,config:JSON.parse(this.env.DRIVE_CONFIG||'null'),key:this.env.AUTH_DATA_KEY}));
    if(new URL(request.url).pathname==='/inventory'){
-    const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','sms-send'].includes(b.input?.action);
+    const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','sms-send','swap-preview','swap-execute','swap-check'].includes(b.input?.action);
     if(remote){await this.ctx.storage.put('manualUntil',Date.now()+12000);const last=await this.ctx.storage.get('lastQuery')||0;if(Date.now()-last<10000)return reply(429,{error:'Aguarde dez segundos entre consultas.'});await this.ctx.storage.put('lastQuery',Date.now());}
     return reply(200,await inventory({input:b.input,user:b.user,config:JSON.parse(this.env.DRIVE_CONFIG||'null'),service:this.service}));
    }
-   if(!Object.hasOwn(ORIGINS,b.branch)||!/^\d{6,17}$/.test(b.serial||'')||!['status','history'].includes(b.kind))return reply(400,{error:'Consulta inválida.'});
+   if(!Object.hasOwn(ORIGINS,b.branch)||!/^\d{6,17}$/.test(b.serial||'')||!['status','location','history'].includes(b.kind))return reply(400,{error:'Consulta inválida.'});
    const last=await this.ctx.storage.get('lastQuery')||0;
    const doc=await trackingDocument(JSON.parse(this.env.DRIVE_CONFIG||'null'),b.branch);
    const rows=doc.data.rows.filter(r=>!r.deleted_at&&r.serial===b.serial);if(rows.length!==1)return reply(404,{error:'Aparelho único não encontrado na cópia desta filial.'});
    const row=rows[0];
-   if(b.kind==='status'&&row.live&&Date.now()-Date.parse(row.live.queried_at)<30000)return reply(200,{serial:b.serial,branch:b.branch,live:row.live,cached:true,saved:true});
+   if(['status','location'].includes(b.kind)&&row.live&&Date.now()-Date.parse(row.live.queried_at)<(b.kind==='location'?15000:30000))return reply(200,{serial:b.serial,branch:b.branch,live:row.live,cached:true,saved:true});
    if(b.kind==='status'&&(await this.ctx.storage.get('manualUntil')||0)>Date.now())return reply(429,{error:'Consulta aguardando a operação manual.',retry_after_ms:1300});
    if(Date.now()-last<1300)return reply(429,{error:'Aguarde a consulta em andamento.',retry_after_ms:1300});
    await this.ctx.storage.put('lastQuery',Date.now());
@@ -37,7 +37,7 @@ export class Operations {
     const result=await this.service.history(b.branch,b.serial,b.start,b.end);
     return reply(200,{serial:b.serial,branch:b.branch,partial:result.partial,rows:result.rows,queried_at:new Date().toISOString()});
    }
-   const result=await queryStatus(this.service,b.branch,row);
+   const result=await queryStatus(this.service,b.branch,row,{chip:b.kind!=='location'});
    const live=observation(result);
    // Preserve the last confirmed chip state/date on failure; live contains the new error.
    live.location=latestLocation(row.live?.location,live.location);row.live=live;

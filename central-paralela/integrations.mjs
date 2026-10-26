@@ -168,6 +168,12 @@ export class Integrations{
  }
 
 
+ async swapEquipment(branch,serial){return Integrations.prototype.equipment.call(this,branch,serial);}
+ async swapAssociate(branch,vehicleId,equipmentId,move){
+  if(!/^[1-9]\d*$/.test(String(vehicleId))||!/^[1-9]\d*$/.test(String(equipmentId))||typeof move!=='boolean')throw err('Troca inválida.',400);
+  const session=await this.session(branch);if(!session.token)throw err('Sessão da conferência expirou. Confira sem reenviar.',409);
+  const r=await (this.writeRequest||rawTransport)(ORIGINS[branch]+'/api_rest_app/api/v1/veiculos/'+vehicleId+'/equipamento',{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({codEquipamento:Number(equipmentId),mover:move})});return json(r.text);
+ }
  async apiPost(branch,path,payload){
   if(!ORIGINS[branch]||!(/^\/veiculos\/\d+\/equipamento$/.test(path)||path==='/veiculos'))throw err('Operação não permitida.',400);
   if(!Number.isSafeInteger(payload.codEquipamento)||payload.codEquipamento<=0||payload.mover===true||payload.moverEquipamento===true)throw err('Vínculo inválido.',400);
