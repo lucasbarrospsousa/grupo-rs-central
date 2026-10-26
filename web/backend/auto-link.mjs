@@ -51,7 +51,25 @@ export async function startAutoLink({pool,user,branch,body,service}){
   const d=(await c.query('select * from central_homologacao.devices where id=$1 and branch_id=$2 and deleted_at is null for update',[body.id,branch])).rows[0];
   if(!d)throw fail(404,'Aparelho não encontrado.');
   const pending=(await c.query("select * from central_homologacao.remote_operations where branch_id=$1 and kind='link' and serial=$2 and state in ('prepared','submitted','pending') order by created_at desc limit 1",[branch,d.serial])).rows[0];
-  if(pending)return {id:pending.id,existing:true,state:pending.state,message:pending.result?.message||'Vinculação já registrada. Acompanhe o progresso.'};
+  if(pending){
+   // Recovery only on an explicit user retry after a definitive conflict, never on a timeout.
+   if(pending.state==='pending'&&pending.payload?.automatic===true&&pending.result?.stage==='link'&&pending.result?.http_status===409){
+    if(d.version!==body.version||!['Estoque','Reserva','Manutenção'].includes(d.data.status))throw fail(409,'Cadastro mudou. Atualize antes de tentar novamente.');
+    const t=pending.payload.target,prefix=linkPrefix(d.data);
+    if(prefix!==pending.payload.prefix||!t?.vehicle_id)throw fail(409,'Tipo ou identificação mudou. Confira a vinculação.');
+    const target=(await c.query("select * from central_homologacao.link_targets where branch_id=$1 and prefix=$2 and number=$3 for update",[branch,prefix,t.number])).rows[0];
+    if(!target||target.state!=='reserved'||target.operation_id!==pending.id||String(target.vehicle_id)!==String(t.vehicle_id)||String(target.client_id)!==String(t.client_id)||target.plate!==t.plate)throw fail(409,'Reserva da identificação mudou. Confira a vinculação.');
+    const proof=await service.freeLinkTarget(branch,d.serial,t,pending.payload.equipment_id);
+    if(proof?.free!==true||proof.equipment_id!==pending.payload.equipment_id||proof.vehicle_id!==String(t.vehicle_id))throw fail(409,'A API não confirmou aparelho e identificação livres.');
+    const id=randomUUID(),payload={automatic:true,device_id:d.id,version:d.version,equipment_id:proof.equipment_id,prefix,target:t,attempts:0,retry_of:pending.id};
+    await c.query("update central_homologacao.remote_operations set state='cancelled',result=result||$2::jsonb,updated_at=now() where id=$1 and state='pending'",[pending.id,JSON.stringify({superseded_by:id,retry_reason:'explicit_retry_after_free_verification'})]);
+    await c.query("insert into central_homologacao.remote_operations(id,user_id,branch_id,kind,serial,payload,state) values($1,$2,$3,'link',$4,$5,'submitted')",[id,user.user_id,branch,d.serial,payload]);
+    await c.query("update central_homologacao.link_targets set operation_id=$4 where branch_id=$1 and prefix=$2 and number=$3",[branch,prefix,t.number,id]);
+    await c.query('insert into central_homologacao.audit_events(branch_id,user_id,action,entity_id,details) values($1,$2,$3,$4,$5)',[branch,user.user_id,'AUTO_LINK_RETRY',id,{previous:pending.id,device:d.id,plate:t.plate}]);
+    return{id,existing:false,state:'submitted',message:'Aparelho e identificação livres. Nova tentativa registrada.'};
+   }
+   return {id:pending.id,existing:true,state:pending.state,message:pending.result?.message||'Vinculação já registrada. Acompanhe o progresso.'};
+  }
   const done=(await c.query("select id from central_homologacao.remote_operations where branch_id=$1 and serial=$2 and kind='link' and state='confirmed' and payload->>'automatic'='true' and result->>'plate'=$3 and (payload->>'version')::int+1=$4 order by created_at desc limit 1",[branch,d.serial,d.data.identification||'',d.version])).rows[0];if(done&&d.data.status==='Estoque')return{id:done.id,existing:true};
   if(d.version!==body.version||!['Estoque','Reserva','Manutenção'].includes(d.data.status))throw fail(409,'Cadastro mudou ou não está disponível para vinculação.');
   const prefix=linkPrefix(d.data),equipment=(await c.query('select central_homologacao.binding_device_code($1,$2) as code',[branch,d.serial])).rows[0]?.code;

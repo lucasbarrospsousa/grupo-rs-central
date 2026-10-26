@@ -120,6 +120,18 @@ export class Integrations{
   if(owners.length!==1||!/^[1-9]\d*$/.test(value(owners[0],['codCliente','codAssociado']))||!Array.isArray(owners[0].veiculos))throw err('Titular RS300 único não confirmado pela API.',422);
   return{id:value(owners[0],['codCliente','codAssociado']),vehicles:owners[0].veiculos.map(normalize)};
  }
+ async freeLinkTarget(branch,serial,target,equipmentId){
+  const equipment=await this.equipment(branch,serial);
+  if(equipment.serial!==serial||equipment.id!==equipmentId||equipment.binding_known!==true||equipment.vehicle_id||equipment.plate)throw err('Aparelho ainda vinculado ou liberdade de vínculo não confirmada.',409);
+  const data=await this.api(branch,'/veiculos?q='+encodeURIComponent(target.plate)+'&skip=0&take=50');
+  if(!Array.isArray(data.veiculos)||data.paginacao?.temMais!==false)throw err('Identificação não confirmada pela API.',422);
+  const key=v=>String(v||'').replace(/[\s-]/g,'').toUpperCase();
+  const matches=data.veiculos.filter(v=>key(value(v,['placa','plate']))===key(target.plate));
+  if(matches.length!==1)throw err('Identificação ausente ou ambígua. Confira o cadastro.',409);
+  const raw=matches[0],v=normalize(raw);
+  if(v.vehicle_id!==String(target.vehicle_id)||v.client_id!==String(target.client_id)||v.client.toUpperCase()!=='RS300'||v.owner_count!=='1'||raw.equipamento!==null||v.serial||v.equipment_id)throw err('Identificação ocupada ou titular/vínculo não confirmado. Nenhum reenvio.',409);
+  return {free:true,equipment_id:equipment.id,vehicle_id:v.vehicle_id};
+ }
  async prepareLink(branch,serial,identification){
   const compact=String(identification||'').trim().toUpperCase().replace(/[\s-]/g,'');
   if(!/^(AAA|GRS|XRS)\d{1,6}$/.test(compact))throw err('Informe identificação AAA, GRS ou XRS com um a seis números.',400);
