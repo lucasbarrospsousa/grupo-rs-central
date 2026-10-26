@@ -101,3 +101,6 @@ Testes focados: swap-inventory.test.mjs (permissão, confirmação, conclusão, 
 
 ## Agulha sólida aprovada — 26/10/2026
 Marcador do mapa com preenchimento em degradê, contorno claro, relevo discreto e carro central desenhado em CSS (sem SVG). Preserva devicePin e suas cores, inclusive neutro para estado desconhecido. Alteração somente visual no mapa; lista, dados, permissões e frequência de consulta preservados. Validado com test-location-ui.mjs e APIs simuladas.
+
+## Painel de busca organizado — 26/10/2026
+Busca e filtros reunidos em um painel. Ações principais: filtros avançados, colar lista, novo equipamento e atualizar aparelhos. Mais ações contém análise de baixa, relatório/PDF, vinculações/SMS e integrações, com os mesmos IDs, handlers e permissões. Recolher filtros não limpa valores. Menu fecha por Escape, clique externo ou escolha. Ícones raster PNG locais. Testes offline: test-location-ui.mjs (filtros, menu e móvel), test-monitor.mjs e test-ui.mjs; nenhuma chamada real a fornecedores.
