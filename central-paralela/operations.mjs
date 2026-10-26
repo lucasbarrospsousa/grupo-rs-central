@@ -1,3 +1,4 @@
+import {importMaintenance,verifyImport} from './maintenance-import.mjs';
 import {maintenance} from './maintenance.mjs';
 import {guardQueries,queryStatus,latestLocation} from './query-flow.mjs';
 import {Integrations,ORIGINS} from './integrations.mjs';
@@ -19,6 +20,8 @@ export class Operations {
   this.busy=true;
   try{
    const b=await request.json();
+   if(b.kind==='maintenance-import'&&typeof b.importBody!=='string')return reply(400,{error:'Missing import envelope'});
+   if(new URL(request.url).pathname==='/maintenance-import'||b.kind==='maintenance-import'){if(!verifyImport(b.importBody,b.importSignature,this.env.AUTH_DATA_KEY,this.env.MAINTENANCE_IMPORT_UNTIL))return reply(403,{error:'Importação desabilitada.'});try{return reply(200,await importMaintenance(JSON.parse(b.importBody),JSON.parse(this.env.DRIVE_CONFIG||'null')));}catch(e){return reply(503,{error:'Não foi possível concluir a importação.'});}}
    if(new URL(request.url).pathname==='/maintenance')return reply(200,await maintenance({input:b.input,user:b.user,config:JSON.parse(this.env.DRIVE_CONFIG||'null')}));
    if(new URL(request.url).pathname==='/galaxy')return reply(200,await galaxy({input:b.input,token:b.token,config:JSON.parse(this.env.DRIVE_CONFIG||'null'),key:this.env.AUTH_DATA_KEY}));
    if(new URL(request.url).pathname==='/inventory'){

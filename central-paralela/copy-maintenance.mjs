@@ -1,0 +1,20 @@
+import {visibleVisits} from '../web/public/maintenance-model.js';
+// Explicit authorized one-off copy. Source transaction is READ ONLY.
+import {readFile,writeFile} from 'node:fs/promises';
+import {createPool} from '../web/backend/database.mjs';
+import {signImport} from './maintenance-import.mjs';
+import {createHash} from 'node:crypto';
+const privateRoot=new URL('../.secrets/homologacao/',import.meta.url),pool=createPool(),c=await pool.connect();let batches=[];
+try{await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');const owner=(await c.query("select id from central_homologacao.users where username='lucasabm' and active")).rows[0];if(!owner)throw Error('Active administrator missing');await c.query("select set_config('central.user_id',$1,true)",[owner.id]);const branches=(await c.query('select b.id from central_homologacao.branches b join central_homologacao.memberships m on m.branch_id=b.id where m.user_id=$1 and m.role=$2',[owner.id,'admin'])).rows;for(const b of branches){const visits=(await c.query('select id,branch_id as branch,data,version,created_at,updated_at from central_homologacao.visits where branch_id=$1 order by created_at,id',[b.id])).rows;
+const legacy=(await c.query("select source_id as id,data from central_homologacao.legacy_records where branch_id=$1 and source_table='maintenance'",[b.id])).rows;
+const combined=[...visits.map(r=>({...r.data,id:r.id,branch:b.id,_raw:r,_table:'visits'})),...legacy.map(r=>({...r.data,id:r.id,branch:b.id,legacy:true,entry:r.data.created_at||r.data.opened_at||'',currentSerial:r.data.serial||'',installSerial:r.data.replacement_serial||'',medium:r.data.discovery_method||'',notes:r.data.note||'',_raw:r,_table:'legacy-maintenance'}))];
+const rows=visibleVisits(combined).map(({_raw,_table,...data})=>({id:_table+':'+data.id,branch:b.id,data,version:_raw.version||1,original:_raw}));for(const row of rows)if(!Number.isFinite(Date.parse(row.data?.entry)))throw Error('Source entry date requires review');batches.push({branch:b.id,rows});}await c.query('ROLLBACK');}finally{c.release();await pool.end();}
+console.log(JSON.stringify({source:batches.map(b=>({branch:b.branch,count:b.rows.length})),sourceWrites:0,providerCalls:0}));
+if(!process.argv.includes('--apply'))process.exit(0);
+const key=(await readFile(new URL('parallel-auth-key.txt',privateRoot),'utf8')).trim();
+const stamp=new Date().toISOString().replaceAll(':','-');await writeFile(new URL('maintenance-source-'+stamp+'.json',privateRoot),JSON.stringify(batches),{mode:0o600,flag:'wx'});
+async function call(input){const body=JSON.stringify(input);for(let n=0;n<20;n++){const r=await fetch('https://central-paralela.sinderacode.workers.dev/api/maintenance-import',{method:'POST',headers:{'content-type':'application/json','x-import-signature':signImport(body,key)},body,signal:AbortSignal.timeout(60000)});if(r.status===429){await new Promise(r=>setTimeout(r,1500));continue;}if(!r.ok){const err=await r.text();throw Error('Import HTTP '+r.status+' '+err.slice(0,300));}return r.json();}throw Error('Writer busy; retry later');}
+const report=[];const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+const hash=v=>createHash('sha256').update(JSON.stringify(canonical(JSON.parse(JSON.stringify(v))))).digest('hex');
+for(const b of batches){let added=0,skipped=0;for(let i=0;i<b.rows.length;i+=5){const result=await call({branch:b.branch,records:b.rows.slice(i,i+5)});added+=result.added;skipped+=result.skipped;}if(b.rows.length){const back=await call({branch:b.branch,action:'verify'});for(const row of b.rows){const found=back.records.find(r=>r.id===row.id);if(!found||hash(found)!==hash(row))throw Error('Source/readback mismatch');}}report.push({branch:b.branch,source:b.rows.length,added,skipped,verified:true});}
+await writeFile(new URL('maintenance-import-result-'+stamp+'.json',privateRoot),JSON.stringify(report),{mode:0o600});console.log(JSON.stringify({result:report,verified:true,sourceWrites:0,providerCalls:0}));

@@ -1,3 +1,4 @@
+import {verifyImport} from './maintenance-import.mjs';
 export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard} from './drive.mjs';
 export {AuthService} from './auth.mjs';
@@ -16,6 +17,12 @@ export default {
       if (!['GET','HEAD'].includes(request.method)) return error(405,'Método não permitido.');
       if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
       return secure(await env.ASSETS.fetch(request));
+    }
+    if(url.pathname==='/api/maintenance-import'){
+      if(request.method!=='POST')return error(405,'Método inválido.');
+      const raw=await request.text();if(raw.length>100000)return error(413,'Lote muito grande.');
+      if(!verifyImport(raw,request.headers.get('x-import-signature'),env.AUTH_DATA_KEY,env.MAINTENANCE_IMPORT_UNTIL))return error(403,'Importação desabilitada.');
+      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/maintenance-import',{method:'POST',body:JSON.stringify({kind:'maintenance-import',importBody:raw,importSignature:request.headers.get('x-import-signature')})})));
     }
     if (!routes.has(url.pathname)) return error(404,'Recurso não disponível nesta Central.');
     if (request.method !== routes.get(url.pathname)) return error(405,'Método não permitido.');
