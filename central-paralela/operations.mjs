@@ -1,3 +1,4 @@
+import {maintenance} from './maintenance.mjs';
 import {guardQueries,queryStatus,latestLocation} from './query-flow.mjs';
 import {Integrations,ORIGINS} from './integrations.mjs';
 import {galaxy} from './galaxy.mjs';
@@ -18,6 +19,7 @@ export class Operations {
   this.busy=true;
   try{
    const b=await request.json();
+   if(new URL(request.url).pathname==='/maintenance')return reply(200,await maintenance({input:b.input,user:b.user,config:JSON.parse(this.env.DRIVE_CONFIG||'null')}));
    if(new URL(request.url).pathname==='/galaxy')return reply(200,await galaxy({input:b.input,token:b.token,config:JSON.parse(this.env.DRIVE_CONFIG||'null'),key:this.env.AUTH_DATA_KEY}));
    if(new URL(request.url).pathname==='/inventory'){
     const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','sms-send','swap-preview','swap-execute','swap-check'].includes(b.input?.action);
