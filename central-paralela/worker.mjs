@@ -2,7 +2,7 @@ import {verifyImport} from './maintenance-import.mjs';
 export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard} from './drive.mjs';
 export {AuthService} from './auth.mjs';
-const routes = new Map([['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
+const routes = new Map([['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
   const result = new Response(response.body, response);
@@ -15,7 +15,7 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       if (!['GET','HEAD'].includes(request.method)) return error(405,'Método não permitido.');
-      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png','/assets/maintenance-hero.png','/assets/operation-heroes.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
+      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/warehouse-ui.js','/warehouse.css','/assets/warehouse-chips.png','/assets/warehouse-devices.png','/assets/warehouse-values.png','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png','/assets/maintenance-hero.png','/assets/operation-heroes.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
       return secure(await env.ASSETS.fetch(request));
     }
     if(url.pathname==='/api/maintenance-import'){
@@ -32,7 +32,7 @@ export default {
     if (request.method === 'POST') {
       if (!request.headers.get('content-type')?.startsWith('application/json')) return error(415,'Formato inválido.');
       const reader=request.body?.getReader();const chunks=[];let length=0;
-      if(reader) { while(true) { const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>(url.pathname==='/api/maintenance'?16384:4096)){await reader.cancel();return error(413,'Solicitação muito grande.');}chunks.push(value); } }
+      if(reader) { while(true) { const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>(['/api/maintenance','/api/warehouse'].includes(url.pathname)?16384:4096)){await reader.cancel();return error(413,'Solicitação muito grande.');}chunks.push(value); } }
       body=new Uint8Array(length);let offset=0;for(const part of chunks){body.set(part,offset);offset+=part.length;}
     }
     if(url.pathname==='/api/galaxy'){
@@ -47,7 +47,7 @@ export default {
     const cookie=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>/^parallel_drive_session=[a-f0-9]{64}$/.test(x));
     if(cookie)headers.set('cookie',cookie);
     try {
-      const maint=url.pathname==='/api/maintenance',inventory=url.pathname==='/api/inventory',live=url.pathname==='/api/live'||inventory||maint;
+      const wh=url.pathname==='/api/warehouse',maint=url.pathname==='/api/maintenance',inventory=url.pathname==='/api/inventory',live=url.pathname==='/api/live'||inventory||maint||wh;
       const tracking=url.pathname==='/api/tracking',access=url.pathname==='/api/access',dashboard=url.pathname==='/api/dashboard',driveStatus=url.pathname==='/api/drive-status';
       const auth=env.AUTH.get(env.AUTH.idFromName('central-paralela-auth-v1'));
       const response=await auth.fetch(new Request('https://auth.internal'+(live||tracking||access||driveStatus||dashboard?'/api/session':url.pathname),{method:live?'GET':request.method,headers,body:live?undefined:body}));
@@ -56,9 +56,9 @@ export default {
         const user=await response.json();
         if(request.headers.get('x-csrf-token')!==user.csrf)return error(403,'Sessão de formulário inválida.');
         let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Consulta inválida.');}
-        if(!user.permissions?.views?.includes(maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
-        if(!env.OPERATIONS||(!inventory&&!maint&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
-        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(inventory||maint?{input,user}:input)})));
+        if(!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
+        if(!env.OPERATIONS||(!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
+        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(inventory||maint||wh?{input,user}:input)})));
       }
       if(tracking){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
