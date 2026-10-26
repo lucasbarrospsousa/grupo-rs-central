@@ -51,3 +51,25 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .device-pin{--pin:#728397;display:inline-block;position:relative;width:24px;height:30px;flex:0 0 24px;margin:0 14px 5px 5px;border:3px solid var(--pin);border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:transparent}
 .device-pin:after{content:'';position:absolute;width:7px;height:7px;border:2px solid var(--pin);border-radius:50%;top:6px;left:5px}
 .device-pin.green{--pin:#129568}.device-pin.red{--pin:#d62f49}.device-pin.amber{--pin:#dc930f}.device-pin.purple{--pin:#a06aee}
+/* Compact rail matched to the approved reference; no bitmap backgrounds or SVG. */
+.sidebar{width:250px;padding:18px 14px;background:linear-gradient(155deg,#0b0d10,#080a0c);border-right:1px solid #24262b}
+.rail-brand{display:flex;align-items:center;gap:14px;height:66px;margin:0 8px 20px;padding:0 8px 16px;border-bottom:1px solid #1c2026}
+.rail-mark{display:block;position:relative;width:32px;height:39px;flex:0 0 32px;background:linear-gradient(145deg,#ffb22c,#ff7800);border-radius:55% 55% 55% 4px;transform:rotate(-45deg) scale(.88)}
+.rail-mark:after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#0b0d10;top:9px;left:9px;box-shadow:inset 0 0 0 4px #0b0d10}
+.rail-wordmark{display:flex;flex-direction:column;color:#fff;line-height:1}.rail-wordmark small{font-size:10px;letter-spacing:2px;font-weight:800}.rail-wordmark strong{font-family:Arial,sans-serif;font-size:32px;font-weight:900;letter-spacing:-2px;line-height:.95}.rail-wordmark b{font-size:8px;letter-spacing:1.2px;margin-top:3px}
+.sidebar .sidebar-toggle{right:12px;top:27px;width:30px;height:30px;border:0;background:none;box-shadow:none;color:#8793a1;font-size:28px;font-weight:300;padding:0}
+.sidebar .sidebar-toggle:hover{color:#ff9b1b;background:#ffffff08}
+.sidebar .nav-section{margin:0 14px 13px;color:#858f9b;font-size:10px;letter-spacing:1.8px;font-weight:700}
+.sidebar nav{display:grid;gap:7px;margin:0}.sidebar .nav-button{min-height:44px;height:44px;padding:0 16px;margin:0;border:0;border-left:3px solid transparent;border-radius:8px;gap:15px;font-size:13px;font-weight:600;box-shadow:none}
+.sidebar .nav-button[aria-current=page]{border:0;border-left:3px solid #ff9100;background:linear-gradient(90deg,#492509,#291b13);color:#fff;box-shadow:inset 1px 0 #ffb13d}
+.sidebar .nav-button:hover{background-color:#ffffff07;color:#fff}.sidebar .nav-button .art,.sidebar #exit .art{background-image:none!important;position:relative;display:inline-block;width:20px;height:20px;flex:0 0 20px;margin:0;transform:none;color:#8c97a6}
+.sidebar .nav-button[aria-current=page] .art{color:#ff940c}
+.sidebar .art-dashboard:before{content:'';position:absolute;bottom:2px;left:1px;width:4px;height:9px;background:currentColor;border-radius:1px;box-shadow:7px -6px currentColor,14px -2px currentColor}
+.sidebar .art-pin:before{content:'';position:absolute;width:14px;height:17px;left:3px;top:0;background:currentColor;border-radius:55% 55% 55% 0;transform:rotate(-45deg)}
+.sidebar .art-pin:after{content:'';position:absolute;width:5px;height:5px;left:8px;top:5px;border-radius:50%;background:#161310}
+.sidebar .side-account{display:flex;flex-direction:column;align-items:stretch;margin-top:auto;border-top:1px solid #1e2228;padding:18px 7px 0;gap:10px}
+.rail-profile{display:flex;align-items:center;gap:12px;min-width:0}#account-avatar{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;border-radius:50%;border:1px solid #653609;background:linear-gradient(140deg,#3a230b,#20150d);font-size:11px;font-weight:700;color:#ff9e1f}#account{font-size:12px;font-weight:600;color:#e5e8ec;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar #exit{margin:0;padding:8px 9px;border:0;background:transparent;box-shadow:none;border-radius:6px;justify-content:flex-start;font-size:12px;font-weight:600;gap:15px;color:#d7dde4;min-height:36px}.sidebar #exit:hover{background:#ffffff08}
+.sidebar .art-exit:before{content:'';position:absolute;left:1px;top:2px;width:8px;height:15px;border:1.5px solid currentColor;border-right:0;border-radius:2px}.sidebar .art-exit:after{content:'→';position:absolute;left:6px;top:-4px;font-size:23px;line-height:24px;font-family:Arial,sans-serif}
+@media(min-width:761px){.sidebar-collapsed .rail-brand,.sidebar-collapsed #account{display:none}.sidebar-collapsed .sidebar{padding:55px 12px 18px}.sidebar-collapsed .rail-profile{justify-content:center}.sidebar-collapsed .side-account{padding:16px 0 0}.sidebar-collapsed .nav-button,.sidebar-collapsed #exit{padding:0;justify-content:center}.sidebar-collapsed .sidebar nav{margin-top:0}}
+@media(max-width:760px){.sidebar{width:calc(100% + 28px);padding:16px 14px;margin:0 -14px 18px}.rail-brand{height:60px;margin-bottom:14px}.sidebar nav{display:flex}.sidebar .side-account{margin-top:16px;flex-direction:row;justify-content:space-between;padding-top:12px}.sidebar-collapsed .rail-brand{margin-bottom:0;border-bottom:0}.sidebar-collapsed .nav-section{display:none}}
