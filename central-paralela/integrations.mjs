@@ -66,7 +66,7 @@ export class Integrations{
    if(key.startsWith('carrier-')){const s=this.secrets();return key==='carrier-arya'?[s.arya_email,s.arya_password]:[s.linksolutions_email,s.linksolutions_password];}
    return this.credentials(key,true);
   });
-  this.portalSessions=new CredentialSessions(sessionStore.web,branch=>this.credentials(branch));this.health=new Map();
+  this.ownerLookups=new Map();this.portalSessions=new CredentialSessions(sessionStore.web,branch=>this.credentials(branch));this.health=new Map();
  }
  credentials(branch,api=false){const s=this.secrets(),prefix=branch==='imperatriz'?'grupo_rs_modern':'grupo_rs_legacy_'+branch;const username=(api?s['grupo_rs_api_'+branch+'_user']:'')||(api&&branch==='imperatriz'?s.grupo_rs_api_user:'')||s[prefix+'_user']||s.grupo_rs_legacy_user||s.grupo_rs_modern_user;const password=(api?s['grupo_rs_api_'+branch+'_password']:'')||(api&&branch==='imperatriz'?s.grupo_rs_api_password:'')||s[prefix+'_password']||s.grupo_rs_legacy_password||s.grupo_rs_modern_password;if(!username||!password)throw err('Acesso desta base não configurado.');return{username,password};}
  async session(branch){if(!ORIGINS[branch])throw err('Base inválida.',400);let s=this.sessions.get(branch);if(s&&Date.now()-s.at<15*60*1000)return s;s={at:Date.now(),cookies:new Map(),token:''};this.sessions.set(branch,s);return s;}
@@ -85,6 +85,99 @@ export class Integrations{
   return[{...vehicle,serial,equipment_id:equipment.id}];
  }
  async equipment(branch,serial){if(!/^\d{6,17}$/.test(serial))throw err('Série inválida.',400);const d=await this.api(branch,'/equipamentos?q='+encodeURIComponent(serial)+'&skip=0&take=50');const all=rows(d);const matches=all.filter(r=>serialOf(r)===serial);if(!all.length&&!d.paginacao?.temMais)throw err('A série não foi retornada pela API desta base. Confira o cadastro do aparelho e o escopo de acesso.',422);if(d.paginacao?.temMais||all.length>=50||matches.length!==1)throw err('Aparelho único não confirmado na API.',422);const raw=matches[0],id=value(raw,['codEquipamento','idEquipamento','equipment_id','id']);if(!/^\d+$/.test(id)||Number(id)<=0||['I','INATIVO','INACTIVE','0'].includes(value(raw,['status','situacao','ativo']).toUpperCase()))throw err('Aparelho inativo ou sem código confirmado.',422);return{...normalize(raw),id,ok:true,binding_known:Object.hasOwn(raw,'veiculo'),status:value(raw,['ativo','status','situacao']),carrier:value(raw,['nomeOperadora','operadora'])||({1:'Vivo',3:'Claro',4:'Tim',6:'Multioperadora'}[Number(raw.codOperadora)]||''),plate:value(raw.veiculo,['placa']),vehicle_id:value(raw.veiculo,['codVeiculo']),api_version:2};}
+ async associationOwner(branch,vehicle,hint='RS300',{fresh=false}={}){
+  const name=String(hint||'RS300').trim();if(name.length<3||name.length>160)return null;
+  this.ownerLookups??=new Map();const key=branch+'|'+name.toLocaleUpperCase('pt-BR'),now=Date.now();
+  for(const [k,v] of this.ownerLookups)if(now-v.at>30000)this.ownerLookups.delete(k);
+  let cached=!fresh&&this.ownerLookups.get(key);
+  if(!cached){cached={at:now,promise:this.api(branch,'/associados?q='+encodeURIComponent(name)+'&take=20')};if(!fresh)this.ownerLookups.set(key,cached);}
+  let data;try{data=await cached.promise;}catch(e){if(this.ownerLookups.get(key)===cached)this.ownerLookups.delete(key);throw e;}
+  if(!Array.isArray(data.associados))return null;
+  const matches=[];
+  for(const client of data.associados){const id=value(client,['codCliente','codAssociado']),clientName=value(client,['nome','nomeCliente']);
+   if(!/^[1-9]\d*$/.test(id)||clientName.toLocaleUpperCase('pt-BR')!==name.toLocaleUpperCase('pt-BR')||!Array.isArray(client.veiculos))continue;
+   for(const raw of client.veiculos){const v=normalize(raw);if(v.vehicle_id===vehicle.vehicle_id&&v.plate===vehicle.plate&&v.serial===vehicle.serial&&v.equipment_id&&v.equipment_id===vehicle.equipment_id)matches.push({client:clientName,client_id:id,owner_source:'associados'});}
+  }
+  return matches.length===1?matches[0]:null;
+ }
+ async binding(branch,serial,clientHint='RS300',options={}){const found=await this.vehicles(branch,serial);if(found.length!==1)return{ok:false,category:'review',message:found.length?'Mais de um vínculo exato.':'Nenhum vínculo exato retornado.',serial};const row=found[0];if(!row.client&&!(Number(row.owner_count)>1)&&row.vehicle_id&&row.equipment_id){const owner=await this.associationOwner(branch,row,clientHint,options);if(owner)Object.assign(row,owner);}if(!row.client||Number(row.owner_count)>1)return{...row,ok:false,category:'review',association_confirmed:true,owner_status:Number(row.owner_count)>1?'ambiguous':'unavailable',message:Number(row.owner_count)>1?'Associação confirmada, mas a API informa múltiplos titulares. Confira antes da baixa.':'Associação com a placa confirmada. A API não informou o titular; a baixa automática permanece indisponível.',source:ORIGINS[branch],queried_at:new Date().toISOString()};const compact=row.plate.replace(/\W/g,'').toUpperCase();const internal=/^(AAA|GRS|XRS|NOV)/.test(compact);const stock=row.client.toUpperCase()==='RS300'&&(internal||! /^[A-Z]{3}\d[A-Z\d]\d{2}$/.test(compact));const ok=!stock&&!internal&&/^[A-Z]{3}\d[A-Z\d]\d{2}$/.test(compact)&&row.client.toUpperCase()!=='RS300';return{...row,ok,category:stock?'stock':ok?'eligible':'review',message:stock?'Permanece em estoque':ok?'Vínculo confirmado':'Conferir vínculo',source:ORIGINS[branch],queried_at:new Date().toISOString()};}
+ async maintenance(){throw err('A API v2 não oferece a lista de veículos em manutenção. Consulta ao portal desativada.',501);}
+
+ async linkStockOwner(branch){
+  const d=await this.api(branch,'/associados?q=RS300&take=20');
+  const owners=(d.associados||[]).filter(r=>value(r,['nome','nomeCliente']).toUpperCase()==='RS300');
+  if(owners.length!==1||!/^[1-9]\d*$/.test(value(owners[0],['codCliente','codAssociado']))||!Array.isArray(owners[0].veiculos))throw err('Titular RS300 único não confirmado pela API.',422);
+  return{id:value(owners[0],['codCliente','codAssociado']),vehicles:owners[0].veiculos.map(normalize)};
+ }
+ async freeLinkTarget(branch,serial,target,equipmentId){
+  const equipment=await this.equipment(branch,serial);
+  if(equipment.serial!==serial||equipment.id!==equipmentId||equipment.binding_known!==true||equipment.vehicle_id||equipment.plate)throw err('Aparelho ainda vinculado ou liberdade de vínculo não confirmada.',409);
+  const data=await this.api(branch,'/veiculos?q='+encodeURIComponent(target.plate)+'&skip=0&take=50');
+  if(!Array.isArray(data.veiculos)||data.paginacao?.temMais!==false)throw err('Identificação não confirmada pela API.',422);
+  const key=v=>String(v||'').replace(/[\s-]/g,'').toUpperCase();
+  const matches=data.veiculos.filter(v=>key(value(v,['placa','plate']))===key(target.plate));
+  if(matches.length!==1)throw err('Identificação ausente ou ambígua. Confira o cadastro.',409);
+  const raw=matches[0],v=normalize(raw);
+  if(v.vehicle_id!==String(target.vehicle_id)||v.client_id!==String(target.client_id)||v.client.toUpperCase()!=='RS300'||v.owner_count!=='1'||raw.equipamento!==null||v.serial||v.equipment_id)throw err('Identificação ocupada ou titular/vínculo não confirmado. Nenhum reenvio.',409);
+  return {free:true,equipment_id:equipment.id,vehicle_id:v.vehicle_id};
+ }
+ async prepareLink(branch,serial,identification){
+  const compact=String(identification||'').trim().toUpperCase().replace(/[\s-]/g,'');
+  if(!/^(AAA|GRS|XRS)\d{1,6}$/.test(compact))throw err('Informe identificação AAA, GRS ou XRS com um a seis números.',400);
+  const plate=compact.slice(0,3)+' - '+compact.slice(3),equipment=await this.equipment(branch,serial);
+  const found=new Map();
+  for(const q of [plate]){
+   const d=await this.api(branch,'/veiculos?q='+encodeURIComponent(q)+'&skip=0&take=50');
+   if(!Array.isArray(d.veiculos)||typeof d.paginacao?.temMais!=='boolean'||d.paginacao.temMais)throw err('Identificação única não confirmada pela API.',422);
+   for(const raw of d.veiculos){const v=normalize(raw);if(v.plate.replace(/\W/g,'').toUpperCase()===compact)found.set(v.vehicle_id,v);}
+   if(found.size)break;
+  }
+  if(!found.size){
+   if(equipment.vehicle_id)throw err('O aparelho já está vinculado a outro veículo. Nenhuma identificação será criada.',409);
+   const owner=await this.linkStockOwner(branch);
+   return{plate,serial,confirmed:false,create_required:true,payload:{serial,plate,vehicle_id:'',equipment_id:equipment.id,client_id:owner.id,create_required:true}};
+  }
+  if(found.size!==1)throw err('Mais de um veículo possui essa identificação. Confira na base.',422);
+  let target=[...found.values()][0];
+  if(!target.client){const owner=await this.linkStockOwner(branch),matches=owner.vehicles.filter(v=>v.vehicle_id===target.vehicle_id&&v.plate===plate);
+   if(matches.length!==1)throw err('A API não confirmou esta identificação entre os veículos do RS300.',422);
+   target={...matches[0],client:'RS300',client_id:owner.id};
+  }
+  if(!/^[1-9]\d*$/.test(target.vehicle_id)||!target.client_id||target.client.toUpperCase()!=='RS300'||Number(target.owner_count)>1)throw err('Titular RS300 único não confirmado para esta identificação.',422);
+  if((target.equipment_id&&target.equipment_id!==equipment.id)||(target.serial&&target.serial!==serial))throw err('A identificação já possui outro aparelho. Nenhum vínculo será substituído.',409);
+  if(equipment.vehicle_id&&equipment.vehicle_id!==target.vehicle_id)throw err('O aparelho está vinculado a outro veículo. Revise a desvinculação na base antes de continuar.',409);
+  const confirmed=target.serial===serial&&equipment.vehicle_id===target.vehicle_id;
+  if(!confirmed&&(target.serial||equipment.vehicle_id))throw err('A API retornou vínculo divergente entre aparelho e veículo. Consulte novamente.',409);
+  return{plate,serial,confirmed,payload:{serial,plate,vehicle_id:target.vehicle_id,equipment_id:equipment.id,client_id:target.client_id}};
+ }
+ async createLink(branch,payload){
+  if(!payload||!payload.serial||!payload.plate)throw err('Pedido de vínculo inválido.',400);
+  let fresh=await this.prepareLink(branch,payload.serial,payload.plate);
+  for(const key of ['vehicle_id','equipment_id','client_id'])if(fresh.payload[key]!==payload[key])throw err('O cadastro remoto mudou. Revise o vínculo antes de continuar.',409);
+  if(!!fresh.create_required!==!!payload.create_required)throw err('A identificação mudou durante a revisão.',409);
+  if(fresh.confirmed)return{ok:true};
+  if(fresh.create_required){
+   const created=await this.apiPost(branch,'/veiculos',{placa:payload.plate,codCliente:Number(payload.client_id),codEquipamento:Number(payload.equipment_id),moverEquipamento:false});
+   const id=value(created.veiculo,['codVeiculo']);
+   if(!/^[1-9]\d*$/.test(id)||value(created.veiculo,['placa'])!==payload.plate||value(created,['codCliente'])!==payload.client_id||value(created,['nomeCliente']).toUpperCase()!=='RS300')throw err('Criação enviada, mas titular e identificação não foram confirmados. Confira a operação sem reenviar.',409);
+   fresh=await this.prepareLink(branch,payload.serial,payload.plate);
+   if(fresh.create_required||fresh.payload.vehicle_id!==id||fresh.payload.client_id!==payload.client_id||fresh.payload.equipment_id!==payload.equipment_id)throw err('A criação precisa de conferência. Nenhum vínculo foi enviado.',409);
+   if(fresh.confirmed)return{ok:true};
+  }
+  return this.apiPost(branch,'/veiculos/'+fresh.payload.vehicle_id+'/equipamento',{codEquipamento:Number(payload.equipment_id),mover:false});
+ }
+
+
+ async apiPost(branch,path,payload){
+  if(!ORIGINS[branch]||!(/^\/veiculos\/\d+\/equipamento$/.test(path)||path==='/veiculos'))throw err('Operação não permitida.',400);
+  if(!Number.isSafeInteger(payload.codEquipamento)||payload.codEquipamento<=0||payload.mover===true||payload.moverEquipamento===true)throw err('Vínculo inválido.',400);
+  if(path==='/veiculos'&&(!/^(AAA|GRS|XRS) - \d{1,6}$/.test(payload.placa)||!Number.isSafeInteger(payload.codCliente)||payload.codCliente<=0))throw err('Identificação inválida.',400);
+  const session=await this.session(branch);
+  if(!session.token){const c=this.credentials(branch,true),response=await this.request(ORIGINS[branch]+'/api_rest_app/api/v1/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:c.username,senha:c.password})});session.token=tokenOf(json(response.text));if(!session.token)throw err('API não confirmou autenticação.');}
+  const request=this.writeRequest||rawTransport;
+  const response=await request(ORIGINS[branch]+'/api_rest_app/api/v1'+path,{method:'POST',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});
+  return json(response.text);
+ }
  async equipmentPortal(branch,serial){return this.equipment(branch,serial);}
  async location(branch,serial,plateHint=''){
   let matches=await this.vehicles(branch,serial),fromPlate=false;

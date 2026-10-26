@@ -1,4 +1,6 @@
 import {Integrations,ORIGINS} from './integrations.mjs';
+import {galaxy} from './galaxy.mjs';
+import {inventory} from './inventory.mjs';
 import {trackingDocument} from './drive.mjs';
 const reply=(status,data)=>Response.json(data,{status});
 const text=v=>typeof v==='string'?v.slice(0,300):typeof v==='number'?String(v):'';
@@ -15,11 +17,17 @@ export class Operations {
   this.busy=true;
   try{
    const b=await request.json();
+   if(new URL(request.url).pathname==='/galaxy')return reply(200,await galaxy({input:b.input,token:b.token,config:JSON.parse(this.env.DRIVE_CONFIG||'null'),key:this.env.AUTH_DATA_KEY}));
+   if(new URL(request.url).pathname==='/inventory'){
+    const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','sms-send'].includes(b.input?.action);
+    if(remote){const last=await this.ctx.storage.get('lastQuery')||0;if(Date.now()-last<10000)return reply(429,{error:'Aguarde dez segundos entre consultas.'});await this.ctx.storage.put('lastQuery',Date.now());}
+    return reply(200,await inventory({input:b.input,user:b.user,config:JSON.parse(this.env.DRIVE_CONFIG||'null'),service:this.service}));
+   }
    if(!Object.hasOwn(ORIGINS,b.branch)||!/^\d{6,17}$/.test(b.serial||'')||!['status','history'].includes(b.kind))return reply(400,{error:'Consulta inválida.'});
    const last=await this.ctx.storage.get('lastQuery')||0;
    if(Date.now()-last<10000)return reply(429,{error:'Aguarde dez segundos entre consultas.'});
    const doc=await trackingDocument(JSON.parse(this.env.DRIVE_CONFIG||'null'),b.branch);
-   const rows=doc.data.rows.filter(r=>r.serial===b.serial);if(rows.length!==1)return reply(404,{error:'Aparelho único não encontrado na cópia desta filial.'});
+   const rows=doc.data.rows.filter(r=>!r.deleted_at&&r.serial===b.serial);if(rows.length!==1)return reply(404,{error:'Aparelho único não encontrado na cópia desta filial.'});
    const row=rows[0];
    if(b.kind==='status'&&row.live&&Date.now()-Date.parse(row.live.queried_at)<30000)return reply(200,{serial:b.serial,branch:b.branch,live:row.live,cached:true,saved:true});
    await this.ctx.storage.put('lastQuery',Date.now());
@@ -30,11 +38,11 @@ export class Operations {
    const result=await this.service.stockDetails(b.branch,b.serial,row.plate||row.identification||'');
    const live=observation(result);
    // Preserve the last confirmed chip state/date on failure; live contains the new error.
-   row.live=live;
+   if(!live.location.ok&&row.live?.location?.ok)live.location={...row.live.location,query_error:live.location.message};row.live=live;
    if(live.chip.ok){row.connectivity=live.chip.connectivity;row.checked_at=live.chip.queried_at;}
    await doc.save();
    return reply(200,{serial:b.serial,branch:b.branch,live,saved:true});
-  }catch(e){return reply([400,422,429].includes(e.status)?e.status:503,{error:e.status?text(e.message):'Consulta ou gravação no Drive indisponível. Nenhuma alteração foi enviada ao fornecedor.'});}
+  }catch(e){return reply([400,401,403,404,409,422,429].includes(e.status)?e.status:503,{error:e.status?text(e.message):'Não foi possível confirmar a conclusão. Confira o resultado antes de repetir a operação.'});}
   finally{this.busy=false;}
  }
 }
