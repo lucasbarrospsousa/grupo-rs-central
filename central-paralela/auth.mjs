@@ -28,7 +28,7 @@ export class AuthService {
     if(!valid||!user?.active)return reply(401,{error:'Usuário ou senha inválidos.'});
     const sid=randomToken(),csrf=randomToken();
     await this.ctx.storage.put('session:'+digest(sid),{userId:user.id,userVersion:digest(JSON.stringify(user)),csrf,expires:now+lifetime,lastActivity:now});
-    return reply(200,{csrf},{'Set-Cookie':cookie(sid)});
+    return reply(200,{csrf,username:user.username,branches:user.branches,permissions:user.permissions,environment:'drive-experimental'},{'Set-Cookie':cookie(sid)});
    }
    const sid=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>/^parallel_drive_session=[a-f0-9]{64}$/.test(x))?.split('=')[1];
    if(!sid)return reply(401,{error:'Entre no sistema para continuar.'});

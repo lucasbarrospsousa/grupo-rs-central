@@ -18,12 +18,15 @@ export async function driveUsers(config,fetcher=fetch){
  if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>3000000)throw Error('AUTH_FILE_NOT_PRIVATE');
  return read('files/'+id+'?alt=media');
 }
-export async function driveDashboard(config,branch,fetcher=fetch){
+async function readDashboard(config,branch,read){
   const id=config?.snapshots?.[branch];if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('SNAPSHOT_MISSING');
-  const {read}=await connect(config,fetcher);
+
   const meta=await read('files/'+id+'?fields=parents,shared,trashed,size');
   if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>1048576)throw Error('SNAPSHOT_INVALID');
   const data=await read('files/'+id+'?alt=media');
   if(data.schemaVersion!==1||data.branch?.id!==branch||!Number.isFinite(Date.parse(data.copiedAt))||!Number.isInteger(data.total)||!Array.isArray(data.statuses)||!Array.isArray(data.carriers))throw Error('SNAPSHOT_INVALID');
   return {...data,source:'Google Drive',snapshot:true};
 }
+
+export async function driveDashboards(config,branches,fetcher=fetch){if(!branches.length)return [];const {read}=await connect(config,fetcher);return Promise.all([...new Set(branches)].map(branch=>readDashboard(config,branch,read)));}
+export async function driveDashboard(config,branch,fetcher=fetch){return (await driveDashboards(config,[branch],fetcher))[0];}

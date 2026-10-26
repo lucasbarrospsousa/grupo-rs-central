@@ -26,3 +26,6 @@ Comandos na pasta: node --test auth.test.mjs drive.test.mjs worker.test.mjs; nod
 
 ## Limites do experimento
 Ainda não é migração integral do banco nem prova de concorrência/transações operacionais no Drive. As primeiras medições locais da leitura validada do Drive foram 1,7–2,2 s para uma filial; agregação SQL de todas as filiais 0,64 s (operações diferentes, amostra pequena). A leitura do cadastro a cada sessão adiciona latência. Medir antes de ampliar uso. AuthService e conta Google devem permanecer disponíveis. Não tratar a cópia datada como dados ao vivo.
+
+## Abertura integrada — 26/10/2026
+Login retorna identidade sanitizada e cópias das filiais autorizadas na mesma resposta; não devolve hashes. Sessão restaurada também inclui o painel. Uma conexão OAuth/validação de pasta é compartilhada na leitura paralela das filiais. Não há cache de permissões nem persistência no navegador. Falha de snapshot preserva o login e mostra erro com tentativa manual. Redução estrutural para quatro filiais: 6 requisições de abertura após envio da senha para 1; validações de cadastro 6 para 1, conexões Drive 10 para 2. Não representa latência zero: autenticação e leitura Google ainda aguardam a rede. Testes simulados conferem autorização, isolamento, cookies e ausência de consultas adicionais do dashboard após login.

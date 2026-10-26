@@ -1,4 +1,4 @@
-import {driveConnection,driveDashboard} from './drive.mjs';
+import {driveConnection,driveDashboard,driveDashboards} from './drive.mjs';
 export {AuthService} from './auth.mjs';
 const routes = new Map([['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
@@ -48,6 +48,14 @@ export default {
         if(user.permissions?.owner!==true)return error(403,'Conexão restrita ao administrador.');
         try{return secure(Response.json(await driveConnection(JSON.parse(env.DRIVE_CONFIG||'null'))));}
         catch{return error(503,'Conexão do Drive indisponível. Verifique a autorização e a pasta privada.');}
+      }
+      if(response.ok && ['/api/login','/api/session'].includes(url.pathname)){
+        const user=await response.json();
+        if(user.permissions?.views?.includes('overview') && user.branches?.length){
+          try{user.dashboard=await driveDashboards(JSON.parse(env.DRIVE_CONFIG||'null'),user.branches.map(b=>b.id));}
+          catch{user.dashboardError='Não foi possível carregar a cópia do Drive. Use Recarregar painel para tentar novamente.';}
+        }
+        return secure(new Response(JSON.stringify(user),{status:response.status,headers:response.headers}));
       }
       const result=new Response(response.body,response);
       return secure(result);
