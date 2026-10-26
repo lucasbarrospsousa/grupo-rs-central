@@ -136,3 +136,11 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .maintenance-hero h1{font-size:clamp(30px,3.2vw,48px);font-weight:800}
 .maintenance-hero p{font-size:16px;max-width:480px}
 @media(max-width:760px){.operation-hero.maintenance-hero{min-height:300px;padding:24px;align-items:flex-start}.maintenance-hero .hero-copy{max-width:100%;padding:0}.maintenance-hero:before{inset:145px 0 0 18%;background-size:auto 150%;opacity:.85}.maintenance-hero p{max-width:290px;font-size:14px}}
+/* Approved dashboard/tracking artwork. Buttons and headings stay native. */
+.operation-hero:not(.maintenance-hero){min-height:280px;background:#071b2c;border-color:#b57b20;isolation:isolate}
+.operation-hero:not(.maintenance-hero):before{content:"";position:absolute;inset:0 0 0 43%;z-index:-1;background:url('/assets/operation-heroes.png') no-repeat 100% 96%;background-size:auto 218%;mask-image:linear-gradient(90deg,transparent,#000 25%)}
+.operation-hero.compact:not(.maintenance-hero):before{background-position:100% 4%}
+.operation-hero:not(.maintenance-hero) .hero-device{display:none}
+.operation-hero:not(.maintenance-hero) .hero-copy{max-width:57%}
+.operation-hero:not(.maintenance-hero) h1{font-weight:800}
+@media(max-width:760px){.operation-hero:not(.maintenance-hero){min-height:390px;align-items:flex-start;padding:24px}.operation-hero:not(.maintenance-hero) .hero-copy{max-width:100%}.operation-hero:not(.maintenance-hero):before{inset:220px 0 0 0;background-size:auto 218%;mask-image:linear-gradient(90deg,transparent,#000 18%)}.operation-hero.compact:not(.maintenance-hero){min-height:330px}.operation-hero.compact:not(.maintenance-hero):before{top:150px}}
