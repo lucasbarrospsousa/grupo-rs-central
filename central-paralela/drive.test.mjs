@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {driveConnection,driveDashboard} from './drive.mjs';import worker from './worker.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {driveConnection,driveDashboard,driveTracking} from './drive.mjs';import worker from './worker.mjs';
 const config={client_id:'test',client_secret:'secret',refresh_token:'refresh',folder_id:'folder',email:'owner@example.com'};
 const folder={name:'Private',mimeType:'application/vnd.google-apps.folder',ownedByMe:true,shared:false,capabilities:{canAddChildren:true}};
 function mock(overrides={}){return async url=>Response.json(url.includes('/token')?{access_token:'token'}:url.includes('/about')?{user:{emailAddress:overrides.email||config.email}}:{...folder,...overrides});}
@@ -14,4 +14,15 @@ test('bootstrap batches Drive reads only for authenticated authorized branches',
  try{const r=await run({permissions:{views:['overview']},branches:[{id:'a'},{id:'b'}]});assert.equal(r.headers.get('set-cookie'),'test-cookie');assert.deepEqual((await r.json()).dashboard.map(x=>x.branch.id),['a','b']);assert.equal(calls.filter(x=>x.includes('/token')).length,1);assert.equal(calls.length,7);calls=[];await run({},401);await run({permissions:{views:[]},branches:[{id:'a'}]});assert.equal(calls.length,0);const restricted=await run({permissions:{views:['overview']},branches:[{id:'a'}]});assert.deepEqual((await restricted.json()).dashboard.map(x=>x.branch.id),['a']);assert.ok(!calls.some(x=>x.includes('snapb')));
  globalThis.fetch=async()=>{throw Error('offline');};const failed=await run({permissions:{views:['overview']},branches:[{id:'a'}]});const body=await failed.json();assert.equal(failed.status,200);assert.ok(body.dashboardError);assert.equal(body.dashboard,undefined);
  }finally{globalThis.fetch=original;}
+});
+test('tracking validates private files and branch, projects only approved fields',async()=>{
+ const payload={schemaVersion:1,kind:'tracking',branch:{id:'a'},copiedAt:'2026-10-26T16:00:00Z',rows:[{id:'1',serial:'024000001',client:'PRIVATE MUST NOT LEAK',token:'secret',status:'Estoque'}]};
+ const cfg={...config,tracking:{a:'tracking',b:'tracking'}};
+ const f=async url=>url.includes('/files/tracking')?Response.json(url.includes('alt=media')?payload:{parents:['folder'],size:200,shared:false}):mock()(url);
+ const rows=await driveTracking(cfg,['a'],f);assert.equal(rows[0].rows[0].serial,'024000001');assert.equal(rows[0].rows[0].client,undefined);assert.equal(rows[0].rows[0].token,undefined);await assert.rejects(driveTracking(cfg,['b'],f));await assert.rejects(driveTracking(cfg,['a'],async url=>url.includes('/files/tracking')?Response.json({parents:['folder'],shared:true}):mock()(url)));
+});
+test('tracking endpoint and bootstrap respect stock permission, not overview alone',async()=>{
+ const original=globalThis.fetch;let calls=0;globalThis.fetch=async url=>{calls++;return mock()(url);};
+ const make=user=>({AUTH:{idFromName:x=>x,get:()=>({fetch:async()=>Response.json(user)})}});
+ try{for(const path of ['/api/tracking','/api/session']){const r=await worker.fetch(new Request('https://test.example'+path),make({permissions:{views:[]},branches:[{id:'a'}]}));assert.equal(r.status,path.endsWith('tracking')?403:200);if(r.status===200)assert.equal((await r.json()).tracking,undefined);}assert.equal(calls,0);const r=await worker.fetch(new Request('https://test.example/api/access'),make({username:'allowed',permissions:{views:['stock']},branches:[{id:'a'}]}));assert.equal(r.status,200);assert.equal(calls,0);}finally{globalThis.fetch=original;}
 });
