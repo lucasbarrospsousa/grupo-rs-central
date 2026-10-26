@@ -15,8 +15,8 @@ function locationView(row){
 }
 function updateLocationView(){
  const row=locationRow();if(!row||!locationDialog.open)return;const loc=row.live?.location||{},pin=devicePin(loc),gps=gpsStatus(loc),label=row.plate||row.identification||'Sem identificação';
- $('#location-meta').innerHTML='<strong>'+esc(label)+'</strong><span>Série '+esc(row.serial)+'</span><span>Versão '+esc(row.model||'não informada')+'</span><span>Titular: '+esc(stockOwner(row)||'não confirmado')+'</span>';
- const detail=(title,value)=>'<div class="location-detail"><span>'+title+'</span><strong>'+esc(value)+'</strong></div>';
+ $('#location-meta').innerHTML='<strong>'+esc(label)+'</strong><span>Série '+esc(row.serial)+'</span><span>Filial '+esc(row.branchName||row.branch||'não informada')+'</span><span>Versão '+esc(row.model||'não informada')+'</span><span>Titular: '+esc(stockOwner(row)||'não confirmado')+'</span>';
+ const detail=(title,value)=>'<div class="location-detail"><i aria-hidden="true" class="location-detail-icon '+(title.includes('comunicação')?'clock':title.includes('GPS')?'calendar':'battery')+'"></i><span>'+title+'</span><strong>'+esc(value)+'</strong></div>';
  const percentage=String(loc.internal_battery??'').trim()!==''&&Number.isFinite(Number(loc.internal_battery))&&Number(loc.internal_battery)>=0&&Number(loc.internal_battery)<=100?Number(loc.internal_battery):null;
  $('#location-data').innerHTML='<h3>Dados do aparelho</h3>'+detail('Última comunicação',formatDate(loc.updated_at))+detail('Último evento GPS',formatDate(loc.gps_at))+detail('Bateria externa',batteryText(loc.battery,' V'))+detail('Bateria interna',batteryText(loc.internal_battery_voltage,' V')+' · '+batteryText(percentage,'%'))+(percentage===null?'':'<progress max="100" value="'+percentage+'" aria-label="Bateria interna"></progress>')+'<p class="location-state '+pin.tone+'">'+esc(pin.label)+'</p>'+(loc.query_error?'<p class="location-warning">Última consulta falhou; posição anterior preservada.</p>':'');
  const valid=loc.ok&&validPoint(loc);$('#location-empty').hidden=valid;$('#location-center').disabled=!valid;$('#location-maps').hidden=!valid;
@@ -26,7 +26,7 @@ function updateLocationView(){
  const icon=L.divIcon({className:'location-marker',html:'<span class="map-pin '+pin.tone+'" aria-hidden="true"><span class="map-pin-center"><i class="map-pin-car"></i></span></span>',iconSize:[48,58],iconAnchor:[24,56],popupAnchor:[0,-52]});
  const field=(title,v)=>'<div><small>'+title+'</small><b>'+esc(v)+'</b></div>';
  const popup='<div class="location-popup"><strong>'+esc(label)+'</strong><div class="location-popup-grid">'+field('EQUIPAMENTO',row.serial)+field('MODELO',/^V?\d/i.test(row.model||'')?'RS300':row.model||'Não informado')+field('IGNIÇÃO',ignitionLabel(loc.ignition))+field('COMUNICAÇÃO',communicationAge(loc)?'Há '+communicationAge(loc):'Não informada')+'</div><p>'+esc(gps.label)+'</p></div>';
- if(!locationMarker)locationMarker=L.marker([lat,lng],{icon}).addTo(locationMap).bindPopup(popup,{maxWidth:310,minWidth:250}).openPopup();else locationMarker.setLatLng([lat,lng]).setIcon(icon).setPopupContent(popup);
+ if(!locationMarker)locationMarker=L.marker([lat,lng],{icon}).addTo(locationMap).bindPopup(popup,{maxWidth:270,minWidth:220,autoPanPadding:[16,16]}).openPopup();else locationMarker.setLatLng([lat,lng]).setIcon(icon).setPopupContent(popup);
 }
 async function refreshLocation(){
  if(locationPending||!locationDialog.open)return;clearTimeout(locationTimer);const epoch=locationEpoch,run=generation,row=locationRow();if(!row)return closeLocationView();locationPending=true;$('#location-refresh').disabled=true;
