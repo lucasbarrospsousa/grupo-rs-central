@@ -10,7 +10,14 @@ async function connect(config, fetcher=fetch) {
   if(folder.mimeType!=='application/vnd.google-apps.folder'||folder.trashed||folder.shared||!folder.ownedByMe||!folder.capabilities?.canAddChildren)throw Error('DRIVE_FOLDER_NOT_PRIVATE');
   return {read,folder};
 }
-export async function driveConnection(config,fetcher=fetch){const {folder}=await connect(config,fetcher);return {connected:true,folder:folder.name,storage:'Google Drive',database:'Banco atual da Central',checkedAt:new Date().toISOString()};}
+export async function driveConnection(config,fetcher=fetch){const {folder}=await connect(config,fetcher);return {connected:true,folder:folder.name,storage:'Google Drive',database:'Arquivos privados do projeto paralelo',checkedAt:new Date().toISOString()};}
+export async function driveUsers(config,fetcher=fetch){
+ const id=config?.auth_file_id;if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('AUTH_NOT_CONFIGURED');
+ const {read}=await connect(config,fetcher);
+ const meta=await read('files/'+id+'?fields=parents,shared,trashed,size');
+ if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>3000000)throw Error('AUTH_FILE_NOT_PRIVATE');
+ return read('files/'+id+'?alt=media');
+}
 export async function driveDashboard(config,branch,fetcher=fetch){
   const id=config?.snapshots?.[branch];if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('SNAPSHOT_MISSING');
   const {read}=await connect(config,fetcher);
