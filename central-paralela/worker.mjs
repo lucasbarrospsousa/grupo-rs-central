@@ -1,7 +1,7 @@
-import {driveConnection} from './drive.mjs';
+import {driveConnection,driveDashboard} from './drive.mjs';
 const upstream = 'https://vwiayytzmorcjeaszowg.supabase.co/functions/v1/central-api';
 const canonical = 'https://grupo-rs-central.lucasbarrosp.chatgpt.site';
-const routes = new Map([['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET']]);
+const routes = new Map([['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
   const result = new Response(response.body, response);
@@ -34,8 +34,15 @@ export default {
     const cookie=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>/^parallel_session=[a-f0-9]{64}$/.test(x));
     if(cookie)headers.set('cookie',cookie.replace('parallel_session=','central_session='));
     try {
-      const driveStatus=url.pathname==='/api/drive-status';
-      const response=await fetch(upstream+(driveStatus?'/api/session':url.pathname),{method:request.method,headers,body,redirect:'manual',signal:AbortSignal.timeout(25000)});
+      const dashboard=url.pathname==='/api/dashboard',driveStatus=url.pathname==='/api/drive-status';
+      const response=await fetch(upstream+(driveStatus||dashboard?'/api/session':url.pathname),{method:request.method,headers,body,redirect:'manual',signal:AbortSignal.timeout(25000)});
+      if(dashboard){
+        if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
+        const user=await response.json(),branch=url.searchParams.get('branch');
+        if(!user.permissions?.views?.includes('overview')||!user.branches?.some(b=>b.id===branch))return error(403,'Sem acesso a este painel ou filial.');
+        try{return secure(Response.json(await driveDashboard(JSON.parse(env.DRIVE_CONFIG||'null'),branch)));}
+        catch{return error(503,'Cópia do Drive indisponível. Não foi consultado o banco operacional.');}
+      }
       if(driveStatus){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
         const user=await response.json();

@@ -1,5 +1,14 @@
 # Central paralela — login
 
+## Experimento de dados no Drive — 26/10/2026
+Esta seção substitui a indicação anterior de ausência de dados no Drive. O usuário autorizou a cópia para testar substituição do armazenamento. A etapa atual guarda JSON agregado por filial: quantidade de aparelhos, situações, operadoras e modelos. Não é cópia integral do banco; não contém usuários, senhas, sessões ou registros pessoais. A interface do dashboard ainda aguarda a imagem de referência solicitada.
+
+`copy-dashboard.mjs` lê o banco com transação REPEATABLE READ READ ONLY, identidade do administrador e filiais autorizadas. Exporta arquivos versionados na pasta privada, verifica conteúdo por leitura completa e só então atualiza o índice protegido em parallel-drive.json. Reenvie DRIVE_CONFIG pelo Wrangler após a cópia. Não executa APIs de fornecedores nem agenda sincronização. As cópias anteriores são preservadas. Falha de upload pode deixar arquivo órfão; não repetir indiscriminadamente.
+
+GET `/api/dashboard?branch=<id>` verifica sessão, módulo overview e vínculo com a filial no backend original. Os indicadores vêm exclusivamente do arquivo dessa filial no Drive, com checagem de pasta, privacidade, versão, filial e data. Falhas não acionam fallback para consultas de dados Supabase. O login/permissões ainda dependem do Supabase: não chamar esta etapa de substituição completa. O retorno inclui copiedAt, source e snapshot; a interface deverá exibir que é uma cópia datada.
+
+Testes: 11 verificações offline cobrem autenticação, autorização por filial/módulo, arquivo de filial trocada e falhas de conexão. Exportação real somente leitura e readback íntegro. Medição local exploratória: agregação SQL de todas as filiais 642 ms; leitura validada Drive de uma filial 2153 e 1701 ms, incluindo renovação OAuth e validações. Caminhos distintos, amostra pequena, não representam benchmark de navegador nem SLA. Relatório com totais permanece privado em .secrets/homologacao/parallel-dashboard-result.json. Nenhuma conclusão sobre viabilidade de escrita concorrente, transações ou substituição completa do banco foi validada.
+
 Raiz: `Grupo RS Central/app/central-paralela`. Projeto web independente dentro do repositório existente, sem alterar o frontend da Central atual. Cloudflare Worker `central-paralela`; assets estáticos em public. Não gera EXE/instalador.
 
 ## Funcionamento
