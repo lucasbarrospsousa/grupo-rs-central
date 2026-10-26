@@ -127,3 +127,12 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 @media screen and (max-width:760px){body #dashboard.wrap{margin-left:0!important;width:100%;max-width:100%}.maintenance-metrics>.card{min-width:0}#maintenance-content .maintenance-tabs button{min-width:0;padding:8px}}
 #maintenance-content .icon-report{background-image:url(/assets/toolbar-icons.png);background-size:110px 22px;background-position:-22px 0}.maintenance-bar canvas{height:120px;width:100%;object-fit:fill}.maintenance-bar span{min-height:32px}.maintenance-chart{border-top:2px solid #b17a25!important}.maintenance-chart.purple{border-top-color:#8a62cc!important}.maintenance-chart.blue{border-top-color:#169be7!important}#maintenance-content .card{animation:none}#maintenance-form .maintenance-lookup[hidden]{display:none}
 #maintenance-content .card{background:#14161b;border-color:#303943}#maintenance-content .maintenance-toolbar{background:linear-gradient(120deg,#17212e,#121a25)}.maintenance-bar canvas{max-width:80px;align-self:center}.maintenance-bars{justify-content:center}#maintenance-content th:last-child,#maintenance-content td:last-child{width:110px}#maintenance-content .maintenance-metrics .card{border-top:2px solid #ad7824}#maintenance-content .primary{color:#111820}
+/* Approved maintenance artwork; live text remains accessible. */
+.operation-hero.maintenance-hero{min-height:240px;border-color:#b57b20;background:linear-gradient(110deg,#101e2d,#071727);isolation:isolate}
+.maintenance-hero:before{content:"";position:absolute;inset:0 0 0 44%;z-index:-1;background:url('/assets/maintenance-hero.png') no-repeat 98% 50%;background-size:auto 150%;mask-image:linear-gradient(90deg,transparent 20%,#000 32%)}
+.maintenance-hero .hero-device{display:none}
+.maintenance-hero .hero-copy{max-width:54%;padding:14px 0}
+.maintenance-hero .eyebrow{color:#b8c9dc;letter-spacing:1px}
+.maintenance-hero h1{font-size:clamp(30px,3.2vw,48px);font-weight:800}
+.maintenance-hero p{font-size:16px;max-width:480px}
+@media(max-width:760px){.operation-hero.maintenance-hero{min-height:300px;padding:24px;align-items:flex-start}.maintenance-hero .hero-copy{max-width:100%;padding:0}.maintenance-hero:before{inset:145px 0 0 18%;background-size:auto 150%;opacity:.85}.maintenance-hero p{max-width:290px;font-size:14px}}

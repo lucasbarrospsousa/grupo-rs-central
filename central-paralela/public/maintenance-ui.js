@@ -8,7 +8,7 @@ function resetMaintenance(){maintenanceEpoch++;maintenanceCache.clear();maintena
 function maintenanceRows(){const q=stockNormalize(maintenanceFilters.search);return [...maintenanceCache].filter(([id])=>branch.value==='all'||id===branch.value).flatMap(([id,rows])=>rows.map(r=>({...r,branch:id}))).filter(r=>(!maintenanceFilters.month||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit'}).format(new Date(r.entry))===maintenanceFilters.month)&&(!maintenanceFilters.model||r.trackerModel===maintenanceFilters.model)&&(!q||[r.client,r.plate,r.currentSerial,r.reason,r.cause,r.observation].some(v=>stockNormalize(v).includes(q)))).sort((a,b)=>b.entry.localeCompare(a.entry));}
 async function showMaintenance(){
  if(!session?.permissions?.views?.includes('maintenance'))return;
- currentTab='maintenance';content.hidden=true;$('#tracking-content').hidden=true;maintenanceRoot.hidden=false;$('.operation-hero').classList.add('compact');$('#hero-actions').hidden=true;
+ currentTab='maintenance';content.hidden=true;$('#tracking-content').hidden=true;maintenanceRoot.hidden=false;$('.operation-hero').classList.add('compact','maintenance-hero');$('#hero-actions').hidden=true;
  $('#crumb').textContent='Manutenções';$('#page-title').textContent='Manutenções';$('#page-description').textContent='Situações, soluções e histórico dos aparelhos.';status.textContent='';
  document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab==='maintenance')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  const missing=session.branches.filter(b=>!maintenanceCache.has(b.id));

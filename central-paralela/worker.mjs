@@ -15,7 +15,7 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       if (!['GET','HEAD'].includes(request.method)) return error(405,'Método não permitido.');
-      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
+      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png','/assets/maintenance-hero.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
       return secure(await env.ASSETS.fetch(request));
     }
     if(url.pathname==='/api/maintenance-import'){
