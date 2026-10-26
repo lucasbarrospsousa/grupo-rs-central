@@ -1,2 +1,4 @@
 # Central paralela
 Projeto web isolado nesta pasta; hospedagem Cloudflare Workers. Não alterar a Central atual nem os fontes Godot arquivados. Em 26/10/2026 o usuário autorizou dados e login independentes pelo Drive: indicadores por filial e cadastro de usuários/permissões com hashes de senha dentro de arquivo AES-GCM. Chave somente em segredo Cloudflare e cofre local, nunca no Drive ou Git. Sessões temporárias e limites em Durable Object; o runtime não acessa Supabase. Scripts de importação só leem a origem quando explicitamente executados. Não publicar snapshots operacionais, usuários ou credenciais no GitHub. Consulte MANUAL_TECNICO.md. Herda as regras da raiz.
+
+Preferência explícita de 26/10/2026: não introduzir SVG nas interfaces. Usar ícones raster PNG/WebP; manter os ícones consistentes com as referências aprovadas.
