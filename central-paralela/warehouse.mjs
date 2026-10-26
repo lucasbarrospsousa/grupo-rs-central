@@ -9,7 +9,7 @@ export async function warehouse({input:b,user,config,service,document=trackingDo
  if(b.action!=='list'&&!user.permissions.owner&&!user.permissions.writes?.includes('warehouse'))fail(403,'Armazém somente para consulta.');
  const doc=await document(config,b.branch),d=doc.data;
  const store=d.warehouse||{rows:[],movements:[],audit:[],costs:null};
- if(b.action==='list')return {rows:store.rows.filter(r=>!r.deleted_at),movements:store.movements,costs:store.costs||null,branch:b.branch};
+ if(b.action==='list')return {rows:store.rows.filter(r=>!r.deleted_at),movements:store.movements,costs:user.permissions.owner?(store.costs||null):null,branch:b.branch};
  if(!/^[a-f0-9-]{36}$/i.test(b.key||''))fail(400,'Chave de operação inválida.');
  const fingerprint=JSON.stringify({action:b.action,id:b.id,version:b.version,values:b.values,items:b.items,destination:b.destination,note:b.note,confirmed:b.confirmed});
  const prior=store.audit.find(a=>a.key===b.key);

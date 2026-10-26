@@ -1,0 +1,40 @@
+'use strict';
+const usersButton=document.createElement('button');usersButton.textContent='Usuários e permissões';usersButton.className='nav-button';usersButton.hidden=true;document.querySelector('.sidebar nav').append(usersButton);
+const usersDialog=document.createElement('dialog');usersDialog.id='users-dialog';usersDialog.style.cssText='width:min(920px,94vw);max-height:90vh;overflow:auto';document.body.append(usersDialog);
+let usersGeneration=0;
+async function renderJobs(){
+ usersDialog.replaceChildren(userEl('h2','Rotinas no servidor'));
+ usersDialog.append(userEl('p','Continuam com o navegador fechado. Ative somente após desativar a rotina equivalente na Central antiga.'));
+ const select=userEl('select');for(const b of session.branches)select.add(new Option(b.name||b.id,b.id));usersDialog.append(select);
+ const result=userEl('div');usersDialog.append(result);
+ const draw=async()=>{result.replaceChildren();for(const kind of ['status','warehouse']){const j=await api('jobs',{action:'read',kind,branch:select.value}),box=userEl('section');box.className='card';box.append(userEl('h3',kind==='status'?'Comunicação dos 50 selecionados':'Conferência de chips do armazém'),userEl('p',j.enabled?'Ativa':'Pausada'),userEl('p',j.lastCompleted?'Última conclusão: '+formatDate(j.lastCompleted):'Ainda não executada'));const toggle=userEl('button',j.enabled?'Pausar rotina':'Ativar rotina');toggle.onclick=async()=>{const serials=monitorSelection().filter(r=>r.branch===select.value).map(r=>r.serial);if(!j.enabled&&!confirm('Ativar consultas reais no servidor? Confirme que a rotina equivalente da Central antiga está desativada.'))return;toggle.disabled=true;try{await api('jobs',{action:'configure',branch:select.value,kind,enabled:!j.enabled,confirmed:true,serials});if(kind==='status'&&!j.enabled){stopMonitor();autoMonitorStarted=true;}await draw();}catch(e){box.append(userEl('p',e.message));toggle.disabled=false;}};box.append(toggle);result.append(box);}};
+ select.onchange=()=>draw().catch(e=>result.textContent=e.message);const back=userEl('button','Voltar');back.onclick=renderUsers;usersDialog.append(back);await draw();
+}
+const userEl=(tag,text)=>{const e=document.createElement(tag);if(text)e.textContent=text;return e;};
+function resetUsers(){usersGeneration++;usersDialog.close();usersDialog.replaceChildren();usersButton.hidden=true;}
+function syncUsersAccess(){usersButton.hidden=!session?.permissions?.owner;if(!session)resetUsers();}
+new MutationObserver(syncUsersAccess).observe(dashboard,{attributes:true,attributeFilter:['hidden']});
+syncUsersAccess();
+usersButton.addEventListener('click',async()=>{if(!await validateAccess())return;usersDialog.showModal();await renderUsers();});
+async function renderUsers(){
+ const epoch=++usersGeneration;usersDialog.replaceChildren(userEl('p','Carregando usuários…'));
+ try{const data=await api('users',{action:'list'});if(epoch!==usersGeneration||!session)return;
+ usersDialog.replaceChildren();const head=userEl('div');head.className='head';head.append(userEl('h2','Usuários e permissões'));const close=userEl('button','Fechar');close.onclick=()=>{usersGeneration++;usersDialog.close();usersDialog.replaceChildren();};head.append(close);usersDialog.append(head);
+ const create=userEl('button','Novo usuário');create.className='primary';create.onclick=()=>editUserForm(null,data);usersDialog.append(create);
+ const jobs=userEl('button','Rotinas no servidor');jobs.onclick=()=>renderJobs().catch(e=>usersDialog.append(userEl('p',e.message)));usersDialog.append(jobs);
+ for(const u of data.users){const row=userEl('div');row.className='card';row.style.marginTop='12px';row.append(userEl('strong',u.username+' · '+(u.active?'Ativo':'Inativo')),userEl('p',u.branches.map(b=>b.name||b.id).join(' · ')));const edit=userEl('button',u.permissions.owner?'Administrador protegido':'Editar acesso');edit.disabled=!!u.permissions.owner;edit.onclick=()=>editUserForm(u,data);row.append(edit);usersDialog.append(row);}
+ }catch(e){if(epoch===usersGeneration)usersDialog.replaceChildren(userEl('p',e.message));}
+}
+function editUserForm(user,data){
+ usersDialog.replaceChildren(userEl('h2',user?'Editar usuário':'Novo usuário'));const f=userEl('form');f.style.cssText='display:grid;gap:16px';usersDialog.append(f);
+ const field=(label,type,value='')=>{const l=userEl('label',label),i=userEl('input');i.type=type;i.value=value;l.append(i);f.append(l);return i;};
+ const username=field('Usuário','text',user?.username||'');username.required=true;username.disabled=!!user;
+ const pw=field(user?'Nova senha (vazio mantém a atual)':'Senha','password');pw.autocomplete='new-password';pw.required=!user;pw.minLength=8;pw.maxLength=128;
+ const active=field('Usuário ativo','checkbox');active.checked=user?.active??true;
+ const branches=userEl('fieldset');branches.append(userEl('legend','Filiais permitidas'));f.append(branches);const branchChecks=data.branches.map(b=>{const l=userEl('label',b.name||b.id),i=userEl('input');i.type='checkbox';i.value=b.id;i.checked=user?.branches.some(x=>x.id===b.id)||false;l.prepend(i);branches.append(l);return i;});
+ const table=userEl('table');const tr=userEl('tr');for(const title of ['Módulo','Consultar','Alterar / executar'])tr.append(userEl('th',title));table.append(tr);f.append(table);
+ const labels={overview:'Dashboard',stock:'Rastreamento',maintenance:'Manutenções',warehouse:'Armazém',sms:'SMS'};
+ const checks=data.modules.map(m=>{const row=userEl('tr');row.append(userEl('td',labels[m]||m));const view=userEl('input'),write=userEl('input');view.type=write.type='checkbox';view.checked=user?.permissions.views.includes(m)||false;write.disabled=!(data.writable||[]).includes(m);write.checked=user?.permissions.writes?.includes(m)||false;view.onchange=()=>{if(!view.checked)write.checked=false;};write.onchange=()=>{if(write.checked)view.checked=true;};for(const input of [view,write]){const cell=userEl('td');cell.append(input);row.append(cell);}table.append(row);return {m,view,write};});
+ const note=userEl('p','Alterações de acesso invalidam as sessões do usuário.');f.append(note);const buttons=userEl('div');buttons.className='tools';const cancel=userEl('button','Cancelar');cancel.type='button';cancel.onclick=renderUsers;const save=userEl('button','Salvar acesso');save.className='primary';buttons.append(cancel,save);f.append(buttons);
+ f.onsubmit=async e=>{e.preventDefault();const epoch=usersGeneration;save.disabled=true;try{await api('users',{action:'save',id:user?.id,version:user?.version,username:username.value,password:pw.value,active:active.checked,branches:branchChecks.filter(i=>i.checked).map(i=>i.value),views:checks.filter(x=>x.view.checked).map(x=>x.m),writes:checks.filter(x=>x.write.checked).map(x=>x.m)});pw.value='';if(epoch===usersGeneration&&session)await renderUsers();}catch(err){note.textContent=err.message;save.disabled=false;}};
+}

@@ -6,7 +6,7 @@ export async function galaxy({input,token,config,key,document=trackingDocument,u
  if(!/^[a-f0-9]{64}$/.test(token||''))fail(401,'Credencial inválida.');
  const doc=await document(config,input.branch),data=doc.data;
  if(!data.gateway||data.gateway.token_hash!==digest(token))fail(401,'Credencial inválida.');
- const now=new Date().toISOString();data.gateway.last_seen=now;
+ const now=new Date().toISOString();data.gateway.last_seen=now;if(input.action==='poll')data.gateway.ready=input.ready===true;
  if(input.action==='ack'){
   const op=data.operations?.find(o=>o.id===input.id&&o.kind==='sms');
   if(!op||op.lease!==input.lease||!['sent','delivered','failed','indeterminate'].includes(input.state))fail(400,'Retorno inválido.');
@@ -14,6 +14,7 @@ export async function galaxy({input,token,config,key,document=trackingDocument,u
   op.state=input.state;op.updated_at=now;op.message='Retorno do Galaxy: '+input.state;await doc.save();return {ok:true};
  }
  if(input.action!=='poll')fail(400,'Ação inválida.');
+ if(data.gateway.ready!==true){await doc.save();return {ok:true,job:null};}
  const job=data.operations?.find(o=>o.kind==='sms'&&o.state==='queued');
  if(!job){await doc.save();return {ok:true,job:null};}
  const account=(await users()).users.find(u=>u.active&&u.username===job.actor);

@@ -1,5 +1,5 @@
 // Server-only adapter; no caller-supplied folder or file IDs.
-async function connect(config, fetcher=fetch) {
+export async function connect(config, fetcher=fetch) {
   if(!config?.client_id||!config.client_secret||!config.refresh_token||!config.folder_id||!config.email)throw Error('DRIVE_NOT_CONFIGURED');
   const response=await fetcher('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:config.client_id,client_secret:config.client_secret,refresh_token:config.refresh_token,grant_type:'refresh_token'}),signal:AbortSignal.timeout(15000)});
   const token=await response.json();if(!response.ok||!token.access_token)throw Error('DRIVE_RECONNECT');
@@ -20,6 +20,12 @@ export async function driveUsers(config,fetcher=fetch){
  const meta=await read('files/'+id+'?fields=parents,shared,trashed,size');
  if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>3000000)throw Error('AUTH_FILE_NOT_PRIVATE');
  return read('files/'+id+'?alt=media');
+}
+export async function saveUsers(config,envelope,fetcher=fetch){
+ const id=config?.auth_file_id;if(!/^[\w-]+$/.test(id||''))throw Error('AUTH_NOT_CONFIGURED');
+ const c=await connect(config,fetcher),meta=await c.read('files/'+id+'?fields=parents,shared,trashed,size');
+ if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||JSON.stringify(envelope).length>2800000)throw Error('AUTH_FILE_NOT_PRIVATE');
+ await c.writeTracking(id,envelope);
 }
 async function readDashboard(config,branch,read){
   const id=config?.snapshots?.[branch];if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('SNAPSHOT_MISSING');

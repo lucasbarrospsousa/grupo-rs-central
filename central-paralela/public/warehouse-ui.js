@@ -9,7 +9,7 @@ const whDay=v=>v?new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',y
 function resetWarehouse(){whEpoch++;whCache.clear();whSelected.clear();whRoot.replaceChildren();whRoot.hidden=true;document.querySelector('#warehouse-dialog')?.remove();}
 async function whCall(input){for(let i=0;i<4;i++){try{return await api('warehouse',input);}catch(e){if(e.status!==429||i===3)throw e;await new Promise(r=>setTimeout(r,1500));}}}
 async function showWarehouse(tab){
- if(!session?.permissions?.views?.includes('warehouse'))return;
+ if(!session?.permissions?.views?.includes('warehouse')||(tab==='warehouse-values'&&!session.permissions.owner))return;
  if(currentTab!==tab||whBranch!==branch.value){whSelected.clear();whPage=1;}whBranch=branch.value;currentTab=tab;whView=tab.replace('warehouse-','');
  content.hidden=true;$('#tracking-content').hidden=true;$('#maintenance-content').hidden=true;whRoot.hidden=false;
  const hero=$('.operation-hero');hero.classList.remove('maintenance-hero');hero.classList.add('warehouse-hero','compact');hero.dataset.warehouse=whView;
@@ -28,7 +28,7 @@ function drawWarehouse(){
  const kind=whView==='chips'?'chip':'device',items=data.rows.filter(r=>r.kind===kind),q=whFilter.query.toLocaleLowerCase('pt-BR');
  let list=items.filter(r=>(!whFilter.state||r.status===whFilter.state)&&(!whFilter.category||(r.classification||'Estoque')===whFilter.category)&&(kind!=='chip'||!whFilter.provider||r.chip_provider===whFilter.provider)&&[r.serial,r.chip_phone,r.chip_operator,r.usage_device_serial].some(v=>String(v||'').toLocaleLowerCase('pt-BR').includes(q)));
  const max=Math.max(1,Math.ceil(list.length/10));whPage=Math.min(whPage,max);
- whRoot.innerHTML=(kind==='device'?'<div class="wh-tabs" role="tablist">'+[['items','Aparelhos'],['moves','Movimentações'],['monthly','Análise mensal']].map(([id,label])=>'<button data-wh-tab="'+id+'" role="tab" aria-selected="'+(whSub===id)+'" class="'+(whSub===id?'primary':'')+'">'+label+'</button>').join('')+'</div>':'')+whMetrics(items)+'<p class="notice">Dados do armazém desta filial no Drive. Nenhum dado da Central original foi importado.</p><div id="wh-body"></div>';
+ whRoot.innerHTML=(kind==='device'?'<div class="wh-tabs" role="tablist">'+[['items','Aparelhos'],['moves','Movimentações'],['monthly','Análise mensal']].map(([id,label])=>'<button data-wh-tab="'+id+'" role="tab" aria-selected="'+(whSub===id)+'" class="'+(whSub===id?'primary':'')+'">'+label+'</button>').join('')+'</div>':'')+whMetrics(items)+'<p class="notice">Dados do armazém desta filial no Drive. Dados salvos no Drive.</p><div id="wh-body"></div>';
  whRoot.querySelectorAll('[data-wh-tab]').forEach(b=>b.onclick=()=>{whSub=b.dataset.whTab;whPage=1;whSelected.clear();drawWarehouse();});
  if(kind==='device'&&whSub!=='items'){drawWarehouseHistory(data);return;}
  const body=$('#wh-body');

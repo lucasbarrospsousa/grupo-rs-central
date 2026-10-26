@@ -1,8 +1,9 @@
+import {digest} from './auth-crypto.mjs';
 import {verifyImport} from './maintenance-import.mjs';
 export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard} from './drive.mjs';
 export {AuthService} from './auth.mjs';
-const routes = new Map([['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
+const routes = new Map([['/api/jobs','POST'],['/api/users','POST'],['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
   const result = new Response(response.body, response);
@@ -15,8 +16,16 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       if (!['GET','HEAD'].includes(request.method)) return error(405,'Método não permitido.');
-      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/warehouse-ui.js','/warehouse.css','/assets/warehouse-chips.png','/assets/warehouse-devices.png','/assets/warehouse-rs300.png','/assets/warehouse-rs300-scene.png','/assets/warehouse-values.png','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png','/assets/maintenance-hero.png','/assets/operation-heroes.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
+      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/warehouse-ui.js','/users-ui.js','/warehouse.css','/assets/warehouse-chips.png','/assets/warehouse-devices.png','/assets/warehouse-rs300.png','/assets/warehouse-rs300-scene.png','/assets/warehouse-values.png','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png','/assets/maintenance-hero.png','/assets/operation-heroes.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
       return secure(await env.ASSETS.fetch(request));
+    }
+    if(url.pathname==='/api/configurator'){
+      if(request.method!=='POST')return error(405,'Método inválido.');
+      const credential=JSON.parse(env.CONFIGURATOR_ACCESS||'null'),token=request.headers.get('x-central-configurator')||'';
+      if(!credential?.token_hash||!/^[a-f0-9]{64}$/.test(token)||digest(token)!==credential.token_hash)return error(401,'Credencial inválida.');
+      const raw=await request.text();if(raw.length>4096)return error(413,'Solicitação muito grande.');
+      let input;try{input=JSON.parse(raw);}catch{return error(400,'Solicitação inválida.');}
+      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/configurator',{method:'POST',body:JSON.stringify({input})})));
     }
     if(url.pathname==='/api/maintenance-import'){
       if(request.method!=='POST')return error(405,'Método inválido.');
@@ -38,16 +47,17 @@ export default {
     if(url.pathname==='/api/galaxy'){
       if(!env.OPERATIONS)return error(503,'Gateway indisponível.');
       let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
+      const android=!!request.headers.get('x-rs-gateway');if(android)input.branch=url.searchParams.get('branch');
       if(!['imperatriz','araguaina','acailandia','maraba'].includes(input.branch))return error(400,'Filial inválida.');
-      const token=request.headers.get('authorization')?.replace(/^Bearer /,'');if(!/^[a-f0-9]{64}$/.test(token||''))return error(401,'Credencial inválida.');
-      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,token})})));
+      const token=android?request.headers.get('x-rs-gateway'):request.headers.get('authorization')?.replace(/^Bearer /,'');if(!/^[a-f0-9]{64}$/.test(token||''))return error(401,'Credencial inválida.');
+      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,token,android})})));
     }
     const headers = new Headers({'x-parallel-ip':request.headers.get('cf-connecting-ip') || 'unknown'});
     for(const key of ['content-type','x-csrf-token']) if(request.headers.has(key))headers.set(key,request.headers.get(key));
     const cookie=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>/^parallel_drive_session=[a-f0-9]{64}$/.test(x));
     if(cookie)headers.set('cookie',cookie);
     try {
-      const wh=url.pathname==='/api/warehouse',maint=url.pathname==='/api/maintenance',inventory=url.pathname==='/api/inventory',live=url.pathname==='/api/live'||inventory||maint||wh;
+      const jobs=url.pathname==='/api/jobs',wh=url.pathname==='/api/warehouse',maint=url.pathname==='/api/maintenance',inventory=url.pathname==='/api/inventory',live=url.pathname==='/api/live'||inventory||maint||wh||jobs;
       const tracking=url.pathname==='/api/tracking',access=url.pathname==='/api/access',dashboard=url.pathname==='/api/dashboard',driveStatus=url.pathname==='/api/drive-status';
       const auth=env.AUTH.get(env.AUTH.idFromName('central-paralela-auth-v1'));
       const response=await auth.fetch(new Request('https://auth.internal'+(live||tracking||access||driveStatus||dashboard?'/api/session':url.pathname),{method:live?'GET':request.method,headers,body:live?undefined:body}));
@@ -56,10 +66,12 @@ export default {
         const user=await response.json();
         if(request.headers.get('x-csrf-token')!==user.csrf)return error(403,'Sessão de formulário inválida.');
         let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Consulta inválida.');}
-        if(!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
-        if(!env.OPERATIONS||(!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
-        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(inventory||maint||wh?{input,user}:input)})));
+        if(jobs&&!user.permissions?.owner)return error(403,'Somente administrador.');
+        if(!jobs&&!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
+        if(!env.OPERATIONS||(!jobs&&!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
+        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)})));
       }
+      if(response.ok&&(tracking||dashboard||['/api/login','/api/session'].includes(url.pathname))&&env.OPERATIONS){const barrier=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/barrier',{method:'POST',body:'{}'}));if(!barrier.ok)return error(503,'Recuperação de gravação pendente. Tente novamente.');}
       if(tracking){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
         const user=await response.json();if(!user.permissions?.views?.includes('stock'))return error(403,'Sem acesso ao estoque.');
