@@ -18,3 +18,8 @@ body{background:radial-gradient(ellipse at 90% 0%,#12345f,transparent 50%),#1019
 .art-box{background-position:-119px -11px;width:45px}
 .art-reserve{background-position:-165px -11px;width:52px}
 .kpi:after{pointer-events:none;z-index:0}.kpi>.row,.kpi>.value,.kpi>.muted{position:relative;z-index:1}
+
+/* Compact rail retains accessible navigation and does not reload data. */
+.sidebar-toggle{position:absolute;right:8px;top:8px;width:30px;height:32px;padding:0;font-size:25px;border:1px solid #47617a;background:#13283b;color:#ffac37;z-index:2}
+@media(min-width:761px){.wrap.sidebar-collapsed{margin-left:88px}.sidebar-collapsed .sidebar{width:88px;padding:55px 12px 24px}.sidebar-collapsed .sidebar>.art-logo,.sidebar-collapsed .nav-label,.sidebar-collapsed .side-account>span,.sidebar-collapsed .side-account>small{display:none}.sidebar-collapsed .sidebar nav{margin-top:20px}.sidebar-collapsed .nav-button,.sidebar-collapsed #exit{justify-content:center;padding:16px 8px;width:100%}.sidebar-collapsed .nav-button .art{flex-shrink:0}}
+@media(max-width:760px){.sidebar{position:relative;padding-top:46px}.sidebar-collapsed .sidebar nav,.sidebar-collapsed .side-account{display:none}.sidebar-collapsed .sidebar{min-height:52px}}

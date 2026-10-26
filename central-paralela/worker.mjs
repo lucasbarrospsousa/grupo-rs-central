@@ -1,6 +1,7 @@
+export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking} from './drive.mjs';
 export {AuthService} from './auth.mjs';
-const routes = new Map([['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
+const routes = new Map([['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
   const result = new Response(response.body, response);
@@ -32,9 +33,19 @@ export default {
     const cookie=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>/^parallel_drive_session=[a-f0-9]{64}$/.test(x));
     if(cookie)headers.set('cookie',cookie);
     try {
+      const live=url.pathname==='/api/live';
       const tracking=url.pathname==='/api/tracking',access=url.pathname==='/api/access',dashboard=url.pathname==='/api/dashboard',driveStatus=url.pathname==='/api/drive-status';
       const auth=env.AUTH.get(env.AUTH.idFromName('central-paralela-auth-v1'));
-      const response=await auth.fetch(new Request('https://auth.internal'+(tracking||access||driveStatus||dashboard?'/api/session':url.pathname),{method:request.method,headers,body}));
+      const response=await auth.fetch(new Request('https://auth.internal'+(live||tracking||access||driveStatus||dashboard?'/api/session':url.pathname),{method:live?'GET':request.method,headers,body:live?undefined:body}));
+      if(live){
+        if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
+        const user=await response.json();
+        if(request.headers.get('x-csrf-token')!==user.csrf)return error(403,'Sessão de formulário inválida.');
+        let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Consulta inválida.');}
+        if(!user.permissions?.views?.includes('stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
+        if(!env.OPERATIONS||!env.INTEGRATIONS_CONFIG)return error(503,'Integrações ainda não configuradas.');
+        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/query',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)})));
+      }
       if(tracking){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
         const user=await response.json();if(!user.permissions?.views?.includes('stock'))return error(403,'Sem acesso ao estoque.');

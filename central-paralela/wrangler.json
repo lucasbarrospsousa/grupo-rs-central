@@ -2,10 +2,42 @@
   "name": "central-paralela",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "durable_objects": {"bindings": [{"name":"AUTH","class_name":"AuthService"}]},
-  "migrations": [{"tag":"auth-v1","new_sqlite_classes":["AuthService"]}],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "AUTH",
+        "class_name": "AuthService"
+      },
+      {
+        "name": "OPERATIONS",
+        "class_name": "Operations"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "auth-v1",
+      "new_sqlite_classes": [
+        "AuthService"
+      ]
+    },
+    {
+      "tag": "operations-v1",
+      "new_sqlite_classes": [
+        "Operations"
+      ]
+    }
+  ],
   "workers_dev": true,
-  "assets": {"directory": "public", "binding": "ASSETS", "run_worker_first": true},
-  "observability": {"enabled": false}
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "observability": {
+    "enabled": false
+  }
 }

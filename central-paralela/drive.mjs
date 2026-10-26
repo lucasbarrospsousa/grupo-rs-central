@@ -8,7 +8,10 @@ async function connect(config, fetcher=fetch) {
   if(account.user?.emailAddress?.toLowerCase()!==config.email.toLowerCase())throw Error('DRIVE_ACCOUNT_MISMATCH');
   const folder=await read('files/'+encodeURIComponent(config.folder_id)+'?fields=id,name,mimeType,trashed,ownedByMe,shared,capabilities(canAddChildren)');
   if(folder.mimeType!=='application/vnd.google-apps.folder'||folder.trashed||folder.shared||!folder.ownedByMe||!folder.capabilities?.canAddChildren)throw Error('DRIVE_FOLDER_NOT_PRIVATE');
-  return {read,folder};
+  return {read,folder,async writeTracking(id,data){
+   const response=await fetcher('https://www.googleapis.com/upload/drive/v3/files/'+id+'?uploadType=media',{method:'PATCH',headers:{Authorization:'Bearer '+token.access_token,'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(20000)});
+   if(!response.ok)throw Error('DRIVE_SAVE_FAILED');
+  }};
 }
 export async function driveConnection(config,fetcher=fetch){const {folder}=await connect(config,fetcher);return {connected:true,folder:folder.name,storage:'Google Drive',database:'Arquivos privados do projeto paralelo',checkedAt:new Date().toISOString()};}
 export async function driveUsers(config,fetcher=fetch){
@@ -35,8 +38,18 @@ export async function driveTracking(config,branches,fetcher=fetch){
  if(!branches.length)return [];const {read}=await connect(config,fetcher);
  return Promise.all([...new Set(branches)].map(async branch=>{
  const id=config?.tracking?.[branch];if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('TRACKING_MISSING');
- const meta=await read('files/'+id+'?fields=parents,shared,trashed,size');if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>3000000)throw Error('TRACKING_PRIVATE');
+ const meta=await read('files/'+id+'?fields=parents,shared,trashed,size');if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>12000000)throw Error('TRACKING_PRIVATE');
  const data=await read('files/'+id+'?alt=media');if(data.schemaVersion!==1||data.kind!=='tracking'||data.branch?.id!==branch||!Number.isFinite(Date.parse(data.copiedAt))||!Array.isArray(data.rows)||data.rows.length>20000)throw Error('TRACKING_INVALID');
- return {schemaVersion:1,branch:data.branch,copiedAt:data.copiedAt,source:'Google Drive',total:data.rows.length,rows:data.rows.map(r=>Object.fromEntries(['id','serial','identification','plate','model','carrier','status','installed_at','connectivity','checked_at'].map(k=>[k,r[k]??null])))};
+ return {schemaVersion:1,branch:data.branch,copiedAt:data.copiedAt,source:'Google Drive',total:data.rows.length,rows:data.rows.map(r=>Object.fromEntries(['id','serial','identification','plate','model','carrier','status','installed_at','connectivity','checked_at','live'].map(k=>[k,r[k]??null])))};
  }));
+}
+
+// Only the single Operations object may call this writer. Original SQL is never touched.
+export async function trackingDocument(config,branch,fetcher=fetch){
+ const id=config?.tracking?.[branch];if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('TRACKING_MISSING');
+ const connection=await connect(config,fetcher),meta=await connection.read('files/'+id+'?fields=parents,shared,trashed,size');
+ if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>12000000)throw Error('TRACKING_PRIVATE');
+ const data=await connection.read('files/'+id+'?alt=media');
+ if(data.schemaVersion!==1||data.kind!=='tracking'||data.branch?.id!==branch||!Array.isArray(data.rows)||data.rows.length>20000)throw Error('TRACKING_INVALID');
+ return {data,save:()=>connection.writeTracking(id,data)};
 }
