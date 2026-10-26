@@ -1,0 +1,12 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {driveConnection} from './drive.mjs';
+import worker from './worker.mjs';
+const config={client_id:'test',client_secret:'secret',refresh_token:'refresh',folder_id:'folder',email:'owner@example.com'};
+const folder={name:'Private',mimeType:'application/vnd.google-apps.folder',ownedByMe:true,shared:false,capabilities:{canAddChildren:true}};
+function mock(overrides={}){return async url=>Response.json(url.includes('/token')?{access_token:'token'}:url.includes('/about')?{user:{emailAddress:overrides.email||config.email}}:{...folder,...overrides});}
+test('checks account and private writable folder; returns no secrets',async()=>{const result=await driveConnection(config,mock());assert.equal(result.connected,true);assert.equal(JSON.stringify(result).includes('secret'),false);assert.equal(JSON.stringify(result).includes('owner@example.com'),false);});
+test('rejects wrong account, shared/trashed/foreign/read-only folder',async()=>{for(const override of [{email:'other@example.com'},{shared:true},{trashed:true},{ownedByMe:false},{capabilities:{canAddChildren:false}}])await assert.rejects(driveConnection(config,mock(override)));});
+test('missing config and revoked authorization fail closed',async()=>{await assert.rejects(driveConnection(null));await assert.rejects(driveConnection(config,async()=>Response.json({error:'invalid_grant'},{status:400})));});
+test('Drive denied before Google for anonymous and non-owner sessions',async()=>{const original=globalThis.fetch;try{for(const status of [401,200]){let calls=0;globalThis.fetch=async url=>{calls++;assert.match(url,/central-api\/api\/session$/);return Response.json({permissions:{owner:false}},{status});};const result=await worker.fetch(new Request('https://test.example/api/drive-status'),{CENTRAL_BRIDGE_TOKEN:'test',DRIVE_CONFIG:JSON.stringify(config)});assert.equal(result.status,status===401?401:403);assert.equal(calls,1);}}finally{globalThis.fetch=original;}});
+test('owner receives verified Drive status through Worker',async()=>{const original=globalThis.fetch;globalThis.fetch=async url=>url.includes('central-api')?Response.json({permissions:{owner:true}}):mock()(url);try{const r=await worker.fetch(new Request('https://test.example/api/drive-status'),{CENTRAL_BRIDGE_TOKEN:'test',DRIVE_CONFIG:JSON.stringify(config)});assert.equal(r.status,200);assert.equal((await r.json()).connected,true);}finally{globalThis.fetch=original;}});

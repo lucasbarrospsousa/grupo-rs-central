@@ -1,6 +1,7 @@
+import {driveConnection} from './drive.mjs';
 const upstream = 'https://vwiayytzmorcjeaszowg.supabase.co/functions/v1/central-api';
 const canonical = 'https://grupo-rs-central.lucasbarrosp.chatgpt.site';
-const routes = new Map([['/api/login','POST'],['/api/session','GET'],['/api/logout','POST']]);
+const routes = new Map([['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
   const result = new Response(response.body, response);
@@ -33,7 +34,15 @@ export default {
     const cookie=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>/^parallel_session=[a-f0-9]{64}$/.test(x));
     if(cookie)headers.set('cookie',cookie.replace('parallel_session=','central_session='));
     try {
-      const response=await fetch(upstream+url.pathname,{method:request.method,headers,body,redirect:'manual',signal:AbortSignal.timeout(25000)});
+      const driveStatus=url.pathname==='/api/drive-status';
+      const response=await fetch(upstream+(driveStatus?'/api/session':url.pathname),{method:request.method,headers,body,redirect:'manual',signal:AbortSignal.timeout(25000)});
+      if(driveStatus){
+        if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
+        const user=await response.json();
+        if(user.permissions?.owner!==true)return error(403,'Conexão restrita ao administrador.');
+        try{return secure(Response.json(await driveConnection(JSON.parse(env.DRIVE_CONFIG||'null'))));}
+        catch{return error(503,'Conexão do Drive indisponível. Verifique a autorização e a pasta privada.');}
+      }
       const result=new Response(response.body,response);
       const setCookie=result.headers.get('set-cookie');
       if(setCookie)result.headers.set('set-cookie',setCookie.replace('central_session=','parallel_session=')+(setCookie.includes('Secure')?'':'; Secure'));
