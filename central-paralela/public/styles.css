@@ -47,3 +47,7 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 @media(min-width:761px){.sidebar-collapsed .nav-section{display:none}}
 @media(max-width:1200px){.wrap{margin-left:250px;padding:22px}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.hero-device{transform:scale(.8) rotate(-9deg);margin-right:-25px}.hero-copy{max-width:70%}}
 @media(max-width:760px){.wrap{margin-left:0;padding:14px}.sidebar{width:100%;padding:45px 18px 18px}.operation-hero,.operation-hero.compact{padding:24px;min-height:180px}.hero-copy{max-width:100%}.hero-device{display:none}.top{flex-wrap:wrap}.top .tools{flex-wrap:wrap}.cards,.tracking-cards,.charts,.bottom{grid-template-columns:1fr}.operation-hero h1{font-size:29px}.operation-hero .tools{flex-wrap:wrap}.tracking-filters{display:flex;flex-direction:column}.tracking-filters>*{width:100%}.equipment-card .head{flex-wrap:wrap}.equipment-card{padding:14px}.pagination{flex-wrap:wrap}.kpi .value{font-size:32px}}
+/* Location needles: state comes from ignition/GPS, never chip connectivity. */
+.device-pin{--pin:#728397;display:inline-block;position:relative;width:24px;height:30px;flex:0 0 24px;margin:0 14px 5px 5px;border:3px solid var(--pin);border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:transparent}
+.device-pin:after{content:'';position:absolute;width:7px;height:7px;border:2px solid var(--pin);border-radius:50%;top:6px;left:5px}
+.device-pin.green{--pin:#129568}.device-pin.red{--pin:#d62f49}.device-pin.amber{--pin:#dc930f}.device-pin.purple{--pin:#a06aee}

@@ -57,3 +57,5 @@ Validação: 21 testes backend offline mais teste de navegador com APIs simulada
 
 ## Tema aprovado — 26/10/2026
 Dashboard e Rastreamento usam superfícies carvão, destaque âmbar e hero azul com RS300 transparente. Indicador Google Drive removido do cabeçalho; armazenamento e autorização permanecem inalterados. Atalhos do hero respeitam acesso a estoque. Validação local: 21 testes de backend e teste Playwright com dados sintéticos, bloqueio de chamadas externas, navegação, filtros, paginação, sessão e largura móvel.
+
+Lista de rastreamento: agulhas CSS sem SVG substituem miniaturas. Regras copiadas dos módulos web ativos communication-state/gps-status: verde ligado, vermelho desligado, roxo GPS desatualizado confirmado, âmbar comunicação antiga/erro, cinza desconhecido/sleep conforme lista original. Dados insuficientes não são inferidos pelo chip. Teste: node --test pin-state.test.mjs.
