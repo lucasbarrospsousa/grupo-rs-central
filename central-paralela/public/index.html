@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Grupo RS Central — Acesso</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script></head>
+<body><main><section class="card" aria-labelledby="title">
+<div class="brand"><img src="/mark.svg" alt="" width="64" height="76"><div><span>GRUPO RS</span><strong>CENTRAL</strong></div></div>
+<p class="eyebrow">CENTRAL DE OPERAÇÕES</p><h1 id="title">Bem-vindo à Central</h1><p class="intro">Acesse para gerenciar sua operação.</p>
+<form id="login"><label for="username">Usuário</label><div class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg><input id="username" name="username" autocomplete="username" placeholder="Digite seu usuário" maxlength="120" required></div>
+<label for="password">Senha</label><div class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3"/></svg><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" maxlength="256" required><button class="eye" id="visibility" type="button" aria-label="Mostrar senha" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+<p id="message" role="status" aria-live="polite"></p><button class="primary" id="submit" type="submit">Entrar <span aria-hidden="true">→</span></button></form>
+<section id="welcome" hidden><p id="identity"></p><p class="intro">Seu acesso foi confirmado. As próximas páginas serão disponibilizadas aqui.</p><button class="primary" id="logout" type="button">Sair</button></section>
+<p class="restricted">▣ &nbsp; Acesso restrito a usuários autorizados</p></section><footer>Grupo RS Central · Desenvolvido por SideraCode</footer></main></body></html>
