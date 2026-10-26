@@ -46,7 +46,7 @@ $('#refresh').addEventListener('click',async()=>{stopMonitor();liveRunning=false
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)validateAccess();});
 api('session').then(showSession).catch(e=>{if(e.status!==401)message.textContent='Não foi possível verificar a sessão. Tente entrar novamente.';});
 
-$('#toggle-sidebar').addEventListener('click',()=>{const collapsed=$('#dashboard').classList.toggle('sidebar-collapsed'),button=$('#toggle-sidebar');button.setAttribute('aria-expanded',String(!collapsed));button.setAttribute('aria-label',collapsed?'Expandir menu lateral':'Recolher menu lateral');button.title=button.getAttribute('aria-label');button.textContent=collapsed?'»':'«';});
+$('#toggle-sidebar').addEventListener('click',()=>{const collapsed=$('#dashboard').classList.toggle('sidebar-collapsed'),button=$('#toggle-sidebar');document.querySelector('.sidebar').inert=collapsed;document.querySelector('.sidebar').setAttribute('aria-hidden',String(collapsed));button.setAttribute('aria-expanded',String(!collapsed));button.setAttribute('aria-label',collapsed?'Expandir menu lateral':'Recolher menu lateral');button.title=button.getAttribute('aria-label');button.textContent=collapsed?'»':'«';});
 
 async function queryDevice(d,run,kind='status'){
  const result=await api('live',{branch:d.branch,serial:d.serial,kind});
