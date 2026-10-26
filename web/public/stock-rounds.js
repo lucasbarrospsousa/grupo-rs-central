@@ -18,7 +18,7 @@ export function stockRounds({query,onResult,onStart=()=>{},onState=()=>{},schedu
   if(valid()){controller=null;wait(30000);}
  }
  return {
-  set(next,{force=false,context=''}={}){if(closed)return;next=[...new Set(next)].slice(0,10);const nextKey=JSON.stringify([context,next]);if(!force&&key===nextKey)return;stop();ids=next;key=nextKey;completed=0;if(!ids.length)onState('empty',{completed:0,total:0});wait(1300);},
+  set(next,{force=false,context=''}={}){if(closed)return;next=[...new Set(next)].slice(0,50);const nextKey=JSON.stringify([context,next]);if(!force&&key===nextKey)return;stop();ids=next;key=nextKey;completed=0;if(!ids.length)onState('empty',{completed:0,total:0});wait(1300);},
   suspend(){stop();key='';ids=[];},
   pause(value){if(paused===value||closed)return;paused=value;stop();if(!paused)wait(1300);else onState('paused',{completed,total:ids.length});},
   close(){closed=true;stop();ids=[];}

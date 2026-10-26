@@ -13,10 +13,10 @@ export function pageOptions(params){
  return o;
 }
 export function selectDevicePage(rows,branch,options){
- const filtered=filterStock(rows,{...options,branch}),total=filtered.rows.length,page=stockPageNumber(options.page,total,10);
- return {...filtered,total,page,rows:filtered.rows.slice((page-1)*10,page*10),counts:Object.fromEntries(statuses.map(s=>[s,s==='Todos'?rows.length:rows.filter(r=>visibleStatus(r,branch)===s).length]))};
+ const filtered=filterStock(rows,{...options,branch}),total=filtered.rows.length,page=stockPageNumber(options.page,total,50);
+ return {...filtered,total,page,rows:filtered.rows.slice((page-1)*50,page*50),counts:Object.fromEntries(statuses.map(s=>[s,s==='Todos'?rows.length:rows.filter(r=>visibleStatus(r,branch)===s).length]))};
 }
-// Only small search/sort fields are read for the whole branch; full records are read for ten IDs.
+// Only small search/sort fields are read for the whole branch; full records are read for fifty IDs.
 export async function devicePage(c,branch,params){
  if(params.get('scope')==='owners')return savedOwners(c,branch,params.get('query'));
  if(params.get('scope')==='discharges')return dischargeSummary(c,branch,params.get('month')||'');

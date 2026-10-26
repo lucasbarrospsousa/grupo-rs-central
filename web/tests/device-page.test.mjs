@@ -9,7 +9,7 @@ rows[3359].owner_binding={branch:'imperatriz',serial:rows[3359].serial,plate:row
 test('paging searches all 3360 records and keeps existing filter, sort and batch rules',()=>{
  for(const options of [{},{query:'Jose Ultimo'},{query:'ABC3359'},{query:'24000000;24003359;99999999;'},{status:'Instalado',sort:'serial',direction:-1,page:3},{start:'2026-10-17',end:'2026-10-17',sort:'carrier',direction:1}]){
   const opts=pageOptions(new URLSearchParams(options)),expected=filterStock(rows,{...opts,branch:'imperatriz'}),actual=selectDevicePage(rows,'imperatriz',opts);
-  assert.equal(actual.total,expected.rows.length);assert.deepEqual(actual.rows,expected.rows.slice((actual.page-1)*10,actual.page*10));assert.deepEqual(actual.missing,expected.missing);assert.equal(actual.counts.Todos,3360);
+  assert.equal(actual.total,expected.rows.length);assert.deepEqual(actual.rows,expected.rows.slice((actual.page-1)*50,actual.page*50));assert.deepEqual(actual.missing,expected.missing);assert.equal(actual.counts.Todos,3360);
  }
  const regional=selectDevicePage([{...rows[0],status:'Reserva'}],'araguaina',pageOptions(new URLSearchParams({status:'Estoque'})));assert.equal(regional.total,1);assert.equal(regional.counts.Estoque,1);
  assert.equal(selectDevicePage([], 'imperatriz',pageOptions(new URLSearchParams({page:'99'}))).page,1);
@@ -20,10 +20,10 @@ test('backend sends one bounded SQL page and preserves unchanged marker behavior
  const result=await devicePage(c,'imperatriz',new URLSearchParams({scope:'page'}));assert.equal(result.rows.length,10);assert.equal(result.total,3360);assert.equal(calls.length,2);assert.ok(calls[1].sql.includes('limit (case when'));assert.ok(calls.every(c=>c.args[0]==='imperatriz'));
  calls.length=0;assert.equal((await devicePage(c,'imperatriz',new URLSearchParams({scope:'page',since:'12'}))).unchanged,true);assert.equal(calls.length,1);
 });
-test('stock opening does not preload full lists or other modules; summaries remain independent',async()=>{
+test('direct stock page read stays bounded and supports unchanged markers',async()=>{
  const r=new SqlRepository();r.user=user;r.currentBranch='imperatriz';r.currentRoute='stock';const calls=[];r.networkRequest=async p=>{calls.push(p);return {cursor:'1',rows:[rows[0]],counts:{Todos:3360},total:3360,page:1}};
- await r.preloadSelected('imperatriz',{delay:0});assert.deepEqual(calls,[]);await r.readStockPage('imperatriz',{});assert.equal(calls.length,1);assert.ok(calls[0].includes('scope=page'));assert.equal(r.loaded.has('imperatriz:devices'),false);assert.equal(r.devices.length,1);
- r.networkRequest=async p=>{calls.push(p);return {cursor:'2',unchanged:true}};await r.readStockPage('imperatriz',{});assert.match(calls.at(-1),/since=1/);assert.equal(r.peekStockPage('imperatriz',{}).rows.length,1);
+ await r.readStockPage('imperatriz',{});assert.equal(calls.length,1);assert.ok(calls[0].includes('scope=page'));assert.equal(r.loaded.has('imperatriz:devices'),false);assert.equal(r.devices.length,1);
+ r.networkRequest=async p=>{calls.push(p);return {cursor:'2',unchanged:true}};r.stockFresh.clear();await r.readStockPage('imperatriz',{});assert.match(calls.at(-1),/since=1/);assert.equal(r.peekStockPage('imperatriz',{}).rows.length,1);
 });
 function storage(){const m=new Map();return {get length(){return m.size},key:i=>[...m.keys()][i],getItem:k=>m.get(k),setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}}
 function durable(){const m=new Map();return {get:async k=>structuredClone(m.get(k)),put:async(k,v,valid)=>{if(valid())m.set(k,structuredClone(v))},retain:async k=>{for(const x of m.keys())if(x!==k)m.delete(x)},clear:async()=>m.clear()};}

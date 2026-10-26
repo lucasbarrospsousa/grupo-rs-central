@@ -23,7 +23,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
   const plateDrafts = new Map();
   const viewKey='central-stock-view:'+(repo.user?.username||'demo')+':'+branch;
   const vehicleLabel=r=>{const name=stockOwnerName(r,branch);return escape(r.status==='Instalado'?r.plate:'—')+(name?`<small class="stock-owner-name" title="${escape(name)}">${escape(name)}</small><small>Última conferência: ${escape(r.owner_binding?.checked_at?new Date(r.owner_binding.checked_at).toLocaleString('pt-BR',{timeZone:'America/Fortaleza'}):'não informada')}</small>`:'');};
-  const selected = new Set(); const perPage = 10; let current = [];
+  const selected = new Set(); const perPage = 50; let current = [];
   const linking=setupAutoLink({repo,branch,showModal,notify,refresh:async()=>{await repo.load(branch,{force:true});draw();}});
   const regional = branch !== 'imperatriz';
   let live=null,ownerSerials=null,pendingOwnerSearch=false;
@@ -51,7 +51,7 @@ export function mountStock({ repo, branch, branchName, icon, showModal, notify, 
       const key=repo.stockQuery(branch,remoteModel()),cached=repo.peekStockPage(branch,remoteModel());
       if(cached)remoteResult=cached;
       if(key!==remoteKey||remoteRevision!==repo.writeVersion){
-        live?.suspend();remoteKey=key;remoteRevision=repo.writeVersion;remoteResult=cached||null;const sequence=++remoteSequence;clearTimeout(searchTimer);
+        if(remoteKey)live?.suspend();remoteKey=key;remoteRevision=repo.writeVersion;remoteResult=cached||null;const sequence=++remoteSequence;clearTimeout(searchTimer);
         searchTimer=setTimeout(async()=>{if(!page.isConnected||document.querySelector('#stock-body')!==bodyHost)return;try{const result=await repo.readStockPage(branch,remoteModel());if(sequence!==remoteSequence||!bodyHost.isConnected)return;remoteResult=result;model.page=result.page;remoteKey=repo.stockQuery(branch,remoteModel());draw();}catch(e){if(sequence===remoteSequence&&bodyHost.isConnected){notify(e.message);if(!remoteResult)bodyHost.innerHTML='<tr><td colspan="10" class="empty">Não foi possível carregar. Use Lista para tentar novamente.</td></tr>';}}},0);
       }
       if(!remoteResult){bodyHost.innerHTML='<tr><td colspan="10" class="empty">Carregando equipamentos…</td></tr>';return;}

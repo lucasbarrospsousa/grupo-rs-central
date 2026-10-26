@@ -7,6 +7,7 @@ const natural=x=>`array(select case when part[1] ~ '^[0-9]+$' then lpad(ltrim(pa
 const identifier=x=>`regexp_replace(upper(coalesce(${x},'')),'[\\s-]','','g')`;
 const batchMatch=(serial,plate,identification,token)=>`(${serial}=${token} or (${identifier(token)}<>'' and (${identifier(plate)}=${identifier(token)} or ${identifier(identification)}=${identifier(token)})))`;
 export function deviceSqlQuery(branch,params,options){
+ const size=params.get('scope')==='lookup'?10:50;
  const lookup=params.get('scope')==='lookup',maintenance=lookup&&params.get('mode')==='maintenance',query=lookup?params.get('query')||'':options.query;
  if(query.length>16000)throw Object.assign(Error('Busca muito longa.'),{status:400});
  const batch=!lookup&&/[;\r\n]/.test(query),wanted=[...new Set(query.split(/[;\r\n]+/).map(s=>s.trim()).filter(Boolean))];
@@ -31,8 +32,8 @@ export function deviceSqlQuery(branch,params,options){
  from central_homologacao.devices d ${connectivity||ignition?'left join central_homologacao.device_observations o on o.device_id=d.id':''}
  where d.branch_id=$1 and d.deleted_at is null
  ), filtered as materialized (select * from inventory where matched and ($12='all' or ignition_state=$12) and ${lookup?"($9='' or client=$9)":"($5='Todos' or visible_status=$5) and (($6='' and $7='') or (product_date<>'' and ($6='' or product_date>=$6) and ($7='' or product_date<=$7)))"}),
- totals as (select count(*)::int as total from filtered), paging as (select total,least($8::int,greatest(1,ceil(total::numeric/10)::int)) as page from totals),
- selected as (select *,row_number() over(order by ${order}) as ordinal from filtered order by ${order} limit (case when $10::boolean then null else 10 end) offset (case when $10::boolean then 0 else (select (page-1)*10 from paging) end))
+ totals as (select count(*)::int as total from filtered), paging as (select total,least($8::int,greatest(1,ceil(total::numeric/${size})::int)) as page from totals),
+ selected as (select *,row_number() over(order by ${order}) as ordinal from filtered order by ${order} limit (case when $10::boolean then null else ${size} end) offset (case when $10::boolean then 0 else (select (page-1)*${size} from paging) end))
  select total,page,
  coalesce((select jsonb_agg(to_jsonb(d)||jsonb_build_object('observation',o.data,'checked_at',o.checked_at) order by s.ordinal) from selected s join central_homologacao.devices d on d.id=s.id and d.branch_id=$1 and d.deleted_at is null left join central_homologacao.device_observations o on o.device_id=d.id),'[]') as rows,
  (select count(*)::int from inventory where matched) as found,
