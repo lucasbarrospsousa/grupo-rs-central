@@ -1,0 +1,19 @@
+import {fileURLToPath} from 'node:url';
+import {createServer} from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import assert from 'node:assert/strict';
+const {chromium}=createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE||'playwright');
+const root=fileURLToPath(new URL('./public',import.meta.url));
+const rows=Array.from({length:100},(_,i)=>({id:'d'+i,serial:String(24000000+i),status:'Estoque',carrier:'Teste'}));
+const user={username:'teste',csrf:'mock',branches:[{id:'a',name:'Teste'}],permissions:{views:['overview','stock']},dashboard:[],tracking:[{branch:{id:'a',name:'Teste'},rows}]};
+const calls=[];let external=0;
+const server=createServer(async(req,res)=>{try{res.setHeader('Content-Type',req.url.endsWith('.js')?'text/javascript':req.url.endsWith('.css')?'text/css':'text/html');res.end(await readFile(root+(req.url==='/'?'/index.html':req.url)));}catch{res.statusCode=404;res.end();}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true,channel:'chrome'});
+try{const p=await browser.newPage();await p.clock.install();let revoked=false;await p.route('**/*',async route=>{const u=new URL(route.request().url());if(u.hostname!=='127.0.0.1'){external++;return route.abort();}if(!u.pathname.startsWith('/api/'))return route.continue();if(u.pathname==='/api/access'&&revoked)return route.fulfill({status:403,json:{error:'revoked'}});if(u.pathname==='/api/live'){const b=route.request().postDataJSON();calls.push(b.serial);return route.fulfill({json:{serial:b.serial,branch:b.branch,saved:true,live:{location:{ok:true},chip:{ok:true,connectivity:'Online'}}}});}return route.fulfill({json:user});});await p.goto('http://127.0.0.1:'+server.address().port);await p.locator('#nav-tracking').click();await p.locator('#refresh-page').click();
+const settled=()=>p.waitForFunction(()=>!!monitorWake);await settled();assert.equal(calls.length,1);await p.locator('#nav-dashboard').click();await p.clock.runFor(10000);await settled();assert.equal(calls.length,2);
+await p.locator('#nav-tracking').click();await p.locator('#next-page').click();await p.clock.runFor(10000);await settled();assert.equal(calls[2],rows[50].serial);
+for(let i=1;i<50;i++){await p.clock.runFor(10000);await settled();assert.equal(calls[2+i],rows[50+i].serial);}
+assert.deepEqual(calls.slice(2),rows.slice(50).map(r=>r.serial));assert.match(await p.locator('#live-progress').textContent(),/Rodada concluída/);const n=calls.length;await p.locator('#nav-dashboard').click();await p.clock.runFor(29999);assert.equal(calls.length,n);await p.clock.runFor(1);await settled();assert.equal(calls.length,n+1);assert.equal(calls.at(-1),rows[50].serial);
+await p.locator('#nav-tracking').click();await p.locator('#device-search').fill('24000099');await p.clock.runFor(10000);await settled();assert.equal(calls.at(-1),rows[99].serial);await p.locator('#refresh-page').click();await p.waitForFunction(()=>!liveRunning);const paused=calls.length;await p.clock.runFor(60000);assert.equal(calls.length,paused);
+await p.locator('#refresh-page').click();await settled();revoked=true;await p.evaluate(()=>lastValidated=0);const beforeRevoke=calls.length;await p.clock.runFor(30000);await p.locator('#login').waitFor();assert.equal(calls.length,beforeRevoke);await p.clock.runFor(60000);assert.equal(calls.length,beforeRevoke);assert.equal(external,0);console.log('PASS: 50 unique current-page queries; pending old queue replaced; dashboard continues; repeat at 30s not before; filters retarget; pause and revoked access stop; zero external calls.');}finally{await browser.close();server.close();}
