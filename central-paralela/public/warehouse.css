@@ -49,3 +49,25 @@ body:has(#warehouse-content:not([hidden])) .top{margin-bottom:18px}
 /* Ilustrações completas, sem cortar as pilhas de chips. */
 @media(min-width:761px){.wh-metric .wh-product{width:84px;height:80px;background-position:-487px -310px;mask-image:radial-gradient(ellipse,#000 68%,transparent 82%)}.wh-metric .wh-product-1{background-position:-808px -310px}.wh-metric .wh-product-2{background-position:-1130px -310px}.wh-metric .wh-product-3{background-position:-1454px -310px}.wh-metric .wh-product.is-device{background-position:center}.wh-metric-icon{width:42px}.wh-metric>div{min-width:0}#warehouse-content .wh-metrics .card.wh-metric{gap:10px}}
 .wh-value-icon{width:64px;background-position-x:-304px}.wh-vi-1{background-position-x:-628px}.wh-vi-2{background-position-x:-950px}.wh-vi-3{background-position-x:-1270px}
+/* Correção visual dos cards de chips e pictogramas do menu (referência aprovada). */
+#warehouse-content[data-view=chips] .wh-metrics .card.wh-metric{min-height:84px;height:84px;padding:12px 14px;gap:14px;border-radius:10px}
+#warehouse-content[data-view=chips] .wh-metric>div{font-size:12px;line-height:1.3}
+#warehouse-content[data-view=chips] .wh-metric strong{font-size:24px;margin-top:5px;line-height:1.1}
+#warehouse-content[data-view=chips] .wh-metric-icon{display:block;width:36px;height:36px;border-radius:8px;background-size:1280px 800px;background-position:-248px -250px}
+#warehouse-content[data-view=chips] .wh-mi-1{background-position:-504px -250px}
+#warehouse-content[data-view=chips] .wh-mi-2{background-position:-760px -250px}
+#warehouse-content[data-view=chips] .wh-mi-3{background-position:-1018px -250px}
+#warehouse-content[data-view=chips] .wh-product{display:block;width:72px;height:64px;background-size:1280px 800px;background-position:-389.6px -248px;border-radius:0;mask-image:none}
+#warehouse-content[data-view=chips] .wh-product-1{background-position:-646.4px -248px}
+#warehouse-content[data-view=chips] .wh-product-2{background-position:-904px -248px}
+#warehouse-content[data-view=chips] .wh-product-3{background-position:-1163.2px -248px}
+#nav-warehouse-devices .loc-icon,#nav-warehouse-values .loc-icon{width:28px;height:30px;background-image:url('/assets/warehouse-chips.png');background-size:1600px 1000px;background-repeat:no-repeat;mix-blend-mode:screen}
+#nav-warehouse-devices .loc-icon{background-position:-29px -483px}
+#nav-warehouse-values .loc-icon{background-position:-29px -532px}
+#nav-warehouse-chips[aria-current=page] .loc-icon{filter:sepia(1) saturate(8) hue-rotate(350deg)}
+#warehouse-separator{border-top:1px solid #23313b;padding-top:22px;margin-top:22px}
+@media(max-width:760px){#warehouse-content[data-view=chips] .wh-metrics .card.wh-metric{height:auto;min-height:84px;gap:8px;padding:10px}#warehouse-content[data-view=chips] .wh-metric-icon{display:none}#warehouse-content[data-view=chips] .wh-product{transform:scale(.8);transform-origin:right center;width:64px}}
+#warehouse-content[data-view=chips] .wh-metric-icon{width:40px;height:40px;flex:0 0 40px;background-position-y:-249px}
+#warehouse-content[data-view=chips] .wh-product{width:76px;flex:0 0 76px;mask-image:radial-gradient(ellipse,#000 63%,transparent 85%)}
+#nav-warehouse-devices .loc-icon,#nav-warehouse-values .loc-icon{flex:0 0 28px;mask-image:radial-gradient(ellipse,#000 55%,transparent 78%)}
+@media(max-width:760px){#warehouse-content[data-view=chips] .wh-product{flex-basis:60px;width:60px}}
