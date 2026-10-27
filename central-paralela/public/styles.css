@@ -139,15 +139,15 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 /* Approved dashboard/tracking artwork. Buttons and headings stay native. */
 .operation-hero:not(.maintenance-hero){position:relative;overflow:hidden;min-height:245px;background:#07192b;border:1px solid rgba(245,165,60,.4);border-radius:18px;isolation:isolate}
 .operation-hero:not(.maintenance-hero):before{content:"";position:absolute;inset:0 0 0 38%;z-index:0;background:url('/assets/operation-heroes.png') no-repeat 100% 96%;background-size:auto 218%;mask-image:linear-gradient(90deg,transparent 0%,#000 24%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 24%);pointer-events:none}
-.operation-hero.compact:not(.maintenance-hero){min-height:120px;padding:20px 32px;border:1px solid rgba(56,152,255,.35);border-radius:16px;margin-bottom:18px}
-.operation-hero.compact:not(.maintenance-hero):before{background-position:100% 4%;background-size:auto 218%}
+.operation-hero.compact:not(.maintenance-hero){min-height:126px;padding:22px 32px;border:1px solid rgba(56,152,255,.35);border-radius:16px;margin-bottom:18px}
+.operation-hero.compact:not(.maintenance-hero):before{inset:2px 0 2px 35%;background-position:100% 0;background-size:auto 196%;mask-image:linear-gradient(90deg,transparent 0%,#000 20%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 20%)}
 .operation-hero.compact .eyebrow{display:none!important}
 .operation-hero.compact h1{font-size:28px;margin:0 0 6px;font-weight:800}
 .operation-hero.compact p{margin:0;font-size:13.5px;color:#9eb2c8}
 .operation-hero:not(.maintenance-hero) .hero-device{display:none}
 .operation-hero:not(.maintenance-hero) .hero-copy{max-width:55%;position:relative;z-index:1}
 .operation-hero:not(.maintenance-hero) h1{font-weight:800}
-@media(max-width:760px){.operation-hero:not(.maintenance-hero){min-height:360px;align-items:flex-start;padding:24px}.operation-hero:not(.maintenance-hero) .hero-copy{max-width:100%}.operation-hero:not(.maintenance-hero):before{inset:200px 0 0 0;background-size:auto 218%;mask-image:linear-gradient(90deg,transparent,#000 18%)}.operation-hero.compact:not(.maintenance-hero){min-height:260px}}
+@media(max-width:760px){.operation-hero:not(.maintenance-hero){min-height:360px;align-items:flex-start;padding:24px}.operation-hero:not(.maintenance-hero) .hero-copy{max-width:100%}.operation-hero:not(.maintenance-hero):before{inset:200px 0 0 0;background-size:auto 218%;mask-image:linear-gradient(90deg,transparent,#000 18%)}.operation-hero.compact:not(.maintenance-hero){min-height:260px}.operation-hero.compact:not(.maintenance-hero):before{inset:110px 0 0 0;background-position:100% 0;background-size:auto 196%}}
 
 #refresh{background:#171c24!important;border:1px solid rgba(245,165,60,.5)!important;border-radius:8px!important;color:#f1f5f9!important;height:38px!important;min-height:38px!important;padding:0 14px!important;font-size:13px!important;font-weight:600!important;box-shadow:none!important;display:inline-flex!important;align-items:center!important;gap:8px!important}
 #refresh .art-refresh{width:22px!important;height:22px!important;background:#ff8c00 url('/assets/ui-artwork.png') no-repeat -668px -68px!important;border-radius:5px!important;display:inline-block!important;flex:0 0 22px!important}
