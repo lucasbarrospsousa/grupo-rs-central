@@ -1,6 +1,8 @@
 import {digest,decryptUsers,passwordMatches,randomToken} from './auth-crypto.mjs';
 import {Buffer} from 'node:buffer';
 import {verifyImport} from './maintenance-import.mjs';
+import {maintenance} from './maintenance.mjs';
+import {warehouse} from './warehouse.mjs';
 export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard,driveUsers} from './drive.mjs';
 export {AuthService} from './auth.mjs';
@@ -156,6 +158,36 @@ export default {
         if(jobs&&!user.permissions?.owner)return error(403,'Somente administrador.');
         if(!jobs&&!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
         if(!env.OPERATIONS||(!jobs&&!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
+        if(maint){
+          try{
+            return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/maintenance',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input,user})})));
+          }catch(e){
+            if(/free tier|duration|Durable Object/i.test(e.message||'')){
+              try {
+                const res = await maintenance({input, user, config: JSON.parse(env.DRIVE_CONFIG||'null')});
+                return secure(Response.json(res));
+              } catch(me) {
+                return error(me.status || 500, me.message);
+              }
+            }
+            throw e;
+          }
+        }
+        if(wh){
+          try{
+            return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/warehouse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input,user})})));
+          }catch(e){
+            if(/free tier|duration|Durable Object/i.test(e.message||'')){
+              try {
+                const res = await warehouse({input, user, config: JSON.parse(env.DRIVE_CONFIG||'null')});
+                return secure(Response.json(res));
+              } catch(we) {
+                return error(we.status || 500, we.message);
+              }
+            }
+            throw e;
+          }
+        }
         return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)})));
       }
       if(response.ok&&(tracking||dashboard||['/api/login','/api/session'].includes(url.pathname))&&env.OPERATIONS){
@@ -190,7 +222,7 @@ export default {
         const tasks=[];
         if(user.branches?.length){const config=JSON.parse(env.DRIVE_CONFIG||'null'),ids=user.branches.map(b=>b.id);
           if(user.permissions?.views?.includes('overview')&&!user.permissions?.views?.includes('stock'))tasks.push(driveDashboards(config,ids).then(rows=>{user.dashboard=rows;}).catch(()=>{user.dashboardError='Cópia do painel indisponível. Recarregue para tentar novamente.';}));
-          const stock=user.permissions?.views?.includes('stock'),warehouse=user.permissions?.views?.includes('warehouse'); if(stock||warehouse)tasks.push(driveTracking(config,ids,fetch,{stock,warehouse,owner:user.permissions?.owner===true}).then(rows=>{if(warehouse)user.warehouse=rows.map(r=>r.warehouse);if(stock){user.tracking=rows.map(({warehouse,...r})=>r);if(user.permissions?.views?.includes('overview'))user.dashboard=user.tracking.map(trackingDashboard);}}).catch(()=>{user.trackingError='Cópia dos aparelhos indisponível. Recarregue para tentar novamente.';}));
+          const stock=user.permissions?.views?.includes('stock'),warehouse=user.permissions?.views?.includes('warehouse'),maint=user.permissions?.views?.includes('maintenance'); if(stock||warehouse||maint)tasks.push(driveTracking(config,ids,fetch,{stock,warehouse,maintenance:maint,owner:user.permissions?.owner===true}).then(rows=>{if(warehouse)user.warehouse=rows.map(r=>r.warehouse);if(maint){user.maintenance={};for(const r of rows)user.maintenance[r.branch.id]=r.maintenance||[];}if(stock){user.tracking=rows.map(({warehouse,maintenance,...r})=>r);if(user.permissions?.views?.includes('overview'))user.dashboard=user.tracking.map(trackingDashboard);}}).catch(()=>{user.trackingError='Cópia dos aparelhos indisponível. Recarregue para tentar novamente.';}));
         }
         await Promise.all(tasks);
         return secure(new Response(JSON.stringify(user),{status:response.status,headers:response.headers}));
