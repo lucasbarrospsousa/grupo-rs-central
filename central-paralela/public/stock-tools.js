@@ -1,5 +1,6 @@
 'use strict';
 const stockSelected=new Set();let stockSort='',stockDirection=1,stockBusy=false,stockToken=0,stockBatchCancel=false;
+let analysisState=null;
 const stockDialog=document.querySelector('#stock-dialog');
 const stockWritable=()=>session?.permissions?.owner===true||session?.permissions?.writes?.includes('stock');
 const smsWritable=()=>session?.permissions?.owner===true||session?.permissions?.writes?.includes('sms');
@@ -27,7 +28,7 @@ secondary.addEventListener('click',e=>{if(e.target.closest('button'))secondary.o
 document.addEventListener('click',e=>{if(!secondary.contains(e.target))secondary.open=false;});
 secondary.addEventListener('keydown',e=>{if(e.key==='Escape'){secondary.open=false;secondary.querySelector('summary').focus();}});
 $('#device-search').placeholder='Buscar associado, placa, série, telefone, ICCID ou operadora';
-function resetStockTools(){if(typeof closeLocationView==='function')closeLocationView();stockToken++;stockBusy=false;stockBatchCancel=true;stockSelected.clear();stockDialog.close();$('#stock-dialog-body').replaceChildren();$('#stock-feedback').textContent='';}
+function resetStockTools(){if(typeof closeLocationView==='function')closeLocationView();stockToken++;analysisState=null;stockBusy=false;stockBatchCancel=true;stockSelected.clear();stockDialog.close();$('#stock-dialog-body').replaceChildren();$('#stock-feedback').textContent='';}
 function clearStockFilters(){for(const id of ['stock-start','stock-end'])$('#'+id).value='';$('#stock-ignition').value='all';stockSort='';}
 function stockFilter(all){
  const scoped=all.filter(r=>branch.value==='all'||r.branch===branch.value),q=$('#device-search').value.trim(),batch=/[;\r\n]/.test(q),tokens=[...new Set(q.split(/[;\r\n]+/).map(x=>x.trim()).filter(Boolean))];
@@ -101,20 +102,26 @@ $('#device-rows').addEventListener('keydown',e=>{if(e.target.matches('[data-open
 function selectedRows(){const list=stockSelected.size?devices.filter(r=>stockSelected.has(r.id)&&(branch.value==='all'||r.branch===branch.value)):filtered.slice((page-1)*50,page*50);if(list.length>50)throw Error('Selecione até 50 aparelhos por lote.');return list;}
 async function batchRead(action){if(stockBusy)return;scopedBranch();stopMonitor();const list=selectedRows(),token=stockToken;stockBusy=true;const results=[];try{for(const r of list){if(token!==stockToken||!session)break;$('#stock-feedback').textContent='Conferindo '+(results.length+1)+' de '+list.length;if(action==='analyze'&&$('#analysis-progress'))$('#analysis-progress').textContent=$('#stock-feedback').textContent;try{const v=await inv(action,r);results.push({row:r,...v});}catch(e){results.push({row:r,error:e.message});}if(results.length<list.length)await new Promise(resolve=>setTimeout(resolve,10000));}return results;}finally{stockBusy=false;}}
 $('#stock-update').onclick=()=>safe(async()=>{const result=await batchRead('refresh-equipment');if(result)$('#stock-feedback').textContent=result.filter(r=>!r.error).length+' atualizados · '+result.filter(r=>r.error).length+' pendentes.';});
+function drawAnalysis(){
+ const st=analysisState;if(!st||!$('#analysis-results'))return;
+ $('#analysis-progress').textContent=st.results.length+' de '+st.rows.length+' conferidos'+(st.running?' · Análise em andamento':st.cancel?' · Pausada':' · Concluída');
+ $('#analysis-meter').value=st.results.length;$('#analysis-meter').max=Math.max(1,st.rows.length);
+ $('#analysis-start').disabled=stockBusy;$('#analysis-branch').disabled=st.running;$('#analysis-stop').disabled=!st.running;
+ $('#analysis-results').innerHTML=st.results.map((x,i)=>'<article class="analysis-item"><div><strong>'+esc(x.row.serial)+'</strong><small>'+esc(x.row.identification||'Sem identificação')+'</small></div><div><span class="analysis-status '+(x.done?'done':x.result?.ok?'ready':'')+'">'+(x.done?'Baixa registrada':x.result?.ok?'Pronto para revisão':'Conferir')+'</span><p>'+esc(x.error||x.result?.message||'Sem confirmação')+'</p></div><div class="analysis-action">'+(x.result?.ok&&!x.done?'<label>Placa confirmada<strong>'+esc(x.result.plate||'—')+'</strong></label><button data-analysis-review="'+i+'" '+(x.saving?'disabled':'')+'>'+ (x.review?'Cancelar revisão':'Revisar baixa')+'</button>'+(x.review?'<p>Registrar instalação deste aparelho nesta placa?</p><button class="primary" data-analysis-save="'+i+'" '+(x.saving?'disabled':'')+'>'+(x.saving?'Salvando…':'Confirmar baixa')+'</button>':''):'')+'</div></article>').join('');
+ $('#analysis-results').querySelectorAll('[data-analysis-review]').forEach(b=>b.onclick=()=>{const x=st.results[+b.dataset.analysisReview];x.review=!x.review;drawAnalysis();});
+ $('#analysis-results').querySelectorAll('[data-analysis-save]').forEach(b=>b.onclick=async()=>{const x=st.results[+b.dataset.analysisSave];if(x.saving||x.done||!stockWritable())return;x.saving=true;drawAnalysis();try{await inv('install',x.row,{key:x.key,confirmed:true,plate:x.result.plate});if(analysisState!==st)return;x.done=true;x.review=false;x.error='';}catch(e){x.error=e.message;}finally{x.saving=false;if(analysisState===st)drawAnalysis();}});
+}
 $('#stock-analyze').onclick=()=>{
  if(!stockWritable())return;
- modal('Análise de baixa','<p>Confira os aparelhos selecionados ou os 50 da página atual. Nenhuma baixa é aplicada automaticamente.</p><label>Filial<select id="analysis-branch">'+session.branches.map(b=>'<option value="'+esc(b.id)+'" '+(branch.value===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select></label><button id="analysis-start" class="primary">Iniciar análise</button><p id="analysis-progress" role="status"></p><div id="analysis-results"></div>');
- $('#analysis-start').disabled=stockBusy;
- if(stockBusy)$('#analysis-progress').textContent='Aguarde a operação em andamento e abra novamente.';
- $('#analysis-start').onclick=e=>{const button=e.currentTarget;button.disabled=true;safe(async()=>{
-  const chosen=$('#analysis-branch').value;if(branch.value!==chosen){branch.value=chosen;branch.dispatchEvent(new Event('change'));}
-  const output=$('#analysis-results'),progress=$('#analysis-progress'),token=stockToken;
-  progress.textContent='Iniciando conferência…';
-  const result=await batchRead('analyze');if(!result||token!==stockToken||!output.isConnected)return;
-  progress.textContent=result.length?result.length+' aparelhos conferidos.':'Nenhum aparelho nesta seleção.';
-  output.innerHTML=result.map((x,i)=>'<div class="analysis-row"><strong>'+esc(x.row.serial)+'</strong><span>'+esc(x.error||x.result?.message||'Sem confirmação')+' · '+esc(x.result?.plate||'')+'</span>'+(x.result?.ok?'<button data-apply-analysis="'+i+'">Revisar baixa</button>':'')+'</div>').join('');
-  output.querySelectorAll('[data-apply-analysis]').forEach(b=>b.onclick=()=>{const r=result[+b.dataset.applyAnalysis];confirmAction('install',{...r.row,plate:r.result.plate});});
- }).finally(()=>{if(button.isConnected)button.disabled=false;});};
+ modal('Análise de baixa','<p>Resultados aparecem durante a consulta. Revise cada placa antes de confirmar a baixa.</p><div class="analysis-controls"><label>Filial<select id="analysis-branch">'+session.branches.map(b=>'<option value="'+esc(b.id)+'" '+((analysisState?.branch||branch.value)===b.id?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select></label><button id="analysis-start" class="primary">'+(analysisState?'Nova análise da seleção':'Iniciar análise')+'</button><button id="analysis-stop" disabled>Pausar consultas</button></div><p id="analysis-progress" role="status"></p><progress id="analysis-meter" value="0" max="1"></progress><div id="analysis-results"></div>');
+ $('#analysis-start').disabled=stockBusy;drawAnalysis();
+ $('#analysis-stop').onclick=()=>{if(analysisState){analysisState.cancel=true;$('#analysis-stop').disabled=true;$('#analysis-progress').textContent='Pausa solicitada. A consulta atual será preservada.';}};
+ $('#analysis-start').onclick=()=>safe(async()=>{
+ if(stockBusy)return;const chosen=$('#analysis-branch').value;if(branch.value!==chosen){branch.value=chosen;branch.dispatchEvent(new Event('change'));}
+ const st={branch:chosen,rows:selectedRows().map(r=>({...r})),results:[],running:true,cancel:false};analysisState=st;stockBusy=true;stopMonitor();const token=stockToken;drawAnalysis();
+ try{for(const row of st.rows){if(st.cancel||token!==stockToken||!session)break;const started=Date.now();let result;try{result={row,...await inv('analyze',row),key:crypto.randomUUID()};}catch(e){result={row,error:e.message};}if(token!==stockToken||analysisState!==st)break;st.results.push(result);drawAnalysis();if(st.results.length<st.rows.length&&!st.cancel)await new Promise(r=>setTimeout(r,Math.max(0,10000-(Date.now()-started))));}}
+ finally{st.running=false;if(token===stockToken){stockBusy=false;drawAnalysis();}}
+ });
 };
 $('#stock-link-selected').onclick=()=>safe(async()=>{
  if(stockBusy)throw Error('Aguarde a operação em andamento.');scopedBranch();const list=selectedRows();if(!list.length)return;stopMonitor();
