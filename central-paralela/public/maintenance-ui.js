@@ -6,18 +6,46 @@ const maintenanceOptions={vehicleType:['Não informado','Motocicleta','Automóve
 const maintenanceWritable=()=>session?.permissions?.owner||session?.permissions?.writes?.includes('maintenance');
 function resetMaintenance(){maintenanceEpoch++;maintenanceCache.clear();maintenancePending=null;maintenanceRoot.replaceChildren();maintenanceRoot.hidden=true;document.querySelector('#maintenance-dialog')?.remove();}
 function maintenanceRows(){const q=stockNormalize(maintenanceFilters.search);return [...maintenanceCache].filter(([id])=>branch.value==='all'||id===branch.value).flatMap(([id,rows])=>rows.map(r=>({...r,branch:id}))).filter(r=>(!maintenanceFilters.month||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit'}).format(new Date(r.entry))===maintenanceFilters.month)&&(!maintenanceFilters.model||r.trackerModel===maintenanceFilters.model)&&(!q||[r.client,r.plate,r.currentSerial,r.reason,r.cause,r.observation].some(v=>stockNormalize(v).includes(q)))).sort((a,b)=>b.entry.localeCompare(a.entry));}
+async function prefetchMaintenance(){
+ if(!session?.permissions?.views?.includes('maintenance')||maintenancePending)return;
+ const missing=session.branches.filter(b=>!maintenanceCache.has(b.id));
+ if(!missing.length)return;
+ const epoch=maintenanceEpoch;maintenancePending=true;
+ try{
+  await Promise.all(missing.map(async b=>{
+   for(let n=0;n<4;n++){
+    try{
+     const data=await api('maintenance',{action:'list',branch:b.id});
+     if(epoch===maintenanceEpoch&&session&&data?.rows)maintenanceCache.set(b.id,data.rows);
+     break;
+    }catch(e){if(e.status!==429||n===3)break;await new Promise(r=>setTimeout(r,1300));}
+   }
+  }));
+ }catch{}
+ finally{if(epoch===maintenanceEpoch)maintenancePending=null;if(currentTab==='maintenance')drawMaintenance();}
+}
 async function showMaintenance(){
  if(!session?.permissions?.views?.includes('maintenance'))return;
  currentTab='maintenance';content.hidden=true;$('#tracking-content').hidden=true;maintenanceRoot.hidden=false;$('.operation-hero').classList.add('compact','maintenance-hero');$('#hero-actions').hidden=true;
  $('#crumb').textContent='Manutenções';$('#page-title').textContent='Manutenções';$('#page-description').textContent='Situações, soluções e histórico dos aparelhos.';status.textContent='';
  document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab==='maintenance')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  const missing=session.branches.filter(b=>!maintenanceCache.has(b.id));
- if(!missing.length){drawMaintenance();return;}
- maintenanceRoot.innerHTML='<div class="card"><p role="status">Carregando registros salvos…</p></div>';
+ if(maintenanceCache.size)drawMaintenance();
+ if(!missing.length)return;
+ if(!maintenanceCache.size)maintenanceRoot.innerHTML='<div class="card"><p role="status">Carregando registros salvos…</p></div>';
  if(maintenancePending)return;
  const epoch=maintenanceEpoch;maintenancePending=true;
- try{for(const b of missing){let data;for(let n=0;n<4;n++){try{data=await api('maintenance',{action:'list',branch:b.id});break;}catch(e){if(e.status!==429||n===3)throw e;await new Promise(r=>setTimeout(r,1300));}}if(epoch!==maintenanceEpoch||!session)return;maintenanceCache.set(b.id,data.rows);}
- if(currentTab==='maintenance')drawMaintenance();
+ try{
+  await Promise.all(missing.map(async b=>{
+   for(let n=0;n<4;n++){
+    try{
+     const data=await api('maintenance',{action:'list',branch:b.id});
+     if(epoch===maintenanceEpoch&&session&&data?.rows)maintenanceCache.set(b.id,data.rows);
+     break;
+    }catch(e){if(e.status!==429||n===3)break;await new Promise(r=>setTimeout(r,1300));}
+   }
+  }));
+  if(currentTab==='maintenance')drawMaintenance();
  }catch(e){if(epoch===maintenanceEpoch){maintenanceRoot.innerHTML='<div class="card"><p role="alert">'+esc(e.message)+'</p><button id="maintenance-retry">Tentar novamente</button></div>';$('#maintenance-retry').onclick=showMaintenance;}}
  finally{if(epoch===maintenanceEpoch)maintenancePending=null;}
 }
