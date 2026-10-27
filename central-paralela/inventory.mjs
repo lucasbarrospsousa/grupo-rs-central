@@ -24,7 +24,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
  if(!['create'].includes(action)&&!row)fail(404,'Aparelho não encontrado nesta filial.');
  if(action.startsWith('swap-'))return swapInventory({action,input:b,user,doc,row,service});
  if(action==='sms-template'){if(!(user.permissions.owner||user.permissions.writes?.includes('sms')))fail(403,'Sem permissão de SMS.');return standardSms(row.serial,row.apn);}
- if(action==='analyze'){const result=await service.binding(b.branch,row.serial);return {result};}
+ if(action==='analyze'){if(row.status!=='Estoque'||(data.branch?.id&&data.branch.id!==b.branch))fail(409,'A análise de baixa só é permitida para aparelhos em Estoque da filial selecionada.');const result=await service.binding(b.branch,row.serial);return {result};}
  const version=Number(row?.version||1);
  if(!reads.includes(action)&&action!=='create'&&Number(b.version)!==version)fail(409,'Cadastro mudou. Recarregue antes de continuar.');
  if(action==='link-preview'){
@@ -54,7 +54,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
   result=row||{id:crypto.randomUUID(),serial,created_at:now,version:0};Object.assign(result,valuesSafe,{status:values.status});if(!row)data.rows.push(result);
  }else if(action==='delete'){if(b.confirmed!==true)fail(400,'Confirme a exclusão.');row.deleted_at=now;}
  else if(action==='install'){
-  if(!['Estoque','Reserva','Manutenção'].includes(row.status))fail(409,'Situação não permite baixa.');
+  if(row.status!=='Estoque'||(data.branch?.id&&data.branch.id!==b.branch))fail(409,'A baixa só é permitida para aparelhos em Estoque da filial selecionada.');
   if(b.confirmed!==true)fail(400,'Confirme a baixa.');const plate=clean(b.plate).toUpperCase().replace(/[\s-]/g,'');if(!/^[A-Z]{3}\d[A-Z\d]\d{2}$/.test(plate))fail(400,'Placa inválida.');
   row.plate=plate;row.status='Instalado';row.installed_at=now;
  }else if(action==='refresh-equipment'){
