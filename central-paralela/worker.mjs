@@ -1,7 +1,8 @@
-import {digest} from './auth-crypto.mjs';
+import {digest,decryptUsers,passwordMatches,randomToken} from './auth-crypto.mjs';
+import {Buffer} from 'node:buffer';
 import {verifyImport} from './maintenance-import.mjs';
 export {Operations} from './operations.mjs';
-import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard} from './drive.mjs';
+import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard,driveUsers} from './drive.mjs';
 export {AuthService} from './auth.mjs';
 const routes = new Map([['/api/jobs','POST'],['/api/users','POST'],['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
@@ -11,6 +12,83 @@ function secure(response) {
   return result;
 }
 const error = (status,message) => secure(Response.json({error:message},{status}));
+
+const fallbackSessions = new Map();
+async function sealSession(payload, secret) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const rawKey = await crypto.subtle.importKey('raw', Buffer.from(secret, 'hex'), 'AES-GCM', false, ['encrypt']);
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, rawKey, new TextEncoder().encode(JSON.stringify(payload)));
+  return Buffer.from(iv).toString('base64url') + '.' + Buffer.from(encrypted).toString('base64url');
+}
+
+async function unsealSession(token, secret) {
+  try {
+    const [ivStr, dataStr] = token.split('.');
+    if (!ivStr || !dataStr) return null;
+    const iv = Buffer.from(ivStr, 'base64url');
+    const data = Buffer.from(dataStr, 'base64url');
+    const rawKey = await crypto.subtle.importKey('raw', Buffer.from(secret, 'hex'), 'AES-GCM', false, ['decrypt']);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, rawKey, data);
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  } catch {
+    return null;
+  }
+}
+
+async function fallbackAuth(request, env, url, body) {
+  const now = Date.now();
+  const path = url.pathname;
+  if (path === '/api/login' && request.method === 'POST') {
+    let b;
+    try { b = JSON.parse(new TextDecoder().decode(body)); } catch { return Response.json({ error: 'JSON inválido.' }, { status: 400 }); }
+    if (!b || typeof b.username !== 'string' || !b.username.trim() || typeof b.password !== 'string' || !b.password) {
+      return Response.json({ error: 'Informe usuário e senha.' }, { status: 400 });
+    }
+    const username = b.username.trim().toLowerCase();
+    const config = JSON.parse(env.DRIVE_CONFIG || 'null');
+    const data = await decryptUsers(await driveUsers(config), env.AUTH_DATA_KEY);
+    const user = data.users.find(u => u.username === username);
+    const valid = passwordMatches(b.password, user?.password_hash);
+    b.password = '';
+    if (!valid || !user?.active) return Response.json({ error: 'Usuário ou senha inválidos.' }, { status: 401 });
+    const csrf = randomToken(), sid = randomToken();
+    const token = await sealSession({ id: user.id, username: user.username, branches: user.branches, permissions: user.permissions, csrf, expires: now + 12 * 3600 * 1000 }, env.AUTH_DATA_KEY);
+    fallbackSessions.set(digest(sid), { user, csrf, expires: now + 12 * 3600 * 1000 });
+    const respHeaders = new Headers({ 'Cache-Control': 'no-store' });
+    respHeaders.append('Set-Cookie', 'parallel_drive_session=' + sid + '; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200');
+    respHeaders.append('Set-Cookie', 'parallel_drive_sealed=' + token + '; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200');
+    return new Response(JSON.stringify({ csrf, username: user.username, branches: user.branches, permissions: user.permissions, environment: 'drive-experimental' }), {
+      status: 200,
+      headers: respHeaders
+    });
+  }
+  const cookies = (request.headers.get('cookie') || '').split(';').map(x => x.trim());
+  const sealed = cookies.find(x => x.startsWith('parallel_drive_sealed='))?.split('=')[1];
+  let s = sealed ? await unsealSession(sealed, env.AUTH_DATA_KEY) : null;
+  if (!s) {
+    const sid = cookies.find(x => /^parallel_drive_session=[a-f0-9]{64}$/.test(x))?.split('=')[1];
+    if (sid) {
+      const cached = fallbackSessions.get(digest(sid));
+      if (cached && cached.expires > now) s = { ...cached.user, csrf: cached.csrf, expires: cached.expires };
+    }
+  }
+  if (!s || s.expires <= now) return Response.json({ error: 'Entre no sistema para continuar.' }, { status: 401 });
+  if (path === '/api/logout' && request.method === 'POST') {
+    const respHeaders = new Headers();
+    respHeaders.append('Set-Cookie', 'parallel_drive_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0');
+    respHeaders.append('Set-Cookie', 'parallel_drive_sealed=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0');
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: respHeaders });
+  }
+  return Response.json({
+    username: s.username,
+    branches: s.branches,
+    permissions: s.permissions,
+    csrf: s.csrf,
+    lastActivityAt: new Date(now).toISOString(),
+    environment: 'drive-experimental'
+  }, { status: 200 });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -60,7 +138,16 @@ export default {
       const jobs=url.pathname==='/api/jobs',wh=url.pathname==='/api/warehouse',maint=url.pathname==='/api/maintenance',inventory=url.pathname==='/api/inventory',live=url.pathname==='/api/live'||inventory||maint||wh||jobs;
       const tracking=url.pathname==='/api/tracking',access=url.pathname==='/api/access',dashboard=url.pathname==='/api/dashboard',driveStatus=url.pathname==='/api/drive-status';
       const auth=env.AUTH.get(env.AUTH.idFromName('central-paralela-auth-v1'));
-      const response=await auth.fetch(new Request('https://auth.internal'+(live||tracking||access||driveStatus||dashboard?'/api/session':url.pathname),{method:live?'GET':request.method,headers,body:live?undefined:body}));
+      let response;
+      try {
+        response = await auth.fetch(new Request('https://auth.internal'+(live||tracking||access||driveStatus||dashboard?'/api/session':url.pathname),{method:live?'GET':request.method,headers,body:live?undefined:body}));
+      } catch(e) {
+        if (/free tier|duration|Durable Object/i.test(e.message || '')) {
+          response = await fallbackAuth(request, env, url, body);
+        } else {
+          throw e;
+        }
+      }
       if(live){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
         const user=await response.json();
@@ -71,7 +158,14 @@ export default {
         if(!env.OPERATIONS||(!jobs&&!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
         return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)})));
       }
-      if(response.ok&&(tracking||dashboard||['/api/login','/api/session'].includes(url.pathname))&&env.OPERATIONS){const barrier=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/barrier',{method:'POST',body:'{}'}));if(!barrier.ok)return error(503,'Recuperação de gravação pendente. Tente novamente.');}
+      if(response.ok&&(tracking||dashboard||['/api/login','/api/session'].includes(url.pathname))&&env.OPERATIONS){
+        try {
+          const barrier=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/barrier',{method:'POST',body:'{}'}));
+          if(!barrier.ok)return error(503,'Recuperação de gravação pendente. Tente novamente.');
+        } catch(e) {
+          if (!/free tier|duration/i.test(e.message || '')) throw e;
+        }
+      }
       if(tracking){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
         const user=await response.json();if(!user.permissions?.views?.includes('stock'))return error(403,'Sem acesso ao estoque.');
