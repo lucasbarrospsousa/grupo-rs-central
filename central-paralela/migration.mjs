@@ -1,3 +1,4 @@
+import {applyDelta} from './cutover-delta.mjs';
 import {digest} from './auth-crypto.mjs';
 import {trackingDocument} from './drive.mjs';
 const fail=m=>{throw Object.assign(Error(m),{status:409});};
@@ -26,4 +27,4 @@ export function mergeMigration(data,input){
  }
  return {added,skipped,receipts:records.map(r=>({id:r.id,hash:receipts[section+':'+r.id]}))};
 }
-export async function importMigration(input,config){const doc=await trackingDocument(config,input.branch);if(input.action==='migration-verify')return {receipts:doc.data.migration?.receipts||{}};const result=mergeMigration(doc.data,input);await doc.save();return result;}
+export async function importMigration(input,config){const doc=await trackingDocument(config,input.branch);if(input.action==='migration-verify')return {receipts:doc.data.migration?.receipts||{}};const result=input.action==='migration-delta'?applyDelta(doc.data,input):mergeMigration(doc.data,input);await doc.save();const check=await trackingDocument(config,input.branch);if(JSON.stringify(check.data)!==JSON.stringify(doc.data))throw Error('Drive readback mismatch');return result;}
