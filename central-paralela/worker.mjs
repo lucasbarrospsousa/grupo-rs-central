@@ -96,7 +96,7 @@ export default {
         const tasks=[];
         if(user.branches?.length){const config=JSON.parse(env.DRIVE_CONFIG||'null'),ids=user.branches.map(b=>b.id);
           if(user.permissions?.views?.includes('overview')&&!user.permissions?.views?.includes('stock'))tasks.push(driveDashboards(config,ids).then(rows=>{user.dashboard=rows;}).catch(()=>{user.dashboardError='Cópia do painel indisponível. Recarregue para tentar novamente.';}));
-          if(user.permissions?.views?.includes('stock'))tasks.push(driveTracking(config,ids).then(rows=>{user.tracking=rows;if(user.permissions?.views?.includes('overview'))user.dashboard=rows.map(trackingDashboard);}).catch(()=>{user.trackingError='Cópia dos aparelhos indisponível. Recarregue para tentar novamente.';}));
+          const stock=user.permissions?.views?.includes('stock'),warehouse=user.permissions?.views?.includes('warehouse'); if(stock||warehouse)tasks.push(driveTracking(config,ids,fetch,{stock,warehouse,owner:user.permissions?.owner===true}).then(rows=>{if(warehouse)user.warehouse=rows.map(r=>r.warehouse);if(stock){user.tracking=rows.map(({warehouse,...r})=>r);if(user.permissions?.views?.includes('overview'))user.dashboard=user.tracking.map(trackingDashboard);}}).catch(()=>{user.trackingError='Cópia dos aparelhos indisponível. Recarregue para tentar novamente.';}));
         }
         await Promise.all(tasks);
         return secure(new Response(JSON.stringify(user),{status:response.status,headers:response.headers}));

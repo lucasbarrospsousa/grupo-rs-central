@@ -40,13 +40,13 @@ async function readDashboard(config,branch,read){
 export async function driveDashboards(config,branches,fetcher=fetch){if(!branches.length)return [];if(branches.every(b=>config?.tracking?.[b]))return (await driveTracking(config,branches,fetcher)).map(trackingDashboard);const {read}=await connect(config,fetcher);return Promise.all([...new Set(branches)].map(branch=>readDashboard(config,branch,read)));}
 export async function driveDashboard(config,branch,fetcher=fetch){return (await driveDashboards(config,[branch],fetcher))[0];}
 
-export async function driveTracking(config,branches,fetcher=fetch){
+export async function driveTracking(config,branches,fetcher=fetch,options={}){
  if(!branches.length)return [];const {read}=await connect(config,fetcher);
  return Promise.all([...new Set(branches)].map(async branch=>{
  const id=config?.tracking?.[branch];if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('TRACKING_MISSING');
  const meta=await read('files/'+id+'?fields=parents,shared,trashed,size');if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>20000000)throw Error('TRACKING_PRIVATE');
  const data=await read('files/'+id+'?alt=media');if(data.schemaVersion!==1||data.kind!=='tracking'||data.branch?.id!==branch||!Number.isFinite(Date.parse(data.copiedAt))||!Array.isArray(data.rows)||data.rows.length>20000)throw Error('TRACKING_INVALID');
- return {schemaVersion:1,branch:data.branch,copiedAt:data.copiedAt,source:'Google Drive',total:data.rows.filter(r=>!r.deleted_at).length,rows:data.rows.filter(r=>!r.deleted_at).map(r=>Object.fromEntries(['id','serial','identification','plate','model','carrier','status','installed_at','connectivity','checked_at','live','version','created_at','updated_at','phone','iccid','apn','owner_binding'].map(k=>[k,r[k]??null])))};
+ return {schemaVersion:1,branch:data.branch,copiedAt:data.copiedAt,source:'Google Drive',...(options.warehouse?{warehouse:{branch,rows:(data.warehouse?.rows||[]).filter(r=>!r.deleted_at),movements:data.warehouse?.movements||[],costs:options.owner===true?(data.warehouse?.costs||null):null}}:{}),total:data.rows.filter(r=>!r.deleted_at).length,rows:options.stock===false?[]:data.rows.filter(r=>!r.deleted_at).map(r=>Object.fromEntries(['id','serial','identification','plate','model','carrier','status','installed_at','connectivity','checked_at','live','version','created_at','updated_at','phone','iccid','apn','owner_binding'].map(k=>[k,r[k]??null])))};
  }));
 }
 

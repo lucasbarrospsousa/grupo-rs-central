@@ -37,3 +37,13 @@ test('tracking supports migrated documents above 12 MB but bounds reads and writ
  doc.data.padding='x'.repeat(20000001);assert.throws(()=>doc.save(),/TRACKING_LIMIT/);assert.equal(writes,1);
  size=20000001;await assert.rejects(trackingDocument(cfg,'a',f),/TRACKING_PRIVATE/);await assert.rejects(driveTracking(cfg,['a'],f),/TRACKING_PRIVATE/);
 });
+test('login reuses tracking reads for authorized warehouse and excludes costs for readers',async()=>{
+ const original=globalThis.fetch;let reads=0;
+ const payload={schemaVersion:1,kind:'tracking',branch:{id:'a'},copiedAt:new Date().toISOString(),rows:[{serial:'024000001'}],warehouse:{rows:[{id:'active'},{id:'deleted',deleted_at:'today'}],movements:[],costs:{total_cents:100},audit:[{secret:'private'}]}};
+ globalThis.fetch=async url=>url.includes('/files/tracking')?(url.includes('alt=media')?(reads++,Response.json(payload)):Response.json({parents:['folder'],size:200,shared:false})):mock()(url);
+ const run=async(views,owner)=>{const user={permissions:{views,owner},branches:[{id:'a'}]};const env={DRIVE_CONFIG:JSON.stringify({...config,tracking:{a:'tracking'}}),AUTH:{idFromName:x=>x,get:()=>({fetch:async()=>Response.json(user)})}};return (await worker.fetch(new Request('https://test.example/api/session'),env)).json();};
+ try{let u=await run(['stock','warehouse'],true);assert.equal(reads,1);assert.equal(u.warehouse[0].costs.total_cents,100);assert.equal(u.warehouse[0].audit,undefined);assert.equal(u.warehouse[0].rows.length,1);assert.equal(u.tracking[0].warehouse,undefined);
+ u=await run(['warehouse'],false);assert.equal(u.tracking,undefined);assert.equal(u.warehouse[0].costs,null);
+ u=await run(['stock'],true);assert.equal(u.warehouse,undefined);assert.equal(u.tracking[0].warehouse,undefined);
+ }finally{globalThis.fetch=original;}
+});
