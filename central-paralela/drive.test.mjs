@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {driveConnection,driveDashboard,driveTracking} from './drive.mjs';import worker from './worker.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {driveConnection,driveDashboard,driveTracking,trackingDocument} from './drive.mjs';import worker from './worker.mjs';
 const config={client_id:'test',client_secret:'secret',refresh_token:'refresh',folder_id:'folder',email:'owner@example.com'};
 const folder={name:'Private',mimeType:'application/vnd.google-apps.folder',ownedByMe:true,shared:false,capabilities:{canAddChildren:true}};
 function mock(overrides={}){return async url=>Response.json(url.includes('/token')?{access_token:'token'}:url.includes('/about')?{user:{emailAddress:overrides.email||config.email}}:{...folder,...overrides});}
@@ -25,4 +25,15 @@ test('tracking endpoint and bootstrap respect stock permission, not overview alo
  const original=globalThis.fetch;let calls=0;globalThis.fetch=async url=>{calls++;return mock()(url);};
  const make=user=>({AUTH:{idFromName:x=>x,get:()=>({fetch:async()=>Response.json(user)})}});
  try{for(const path of ['/api/tracking','/api/session']){const r=await worker.fetch(new Request('https://test.example'+path),make({permissions:{views:[]},branches:[{id:'a'}]}));assert.equal(r.status,path.endsWith('tracking')?403:200);if(r.status===200)assert.equal((await r.json()).tracking,undefined);}assert.equal(calls,0);const r=await worker.fetch(new Request('https://test.example/api/access'),make({username:'allowed',permissions:{views:['stock']},branches:[{id:'a'}]}));assert.equal(r.status,200);assert.equal(calls,0);}finally{globalThis.fetch=original;}
+});
+
+test('tracking supports migrated documents above 12 MB but bounds reads and writes at 20 MB',async()=>{
+ const data={schemaVersion:1,kind:'tracking',branch:{id:'a'},copiedAt:new Date().toISOString(),rows:[],padding:'x'.repeat(12000100)};
+ let size=12000500,writes=0;
+ const f=async(url,options)=>{if(url.includes('/upload/')){writes++;return Response.json({});}return url.includes('/files/tracking')?Response.json(url.includes('alt=media')?data:{parents:['folder'],size,shared:false}):mock()(url);};
+ const cfg={...config,tracking:{a:'tracking'}};
+ assert.equal((await driveTracking(cfg,['a'],f)).length,1);
+ const doc=await trackingDocument(cfg,'a',f);await doc.save();assert.equal(writes,1);
+ doc.data.padding='x'.repeat(20000001);assert.throws(()=>doc.save(),/TRACKING_LIMIT/);assert.equal(writes,1);
+ size=20000001;await assert.rejects(trackingDocument(cfg,'a',f),/TRACKING_PRIVATE/);await assert.rejects(driveTracking(cfg,['a'],f),/TRACKING_PRIVATE/);
 });
