@@ -48,3 +48,4 @@ body:has(#warehouse-content:not([hidden])) .top{margin-bottom:18px}
 #warehouse-content .wh-list th{text-transform:none;letter-spacing:0}.wh-filter #wh-pending[aria-pressed=true]{border-color:#ffa000;color:#ffb030}
 /* Ilustrações completas, sem cortar as pilhas de chips. */
 @media(min-width:761px){.wh-metric .wh-product{width:84px;height:80px;background-position:-487px -310px;mask-image:radial-gradient(ellipse,#000 68%,transparent 82%)}.wh-metric .wh-product-1{background-position:-808px -310px}.wh-metric .wh-product-2{background-position:-1130px -310px}.wh-metric .wh-product-3{background-position:-1454px -310px}.wh-metric .wh-product.is-device{background-position:center}.wh-metric-icon{width:42px}.wh-metric>div{min-width:0}#warehouse-content .wh-metrics .card.wh-metric{gap:10px}}
+.wh-value-icon{width:64px;background-position-x:-304px}.wh-vi-1{background-position-x:-628px}.wh-vi-2{background-position-x:-950px}.wh-vi-3{background-position-x:-1270px}
