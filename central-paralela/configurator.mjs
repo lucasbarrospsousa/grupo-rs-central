@@ -3,6 +3,7 @@ const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
 const phone=v=>String(v||'').replace(/\D/g,'').replace(/^55(?=\d{10,11}$)/,'');
 export function validateConfig(p){
  if(!['imperatriz','araguaina','acailandia','maraba'].includes(p.branch)||!/^\d{9}(?:\d{6})?$/.test(p.serial||''))fail(400,'Filial ou série inválida.');
+ if(p.status&&!['Estoque','Reserva','Instalado','Manutenção'].includes(p.status))fail(400,'Situação inválida.');
  if(p.action==='preflight')return;
  if(!['prepare','save'].includes(p.action)||!/^89\d{17,18}$/.test(p.iccid||'')||!/^\d{10,13}$/.test(p.phone||'')||!['hinova.br','linksolutions.br'].includes(p.apn)||!['VIVO','TIM','CLARO','MULTIOPERADORA','MULTI OPERADORA'].includes(p.operator)||!Number.isInteger(p.version)||p.version<0||!/^[a-f0-9-]{36}$/i.test(p.key||''))fail(400,'Dados do Configurador inválidos.');
  if(p.tracker_version&&!/^V7\.\d+\.\d+$/.test(p.tracker_version)||p.status&&!['Estoque','Reserva','Instalado','Manutenção'].includes(p.status))fail(400,'Versão ou situação inválida.');
@@ -12,6 +13,7 @@ export async function prepareConfig({p,user,documents,service}){
  const all=Object.entries(documents).flatMap(([branch,doc])=>doc.data.rows.filter(r=>!r.deleted_at&&r.serial===p.serial).map(r=>({branch,row:r})));if(all.length>1)fail(409,'Série duplicada.');
  const old=all[0],dest=documents[p.branch].data;
  if(old&&!user.branches.some(b=>b.id===old.branch))fail(403,'Sem acesso à origem.');
+ if(old&&old.branch===p.branch&&p.branch!=='imperatriz'&&old.row.status==='Instalado'&&!p.status)fail(409,'Aparelho instalado.');
  if(p.action==='preflight')return {response:{ok:true,version:old?.row.version||0,exists:!!old,branch:p.branch,database:'Central Drive'}};
  const fingerprint=digest(JSON.stringify([p.branch,p.serial,p.iccid,p.phone,p.operator,p.version,p.apn,p.tracker_version||'',p.status||''])),prior=dest.configuratorReceipts?.[p.key];
  if(prior){if(prior.fingerprint!==fingerprint)fail(409,'Chave reutilizada.');if(prior.response.confirmed||p.action==='prepare')return {response:prior.response};}
@@ -26,13 +28,14 @@ export async function prepareConfig({p,user,documents,service}){
  if(p.action==='save'){
   const remote=await service.equipment(p.branch,p.serial);if(remote.ok===false||remote.serial!==p.serial||remote.iccid!==p.iccid||phone(remote.phone)!==phone(p.phone))fail(409,'Cadastro não confirmado na plataforma.');
   const transfer=old&&old.branch!==p.branch,status=p.status||(p.branch!=='imperatriz'?'Estoque':old&&!transfer?'Manutenção':'Reserva');
-  const row={...(!transfer?old?.row:{}),id:transfer?crypto.randomUUID():old?.row.id||crypto.randomUUID(),serial:p.serial,iccid:p.iccid,phone:p.phone,carrier:p.operator,model:p.tracker_version||old?.row.model||'RS300',tracker_version:p.tracker_version||old?.row.tracker_version||'',apn:p.apn,status,version:(old?.row.version||0)+1,updated_at:new Date().toISOString(),remote_registration_status:'confirmado_configurador_rs300'};
-  if(status!=='Instalado')row.installed_at='';
-  changes.push({branch:p.branch,kind:'device',row});if(transfer)changes.push({branch:old.branch,kind:'remove',id:old.row.id,version:(old.row.version||0)+1});
+  const same=old&&!transfer&&old.row.iccid===p.iccid&&phone(old.row.phone)===phone(p.phone)&&old.row.carrier===p.operator&&old.row.apn===p.apn&&(!p.tracker_version||old.row.tracker_version===p.tracker_version)&&old.row.remote_registration_status==='confirmado_configurador_rs300'&&(p.status?old.row.status===p.status:(p.branch==='imperatriz'?['Reserva','Manutenção'].includes(old.row.status):old.row.status==='Estoque'));
+  const row=same?old.row:{...(!transfer?old?.row:{}),id:transfer?crypto.randomUUID():old?.row.id||crypto.randomUUID(),serial:p.serial,iccid:p.iccid,phone:p.phone,carrier:p.operator,model:p.tracker_version||old?.row.model||'RS300',tracker_version:p.tracker_version||old?.row.tracker_version||'',apn:p.apn,status,version:(old?.row.version||0)+1,updated_at:new Date().toISOString(),remote_registration_status:'confirmado_configurador_rs300'};
+  if(!same){row.quantity=row.stock=status==='Estoque'?1:0;if(status!=='Instalado')row.installed_at='';if(transfer||!old)Object.assign(row,{plate:'',client:'',identification:''});}
+  if(!same){changes.push({branch:p.branch,kind:'device',row});changes.push({branch:p.branch,kind:'audit',value:{id:p.key,action:transfer?'RS300_CONFIGURATOR_TRANSFER':'RS300_CONFIGURATOR_SYNC',serial:p.serial,from:old?.branch||null,to:p.branch,before:old?.row||null,at:new Date().toISOString(),actor:user.username}});if(old&&status==='Manutenção')changes.push({branch:p.branch,kind:'visit',value:{id:p.key,serial:p.serial,currentSerial:p.serial,plate:old.row.plate||'',client:old.row.client||'',status:'Em análise',entry:new Date().toISOString(),medium:'Configurador RS300',reason:'Reconfiguração de aparelho'}});}if(transfer){changes.push({branch:old.branch,kind:'remove',id:old.row.id,version:(old.row.version||0)+1});changes.push({...changes.find(c=>c.kind==='audit'),branch:old.branch});}
   const chips=Object.entries(documents).flatMap(([branch,d])=>(d.data.warehouse?.rows||[]).filter(r=>!r.deleted_at&&r.kind==='chip'&&r.serial===p.iccid).map(row=>({branch,row})));
   if(chips.length>1)fail(409,'ICCID duplicado no armazém.');
   if(chips.length){const c=chips[0];if(!user.branches.some(b=>b.id===c.branch)||!['Disponível','Enviado','Utilizado'].includes(c.row.status))fail(409,'Confira o chip no armazém de origem.');changes.push({branch:c.branch,kind:'chip',id:c.row.id,serial:p.serial,destination:p.branch});}
-  Object.assign(response,{id:row.id,version:row.version,status,created:!old,transferred:!!transfer});
+  Object.assign(response,{id:row.id,version:row.version,status:row.status,created:!old,already_exists:!!same,transferred:!!transfer});
  }
  changes.push({branch:p.branch,kind:'receipt',key:p.key,value:{fingerprint,response}});
  return {plan:{schemaVersion:1,users:[],id:p.key,changes,response,actor:user.username}};
@@ -42,6 +45,8 @@ export function applyConfigChange(data,change,plan){
  if(change.kind==='device'){const i=data.rows.findIndex(r=>r.id===change.row.id);if(i<0)data.rows.push(change.row);else data.rows[i]=change.row;}
  if(change.kind==='remove'){const row=data.rows.find(r=>r.id===change.id);row.deleted_at=new Date().toISOString();row.version=change.version;}
  if(change.kind==='chip'){const row=data.warehouse.rows.find(r=>r.id===change.id);if(!(row.status==='Utilizado'&&row.usage_device_serial===change.serial&&row.usage_branch===change.destination)){Object.assign(row,{status:'Utilizado',usage_device_serial:change.serial,usage_branch:change.destination,usage_detected_at:new Date().toISOString(),version:(row.version||0)+1});(data.warehouse.movements??=[]).push({id:plan.id,kind:'chip',serial:row.serial,type:'Utilizado',atISO:row.usage_detected_at,branch:change.branch,destination:change.destination,deviceSerial:change.serial,actor:plan.actor});}}
+ if(change.kind==='audit')(data.configuratorAudit??=[]).push(change.value);
+ if(change.kind==='visit')(data.visits??=[]).push(change.value);
  if(change.kind==='receipt'){data.configuratorReceipts??={};data.configuratorReceipts[change.key]=change.value;}
  data.configuratorApplied[key]=new Date().toISOString();
 }

@@ -8,6 +8,8 @@ export async function recoverConfig({storage,key,document}){
   const doc=await document(branch);
   for(const change of plan.changes.filter(c=>c.branch===branch))applyConfigChange(doc.data,change,plan);
   await doc.save();
+  const check=await document(branch);
+  if(JSON.stringify(check.data)!==JSON.stringify(doc.data))throw Error('Drive readback did not confirm transaction');
  }
  await storage.delete('configurator-intent');return plan.response;
 }

@@ -1,3 +1,4 @@
+import {collect} from './global-collectors.mjs';
 import {galaxyAndroid} from './galaxy-android.mjs';
 import {prepareConfig} from './configurator.mjs';
 import {recoverConfig,commitConfig} from './configurator-journal.mjs';
@@ -28,10 +29,8 @@ export class Operations {
  async runJob(j){return this.queue.run('__writer',async()=>{
   await this.recoverConfig();
   if(j.kind==='status'){const serial=j.serials[j.cursor];if(!serial)return {finished:true};const result=await this.execute(new Request('https://operations.internal/query'),{kind:'status',branch:j.branch,serial});if(!result.ok)throw Error('Query pending');return {finished:j.cursor+1>=j.serials.length};}
-  const doc=await trackingDocument(JSON.parse(this.env.DRIVE_CONFIG),j.branch),items=(doc.data.warehouse?.rows||[]).filter(r=>!r.deleted_at&&r.kind==='chip'&&r.status==='Disponível'&&['arya','link'].includes(r.chip_provider));
-  const row=items[j.cursor];if(!row)return {finished:true};
-  if(Date.now()-Date.parse(row.checked_at||'')>=3600000||!Number.isFinite(Date.parse(row.checked_at||''))){if(!await this.reserveQuery(false,true))throw Error('Rate limited');const chip=await this.service.carrier(row.chip_provider,row.serial);if(!chip.ok||chip.iccid!==row.serial)throw Error('Unconfirmed chip');Object.assign(row,{chip_operator:chip.operator,chip_phone:chip.phone,chip_status:chip.status,checked_at:chip.queried_at,version:(row.version||1)+1});await doc.save();}
-  return {finished:j.cursor+1>=items.length};
+  if(!await this.reserveQuery(false,true))throw Error('Rate limited');
+  return collect({job:j,document:branch=>trackingDocument(JSON.parse(this.env.DRIVE_CONFIG),branch),service:this.service});
  });}
  async fetch(request){
   let b;try{b=await request.json();}catch{return reply(400,{error:'JSON inválido.'});}

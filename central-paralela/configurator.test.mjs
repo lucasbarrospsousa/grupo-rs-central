@@ -6,3 +6,9 @@ function setup(){let docs={imperatriz:{rows:[{id:'one',serial:input.serial,versi
 test('configurator rejects permission, version and other equipment ICCID',async()=>{const h=setup();await assert.rejects(h.prepare(input,{...user,permissions:{}}),e=>e.status===403);await assert.rejects(h.prepare({...input,version:2}),e=>e.status===409);h.docs.maraba.rows.push({serial:'024000002',iccid:input.iccid});await assert.rejects(h.prepare(),e=>e.status===409);});
 test('encrypted intent recovers interrupted transfer without duplicate rows or requests',async()=>{const h=setup(),{plan}=await h.prepare();h.fail=true;await assert.rejects(commitConfig(plan,h.opts),/offline/);const envelope=await h.opts.storage.get('configurator-intent');assert.equal(JSON.stringify(envelope).includes(input.serial),false);h.fail=false;await recoverConfig(h.opts);assert.ok(h.docs.imperatriz.rows[0].deleted_at);assert.equal(h.docs.maraba.rows.length,1);assert.equal((await h.prepare()).response.confirmed,true);assert.equal(await recoverConfig(h.opts),null);});
 test('prepare receipt does not block save receipt for same idempotency key',async()=>{const h=setup();const prepared=await h.prepare({...input,action:'prepare'});await commitConfig(prepared.plan,h.opts);const saved=await h.prepare();await commitConfig(saved.plan,h.opts);assert.equal((await h.prepare()).response.confirmed,true);});
+
+test('confirmed repeat does not change device version and transfer audits both branches',async()=>{
+ const h=setup(),{plan}=await h.prepare();await commitConfig(plan,h.opts);assert.equal(h.docs.imperatriz.configuratorAudit.length,1);assert.equal(h.docs.maraba.configuratorAudit.length,1);
+ const old=h.docs.maraba.rows[0];const again=await h.prepare({...input,key:crypto.randomUUID(),version:old.version});await commitConfig(again.plan,h.opts);
+ assert.equal(h.docs.maraba.rows[0].version,old.version);assert.equal(again.plan.response.already_exists,true);
+});

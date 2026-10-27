@@ -21,7 +21,8 @@ func install_access(token:String)->bool:
 	return _token()==token
 func _token()->String:
 	if not FileAccess.file_exists(_access_path()):
-		var token:="" # Independent credential; never reuse the original bundle token.
+		var bundle:Dictionary=preload("res://src/services/portable_bundle.gd").configuration()
+		var token:=str(bundle.get("central_drive_token","")) if bundle.get("central_target","")=="drive" else ""
 		return token if token.length()==64 and token.is_valid_hex_number(false) else ""
 	var file:=FileAccess.open_encrypted_with_pass(_access_path(),FileAccess.READ,_access_key())
 	if file==null: return ""
@@ -38,6 +39,7 @@ func request_online(payload:Dictionary)->Dictionary:
 	var result=JSON.parse_string(answer[3].get_string_from_utf8())
 	if typeof(result)!=TYPE_DICTIONARY: return {"ok":false,"message":"Resposta da Central online não reconhecida."}
 	result["http_status"]=int(answer[1])
+	if not result.has("message") and result.has("error"): result["message"]=result.error
 	if int(answer[1])<200 or int(answer[1])>=300: result["ok"]=false
 	return result
 func preflight(settings:Dictionary,series:String)->Dictionary:

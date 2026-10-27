@@ -3,11 +3,13 @@ import {savedChipStatus} from './chip-status.mjs';
 
 // Same isolation as the original credential guard; durable hashes, never secrets.
 export function guardQueries(service,storage){
- for(const method of ['api','carrier']){
+ for(const method of ['api','carrier','aryaRequest','linkCostBatch']){
+  if(typeof service[method]!=='function')continue;
   const original=service[method].bind(service);
   service[method]=async(first,...args)=>{
-   const secrets=service.secrets(),credentials=method==='api'?service.credentials(first,true):first==='arya'?[secrets.arya_email,secrets.arya_password]:[secrets.linksolutions_email,secrets.linksolutions_password];
-   const key='queryGuard:'+method+':'+first;
+   const provider=method==='aryaRequest'?'arya':method==='linkCostBatch'?'link':first;
+   const secrets=service.secrets(),credentials=method==='api'?service.credentials(first,true):provider==='arya'?[secrets.arya_email,secrets.arya_password]:[secrets.linksolutions_email,secrets.linksolutions_password];
+   const key='queryGuard:'+(method==='api'?'api':'carrier')+':'+provider;
    const fingerprint=createHash('sha256').update(JSON.stringify(credentials)).digest('hex');
    const state=await storage.get(key);
    if(state?.fingerprint===fingerprint){
@@ -15,7 +17,7 @@ export function guardQueries(service,storage){
     if(state.until>Date.now())throw Object.assign(Error('Integração aguardando liberação do limite de consultas.'),{status:429});
    }
    try{return await original(first,...args);}catch(e){
-    if(e.credentialInvalid||(method==='carrier'&&e.upstreamStatus===403))await storage.put(key,{fingerprint,blocked:true});
+    if(e.credentialInvalid||(method!=='api'&&e.upstreamStatus===403))await storage.put(key,{fingerprint,blocked:true});
     else if(e.status===429)await storage.put(key,{fingerprint,until:Date.now()+60000});
     throw e;
    }

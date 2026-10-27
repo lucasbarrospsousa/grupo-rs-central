@@ -51,7 +51,7 @@ async function rawTransport(url,{method='GET',headers={},body,allowRedirect=fals
 async function transport(url,options={}){
  const u=new URL(url),method=options.method||'GET';
  const bases=Object.values(ORIGINS);
- const allowed=bases.includes(u.origin)?method==='GET'||(method==='POST'&&u.pathname==='/api_rest_app/api/v1/login'):u.origin==='https://api-arya.hinovaconecta.com.br'?method==='POST'&&['/auth','/customer/inventary'].includes(u.pathname):u.origin==='https://lsm.tnsi.com.br'?((method==='POST'&&u.pathname==='/api/authenticate')||(method==='GET'&&u.pathname==='/api/sims')):false;
+ const allowed=bases.includes(u.origin)?method==='GET'||(method==='POST'&&u.pathname==='/api_rest_app/api/v1/login'):u.origin==='https://api-arya.hinovaconecta.com.br'?method==='POST'&&['/auth','/customer/inventary','/customer/inventary/export'].includes(u.pathname):u.origin==='https://lsm.tnsi.com.br'?((method==='POST'&&['/api/authenticate','/api/sims/findAllByListICCID'].includes(u.pathname))||(method==='GET'&&u.pathname==='/api/sims')):false;
  if(!allowed)throw err('Operação externa não habilitada na Central paralela.',405);
  return rawTransport(url,options);
 }
@@ -241,6 +241,30 @@ export class Integrations{
    const next=d.paginacao.proximoSkip;if(!Number.isInteger(next)||next<=skip)throw err('Paginação do histórico inválida.');skip=next;
   }
  }
+ async aryaRequest(path,payload,{write=false,retry=true}={}){
+  if(write)throw err('Envio de ativações desativado na Central.',410);
+  if(!['/ticket/user/table','/customer/inventary/export'].includes(path))throw err('Operação Árya inválida.',400);
+  const base='https://api-arya.hinovaconecta.com.br',key='carrier-arya';let auth=this.sessions.get(key);
+  if(!auth||Date.now()-auth.at>900000){const secrets=this.secrets();if(!secrets.arya_password)throw err('Credenciais da Árya indisponíveis.');
+   const r=await authenticate(()=>this.request(base+'/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:secrets.arya_email,password:secrets.arya_password})}));
+   auth={token:r.headers.get('authorization')?.replace(/^Bearer /,'')||tokenOf(json(r.text)),at:Date.now()};if(!auth.token)throw err('Árya não confirmou autenticação.');this.sessions.set(key,auth);
+  }
+  try{const r=await this.request(base+path,{method:'POST',headers:{Authorization:'Bearer '+auth.token,'Content-Type':'application/json'},body:JSON.stringify(payload)});return path==='/customer/inventary/export'?r.text:json(r.text);}
+  catch(e){if(!write&&retry&&e.upstreamStatus===401){this.sessions.delete(key);return this.aryaRequest(path,payload,{retry:false});}throw e;}
+ }
  async carrier(provider,iccid,retry=true){if(!['arya','link'].includes(provider)||!/^89\d{17,18}$/.test(iccid))throw err('Operadora ou ICCID inválido.',400);const s=this.secrets();const base=provider==='arya'?'https://api-arya.hinovaconecta.com.br':'https://lsm.tnsi.com.br';const key='carrier-'+provider;let auth=this.sessions.get(key);if(!auth||Date.now()-auth.at>900000){const payload=provider==='arya'?{email:s.arya_email,password:s.arya_password}:{username:s.linksolutions_email,password:s.linksolutions_password,rememberMe:true,blockInit:false};if(!payload.password)throw err('Credenciais da operadora não configuradas.');const response=await authenticate(()=>this.request(base+(provider==='arya'?'/auth':'/api/authenticate'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}));auth={token:response.headers.get('authorization')?.replace(/^Bearer /,'')||await authenticate(async()=>tokenOf(json(response.text))),at:Date.now()};if(!auth.token)throw Object.assign(err('Operadora não confirmou autenticação.'),{credentialInvalid:true});this.sessions.set(key,auth);}
  let response;try{response=await this.request(base+(provider==='arya'?'/customer/inventary':'/api/sims?size=10&page=1&field=iccid&value='+encodeURIComponent(iccid)+'&order=-last_conn'),{method:provider==='arya'?'POST':'GET',headers:{Authorization:'Bearer '+auth.token,'Content-Type':'application/json'},body:provider==='arya'?JSON.stringify({per_page:10,filters:{iccid}}):undefined});}catch(e){if(retry&&e.upstreamStatus===401){this.sessions.delete(key);return this.carrier(provider,iccid,false);}throw e;}const matches=rows(json(response.text)).filter(r=>value(r,['iccid','numeroChip'])===iccid);if(matches.length!==1)return{ok:false,message:'Chip exato não confirmado.',provider};const r=matches[0];return{ok:true,provider,iccid,status:value(r,['status__name','status_name','status','situacao','state','sim_status']),connectivity:connectionState(value(r,provider==='arya'?['conn_status','inSession']:['connection_status','connectionStatus','status__name','status_name'])),phone:value(r,['msisdn','number','phone','telefone']),operator:value(r,['provider','operator__name','operator','operadora','carrier']),queried_at:new Date().toISOString()};}
 }
+
+Integrations.prototype.linkCostBatch=async function(iccids,retry=true){
+ if(!Array.isArray(iccids)||!iccids.length||iccids.length>100||iccids.some(x=>!/^89\d{17,18}$/.test(x)))throw err('Lote de mensalidades inválido.',400);
+ let auth=this.sessions.get('carrier-link');
+ if(!auth||Date.now()-auth.at>900000){
+  const s=this.secrets();if(!s.linksolutions_email||!s.linksolutions_password)throw err('Credenciais da Link não configuradas.');
+  const r=await authenticate(()=>this.request('https://lsm.tnsi.com.br/api/authenticate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:s.linksolutions_email,password:s.linksolutions_password,rememberMe:true,blockInit:false})}));
+  auth={token:r.headers.get('authorization')?.replace(/^Bearer /,'')||tokenOf(json(r.text)),at:Date.now()};
+  if(!auth.token)throw err('Link não confirmou autenticação.');this.sessions.set('carrier-link',auth);
+ }
+ try{const r=await this.request('https://lsm.tnsi.com.br/api/sims/findAllByListICCID',{method:'POST',headers:{Authorization:'Bearer '+auth.token,'Content-Type':'application/json'},body:JSON.stringify(iccids)});return json(r.text);}
+ catch(e){if(retry&&e.upstreamStatus===401){this.sessions.delete('carrier-link');return this.linkCostBatch(iccids,false);}throw e;}
+};
