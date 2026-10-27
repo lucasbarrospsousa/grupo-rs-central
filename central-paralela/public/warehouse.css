@@ -53,8 +53,9 @@ body:has(#warehouse-content:not([hidden])) .top{margin-bottom:18px}
 @media(min-width:761px){.wh-metric .wh-product{width:84px;height:80px;background-position:-487px -310px;mask-image:radial-gradient(ellipse,#000 68%,transparent 82%)}.wh-metric .wh-product-1{background-position:-808px -310px}.wh-metric .wh-product-2{background-position:-1130px -310px}.wh-metric .wh-product-3{background-position:-1454px -310px}.wh-metric .wh-product.is-device{background-position:center}.wh-metric-icon{width:42px}.wh-metric>div{min-width:0}#warehouse-content .wh-metrics .card.wh-metric{gap:10px}}
 .wh-value-icon{width:64px;background-position-x:-304px}.wh-vi-1{background-position-x:-628px}.wh-vi-2{background-position-x:-950px}.wh-vi-3{background-position-x:-1270px}
 /* Visual dos cards de chips e menu lateral Armazém (referência aprovada) */
-#warehouse-separator{border-top:1px solid #1e2936;padding-top:18px;margin-top:18px}
-.sidebar .nav-button{min-height:44px;height:44px;padding:0 14px;margin:0 0 6px;border-radius:9px;display:flex;align-items:center;gap:14px;font-size:13px;font-weight:600;color:#c9d6e4;background:transparent;border:1px solid transparent;transition:all .15s ease}
+.sidebar nav{overflow:hidden;min-height:0}
+#warehouse-separator{border-top:1px solid #1e2630;padding-top:10px;margin-top:6px}
+.sidebar .nav-button{min-height:36px;height:36px;padding:0 12px;margin:0;border-radius:8px;display:flex;align-items:center;gap:12px;font-size:12.5px;font-weight:600;color:#c9d6e4;background:transparent;border:1px solid transparent;transition:all .15s ease}
 .sidebar .nav-button:hover:not([aria-current=page]){background:rgba(255,255,255,.05);color:#fff}
 .sidebar .nav-button[aria-current=page]{background:linear-gradient(90deg,#492509 0%,#24160d 100%)!important;border:1px solid #633912!important;border-left:4px solid #ff9500!important;color:#fff!important;box-shadow:0 4px 14px rgba(0,0,0,.35),inset 1px 0 #ffb13d!important}
 .sidebar .nav-button[aria-current=page] .nav-label{color:#fff!important;font-weight:700}
