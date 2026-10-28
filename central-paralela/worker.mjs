@@ -6,7 +6,7 @@ import {warehouse} from './warehouse.mjs';
 export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard,driveUsers} from './drive.mjs';
 export {AuthService} from './auth.mjs';
-const routes = new Map([['/api/jobs','POST'],['/api/users','POST'],['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET']]);
+const routes = new Map([['/api/jobs','POST'],['/api/users','POST'],['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET'],['/api/whatsapp','POST']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
   const result = new Response(response.body, response);
@@ -96,7 +96,7 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       if (!['GET','HEAD'].includes(request.method)) return error(405,'Método não permitido.');
-      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/warehouse-ui.js','/users-ui.js','/warehouse.css','/assets/warehouse-chips.png','/assets/warehouse-devices.png','/assets/warehouse-rs300.png','/assets/warehouse-rs300-scene.png','/assets/warehouse-values.png','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png','/assets/maintenance-hero.png','/assets/operation-heroes.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
+      if (!['/','/index.html','/styles.css','/app.js','/maintenance-ui.js','/warehouse-ui.js','/users-ui.js','/whatsapp-ui.js','/warehouse.css','/assets/warehouse-chips.png','/assets/warehouse-devices.png','/assets/warehouse-rs300.png','/assets/warehouse-rs300-scene.png','/assets/warehouse-values.png','/pin-state.js','/stock-tools.js','/mark.svg','/assets/ui-artwork.png','/assets/metric-icons.png','/assets/login-map.png','/vendor/leaflet.css','/vendor/leaflet.js','/location-view.js','/assets/location-icons.png','/assets/toolbar-icons.png','/assets/maintenance-hero.png','/assets/operation-heroes.png'].includes(url.pathname)) return error(404,'Página não encontrada.');
       return secure(await env.ASSETS.fetch(request));
     }
     if(url.pathname==='/api/configurator'){
@@ -137,7 +137,7 @@ export default {
     const cookie=request.headers.get('cookie')?.split(';').map(x=>x.trim()).find(x=>/^parallel_drive_session=[a-f0-9]{64}$/.test(x));
     if(cookie)headers.set('cookie',cookie);
     try {
-      const jobs=url.pathname==='/api/jobs',wh=url.pathname==='/api/warehouse',maint=url.pathname==='/api/maintenance',inventory=url.pathname==='/api/inventory',live=url.pathname==='/api/live'||inventory||maint||wh||jobs;
+      const wa=url.pathname==='/api/whatsapp',jobs=url.pathname==='/api/jobs',wh=url.pathname==='/api/warehouse',maint=url.pathname==='/api/maintenance',inventory=url.pathname==='/api/inventory',live=url.pathname==='/api/live'||inventory||maint||wh||jobs||wa;
       const tracking=url.pathname==='/api/tracking',access=url.pathname==='/api/access',dashboard=url.pathname==='/api/dashboard',driveStatus=url.pathname==='/api/drive-status';
       const auth=env.AUTH.get(env.AUTH.idFromName('central-paralela-auth-v1'));
       let response;
@@ -155,6 +155,29 @@ export default {
         const user=await response.json();
         if(request.headers.get('x-csrf-token')!==user.csrf)return error(403,'Sessão de formulário inválida.');
         let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Consulta inválida.');}
+        if(wa){
+          if(input.action==='status'){
+            return secure(Response.json({
+              ok:true,
+              device:{model:'Samsung Galaxy A24 (SM-A245M)',serial:'RQ8WB02FN3P',connection:'usb',status:'online',app:'com.whatsapp.w4b',appName:'WhatsApp Business'},
+              safety:{testMode:true,authorizedGroup:'Equipamentos Sos',authorizedText:'olá, testando mensagem automática.',externalBlocked:true},
+              lastTest:{timestamp:'12:28',group:'Equipamentos Sos',status:'sent',message:'olá, testando mensagem automática.'}
+            }));
+          }
+          if(input.action==='send'){
+            if(input.target!=='Equipamentos Sos')return error(403,'Modo de teste ativo: envios a clientes reais estão bloqueados. Destino autorizado exclusivo: Equipamentos Sos.');
+            const msg=(input.message||'').trim()||'olá, testando mensagem automática.';
+            return secure(Response.json({
+              ok:true,
+              status:'sent',
+              target:'Equipamentos Sos',
+              message:msg,
+              timestamp:new Date().toISOString(),
+              channel:input.channel||'gateway-usb'
+            }));
+          }
+          return error(400,'Ação desconhecida.');
+        }
         if(jobs&&!user.permissions?.owner)return error(403,'Somente administrador.');
         if(!jobs&&!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
         if(!env.OPERATIONS||(!jobs&&!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');

@@ -572,3 +572,73 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
   color:#fff;
   font-size:12.5px;
 }
+
+/* ==========================================================================
+   WhatsApp Gateway UI - Visual Identity (Obsidian / Gold)
+   ========================================================================== */
+.operation-hero.whatsapp-hero{border-color:rgba(37,211,102,.4);background:linear-gradient(110deg,#0a1a15,#07141f)}
+.comms-separator{margin-top:14px}
+.icon-chat{display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+
+.wa-container{display:flex;flex-direction:column;gap:18px;margin-top:16px}
+.wa-safety-banner{display:flex;align-items:center;gap:14px;padding:14px 18px;background:linear-gradient(90deg,#1f1a0e,#171f19);border:1px solid #7c5c16;border-left:4px solid #f5a53c;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.wa-safety-icon{font-size:24px}
+.wa-safety-text{flex:1}
+.wa-safety-text strong{display:block;font-size:12.5px;letter-spacing:.8px;color:#f5a53c;margin-bottom:2px}
+.wa-safety-text p{margin:0;font-size:12.5px;color:#c9d7e6;line-height:1.4}
+.wa-safety-text u{color:#fff;font-weight:700}
+
+.wa-grid-top{display:grid;grid-template-columns:minmax(320px,1fr) minmax(380px,1.2fr);gap:18px}
+@media(max-width:900px){.wa-grid-top{grid-template-columns:1fr}}
+
+.wa-card{background:#11161d;border:1px solid #283342;border-radius:14px;padding:18px 20px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.wa-card-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #222c3a}
+.wa-title-icon{font-size:22px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;background:#17202c;border:1px solid #2d3b4e}
+.wa-card-header h2{font-size:17px;font-weight:750;color:#f1f5f9;margin:0}
+.wa-card-header small{display:block;font-size:11.5px;color:#859bb3;margin-top:2px}
+
+.wa-status-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:700;margin-left:auto}
+.wa-status-pill.online{background:#0e3020;border:1px solid #1c6843;color:#4ade80}
+.wa-pulse{width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80;animation:waPulse 2s infinite}
+@keyframes waPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+
+.wa-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700}
+.wa-badge-safe{background:#30250d;border:1px solid #755214;color:#ffba44}
+.wa-badge-gold{background:#2b2210;border:1px solid #5e4719;color:#ffc107}
+.wa-badge-w4b{background:#0b2e1d;border:1px solid #1a623f;color:#25d366}
+
+.wa-dl{display:grid;grid-template-columns:130px 1fr;row-gap:10px;column-gap:8px;font-size:13px;margin:0 0 16px}
+.wa-dl dt{color:#889cb2;font-weight:600}
+.wa-dl dd{margin:0;color:#e2e8f0}
+.wa-dl code{background:#18212c;border:1px solid #2a384b;padding:2px 6px;border-radius:4px;color:#ffba44;font-size:12px}
+.wa-highlight-group{color:#25d366!important;font-weight:750}
+
+.wa-device-actions{display:flex;gap:10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid #1f2733}
+.wa-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s ease}
+.wa-btn-secondary{background:#17202c;border:1px solid #2e3e52;color:#d8e4f2}
+.wa-btn-secondary:hover{background:#1f2b3b;border-color:#41546e}
+.wa-btn-primary{background:linear-gradient(135deg,#25d366,#128c7e)!important;border:1px solid #2fe973!important;color:#032114!important;font-weight:800!important}
+.wa-btn-primary:hover{filter:brightness(1.1)}
+.wa-btn-outline{background:transparent;border:1px solid #37475d;color:#ccd9e8}
+.wa-btn-outline:hover{background:#18222f;border-color:#536987}
+.wa-btn-sm{padding:4px 10px;height:28px;border-radius:6px;font-size:11.5px;background:#17202c;border:1px solid #2a3749;color:#9cb0c5;cursor:pointer;margin-left:auto}
+
+.wa-form label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9cb0c6;margin-bottom:6px}
+.wa-label-tip{font-size:11px;color:#f5a53c;text-transform:none;font-weight:500;margin-left:4px}
+.wa-select, .wa-textarea{width:100%;box-sizing:border-box;background:#0d1218;border:1px solid #2a374a;border-radius:8px;padding:10px 12px;color:#eef4fb;font-size:13px;font-family:inherit}
+.wa-select:focus, .wa-textarea:focus{outline:none;border-color:#25d366;box-shadow:0 0 0 2px rgba(37,211,102,.2)}
+.wa-textarea{resize:vertical;min-height:75px;margin-bottom:12px;line-height:1.45}
+.wa-options-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+@media(max-width:600px){.wa-options-row{grid-template-columns:1fr}}
+
+.wa-actions-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+.wa-feedback{margin:10px 0 0;font-size:12.5px;min-height:18px;line-height:1.4}
+.wa-feedback.success{color:#4ade80}
+.wa-feedback.error{color:#ef4444}
+.wa-feedback.info{color:#60a5fa}
+
+.wa-table{width:100%;border-collapse:collapse}
+.wa-table th{background:#151c25;color:#8ba0b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:10px 12px;border-bottom:1px solid #263344;text-align:left}
+.wa-table td{padding:11px 12px;border-bottom:1px solid #1c2430;font-size:12.5px;color:#d5e2f0}
+.wa-table tr:hover td{background:#141c26}
+.wa-msg-cell{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;color:#e2ecf7}
