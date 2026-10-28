@@ -127,6 +127,19 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 @media screen and (max-width:760px){body #dashboard.wrap{margin-left:0!important;width:100%;max-width:100%}.maintenance-metrics>.card{min-width:0}#maintenance-content .maintenance-tabs button{min-width:0;padding:8px}}
 #maintenance-content .icon-report{background-image:url(/assets/toolbar-icons.png);background-size:110px 22px;background-position:-22px 0}.maintenance-bar canvas{height:120px;width:100%;object-fit:fill}.maintenance-bar span{min-height:32px}.maintenance-chart{border-top:2px solid #b17a25!important}.maintenance-chart.purple{border-top-color:#8a62cc!important}.maintenance-chart.blue{border-top-color:#169be7!important}#maintenance-content .card{animation:none}#maintenance-form .maintenance-lookup[hidden]{display:none}
 #maintenance-content .card{background:#14161b;border-color:#303943}#maintenance-content .maintenance-toolbar{background:linear-gradient(120deg,#17212e,#121a25)}.maintenance-bar canvas{max-width:80px;align-self:center}.maintenance-bars{justify-content:center}#maintenance-content th:last-child,#maintenance-content td:last-child{width:110px}#maintenance-content .maintenance-metrics .card{border-top:2px solid #ad7824}#maintenance-content .primary{color:#111820}
+.maintenance-swap-fieldset,.maintenance-chip-fieldset{border:1px solid #233140;border-radius:10px;padding:14px 18px;background:rgba(14,22,32,.45);margin-top:10px}
+.maintenance-stock-choice-row{margin-bottom:12px}
+.maintenance-stock-choice-row label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#9ab0c7}
+.maintenance-stock-choice-row select{height:40px;background:#0d141e;border:1px solid #233345;border-radius:8px;color:#fff;padding:0 12px;font-size:13px}
+.maintenance-swap-box{background:linear-gradient(135deg,#17212e 0%,#0f1722 100%);border:1px solid #2b3e52;border-left:3px solid #f59e0b;border-radius:10px;padding:14px 16px;margin:12px 0 16px 0;display:flex;flex-direction:column;gap:10px}
+.swap-box-header{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:750;color:#ffaa2b;letter-spacing:1px}
+#maintenance-swap-summary{margin:0;font-size:13px;color:#cbd5e1;line-height:1.4}
+.swap-box-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.swap-box-actions button{height:36px;min-height:36px;padding:0 16px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s ease}
+.swap-box-actions button.primary{background:linear-gradient(110deg,#ffb12d,#ff8a00);border:1px solid #ffab21;color:#111820}
+.swap-box-actions button.secondary{background:#16202c;border:1px solid #2b3e52;color:#e2ecf7}
+.swap-box-actions button.secondary:hover{background:#202e3f;border-color:#ff9c1a;color:#fff}
+.swap-success-badge{display:inline-block;padding:3px 8px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.4);border-radius:6px;color:#4ade80;font-weight:700;font-size:12.5px}
 /* Approved maintenance artwork; live text remains accessible. */
 .operation-hero.maintenance-hero{min-height:240px;border-color:#b57b20;background:linear-gradient(110deg,#101e2d,#071727);isolation:isolate}
 .maintenance-hero:before{content:"";position:absolute;inset:0 0 0 44%;z-index:-1;background:url('/assets/maintenance-hero.png') no-repeat 98% 50%;background-size:auto 150%;mask-image:linear-gradient(90deg,transparent 20%,#000 32%)}

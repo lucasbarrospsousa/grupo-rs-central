@@ -2,7 +2,7 @@
 const maintenanceRoot=$('#maintenance-content');
 let maintenanceCache=new Map(),maintenanceTab='indicators',maintenancePage=1,maintenanceEpoch=0,maintenancePending=null;
 const maintenanceFilters={month:'',model:'',search:''};
-const maintenanceOptions={vehicleType:['Não informado','Motocicleta','Automóvel','Utilitário','Caminhão','Ônibus','Outro'],reason:['Sem comunicar','Ignição travada','Localização parada','Outro'],medium:['Suporte do rastreio','Voluntário','App de rastreamento'],cause:['Não identificada','Falha do chip','Falha de cobertura/rede','Travamento','Falha de GPS','Infiltração / aparelho molhado','Curto interno','Falha de alimentação/instalação','Outra causa'],trackerModel:['Não informado','RS300','Suntech 2G','J16 2G/4G','Outro'],chipType:['Não informado','Comum','Multioperadora'],solutionKind:['Não informada','Troca de chip + reconfiguração','Troca de aparelho','Troca de aparelho e chip + reconfiguração','Ajuste de instalação','Outra solução']};
+const maintenanceOptions={vehicleType:['Não informado','Motocicleta','Automóvel','Utilitário','Caminhão','Ônibus','Outro'],reason:['Sem comunicar','Ignição travada','Localização parada','Outro'],medium:['Suporte do rastreio','Voluntário','App de rastreamento'],cause:['Não identificada','Falha do chip','Falha de cobertura/rede','Travamento','Falha de GPS','Infiltração / aparelho molhado','Curto interno','Falha de alimentação/instalação','Outra causa'],trackerModel:['Não informado','RS300','Suntech 2G','J16 2G/4G','Outro'],afterTrackerModel:['Não informado','RS300','Suntech 2G','J16 2G/4G','Outro'],chipType:['Não informado','Comum','Multioperadora'],afterChipType:['Não informado','Comum','Multioperadora'],solutionKind:['Não informada','Troca de chip + reconfiguração','Troca de aparelho','Troca de aparelho e chip + reconfiguração','Ajuste de instalação','Outra solução'],disposition:['Não informado','Reparo','Sem conserto','Devolvido','Estoque']};
 const maintenanceWritable=()=>session?.permissions?.owner||session?.permissions?.writes?.includes('maintenance');
 function resetMaintenance(){maintenanceEpoch++;maintenanceCache.clear();maintenancePending=null;maintenanceRoot.replaceChildren();maintenanceRoot.hidden=true;document.querySelector('#maintenance-dialog')?.remove();}
 function maintenanceRows(){const q=stockNormalize(maintenanceFilters.search);return [...maintenanceCache].filter(([id])=>branch.value==='all'||id===branch.value).flatMap(([id,rows])=>rows.map(r=>({...r,branch:id}))).filter(r=>(!maintenanceFilters.month||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit'}).format(new Date(r.entry))===maintenanceFilters.month)&&(!maintenanceFilters.model||r.trackerModel===maintenanceFilters.model)&&(!q||[r.client,r.plate,r.currentSerial,r.reason,r.cause,r.observation].some(v=>stockNormalize(v).includes(q)))).sort((a,b)=>b.entry.localeCompare(a.entry));}
@@ -82,14 +82,133 @@ async function openMaintenanceForm(record=null,readonly=false){
  document.querySelector('#maintenance-dialog')?.remove();
  const dialog=document.createElement('dialog');dialog.id='maintenance-dialog';
  const v=record||{},field=(n,l)=>maintenanceField(n,l,v[n]||'');
- dialog.innerHTML='<form id="maintenance-form"><header class="head"><div><p class="eyebrow">MANUTENÇÕES</p><h2>'+(record?'Registro de manutenção':'Novo registro de manutenção')+'</h2></div><button type="button" id="maintenance-close" aria-label="Fechar">×</button></header><div class="maintenance-form-body"><label>Filial<select name="branch" '+(record?'disabled':'')+'>'+session.branches.map(b=>'<option value="'+esc(b.id)+'" '+(b.id===(record?.branch||branch.value)?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select></label><section class="maintenance-lookup" '+(readonly?'hidden':'')+'><label>Localizar na Central<input id="maintenance-lookup" placeholder="Placa, série ou nome do cliente"></label><button type="button" id="maintenance-find">Buscar nos dados salvos</button><select id="maintenance-match" aria-label="Aparelho encontrado" hidden></select></section><fieldset><legend><span class="loc-icon icon-car"></span>Identificação na ocorrência</legend><div class="maintenance-fields four">'+field('client','Cliente')+field('plate','Placa / identificação')+field('currentSerial','Série do aparelho')+field('vehicleType','Tipo de veículo')+'</div></fieldset><fieldset><legend><span class="loc-icon icon-warning"></span>Situação e causa</legend><div class="maintenance-fields">'+field('reason','Situação relatada')+field('medium','Origem do relato')+field('cause','Causa registrada')+'</div></fieldset><fieldset><legend><span class="loc-icon icon-chip"></span>Aparelho e chip na ocorrência</legend><div class="maintenance-fields four">'+field('trackerModel','Modelo do rastreador')+field('trackerVersion','Versão do RS300')+field('carrier','Operadora')+field('chipType','Tipo do chip')+'</div><p class="notice">Versão desconhecida: deixe em branco.</p><details><summary>ICCID e telefone (opcional)</summary><div class="maintenance-fields">'+field('iccid','ICCID')+field('phone','Telefone')+'</div></details></fieldset><fieldset><legend><span class="loc-icon icon-swap"></span>Solução aplicada</legend>'+field('solutionKind','Solução')+'<label>Observação<textarea name="observation" maxlength="6500" rows="2">'+esc(v.observation||'')+'</textarea></label></fieldset></div><footer><p id="maintenance-feedback" role="status"></p><button type="button" id="maintenance-cancel">'+(readonly?'Fechar':'Cancelar')+'</button>'+(readonly?(maintenanceWritable()?'<button type="button" class="primary" id="maintenance-edit">Editar registro</button>':''):'<button class="primary" type="submit">Salvar registro</button>')+'</footer></form>';
+ dialog.innerHTML='<form id="maintenance-form"><header class="head"><div><p class="eyebrow">MANUTENÇÕES</p><h2>'+(record?'Registro de manutenção':'Novo registro de manutenção')+'</h2></div><button type="button" id="maintenance-close" aria-label="Fechar">×</button></header><div class="maintenance-form-body"><label>Filial<select name="branch" '+(record?'disabled':'')+'>'+session.branches.map(b=>'<option value="'+esc(b.id)+'" '+(b.id===(record?.branch||branch.value)?'selected':'')+'>'+esc(b.name)+'</option>').join('')+'</select></label><section class="maintenance-lookup" '+(readonly?'hidden':'')+'><label>Localizar na Central<input id="maintenance-lookup" placeholder="Placa, série ou nome do cliente"></label><button type="button" id="maintenance-find">Buscar nos dados salvos</button><select id="maintenance-match" aria-label="Aparelho encontrado" hidden></select></section><fieldset><legend><span class="loc-icon icon-car"></span>Identificação na ocorrência</legend><div class="maintenance-fields four">'+field('client','Cliente')+field('plate','Placa / identificação')+field('currentSerial','Série do aparelho')+field('vehicleType','Tipo de veículo')+'</div></fieldset><fieldset><legend><span class="loc-icon icon-warning"></span>Situação e causa</legend><div class="maintenance-fields">'+field('reason','Situação relatada')+field('medium','Origem do relato')+field('cause','Causa registrada')+'</div></fieldset><fieldset><legend><span class="loc-icon icon-chip"></span>Aparelho e chip na ocorrência</legend><div class="maintenance-fields four">'+field('trackerModel','Modelo do rastreador')+field('trackerVersion','Versão do RS300')+field('carrier','Operadora')+field('chipType','Tipo do chip')+'</div><p class="notice">Versão desconhecida: deixe em branco.</p><details><summary>ICCID e telefone (opcional)</summary><div class="maintenance-fields">'+field('iccid','ICCID')+field('phone','Telefone')+'</div></details></fieldset><fieldset><legend><span class="loc-icon icon-swap"></span>Solução aplicada</legend>'+field('solutionKind','Solução')+'<label>Observação<textarea name="observation" maxlength="6500" rows="2">'+esc(v.observation||'')+'</textarea></label></fieldset><fieldset id="maintenance-swap-section" class="maintenance-swap-fieldset" hidden><legend><span class="loc-icon icon-swap"></span>Aparelho instalado e troca</legend><div class="maintenance-swap-controls"><div class="maintenance-stock-choice-row"><label>Substituto em estoque<select id="maintenance-stock-choice" name="stockChoice"><option value="">Selecionar aparelho do estoque • ou informar série abaixo</option></select></label></div><div id="maintenance-swap-box" class="maintenance-swap-box" hidden><div class="swap-box-header"><span class="loc-icon icon-swap" aria-hidden="true"></span><strong>ÁREA DE TROCA DE APARELHO</strong></div><p id="maintenance-swap-summary" role="status">O aparelho substituto será instalado no veículo informado.</p><div class="swap-box-actions"><button type="button" id="btn-swap-preview" class="secondary">Conferir troca</button><button type="button" id="btn-swap-execute" class="primary" hidden>Confirmar troca na plataforma</button></div></div><div class="maintenance-fields four">'+field('afterSerial','Série instalada')+field('afterTrackerModel','Modelo instalado')+field('afterTrackerVersion','Versão do RS300')+field('disposition','Destino do aparelho retirado')+'</div></div></fieldset><fieldset id="maintenance-chip-section" class="maintenance-chip-fieldset" hidden><legend><span class="loc-icon icon-chip"></span>Chip instalado • reconfiguração incluída</legend><div class="maintenance-fields four">'+field('afterCarrier','Operadora instalada')+field('afterChipType','Tipo do chip')+field('afterIccid','ICCID instalado')+field('afterPhone','Telefone instalado')+'</div></fieldset></div><footer><p id="maintenance-feedback" role="status"></p><button type="button" id="maintenance-cancel">'+(readonly?'Fechar':'Cancelar')+'</button>'+(readonly?(maintenanceWritable()?'<button type="button" class="primary" id="maintenance-edit">Editar registro</button>':''):'<button class="primary" type="submit">Salvar registro</button>')+'</footer></form>';
  document.body.append(dialog);const form=dialog.querySelector('form');
  if(readonly)form.querySelectorAll('input,select,textarea').forEach(e=>e.disabled=true);
  const close=()=>{dialog.close();dialog.remove();};$('#maintenance-close').onclick=close;$('#maintenance-cancel').onclick=close;$('#maintenance-edit')?.addEventListener('click',()=>{close();openMaintenanceForm(record,false);});
+
+ const updateStockChoices=()=>{
+  const branchId=form.elements.branch.value;
+  const stockSelect=$('#maintenance-stock-choice');
+  if(!stockSelect)return;
+  const stockDevices=devices.filter(d=>d.branch===branchId&&(d.status==='Estoque'||d.status==='Reserva'||(d.live&&d.live.status==='Estoque')));
+  stockSelect.replaceChildren(
+   new Option('Selecionar aparelho do estoque • ou informar série abaixo',''),
+   ...stockDevices.map(d=>new Option((d.serial||'Sem série')+' · '+(d.model||'Sem modelo')+(d.carrier?' · '+d.carrier:''),d.serial))
+  );
+ };
+ updateStockChoices();
+ form.elements.branch.addEventListener('change',updateStockChoices);
+
+ const stockSelect=$('#maintenance-stock-choice');
+ if(stockSelect){
+  stockSelect.onchange=()=>{
+   const selectedSerial=stockSelect.value;if(!selectedSerial)return;
+   const branchId=form.elements.branch.value;
+   const d=devices.find(x=>x.branch===branchId&&x.serial===selectedSerial);
+   if(d){
+    form.elements.afterSerial.value=d.serial;
+    const version=String(d.tracker_version||d.hardware_version||d.model||'').match(/^(?:RS300\s*)?V?(\d+\.\d+\.\d+)$/i)?.[1];
+    form.elements.afterTrackerModel.value=version||/RS300|^V?7\./i.test(d.model||'')?'RS300':/J16/i.test(d.model||'')?'J16 2G/4G':/Suntech/i.test(d.model||'')?'Suntech 2G':'Não informado';
+    form.elements.afterTrackerVersion.value=version||'';
+    if(d.carrier&&form.elements.afterCarrier)form.elements.afterCarrier.value=d.carrier;
+    if(d.iccid&&form.elements.afterIccid)form.elements.afterIccid.value=d.iccid;
+    if(d.phone&&form.elements.afterPhone)form.elements.afterPhone.value=d.phone;
+   }
+   updateSwapBox();
+  };
+ }
+
+ let currentSwapOp=null;
+ const updateSwapBox=()=>{
+  const kind=form.elements.solutionKind.value;
+  const isDeviceSwap=kind.includes('Troca de aparelho');
+  const isChipSwap=kind.includes('chip')||kind.includes('Chip');
+  const swapSec=$('#maintenance-swap-section');
+  const chipSec=$('#maintenance-chip-section');
+  if(swapSec)swapSec.hidden=!isDeviceSwap;
+  if(chipSec)chipSec.hidden=!isChipSwap;
+  const box=$('#maintenance-swap-box');
+  if(!box)return;
+  const outgoingSerial=form.elements.currentSerial.value.trim();
+  const incomingSerial=form.elements.afterSerial.value.trim();
+  const plate=form.elements.plate.value.trim();
+  if(!isDeviceSwap||!incomingSerial||!outgoingSerial||!plate){
+   box.hidden=true;return;
+  }
+  box.hidden=false;
+  const summary=$('#maintenance-swap-summary');
+  const previewBtn=$('#btn-swap-preview');
+  const executeBtn=$('#btn-swap-execute');
+  if(!currentSwapOp){
+   summary.textContent='Pronto para conferir troca: retirar '+outgoingSerial+' e instalar '+incomingSerial+' no veículo '+plate+'.';
+   previewBtn.hidden=false;executeBtn.hidden=true;
+  }
+ };
+ form.elements.solutionKind.addEventListener('change',updateSwapBox);
+ form.elements.currentSerial.addEventListener('input',updateSwapBox);
+ form.elements.afterSerial.addEventListener('input',updateSwapBox);
+ form.elements.plate.addEventListener('input',updateSwapBox);
+ updateSwapBox();
+
+ const previewBtn=$('#btn-swap-preview');
+ if(previewBtn){
+  previewBtn.onclick=async()=>{
+   const outgoingSerial=form.elements.currentSerial.value.trim();
+   const incomingSerial=form.elements.afterSerial.value.trim();
+   const plate=form.elements.plate.value.trim();
+   const b=form.elements.branch.value;
+   const summary=$('#maintenance-swap-summary');
+   const executeBtn=$('#btn-swap-execute');
+   summary.textContent='Conferindo placa e aparelhos na plataforma…';
+   previewBtn.disabled=true;
+   try{
+    if(typeof inv!=='function')throw Error('Módulo de estoque não disponível.');
+    const incomingDevice=devices.find(d=>d.serial===incomingSerial&&d.branch===b)||{serial:incomingSerial,branch:b,version:1};
+    const res=await inv('swap-preview',incomingDevice,{plate});
+    currentSwapOp=res.operation;
+    const s=currentSwapOp.snapshot;
+    summary.innerHTML='<strong>Conferência realizada:</strong> Instalar '+s.incoming.serial+' em <strong>'+esc(s.outgoing.plate)+'</strong> ('+esc(s.client||'Veículo confirmado')+') e retirar <strong>'+esc(s.outgoing.serial)+'</strong> para '+(form.elements.disposition.value||'Reparo')+'.';
+    previewBtn.hidden=true;executeBtn.hidden=false;executeBtn.disabled=false;
+   }catch(err){
+    summary.textContent='Falha na conferência: '+err.message;
+   }finally{
+    previewBtn.disabled=false;
+   }
+  };
+ }
+
+ const executeBtn=$('#btn-swap-execute');
+ if(executeBtn){
+  executeBtn.onclick=async()=>{
+   if(!currentSwapOp)return;
+   const b=form.elements.branch.value;
+   const incomingSerial=form.elements.afterSerial.value.trim();
+   const incomingDevice=devices.find(d=>d.serial===incomingSerial&&d.branch===b)||{serial:incomingSerial,branch:b,version:1};
+   const summary=$('#maintenance-swap-summary');
+   executeBtn.disabled=true;
+   summary.textContent='Executando troca de aparelho na plataforma…';
+   try{
+    if(typeof inv!=='function')throw Error('Módulo de estoque não disponível.');
+    const res=await inv('swap-execute',incomingDevice,{operation:currentSwapOp.id,confirmed:true});
+    summary.innerHTML='<span class="swap-success-badge">✓ Troca realizada com sucesso na plataforma!</span> Salve o registro para confirmar a manutenção.';
+    executeBtn.hidden=true;
+    const s=currentSwapOp.snapshot;
+    const swapLog='Troca efetuada na plataforma: retirado '+s.outgoing.serial+' ('+(form.elements.disposition.value||'Reparo')+'); instalado '+s.incoming.serial+' no veículo '+s.outgoing.plate+'.';
+    if(!form.elements.observation.value.includes(s.incoming.serial)){
+     form.elements.observation.value=(form.elements.observation.value?form.elements.observation.value+'\n':'')+swapLog;
+    }
+   }catch(err){
+    summary.textContent='Falha na execução: '+err.message;
+    executeBtn.disabled=false;
+   }
+  };
+ }
+
  let maintenanceMatches=[];$('#maintenance-find').onclick=async()=>{const q=stockNormalize($('#maintenance-lookup').value),id=form.elements.branch.value;let matches=q?devices.filter(d=>d.branch===id&&[d.serial,d.plate,d.identification,stockOwner(d)].some(x=>stockNormalize(x).includes(q))).slice(0,20):[];if(!matches.length&&q){try{const result=await api('maintenance',{action:'lookup',branch:id,search:q});if(!dialog.isConnected)return;matches=result.rows.map(r=>({...r,branch:id}));}catch(e){if(dialog.isConnected)$('#maintenance-feedback').textContent=e.message;return;}}maintenanceMatches=matches;const select=$('#maintenance-match');select.replaceChildren(new Option(matches.length?'Selecione o aparelho':'Nenhum aparelho nos dados carregados',''),...matches.map(d=>new Option((d.plate||d.identification||'Sem placa')+' · '+d.serial,d.id)));select.hidden=false;};
- $('#maintenance-match').onchange=e=>{const d=maintenanceMatches.find(d=>d.id===e.target.value&&d.branch===form.elements.branch.value);if(!d)return;for(const [k,value]of Object.entries({client:stockOwner(d),plate:d.plate||d.identification,currentSerial:d.serial,carrier:d.carrier,iccid:d.iccid,phone:d.phone,trackerModel:/RS300|^V?7\./i.test(d.model||'')?'RS300':'Não informado',trackerVersion:/^V?\d+\.\d+\.\d+$/i.test(d.model||'')?d.model.replace(/^V/i,''):''}))form.elements[k].value=value||'';};
+ $('#maintenance-match').onchange=e=>{const d=maintenanceMatches.find(d=>d.id===e.target.value&&d.branch===form.elements.branch.value);if(!d)return;for(const [k,value]of Object.entries({client:stockOwner(d),plate:d.plate||d.identification,currentSerial:d.serial,carrier:d.carrier,iccid:d.iccid,phone:d.phone,trackerModel:/RS300|^V?7\./i.test(d.model||'')?'RS300':'Não informado',trackerVersion:/^V?\d+\.\d+\.\d+$/i.test(d.model||'')?d.model.replace(/^V/i,''):''}))form.elements[k].value=value||'';updateSwapBox();};
  const key=crypto.randomUUID(),epoch=maintenanceEpoch;
- form.onsubmit=async e=>{e.preventDefault();if(readonly||!maintenanceWritable()||!await validateAccess())return;const save=form.querySelector('[type=submit]');save.disabled=true;const values=Object.fromEntries(new FormData(form)),id=record?.branch||values.branch;delete values.branch;
+ form.onsubmit=async e=>{e.preventDefault();if(readonly||!maintenanceWritable()||!await validateAccess())return;const save=form.querySelector('[type=submit]');save.disabled=true;const values=Object.fromEntries(new FormData(form)),id=record?.branch||values.branch;delete values.branch;delete values.stockChoice;
  try{const data=await api('maintenance',{action:'save',branch:id,key,id:record?.id,version:record?.version,values});if(epoch!==maintenanceEpoch||!session)return;const list=maintenanceCache.get(id)||[],i=list.findIndex(x=>x.id===data.row.id);if(i>=0)list[i]=data.row;else list.push(data.row);maintenanceCache.set(id,list);close();drawMaintenance();}
  catch(e){if(epoch===maintenanceEpoch)$('#maintenance-feedback').textContent=e.message;}
  finally{save.disabled=false;}};

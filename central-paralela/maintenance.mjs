@@ -9,9 +9,9 @@ export async function maintenance({input:b,user,config,document=trackingDocument
  if(b.action==='list')return {rows,branch:b.branch};
  if(!/^[a-f0-9-]{36}$/i.test(b.key||''))fail(400,'Chave inválida.');
  const v=b.values||{},safe={};
- for(const k of ['client','plate','currentSerial','vehicleType','reason','medium','cause','trackerModel','trackerVersion','carrier','chipType','iccid','phone','solutionKind','observation']){safe[k]=String(v[k]??'').trim();if(safe[k].length>(k==='observation'?6500:150))fail(400,'Campo muito longo.');}
+ for(const k of ['client','plate','currentSerial','vehicleType','reason','medium','cause','trackerModel','trackerVersion','carrier','chipType','iccid','phone','solutionKind','observation','afterSerial','afterTrackerModel','afterTrackerVersion','disposition','afterCarrier','afterChipType','afterIccid','afterPhone']){safe[k]=String(v[k]??'').trim();if(safe[k].length>(k==='observation'?6500:150))fail(400,'Campo muito longo.');}
  if(!safe.plate||!/^\d{6,17}$/.test(safe.currentSerial))fail(400,'Informe a identificação e a série válida.');
- if(safe.trackerVersion&&!/^\d+\.\d+\.\d+$/.test(safe.trackerVersion))fail(400,'Versão inválida. Use, por exemplo, 7.3.5.');
+ if(safe.trackerVersion&&!/^\d+\.\d+\.\d+$/.test(safe.trackerVersion))fail(400,'Versão inválida. Use, por exemplo, 7.3.5.');if(safe.afterTrackerVersion&&!/^\d+\.\d+\.\d+$/.test(safe.afterTrackerVersion))fail(400,'Versão inválida. Use, por exemplo, 7.3.5.');
  const fingerprint=JSON.stringify({id:b.id||'',values:safe});
  const prior=(doc.data.maintenanceAudit||[]).find(x=>x.key===b.key);
  if(prior){if(prior.actor!==user.username||prior.fingerprint!==fingerprint)fail(409,'Chave já utilizada.');return {row:rows.find(x=>x.id===prior.id),replayed:true};}
