@@ -15,6 +15,20 @@ function secure(response) {
 }
 const error = (status,message) => secure(Response.json({error:message},{status}));
 
+const whatsappQueue = [];
+const whatsappResults = new Map();
+let whatsappDeviceState = {
+  ok: true,
+  connected: true,
+  lastHeartbeat: Date.now(),
+  serial: 'RQ8WB02FN3P',
+  model: 'SM-A245M (Galaxy A24)',
+  whatsappPackage: 'com.whatsapp.w4b',
+  safetyLock: true,
+  authorizedGroup: 'Equipamentos Sos',
+  error: null
+};
+
 const fallbackSessions = new Map();
 async function sealSession(payload, secret) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -115,7 +129,7 @@ export default {
     }
     if (!routes.has(url.pathname)) return error(404,'Recurso não disponível nesta Central.');
     if (request.method !== routes.get(url.pathname)) return error(405,'Método não permitido.');
-    if (url.pathname!=='/api/galaxy' && request.method === 'POST' && request.headers.get('origin') !== url.origin) return error(403,'Origem inválida.');
+    if (url.pathname!=='/api/galaxy' && url.pathname!=='/api/whatsapp' && request.method === 'POST' && request.headers.get('origin') !== url.origin) return error(403,'Origem inválida.');
     if (!env.AUTH) return error(503,'Autenticação indisponível.');
     let body;
     if (request.method === 'POST') {
@@ -131,6 +145,31 @@ export default {
       if(!['imperatriz','araguaina','acailandia','maraba'].includes(input.branch))return error(400,'Filial inválida.');
       const token=android?request.headers.get('x-rs-gateway'):request.headers.get('authorization')?.replace(/^Bearer /,'');if(!/^[a-f0-9]{64}$/.test(token||''))return error(401,'Credencial inválida.');
       return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,token,android})})));
+    }
+    if(url.pathname==='/api/whatsapp'){
+      let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
+      if(input.action==='gateway-heartbeat'){
+        whatsappDeviceState = {
+          ...whatsappDeviceState,
+          ...(input.deviceStatus || {}),
+          lastHeartbeat: Date.now()
+        };
+        return secure(Response.json({ok:true,ack:true}));
+      }
+      if(input.action==='gateway-poll'){
+        const job = whatsappQueue.shift() || null;
+        return secure(Response.json({ok:true,job}));
+      }
+      if(input.action==='gateway-report'){
+        if(input.id){
+          whatsappResults.set(input.id, {
+            ok: input.status === 'sent',
+            error: input.error,
+            result: input.result
+          });
+        }
+        return secure(Response.json({ok:true,ack:true}));
+      }
     }
     const headers = new Headers({'x-parallel-ip':request.headers.get('cf-connecting-ip') || 'unknown'});
     for(const key of ['content-type','x-csrf-token']) if(request.headers.has(key))headers.set(key,request.headers.get(key));
@@ -156,27 +195,76 @@ export default {
         if(request.headers.get('x-csrf-token')!==user.csrf)return error(403,'Sessão de formulário inválida.');
         let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Consulta inválida.');}
         if(wa){
-          if(input.action==='status'){
+          if(input.action==='status'||input.action==='check-usb'){
+            const isOnline = (Date.now() - (whatsappDeviceState.lastHeartbeat || 0) < 25000) && whatsappDeviceState.ok && whatsappDeviceState.connected !== false;
             return secure(Response.json({
-              ok:true,
-              device:{model:'Samsung Galaxy A24 (SM-A245M)',serial:'RQ8WB02FN3P',connection:'usb',status:'online',app:'com.whatsapp.w4b',appName:'WhatsApp Business'},
-              safety:{testMode:true,authorizedGroup:'Equipamentos Sos',authorizedText:'olá, testando mensagem automática.',externalBlocked:true},
-              lastTest:{timestamp:'12:28',group:'Equipamentos Sos',status:'sent',message:'olá, testando mensagem automática.'}
+              ok: isOnline,
+              connected: isOnline,
+              device: {
+                model: whatsappDeviceState.model || 'Samsung Galaxy A24 (SM-A245M)',
+                serial: whatsappDeviceState.serial || 'RQ8WB02FN3P',
+                connection: 'usb',
+                status: isOnline ? 'online' : 'offline',
+                app: whatsappDeviceState.whatsappPackage || 'com.whatsapp.w4b',
+                appName: 'WhatsApp Business'
+              },
+              lastHeartbeat: whatsappDeviceState.lastHeartbeat,
+              safety: { testMode: true, authorizedGroup: 'Equipamentos Sos', authorizedText: 'olá, testando mensagem automática.', externalBlocked: true },
+              error: isOnline ? null : (whatsappDeviceState.error || 'Aparelho desconectado da USB ou sem resposta do gateway local.')
             }));
           }
           if(input.action==='send'){
             const target=(input.target||input.name||input.phone||'Equipamentos Sos').trim();
             const msg=(input.message||'').trim()||'Olá eu estou mandando essa mensagem de teste não precisa ter retorno';
-            return secure(Response.json({
-              ok:true,
-              status:'sent',
-              target,
-              phone:input.phone||'',
-              name:input.name||'',
-              message:msg,
-              timestamp:new Date().toISOString(),
-              channel:input.channel||'gateway-usb'
-            }));
+            const channel = input.channel || 'gateway-usb';
+            if(channel === 'wa-web'){
+              return secure(Response.json({
+                ok:true,
+                status:'sent',
+                target,
+                phone:input.phone||'',
+                name:input.name||'',
+                message:msg,
+                timestamp:new Date().toISOString(),
+                channel:'wa-web'
+              }));
+            }
+            const isOnline = (Date.now() - (whatsappDeviceState.lastHeartbeat || 0) < 25000) && whatsappDeviceState.ok && whatsappDeviceState.connected !== false;
+            if(!isOnline){
+              return error(503, 'Celular desconectado da USB! O aparelho RQ8WB02FN3P não foi detectado pelo gateway. Reconecte o cabo USB ao computador e ative a depuração USB.');
+            }
+            const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+            whatsappQueue.push({
+              id: jobId,
+              phone: input.phone || '',
+              name: input.name || '',
+              message: msg,
+              timestamp: Date.now()
+            });
+            const startWait = Date.now();
+            while (Date.now() - startWait < 14000) {
+              if (whatsappResults.has(jobId)) {
+                const outcome = whatsappResults.get(jobId);
+                whatsappResults.delete(jobId);
+                if (outcome.ok) {
+                  return secure(Response.json({
+                    ok: true,
+                    status: 'sent',
+                    target,
+                    phone: input.phone || '',
+                    name: input.name || '',
+                    message: msg,
+                    timestamp: new Date().toISOString(),
+                    channel: 'gateway-usb',
+                    device: whatsappDeviceState
+                  }));
+                } else {
+                  return error(500, outcome.error || 'Falha ao despachar para o celular via USB.');
+                }
+              }
+              await new Promise(r => setTimeout(r, 300));
+            }
+            return error(504, 'O celular conectado via USB não respondeu a tempo para enviar a mensagem. Verifique a tela e o cabo USB.');
           }
           return error(400,'Ação desconhecida.');
         }

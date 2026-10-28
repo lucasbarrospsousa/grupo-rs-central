@@ -206,7 +206,14 @@
               <small>Configuração da lista de contatos e variações de texto</small>
             </div>
             <div class="wa-device-status-badge">
-              <span class="wa-status-pill online"><span class="wa-pulse"></span>Galaxy A24 (USB Conectado)</span>
+              <button type="button" id="btn-wa-check-usb" class="wa-btn-usb-check" title="Verificar conexão do celular via USB">
+                <span class="wa-usb-icon">🔌</span>
+                <span id="btn-wa-check-usb-text">Verificar Conexão USB</span>
+              </button>
+              <span id="wa-device-pill" class="wa-status-pill online">
+                <span class="wa-pulse"></span>
+                <span id="wa-device-pill-text">Galaxy A24 (USB Conectado)</span>
+              </span>
             </div>
           </div>
 
@@ -391,6 +398,77 @@
     const pauseBtn = root.querySelector('#btn-wa-pause-batch');
     const stopBtn = root.querySelector('#btn-wa-stop-batch');
     const countdownBadge = root.querySelector('#wa-batch-countdown');
+    const checkUsbBtn = root.querySelector('#btn-wa-check-usb');
+    const devicePill = root.querySelector('#wa-device-pill');
+    const devicePillText = root.querySelector('#wa-device-pill-text');
+
+    async function checkUsbStatus(showFeedback = true) {
+      if (checkUsbBtn) {
+        checkUsbBtn.disabled = true;
+        const textSpan = root.querySelector('#btn-wa-check-usb-text');
+        if (textSpan) textSpan.textContent = 'Verificando...';
+      }
+
+      let status = null;
+
+      // 1. Try local daemon bridge directly (instant zero latency)
+      try {
+        const localRes = await fetch('http://127.0.0.1:5038/check-usb', {
+          signal: AbortSignal.timeout(3000)
+        });
+        if (localRes.ok) {
+          status = await localRes.json();
+        }
+      } catch (e) {
+        // Local direct call unavailable, fallback to worker API
+      }
+
+      // 2. Fallback to Cloudflare Worker status
+      if (!status && typeof api === 'function') {
+        try {
+          const res = await api('whatsapp', { action: 'check-usb' });
+          if (res) status = res;
+        } catch (err) {
+          status = { ok: false, connected: false, error: err.message };
+        }
+      }
+
+      if (checkUsbBtn) {
+        checkUsbBtn.disabled = false;
+        const textSpan = root.querySelector('#btn-wa-check-usb-text');
+        if (textSpan) textSpan.textContent = 'Verificar Conexão USB';
+      }
+
+      const isConnected = status && (status.connected || (status.ok && status.serial));
+
+      if (isConnected) {
+        if (devicePill) devicePill.className = 'wa-status-pill online';
+        if (devicePillText) devicePillText.textContent = 'Galaxy A24 (USB Online)';
+        if (showFeedback && feedback) {
+          feedback.innerHTML = `✔ <strong>Conexão USB confirmada!</strong> Samsung Galaxy A24 (SM-A245M · RQ8WB02FN3P) online e WhatsApp Business pronto.`;
+          feedback.className = 'wa-feedback success';
+        }
+        if (startBtn && !batchState.running) startBtn.disabled = false;
+        return true;
+      } else {
+        if (devicePill) devicePill.className = 'wa-status-pill offline';
+        if (devicePillText) devicePillText.textContent = 'Celular Desconectado (USB Offline)';
+        if (showFeedback && feedback) {
+          const errMsg = status?.error || 'Dispositivo não detectado no ADB.';
+          feedback.innerHTML = `❌ <strong>Celular desconectado da USB!</strong> ${escapeHtml(errMsg)} Reconecte o cabo USB ao computador e ative a Depuração USB.`;
+          feedback.className = 'wa-feedback error';
+        }
+        return false;
+      }
+    }
+
+    checkUsbBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      checkUsbStatus(true);
+    });
+
+    // Auto-check silently on view load
+    checkUsbStatus(false);
 
     function updateUiState() {
       if (startBtn) startBtn.disabled = batchState.running;
@@ -421,6 +499,17 @@
 
       const pacingMode = root.querySelector('#wa-pacing-select')?.value || 'random-safe';
       const channel = root.querySelector('#wa-channel-mode')?.value || 'gateway-usb';
+
+      if (channel === 'gateway-usb') {
+        const connected = await checkUsbStatus(false);
+        if (!connected) {
+          if (feedback) {
+            feedback.innerHTML = `❌ <strong>Envio cancelado:</strong> Celular desconectado da USB. Conecte o cabo USB do aparelho ao computador e clique em <em>Verificar Conexão USB</em> antes de iniciar.`;
+            feedback.className = 'wa-feedback error';
+          }
+          return;
+        }
+      }
 
       batchState.running = true;
       batchState.currentIndex = 0;
@@ -457,14 +546,40 @@
           const cleanPhone = digits.startsWith('55') ? digits : '55' + digits;
           const url = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
           window.open(url, '_blank', 'noopener,noreferrer');
-        } else if (typeof api === 'function') {
-          await api('whatsapp', {
-            action: 'send',
-            phone: contact.phone,
-            name: contact.name,
-            message,
-            channel
-          });
+        } else {
+          // Channel: gateway-usb (try local daemon first, then worker queue)
+          let dispatchResult = null;
+          try {
+            const localSend = await fetch('http://127.0.0.1:5038/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone: contact.phone, name: contact.name, message }),
+              signal: AbortSignal.timeout(18000)
+            });
+            if (localSend.ok) {
+              dispatchResult = await localSend.json();
+            } else {
+              const errData = await localSend.json().catch(() => ({}));
+              throw new Error(errData.error || `Gateway USB local retornou erro ${localSend.status}`);
+            }
+          } catch (localErr) {
+            // Local direct bridge not responding or blocked by browser PNA, fallback to cloud queue
+            if (typeof api === 'function') {
+              dispatchResult = await api('whatsapp', {
+                action: 'send',
+                phone: contact.phone,
+                name: contact.name,
+                message,
+                channel
+              });
+            } else {
+              throw localErr;
+            }
+          }
+
+          if (dispatchResult && dispatchResult.error) {
+            throw new Error(dispatchResult.error);
+          }
         }
 
         auditLogs.unshift({
@@ -479,7 +594,7 @@
           status: 'success',
           statusLabel: 'Enviado com Sucesso',
           device: 'Samsung Galaxy A24 (SM-A245M)',
-          details: 'Iniciada conversa e transmitida no WhatsApp Business'
+          details: 'Iniciada conversa e transmitida no WhatsApp Business via USB'
         });
 
         const tbody = root.querySelector('#wa-history-tbody');
@@ -514,11 +629,29 @@
         }
       } catch (err) {
         if (feedback) {
-          feedback.textContent = `Erro ao disparar para ${contact.name}: ${err.message}`;
+          feedback.innerHTML = `❌ <strong>Falha no envio para ${escapeHtml(contact.name)}:</strong> ${escapeHtml(err.message)}`;
           feedback.className = 'wa-feedback error';
         }
+        auditLogs.unshift({
+          id: 'DISP-WA-' + String(auditLogs.length + 1).padStart(3, '0'),
+          time: new Date().toLocaleTimeString('pt-BR'),
+          date: new Date().toLocaleDateString('pt-BR'),
+          target: `${contact.name} (${contact.phone})`,
+          targetType: 'contact',
+          channel: channel === 'gateway-usb' ? 'Gateway Celular USB (Galaxy A24)' : 'WhatsApp Web',
+          message,
+          variant: variantLabel,
+          status: 'failed',
+          statusLabel: 'Falha USB',
+          device: 'Samsung Galaxy A24 (SM-A245M)',
+          details: err.message
+        });
+        const tbody = root.querySelector('#wa-history-tbody');
+        if (tbody) tbody.innerHTML = renderHistoryRows();
+
         batchState.running = false;
         updateUiState();
+        checkUsbStatus(false);
       }
     }
 

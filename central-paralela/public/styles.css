@@ -606,6 +606,12 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 
 .wa-status-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:700;margin-left:auto}
 .wa-status-pill.online{background:#0e3020;border:1px solid #1c6843;color:#4ade80}
+.wa-status-pill.offline{background:#341212;border:1px solid #7c2222;color:#f87171}
+.wa-status-pill.offline .wa-pulse{background:#ef4444;box-shadow:0 0 8px #ef4444;animation:none}
+.wa-device-status-badge{display:flex;align-items:center;gap:12px;margin-left:auto}
+.wa-btn-usb-check{height:32px;padding:0 12px;font-size:12px;border-radius:7px;background:#141c26;border:1px solid #334458;color:#cdd9e8;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.wa-btn-usb-check:hover{background:#1e2838;border-color:#f5a53c;color:#fff}
+.wa-btn-usb-check:disabled{opacity:.6;cursor:wait}
 .wa-pulse{width:8px;height:8px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80;animation:waPulse 2s infinite}
 @keyframes waPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
 
