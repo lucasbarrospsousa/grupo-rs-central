@@ -198,7 +198,7 @@
         </div>
 
         <!-- Main Configuration Card: Telefone/Nome & Mensagem Sugerida -->
-        <article class="card wa-card wa-campaign-card">
+        <article class="wa-card wa-campaign-card">
           <div class="wa-card-header">
             <div class="wa-title-icon">📝</div>
             <div>
@@ -289,7 +289,7 @@
         </article>
 
         <!-- Audit Ledger / Table -->
-        <article class="card wa-card wa-history-card">
+        <article class="wa-card wa-history-card">
           <div class="wa-card-header">
             <div class="wa-title-icon">📋</div>
             <div>
