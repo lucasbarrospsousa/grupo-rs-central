@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 import {queryStatus,guardQueries,latestLocation} from './query-flow.mjs';
 import {Integrations} from './integrations.mjs';
 const serial='024000001',iccid='89123456789012345678';
+test('incomplete exact equipment preserves known APN, but never reuses APN across a changed chip',async()=>{
+ const queried=[];let remoteIccid=iccid;
+ const service={equipment:async()=>({ok:true,serial,id:'1',vehicle_id:'2',iccid:remoteIccid,apn:''}),equipmentLocation:async()=>({ok:true,serial}),carrier:async(p,i)=>{queried.push(i);return{ok:true,iccid:i};}};
+ await queryStatus(service,'imperatriz',{serial,iccid,apn:'hinova.br'});
+ remoteIccid='89123456789012345679';await queryStatus(service,'imperatriz',{serial,iccid,apn:'hinova.br'});
+ assert.deepEqual(queried,[iccid]);
+});
+test('fresh communication with older GPS updates ignition without moving location backwards',()=>{
+ const old={ok:true,serial,updated_at:'2026-10-26 10:00:00',gps_at:'2026-10-26 09:59:00',lat:'-5',lng:'-47',ignition:'0'};
+ const result=latestLocation(old,{...old,updated_at:'2026-10-26 10:01:00',gps_at:'2026-10-26 09:58:00',lat:'0',lng:'0',ignition:'1'});
+ assert.equal(result.ignition,'1');assert.equal(result.updated_at,'2026-10-26 10:01:00');assert.equal(result.lat,'-5');assert.equal(result.gps_at,old.gps_at);
+});
 test('first lookup saves exact codes; next round uses only communication and APN carrier',async()=>{
  let equipment=0;const providers=[],codes=[];
  const service={equipment:async()=>{equipment++;return{ok:true,serial,id:'1',vehicle_id:'2',iccid,apn:'linksolutions.br'};},equipmentLocation:async(b,s,c)=>{codes.push(c);return{ok:true,serial};},carrier:async(p,i)=>{providers.push(p);return{ok:true,iccid:i};}};

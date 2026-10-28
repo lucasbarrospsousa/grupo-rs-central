@@ -34,7 +34,7 @@ test('tracking supports migrated documents above 12 MB but bounds reads and writ
  const cfg={...config,tracking:{a:'tracking'}};
  assert.equal((await driveTracking(cfg,['a'],f)).length,1);
  const doc=await trackingDocument(cfg,'a',f);await doc.save();assert.equal(writes,1);
- doc.data.padding='x'.repeat(20000001);assert.throws(()=>doc.save(),/TRACKING_LIMIT/);assert.equal(writes,1);
+ doc.data.padding='x'.repeat(20000001);await assert.rejects(doc.save(),/TRACKING_LIMIT/);assert.equal(writes,1);
  size=20000001;await assert.rejects(trackingDocument(cfg,'a',f),/TRACKING_PRIVATE/);await assert.rejects(driveTracking(cfg,['a'],f),/TRACKING_PRIVATE/);
 });
 test('login reuses tracking reads for authorized warehouse and excludes costs for readers',async()=>{

@@ -6,6 +6,12 @@ import {warehouse} from './warehouse.mjs';
 export {Operations} from './operations.mjs';
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard,driveUsers} from './drive.mjs';
 export {AuthService} from './auth.mjs';
+async function displayRows(env,user,refresh=false){
+ if(!env.OPERATIONS)return driveTracking(JSON.parse(env.DRIVE_CONFIG||'null'),user.branches.map(b=>b.id),fetch,{stock:user.permissions?.views?.includes('stock')||user.permissions?.views?.includes('overview'),warehouse:user.permissions?.views?.includes('warehouse'),maintenance:user.permissions?.views?.includes('maintenance'),owner:user.permissions?.owner===true});
+ const response=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/display',{method:'POST',body:JSON.stringify({user,refresh})}));
+ if(!response.ok)throw Error('DISPLAY_UNAVAILABLE');
+ return response.json();
+}
 const routes = new Map([['/api/jobs','POST'],['/api/users','POST'],['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET'],['/api/whatsapp','POST']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 function secure(response) {
@@ -19,8 +25,8 @@ const whatsappQueue = [];
 const whatsappResults = new Map();
 let whatsappDeviceState = {
   ok: true,
-  connected: true,
-  lastHeartbeat: Date.now(),
+  connected: false,
+  lastHeartbeat: 0,
   serial: 'RQ8WB02FN3P',
   model: 'SM-A245M (Galaxy A24)',
   whatsappPackage: 'com.whatsapp.w4b',
@@ -119,13 +125,13 @@ export default {
       if(!credential?.token_hash||!/^[a-f0-9]{64}$/.test(token)||digest(token)!==credential.token_hash)return error(401,'Credencial inválida.');
       const raw=await request.text();if(raw.length>4096)return error(413,'Solicitação muito grande.');
       let input;try{input=JSON.parse(raw);}catch{return error(400,'Solicitação inválida.');}
-      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/configurator',{method:'POST',body:JSON.stringify({input})})));
+      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/configurator',{method:'POST',body:JSON.stringify({input})})));
     }
     if(url.pathname==='/api/maintenance-import'){
       if(request.method!=='POST')return error(405,'Método inválido.');
       const raw=await request.text();if(raw.length>100000)return error(413,'Lote muito grande.');
       if(!verifyImport(raw,request.headers.get('x-import-signature'),env.AUTH_DATA_KEY,env.MAINTENANCE_IMPORT_UNTIL))return error(403,'Importação desabilitada.');
-      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/maintenance-import',{method:'POST',body:JSON.stringify({kind:'maintenance-import',importBody:raw,importSignature:request.headers.get('x-import-signature')})})));
+      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/maintenance-import',{method:'POST',body:JSON.stringify({kind:'maintenance-import',importBody:raw,importSignature:request.headers.get('x-import-signature')})})));
     }
     if (!routes.has(url.pathname)) return error(404,'Recurso não disponível nesta Central.');
     if (request.method !== routes.get(url.pathname)) return error(405,'Método não permitido.');
@@ -144,34 +150,12 @@ export default {
       const android=!!request.headers.get('x-rs-gateway');if(android)input.branch=url.searchParams.get('branch');
       if(!['imperatriz','araguaina','acailandia','maraba'].includes(input.branch))return error(400,'Filial inválida.');
       const token=android?request.headers.get('x-rs-gateway'):request.headers.get('authorization')?.replace(/^Bearer /,'');if(!/^[a-f0-9]{64}$/.test(token||''))return error(401,'Credencial inválida.');
-      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,token,android})})));
+      return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,token,android})})));
     }
     if(url.pathname==='/api/whatsapp'){
       let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
-      if(input.action==='gateway-heartbeat'){
-        whatsappDeviceState = {
-          ...whatsappDeviceState,
-          ...(input.deviceStatus || {}),
-          lastHeartbeat: Date.now()
-        };
-        return secure(Response.json({ok:true,ack:true}));
-      }
-      if(input.action==='gateway-poll'){
-        const job = whatsappQueue.shift() || null;
-        return secure(Response.json({ok:true,job}));
-      }
-      if(input.action==='gateway-report'){
-        if(input.id){
-          whatsappResults.set(input.id, {
-            ok: input.status === 'sent',
-            status: input.status,
-            confirmed: input.confirmed === true || input.status === 'sent',
-            error: input.error,
-            result: input.result,
-            reportedAt: Date.now()
-          });
-        }
-        return secure(Response.json({ok:true,ack:true}));
+      if(['gateway-heartbeat','gateway-poll','gateway-report'].includes(input.action)){
+        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)})));
       }
     }
     const headers = new Headers({'x-parallel-ip':request.headers.get('cf-connecting-ip') || 'unknown'});
@@ -198,130 +182,37 @@ export default {
         if(request.headers.get('x-csrf-token')!==user.csrf)return error(403,'Sessão de formulário inválida.');
         let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Consulta inválida.');}
         if(wa){
-          if(input.action==='status'||input.action==='check-usb'){
+          if(!user.permissions?.owner&&!user.permissions?.writes?.includes('stock'))return error(403,'Sem permissão para esta integração.');
+          if(input.action==='send'&&input.channel==='wa-web'){
             return secure(Response.json({
-              ok: true,
-              connected: true,
-              device: {
-                model: whatsappDeviceState.model || 'Samsung Galaxy A24 (SM-A245M)',
-                serial: whatsappDeviceState.serial || 'RQ8WB02FN3P',
-                connection: 'mobile-app',
-                status: 'online',
-                app: whatsappDeviceState.whatsappPackage || 'com.whatsapp.w4b',
-                appName: 'WhatsApp Business'
-              },
-              lastHeartbeat: Date.now(),
-              safety: { testMode: true, authorizedGroup: 'Equipamentos Sos', authorizedText: 'olá, testando mensagem automática.', externalBlocked: true },
-              error: null
+              ok:true,
+              status:'sent',
+              target:(input.target||input.name||input.phone||'Equipamentos Sos').trim(),
+              phone:input.phone||'',
+              name:input.name||'',
+              message:(input.message||'').trim()||'Olá eu estou mandando essa mensagem de teste não precisa ter retorno',
+              timestamp:new Date().toISOString(),
+              channel:'wa-web'
             }));
           }
-          if(input.action==='send'){
-            const target=(input.target||input.name||input.phone||'Equipamentos Sos').trim();
-            const msg=(input.message||'').trim()||'Olá eu estou mandando essa mensagem de teste não precisa ter retorno';
-            const channel = input.channel || 'gateway-usb';
-            if(channel === 'wa-web'){
-              return secure(Response.json({
-                ok:true,
-                status:'sent',
-                target,
-                phone:input.phone||'',
-                name:input.name||'',
-                message:msg,
-                timestamp:new Date().toISOString(),
-                channel:'wa-web'
-              }));
-            }
-            const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-            whatsappQueue.push({
-              id: jobId,
-              phone: input.phone || '',
-              name: input.name || '',
-              message: msg,
-              timestamp: Date.now()
-            });
-            const startWait = Date.now();
-            while (Date.now() - startWait < 22000) {
-              if (whatsappResults.has(jobId)) {
-                const outcome = whatsappResults.get(jobId);
-                whatsappResults.delete(jobId);
-                if (outcome.ok && outcome.confirmed) {
-                  return secure(Response.json({
-                    ok: true,
-                    status: 'sent',
-                    confirmed: true,
-                    target,
-                    phone: input.phone || '',
-                    name: input.name || '',
-                    message: msg,
-                    timestamp: new Date().toISOString(),
-                    channel: 'gateway-mobile',
-                    device: whatsappDeviceState
-                  }));
-                } else {
-                  return error(500, outcome.error || 'O aplicativo no celular não confirmou o envio da mensagem no WhatsApp.');
-                }
-              }
-              await new Promise(r => setTimeout(r, 300));
-            }
-            return error(504, 'Tempo limite esgotado: o aplicativo no celular não confirmou o clique de envio no WhatsApp dentro do prazo.');
-          }
-          return error(400,'Ação desconhecida.');
-        }
+          return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)})));        }
         if(jobs&&!user.permissions?.owner)return error(403,'Somente administrador.');
         if(!jobs&&!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
         if(!env.OPERATIONS||(!jobs&&!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
-        if(maint){
-          try{
-            return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/maintenance',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input,user})})));
-          }catch(e){
-            if(/free tier|duration|Durable Object/i.test(e.message||'')){
-              try {
-                const res = await maintenance({input, user, config: JSON.parse(env.DRIVE_CONFIG||'null')});
-                return secure(Response.json(res));
-              } catch(me) {
-                return error(me.status || 500, me.message);
-              }
-            }
-            throw e;
-          }
-        }
-        if(wh){
-          try{
-            return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/warehouse',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({input,user})})));
-          }catch(e){
-            if(/free tier|duration|Durable Object/i.test(e.message||'')){
-              try {
-                const res = await warehouse({input, user, config: JSON.parse(env.DRIVE_CONFIG||'null')});
-                return secure(Response.json(res));
-              } catch(we) {
-                return error(we.status || 500, we.message);
-              }
-            }
-            throw e;
-          }
-        }
-        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)})));
+        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)})));
       }
       // Authentication does not depend on operational snapshots or write recovery.
       if(url.pathname==='/api/login'&&url.searchParams.get('bootstrap')==='0')return secure(response);
-      if(response.ok&&(tracking||dashboard||['/api/login','/api/session'].includes(url.pathname))&&env.OPERATIONS){
-        try {
-          const barrier=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/barrier',{method:'POST',body:'{}'}));
-          if(!barrier.ok)return error(503,'Recuperação de gravação pendente. Tente novamente.');
-        } catch(e) {
-          if (!/free tier|duration/i.test(e.message || '')) throw e;
-        }
-      }
       if(tracking){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
         const user=await response.json();if(!user.permissions?.views?.includes('stock'))return error(403,'Sem acesso ao estoque.');
-        try{return secure(Response.json(await driveTracking(JSON.parse(env.DRIVE_CONFIG||'null'),(user.branches||[]).map(b=>b.id))));}catch{return error(503,'Cópia de aparelhos indisponível no Drive.');}
+        try{return secure(Response.json((await displayRows(env,user,url.searchParams.get('refresh')==='1')).map(({warehouse,maintenance,...r})=>r)));}catch{return error(503,'Cópia de aparelhos indisponível no Drive.');}
       }
       if(dashboard){
         if(!response.ok)return error(response.status,'Entre no sistema para continuar.');
         const user=await response.json(),branch=url.searchParams.get('branch');
         if(!user.permissions?.views?.includes('overview')||!user.branches?.some(b=>b.id===branch))return error(403,'Sem acesso a este painel ou filial.');
-        try{return secure(Response.json(await driveDashboard(JSON.parse(env.DRIVE_CONFIG||'null'),branch)));}
+        try{return secure(Response.json(trackingDashboard((await displayRows(env,{...user,branches:user.branches.filter(b=>b.id===branch)}))[0])));}
         catch{return error(503,'Cópia do Drive indisponível. Não foi consultado o banco operacional.');}
       }
       if(driveStatus){
@@ -333,12 +224,16 @@ export default {
       }
       if(response.ok && ['/api/login','/api/session'].includes(url.pathname)){
         const user=await response.json();
-        const tasks=[];
-        if(user.branches?.length){const config=JSON.parse(env.DRIVE_CONFIG||'null'),ids=user.branches.map(b=>b.id);
-          if(user.permissions?.views?.includes('overview')&&!user.permissions?.views?.includes('stock'))tasks.push(driveDashboards(config,ids).then(rows=>{user.dashboard=rows;}).catch(()=>{user.dashboardError='Cópia do painel indisponível. Recarregue para tentar novamente.';}));
-          const stock=user.permissions?.views?.includes('stock'),warehouse=user.permissions?.views?.includes('warehouse'),maint=user.permissions?.views?.includes('maintenance'); if(stock||warehouse||maint)tasks.push(driveTracking(config,ids,fetch,{stock,warehouse,maintenance:maint,owner:user.permissions?.owner===true}).then(rows=>{if(warehouse)user.warehouse=rows.map(r=>r.warehouse);if(maint){user.maintenance={};for(const r of rows)user.maintenance[r.branch.id]=r.maintenance||[];}if(stock){user.tracking=rows.map(({warehouse,maintenance,...r})=>r);if(user.permissions?.views?.includes('overview'))user.dashboard=user.tracking.map(trackingDashboard);}}).catch(()=>{user.trackingError='Cópia dos aparelhos indisponível. Recarregue para tentar novamente.';}));
+        if(user.branches?.length&&(user.permissions?.views||[]).some(v=>['overview','stock','warehouse','maintenance'].includes(v))){
+         try{
+          if(!env.OPERATIONS&&!user.permissions.views.includes('stock')&&user.permissions.views.includes('overview')&&!JSON.parse(env.DRIVE_CONFIG||'null')?.tracking){user.dashboard=await driveDashboards(JSON.parse(env.DRIVE_CONFIG),user.branches.map(b=>b.id));return secure(new Response(JSON.stringify(user),{status:response.status,headers:response.headers}));}
+          const rows=await displayRows(env,user,url.searchParams.get('refresh')==='1'),views=user.permissions?.views||[];
+          if(views.includes('warehouse'))user.warehouse=rows.map(r=>r.warehouse);
+          if(views.includes('maintenance'))user.maintenance=Object.fromEntries(rows.map(r=>[r.branch.id,r.maintenance||[]]));
+          if(views.includes('stock'))user.tracking=rows.map(({warehouse,maintenance,...r})=>r);
+          if(views.includes('overview'))user.dashboard=rows.map(trackingDashboard);
+         }catch{user.trackingError='Dados salvos indisponíveis. Recarregue para tentar novamente.';user.dashboardError=user.trackingError;}
         }
-        await Promise.all(tasks);
         return secure(new Response(JSON.stringify(user),{status:response.status,headers:response.headers}));
       }
       const result=new Response(response.body,response);

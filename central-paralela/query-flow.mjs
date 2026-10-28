@@ -35,7 +35,7 @@ export async function queryStatus(service,branch,row,{chip:readChip=true}={}){
  if(!codes||!row.iccid||!row.apn)equipment=await capture(()=>service.equipment(branch,row.serial));
  const exact=equipment?.ok&&equipment.serial===row.serial;
  const nextCodes=exact&&/^[1-9]\d*$/.test(equipment.vehicle_id||'')?{branch,serial:row.serial,vehicle_id:equipment.vehicle_id,equipment_id:equipment.id}:null;
- const contacts=exact?{iccid:equipment.iccid,apn:equipment.apn}:row;
+ const contacts=exact?{iccid:equipment.iccid||row.iccid,apn:equipment.apn||(!equipment.iccid||equipment.iccid===row.iccid?row.apn:'')}:row;
  const [location,chip]=await Promise.all([
   equipment&&!exact&&!codes?Promise.resolve({ok:false,message:equipment.message||'Cadastro não confirmado.'}):capture(()=>service.equipmentLocation(branch,row.serial,nextCodes||codes||(exact?equipment:null))),
   readChip?savedChipStatus(service,contacts):Promise.resolve(row.live?.chip||{ok:false,message:'Chip não consultado nesta atualização.'})
@@ -52,6 +52,7 @@ export function latestLocation(previous,next){
  if(previous?.serial&&next?.serial&&previous.serial!==next.serial)return next;
  if(!next?.ok)return previous?.ok?{...previous,query_error:next?.message||'Consulta pendente'}:next;
  const before=timestamp(previous?.updated_at),after=timestamp(next.updated_at),oldGps=timestamp(previous?.gps_at),newGps=timestamp(next.gps_at);
- if(previous?.ok&&((Number.isFinite(before)&&(!Number.isFinite(after)||after<before))||(Number.isFinite(oldGps)&&Number.isFinite(newGps)&&newGps<oldGps)))return previous;
+ if(previous?.ok&&Number.isFinite(before)&&(!Number.isFinite(after)||after<before))return previous;
+ if(previous?.ok&&Number.isFinite(oldGps)&&Number.isFinite(newGps)&&newGps<oldGps)return {...next,lat:previous.lat,lng:previous.lng,gps_at:previous.gps_at,query_error:''};
  return{...next,query_error:''};
 }
