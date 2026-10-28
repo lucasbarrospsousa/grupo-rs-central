@@ -26,7 +26,7 @@ async function prefetchMaintenance(){
 }
 async function showMaintenance(){
  if(!session?.permissions?.views?.includes('maintenance'))return;
- currentTab='maintenance';content.hidden=true;$('#tracking-content').hidden=true;maintenanceRoot.hidden=false;$('.operation-hero').classList.add('compact','maintenance-hero');$('#hero-actions').hidden=true;
+ currentTab='maintenance';content.hidden=true;$('#tracking-content').hidden=true;const uc=$('#users-content');if(uc)uc.hidden=true;maintenanceRoot.hidden=false;$('.operation-hero').classList.add('compact','maintenance-hero');$('#hero-actions').hidden=true;
  $('#crumb').textContent='Manutenções';$('#page-title').textContent='Manutenções';$('#page-description').textContent='Situações, soluções e histórico dos aparelhos.';status.textContent='';
  document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab==='maintenance')b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  const missing=session.branches.filter(b=>!maintenanceCache.has(b.id));

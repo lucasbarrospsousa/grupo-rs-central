@@ -17,7 +17,7 @@ async function showWarehouse(tab){
   if(target){branch.value=target;whBranch=target;if(typeof paintScope==='function')paintScope();}
  }
  if(currentTab!==tab||whBranch!==branch.value){whSelected.clear();whPage=1;}whBranch=branch.value;currentTab=tab;whView=tab.replace('warehouse-','');
- content.hidden=true;$('#tracking-content').hidden=true;$('#maintenance-content').hidden=true;whRoot.hidden=false;
+ content.hidden=true;$('#tracking-content').hidden=true;$('#maintenance-content').hidden=true;const uc=$('#users-content');if(uc)uc.hidden=true;whRoot.hidden=false;
  whRoot.dataset.view=whView;const hero=$('.operation-hero');hero.classList.remove('maintenance-hero');hero.classList.add('warehouse-hero','compact');hero.dataset.warehouse=whView;hero.querySelector('.eyebrow').textContent='ARMAZÉM';hero.querySelector('.wh-preview-tag')?.remove();
  $('#hero-actions').hidden=true;$('#page-title').textContent={chips:'Gestão de chips',devices:'Gestão de aparelhos',values:'Valores'}[whView];$('#page-description').textContent={chips:'Estoque, reserva e vínculos em um só lugar.',devices:'Estoque, reserva, emergência e distribuição.',values:'Custos de chips e patrimônio do armazém.'}[whView];$('#crumb').textContent='Armazém / '+{chips:'Chips',devices:'Aparelhos',values:'Valores'}[whView];status.textContent='';
  document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
