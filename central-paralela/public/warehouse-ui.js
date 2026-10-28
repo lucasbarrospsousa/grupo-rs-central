@@ -12,9 +12,13 @@ function resetWarehouse(){whEpoch++;whCache.clear();whSelected.clear();whRoot.re
 async function whCall(input){for(let i=0;i<4;i++){try{return await api('warehouse',input);}catch(e){if(e.status!==429||i===3)throw e;await new Promise(r=>setTimeout(r,1500));}}}
 async function showWarehouse(tab){
  if(!session?.permissions?.views?.includes('warehouse')||(tab==='warehouse-values'&&!session.permissions.owner))return;
+ if(branch.value==='all'){
+  const target=[...branch.options].find(o=>o.value==='imperatriz')?.value||[...branch.options].find(o=>o.value!=='all')?.value;
+  if(target){branch.value=target;whBranch=target;if(typeof paintScope==='function')paintScope();}
+ }
  if(currentTab!==tab||whBranch!==branch.value){whSelected.clear();whPage=1;}whBranch=branch.value;currentTab=tab;whView=tab.replace('warehouse-','');
  content.hidden=true;$('#tracking-content').hidden=true;$('#maintenance-content').hidden=true;whRoot.hidden=false;
- whRoot.dataset.view=whView;const hero=$('.operation-hero');hero.classList.remove('maintenance-hero');hero.classList.add('warehouse-hero','compact');hero.dataset.warehouse=whView;hero.querySelector('.eyebrow').textContent='ARMAZÉM';let tag=hero.querySelector('.wh-preview-tag');if(whView==='chips'){if(!tag){tag=document.createElement('span');tag.className='wh-preview-tag';tag.textContent='PRÉVIA - DADOS ILUSTRATIVOS';hero.appendChild(tag);}tag.hidden=false;}else if(tag){tag.hidden=true;}
+ whRoot.dataset.view=whView;const hero=$('.operation-hero');hero.classList.remove('maintenance-hero');hero.classList.add('warehouse-hero','compact');hero.dataset.warehouse=whView;hero.querySelector('.eyebrow').textContent='ARMAZÉM';hero.querySelector('.wh-preview-tag')?.remove();
  $('#hero-actions').hidden=true;$('#page-title').textContent={chips:'Gestão de chips',devices:'Gestão de aparelhos',values:'Valores'}[whView];$('#page-description').textContent={chips:'Estoque, reserva e vínculos em um só lugar.',devices:'Estoque, reserva, emergência e distribuição.',values:'Custos de chips e patrimônio do armazém.'}[whView];$('#crumb').textContent='Armazém / '+{chips:'Chips',devices:'Aparelhos',values:'Valores'}[whView];status.textContent='';
  document.querySelectorAll('[data-tab]').forEach(b=>{if(b.dataset.tab===tab)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  if(branch.value==='all'){whRoot.innerHTML='<div class="card wh-empty">Selecione uma filial para abrir o armazém.</div>';return;}
