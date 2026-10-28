@@ -9,6 +9,7 @@ function renderPages(curr,total){if(total<=1)return '<button class="wh-page-btn 
 const whMoney=n=>Number.isSafeInteger(n)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(n/100):'Não disponível';
 const whDay=v=>v?new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v)):'';
 function resetWarehouse(){whEpoch++;whCache.clear();whSelected.clear();whRoot.replaceChildren();whRoot.hidden=true;document.querySelector('#warehouse-dialog')?.remove();document.querySelector('.wh-preview-tag')?.remove();}
+window.prefetchWarehouse=async function prefetchWarehouse(){if(!session?.permissions?.views?.includes('warehouse'))return;for(const b of session.branches||[]){if(!whCache.has(b.id)){try{const data=await whCall({action:'list',branch:b.id});if(session)whCache.set(b.id,data);}catch{}}}}
 async function whCall(input){for(let i=0;i<4;i++){try{return await api('warehouse',input);}catch(e){if(e.status!==429||i===3)throw e;await new Promise(r=>setTimeout(r,1500));}}}
 async function showWarehouse(tab){
  if(!session?.permissions?.views?.includes('warehouse')||(tab==='warehouse-values'&&!session.permissions.owner))return;

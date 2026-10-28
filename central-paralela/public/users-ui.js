@@ -22,25 +22,34 @@ if(!usersDialog.showModal)usersDialog.showModal=()=>{if(usersRoot)usersRoot.hidd
 if(!usersDialog.close)usersDialog.close=()=>{};
 
 let usersGeneration=0;
+let usersCacheData=null;
 
 const userEl=(tag,text)=>{const e=document.createElement(tag);if(text)e.textContent=text;return e;};
-function resetUsers(){usersGeneration++;usersDialog.replaceChildren();usersButton.hidden=true;usersSeparator.hidden=true;if(usersRoot)usersRoot.hidden=true;}
+function resetUsers(){usersGeneration++;usersCacheData=null;usersDialog.replaceChildren();usersButton.hidden=true;usersSeparator.hidden=true;if(usersRoot)usersRoot.hidden=true;}
 function syncUsersAccess(){const show=!!session?.permissions?.owner;usersButton.hidden=!show;usersSeparator.hidden=!show;if(!session)resetUsers();}
 new MutationObserver(syncUsersAccess).observe(dashboard,{attributes:true,attributeFilter:['hidden']});
 syncUsersAccess();
 
+window.prefetchUsers=async function prefetchUsers(){
+  if(!session?.permissions?.owner)return;
+  try{
+    const data=await api('users',{action:'list'});
+    if(session)usersCacheData=data;
+  }catch{}
+};
+
 window.showUsers=async function showUsers(){
   if(!session?.permissions?.owner)return;
-  if(!await validateAccess())return;
   currentTab='users';
   content.hidden=true;
   $('#tracking-content').hidden=true;
   $('#maintenance-content').hidden=true;
   $('#warehouse-content').hidden=true;
+  const wac=$('#whatsapp-content');if(wac)wac.hidden=true;
   usersRoot.hidden=false;
 
   const hero=$('.operation-hero');
-  hero.classList.remove('maintenance-hero','warehouse-hero');
+  hero.classList.remove('maintenance-hero','warehouse-hero','whatsapp-hero');
   hero.classList.add('compact','users-hero');
   hero.querySelector('.eyebrow').textContent='CENTRAL DE OPERAÇÕES · ADMINISTRAÇÃO';
   hero.querySelector('.wh-preview-tag')?.remove();
@@ -55,102 +64,118 @@ window.showUsers=async function showUsers(){
     else b.removeAttribute('aria-current');
   });
 
-  await renderUsers();
+  renderUsers();
+  validateAccess();
 };
 
 usersButton.addEventListener('click',async()=>{
   if(!session)return;
   showTab('users');
   if(matchMedia('(max-width: 680px)').matches&&!dashboard.classList.contains('sidebar-collapsed'))$('#toggle-sidebar').click();
-  if(!await validateAccess())return;
+  validateAccess();
 });
 
-async function renderUsers(){
-  const epoch=++usersGeneration;usersDialog.replaceChildren(userEl('p','Carregando usuários…'));
+function drawUsersList(data){
+  usersDialog.replaceChildren();
+
+  const metrics=userEl('div');metrics.className='users-metrics';
+  const totalUsers=data.users.length;
+  const adminUsers=data.users.filter(u=>u.permissions?.owner).length;
+  const activeUsers=data.users.filter(u=>u.active).length;
+
+  for(const [label,count,tone] of [
+    ['Total de operadores',totalUsers,'gold'],
+    ['Administradores',adminUsers,'purple'],
+    ['Contas ativas',activeUsers,'blue']
+  ]){
+    const card=userEl('article');card.className='card user-metric-card '+tone;
+    const d=userEl('div',label);
+    const st=userEl('strong',String(count));
+    d.append(st);
+    card.append(d);
+    metrics.append(card);
+  }
+  usersDialog.append(metrics);
+
+  const toolbar=userEl('div');toolbar.className='card users-toolbar';
+  const toolbarDesc=userEl('div');toolbarDesc.className='users-toolbar-desc';
+  const tTitle=userEl('h3','Gerenciamento de Acessos');
+  const tSub=userEl('p','Cadastre novos operadores, defina filiais liberadas e configure rotinas automatizadas no servidor.');
+  toolbarDesc.append(tTitle,tSub);
+  const toolbarActions=userEl('div');toolbarActions.className='users-toolbar-actions';
+  const jobs=userEl('button','Rotinas no servidor');
+  jobs.onclick=()=>renderJobs().catch(e=>usersDialog.append(userEl('p',e.message)));
+  const create=userEl('button','Novo usuário');
+  create.className='primary';
+  create.onclick=()=>editUserForm(null,data);
+  toolbarActions.append(jobs,create);
+  toolbar.append(toolbarDesc,toolbarActions);
+  usersDialog.append(toolbar);
+
+  const list=userEl('div');list.className='users-list';
+  for(const u of data.users){
+    const card=userEl('div');card.className='card user-card';
+    const top=userEl('div');top.className='user-card-top';
+    const avatar=userEl('div',u.username.slice(0,2).toUpperCase());
+    avatar.className='user-avatar'+(u.permissions.owner?' is-admin':'');
+    top.append(avatar);
+
+    const info=userEl('div');info.className='user-info';
+    const titleRow=userEl('div');titleRow.className='user-title-row';
+    const strong=userEl('strong',u.username);
+    const statusBadge=userEl('span',u.active?'Ativo':'Inativo');
+    statusBadge.className='user-badge '+(u.active?'badge-active':'badge-inactive');
+    titleRow.append(strong,statusBadge);
+    if(u.permissions.owner){
+      const ownerBadge=userEl('span','Administrador');
+      ownerBadge.className='user-badge badge-owner';
+      titleRow.append(ownerBadge);
+    }
+    info.append(titleRow);
+
+    const branchP=userEl('p');branchP.className='user-branches-row';
+    for(const b of u.branches){
+      const bTag=userEl('span',b.name||b.id);bTag.className='user-branch-tag';
+      branchP.append(bTag);
+    }
+    if(!u.branches.length){
+      const emptyBranch=userEl('span','Nenhuma filial');emptyBranch.className='user-branch-tag';
+      branchP.append(emptyBranch);
+    }
+    info.append(branchP);
+    top.append(info);
+    card.append(top);
+
+    const footer=userEl('div');footer.className='user-card-footer';
+    const edit=userEl('button',u.permissions.owner?'Administrador protegido':'Editar acesso');
+    edit.disabled=!!u.permissions.owner;
+    edit.onclick=()=>editUserForm(u,data);
+    footer.append(edit);
+    card.append(footer);
+
+    list.append(card);
+  }
+  usersDialog.append(list);
+}
+
+window.renderUsers=async function renderUsers(force=false){
+  const epoch=++usersGeneration;
+  if(usersCacheData&&!force){
+    drawUsersList(usersCacheData);
+    api('users',{action:'list'}).then(data=>{
+      if(epoch!==usersGeneration||!session)return;
+      usersCacheData=data;
+      drawUsersList(data);
+    }).catch(()=>{});
+    return;
+  }
+  usersDialog.replaceChildren(userEl('p','Carregando usuários…'));
   try{
     const data=await api('users',{action:'list'});if(epoch!==usersGeneration||!session)return;
-    usersDialog.replaceChildren();
-
-    const metrics=userEl('div');metrics.className='users-metrics';
-    const totalUsers=data.users.length;
-    const adminUsers=data.users.filter(u=>u.permissions?.owner).length;
-    const activeUsers=data.users.filter(u=>u.active).length;
-
-    for(const [label,count,tone] of [
-      ['Total de operadores',totalUsers,'gold'],
-      ['Administradores',adminUsers,'purple'],
-      ['Contas ativas',activeUsers,'blue']
-    ]){
-      const card=userEl('article');card.className='card user-metric-card '+tone;
-      const d=userEl('div',label);
-      const st=userEl('strong',String(count));
-      d.append(st);
-      card.append(d);
-      metrics.append(card);
-    }
-    usersDialog.append(metrics);
-
-    const toolbar=userEl('div');toolbar.className='card users-toolbar';
-    const toolbarDesc=userEl('div');toolbarDesc.className='users-toolbar-desc';
-    const tTitle=userEl('h3','Gerenciamento de Acessos');
-    const tSub=userEl('p','Cadastre novos operadores, defina filiais liberadas e configure rotinas automatizadas no servidor.');
-    toolbarDesc.append(tTitle,tSub);
-    const toolbarActions=userEl('div');toolbarActions.className='users-toolbar-actions';
-    const jobs=userEl('button','Rotinas no servidor');
-    jobs.onclick=()=>renderJobs().catch(e=>usersDialog.append(userEl('p',e.message)));
-    const create=userEl('button','Novo usuário');
-    create.className='primary';
-    create.onclick=()=>editUserForm(null,data);
-    toolbarActions.append(jobs,create);
-    toolbar.append(toolbarDesc,toolbarActions);
-    usersDialog.append(toolbar);
-
-    const list=userEl('div');list.className='users-list';
-    for(const u of data.users){
-      const card=userEl('div');card.className='card user-card';
-      const top=userEl('div');top.className='user-card-top';
-      const avatar=userEl('div',u.username.slice(0,2).toUpperCase());
-      avatar.className='user-avatar'+(u.permissions.owner?' is-admin':'');
-      top.append(avatar);
-
-      const info=userEl('div');info.className='user-info';
-      const titleRow=userEl('div');titleRow.className='user-title-row';
-      const strong=userEl('strong',u.username);
-      const statusBadge=userEl('span',u.active?'Ativo':'Inativo');
-      statusBadge.className='user-badge '+(u.active?'badge-active':'badge-inactive');
-      titleRow.append(strong,statusBadge);
-      if(u.permissions.owner){
-        const ownerBadge=userEl('span','Administrador');
-        ownerBadge.className='user-badge badge-owner';
-        titleRow.append(ownerBadge);
-      }
-      info.append(titleRow);
-
-      const branchP=userEl('p');branchP.className='user-branches-row';
-      for(const b of u.branches){
-        const bTag=userEl('span',b.name||b.id);bTag.className='user-branch-tag';
-        branchP.append(bTag);
-      }
-      if(!u.branches.length){
-        const emptyBranch=userEl('span','Nenhuma filial');emptyBranch.className='user-branch-tag';
-        branchP.append(emptyBranch);
-      }
-      info.append(branchP);
-      top.append(info);
-      card.append(top);
-
-      const footer=userEl('div');footer.className='user-card-footer';
-      const edit=userEl('button',u.permissions.owner?'Administrador protegido':'Editar acesso');
-      edit.disabled=!!u.permissions.owner;
-      edit.onclick=()=>editUserForm(u,data);
-      footer.append(edit);
-      card.append(footer);
-
-      list.append(card);
-    }
-    usersDialog.append(list);
+    usersCacheData=data;
+    drawUsersList(data);
   }catch(e){if(epoch===usersGeneration)usersDialog.replaceChildren(userEl('p',e.message));}
-}
+};
 
 function editUserForm(user,data){
   usersDialog.replaceChildren();
@@ -219,7 +244,7 @@ function editUserForm(user,data){
     e.preventDefault();const epoch=usersGeneration;save.disabled=true;
     try{
       await api('users',{action:'save',id:user?.id,version:user?.version,username:username.value,password:pw.value,active:active.checked,branches:branchChecks.filter(i=>i.checked).map(i=>i.value),views:checks.filter(x=>x.view.checked).map(x=>x.m),writes:checks.filter(x=>x.write.checked).map(x=>x.m)});
-      pw.value='';if(epoch===usersGeneration&&session)await renderUsers();
+      pw.value='';usersCacheData=null;if(epoch===usersGeneration&&session)await renderUsers(true);
     }catch(err){note.textContent=err.message;save.disabled=false;}
   };
 
