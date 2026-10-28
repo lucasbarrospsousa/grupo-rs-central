@@ -33,14 +33,23 @@ export function runAdb(args, timeoutMs = 10000) {
 }
 
 export function getDeviceStatus() {
+  const model = 'SM-A245M (Galaxy A24)';
   try {
     const devicesOutput = execSync(`"${ADB_PATH}" devices -l`, { encoding: 'utf8' });
     const isConnected = devicesOutput.includes(TARGET_DEVICE);
     if (!isConnected) {
-      return { ok: false, error: `Dispositivo ${TARGET_DEVICE} não encontrado no ADB.` };
+      return {
+        ok: false,
+        connected: false,
+        serial: TARGET_DEVICE,
+        model,
+        whatsappPackage: PACKAGE_NAME,
+        safetyLock: true,
+        authorizedGroup: AUTHORIZED_TEST_GROUP,
+        error: `Dispositivo ${TARGET_DEVICE} desconectado da USB (modo App Mobile / Gateway sem fio ativo).`
+      };
     }
 
-    const model = 'SM-A245M (Galaxy A24)';
     const focusedWindow = runAdb('shell "dumpsys window | grep -E \'mCurrentFocus|mFocusedApp\'"');
     const isW4bActive = focusedWindow.includes(PACKAGE_NAME);
 
@@ -55,7 +64,16 @@ export function getDeviceStatus() {
       authorizedGroup: AUTHORIZED_TEST_GROUP
     };
   } catch (err) {
-    return { ok: false, error: err.message };
+    return {
+      ok: false,
+      connected: false,
+      serial: TARGET_DEVICE,
+      model,
+      whatsappPackage: PACKAGE_NAME,
+      safetyLock: true,
+      authorizedGroup: AUTHORIZED_TEST_GROUP,
+      error: err.message
+    };
   }
 }
 

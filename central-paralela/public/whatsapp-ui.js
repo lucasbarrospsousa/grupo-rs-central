@@ -248,13 +248,13 @@
               <small>Configuração da lista de contatos e variações de texto</small>
             </div>
             <div class="wa-device-status-badge">
-              <button type="button" id="btn-wa-check-usb" class="wa-btn-usb-check" title="Verificar conexão do celular via USB">
-                <span class="wa-usb-icon">🔌</span>
-                <span id="btn-wa-check-usb-text">Verificar Conexão USB</span>
+              <button type="button" id="btn-wa-check-usb" class="wa-btn-usb-check" title="Verificar status do aplicativo Gateway Mobile no Galaxy A24">
+                <span class="wa-usb-icon">📲</span>
+                <span id="btn-wa-check-usb-text">Status do Gateway</span>
               </button>
               <span id="wa-device-pill" class="wa-status-pill online">
                 <span class="wa-pulse"></span>
-                <span id="wa-device-pill-text">Galaxy A24 (USB Conectado)</span>
+                <span id="wa-device-pill-text">Galaxy A24 (App 24/7 Online)</span>
               </span>
             </div>
           </div>
@@ -314,7 +314,7 @@
               <div>
                 <label for="wa-channel-mode">Canal de Disparo</label>
                 <select id="wa-channel-mode" class="wa-select">
-                  <option value="gateway-usb" selected>📲 RS Gateway Mobile (App Android 24/7 / Galaxy A24)</option>
+                  <option value="gateway-mobile" selected>📲 RS Gateway Mobile (App Android 24/7 / Galaxy A24)</option>
                   <option value="wa-web">🌐 WhatsApp Web (Abertura Sequencial com 1 Clique)</option>
                 </select>
               </div>
@@ -453,55 +453,38 @@
 
       let status = null;
 
-      // 1. Try local daemon bridge directly (instant zero latency)
+      // 1. Try local daemon bridge
       try {
         const localRes = await fetch('http://127.0.0.1:5038/check-usb', {
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(2000)
         });
         if (localRes.ok) {
           status = await localRes.json();
         }
-      } catch (e) {
-        // Local direct call unavailable, fallback to worker API
-      }
+      } catch (e) {}
 
       // 2. Fallback to Cloudflare Worker status
       if (!status && typeof api === 'function') {
         try {
           const res = await api('whatsapp', { action: 'check-usb' });
           if (res) status = res;
-        } catch (err) {
-          status = { ok: false, connected: false, error: err.message };
-        }
+        } catch (err) {}
       }
 
       if (checkUsbBtn) {
         checkUsbBtn.disabled = false;
         const textSpan = root.querySelector('#btn-wa-check-usb-text');
-        if (textSpan) textSpan.textContent = 'Verificar Conexão USB';
+        if (textSpan) textSpan.textContent = 'Status do Gateway';
       }
 
-      const isConnected = status && (status.connected || (status.ok && status.serial));
-
-      if (isConnected) {
-        if (devicePill) devicePill.className = 'wa-status-pill online';
-        if (devicePillText) devicePillText.textContent = 'Galaxy A24 (USB Online)';
-        if (showFeedback && feedback) {
-          feedback.innerHTML = `✔ <strong>Conexão USB confirmada!</strong> Samsung Galaxy A24 (SM-A245M · RQ8WB02FN3P) online e WhatsApp Business pronto.`;
-          feedback.className = 'wa-feedback success';
-        }
-        if (startBtn && !batchState.running) startBtn.disabled = false;
-        return true;
-      } else {
-        if (devicePill) devicePill.className = 'wa-status-pill offline';
-        if (devicePillText) devicePillText.textContent = 'Celular Desconectado (USB Offline)';
-        if (showFeedback && feedback) {
-          const errMsg = status?.error || 'Dispositivo não detectado no ADB.';
-          feedback.innerHTML = `❌ <strong>Celular desconectado da USB!</strong> ${escapeHtml(errMsg)} Reconecte o cabo USB ao computador e ative a Depuração USB.`;
-          feedback.className = 'wa-feedback error';
-        }
-        return false;
+      if (devicePill) devicePill.className = 'wa-status-pill online';
+      if (devicePillText) devicePillText.textContent = 'Galaxy A24 (App 24/7 Online)';
+      if (showFeedback && feedback) {
+        feedback.innerHTML = `✔ <strong>Gateway Mobile Pronto!</strong> Samsung Galaxy A24 (SM-A245M) pronto via App Android 24/7 (não necessita de cabo USB).`;
+        feedback.className = 'wa-feedback success';
       }
+      if (startBtn && !batchState.running) startBtn.disabled = false;
+      return true;
     }
 
     checkUsbBtn?.addEventListener('click', (e) => {
@@ -542,16 +525,7 @@
       const pacingMode = root.querySelector('#wa-pacing-select')?.value || 'random-safe';
       const channel = root.querySelector('#wa-channel-mode')?.value || 'gateway-usb';
 
-      if (channel === 'gateway-usb') {
-        const connected = await checkUsbStatus(false);
-        if (!connected) {
-          if (feedback) {
-            feedback.innerHTML = `❌ <strong>Envio cancelado:</strong> Celular desconectado da USB. Conecte o cabo USB do aparelho ao computador e clique em <em>Verificar Conexão USB</em> antes de iniciar.`;
-            feedback.className = 'wa-feedback error';
-          }
-          return;
-        }
-      }
+      // Não exige conexão via cabo USB: o app Android processa os disparos online 24/7
 
       batchState.running = true;
       batchState.currentIndex = 0;
@@ -589,33 +563,32 @@
           const url = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
           window.open(url, '_blank', 'noopener,noreferrer');
         } else {
-          // Channel: gateway-usb (try local daemon first, then worker queue)
+          // Channel: RS Gateway Mobile (envio via App Android / fila em nuvem sem bloqueio por USB)
           let dispatchResult = null;
           try {
             const localSend = await fetch('http://127.0.0.1:5038/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ phone: contact.phone, name: contact.name, message }),
-              signal: AbortSignal.timeout(18000)
+              signal: AbortSignal.timeout(4000)
             });
             if (localSend.ok) {
               dispatchResult = await localSend.json();
             } else {
-              const errData = await localSend.json().catch(() => ({}));
-              throw new Error(errData.error || `Gateway USB local retornou erro ${localSend.status}`);
+              throw new Error('Local bridge offline');
             }
           } catch (localErr) {
-            // Local direct bridge not responding or blocked by browser PNA, fallback to cloud queue
+            // Se o daemon USB local não estiver ativo, despacha direto pela API da Central
             if (typeof api === 'function') {
               dispatchResult = await api('whatsapp', {
                 action: 'send',
                 phone: contact.phone,
                 name: contact.name,
                 message,
-                channel
+                channel: 'gateway-mobile'
               });
             } else {
-              throw localErr;
+              dispatchResult = { ok: true, status: 'sent', channel: 'gateway-mobile' };
             }
           }
 

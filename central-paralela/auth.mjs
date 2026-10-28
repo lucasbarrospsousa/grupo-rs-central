@@ -7,8 +7,19 @@ const lifetime=12*60*60*1000,idle=2*60*60*1000;
 const cookie=value=>`parallel_drive_session=${value}; HttpOnly; Secure; SameSite=Strict; Path=/`;
 const reply=(status,data,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
 export class AuthService {
- constructor(ctx,env){this.ctx=ctx;this.env=env;this.queue=new WriteQueue();}
- async users(){return decryptUsers(await driveUsers(JSON.parse(this.env.DRIVE_CONFIG||'null')),this.env.AUTH_DATA_KEY);}
+ constructor(ctx,env){this.ctx=ctx;this.env=env;this.queue=new WriteQueue();this._users=null;this._usersTime=0;}
+ async users(){
+  const now=Date.now();
+  if(this._users&&now-(this._usersTime||0)<180000)return this._users;
+  try{
+   const u=decryptUsers(await driveUsers(JSON.parse(this.env.DRIVE_CONFIG||'null')),this.env.AUTH_DATA_KEY);
+   this._users=u;this._usersTime=now;
+   return u;
+  }catch(e){
+   if(this._users)return this._users;
+   throw e;
+  }
+ }
  async attempt(ip,username,now){
   return this.ctx.storage.transaction(async store=>{
    let allowed=true;
@@ -52,7 +63,7 @@ export class AuthService {
     if(!user.permissions?.owner||digest(request.headers.get('x-csrf-token')||'')!==digest(s.csrf))return reply(403,{error:'Acesso administrativo recusado.'});
     const b=await request.json();if(b.action==='list')return reply(200,{users:data.users.map(publicUser),modules,writable,branches:user.branches});
     if(b.action!=='save')return reply(400,{error:'Ação inválida.'});
-    try{const result=editUser(data,user,b);await saveUsers(JSON.parse(this.env.DRIVE_CONFIG||'null'),await encryptUsers(data,this.env.AUTH_DATA_KEY));return reply(200,{ok:true,user:result});}catch(e){if(e.status)return reply(e.status,{error:e.message});throw e;}
+    try{const result=editUser(data,user,b);await saveUsers(JSON.parse(this.env.DRIVE_CONFIG||'null'),await encryptUsers(data,this.env.AUTH_DATA_KEY));this._users=null;return reply(200,{ok:true,user:result});}catch(e){if(e.status)return reply(e.status,{error:e.message});throw e;}
    }
    // Transaction prevents a concurrent logout from being undone by a read.
    const alive=await this.ctx.storage.transaction(async store=>{const current=await store.get(name);if(!current)return false;await store.put(name,{...current,lastActivity:now});return true;});
