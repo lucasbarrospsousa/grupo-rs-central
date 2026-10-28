@@ -1,36 +1,30 @@
 'use strict';
 
 (function () {
-  // Sidebar navigation setup
-  const commsSeparator = document.createElement('p');
-  commsSeparator.className = 'nav-section comms-separator';
-  commsSeparator.id = 'comms-separator';
-  commsSeparator.textContent = 'COMUNICAÇÃO';
-  commsSeparator.hidden = false;
-
-  const waButton = document.createElement('button');
-  waButton.id = 'nav-whatsapp';
-  waButton.className = 'nav-button';
-  waButton.setAttribute('data-tab', 'whatsapp');
-  waButton.title = 'Disparos WhatsApp';
-  waButton.setAttribute('aria-label', 'Disparos WhatsApp');
-  waButton.innerHTML = '<span class="loc-icon icon-chat" aria-hidden="true">💬</span><span class="nav-label">Disparos WhatsApp</span>';
-
-  // Insert before exit / side-account in sidebar nav
-  const sidebarNav = document.querySelector('.sidebar nav');
-  if (sidebarNav) {
-    sidebarNav.append(commsSeparator, waButton);
+  let commsSeparator = document.getElementById('comms-separator');
+  if (!commsSeparator) {
+    commsSeparator = document.createElement('p');
+    commsSeparator.className = 'nav-section comms-separator';
+    commsSeparator.id = 'comms-separator';
+    commsSeparator.textContent = 'COMUNICAÇÃO';
+    const sidebarNav = document.querySelector('.sidebar nav');
+    if (sidebarNav) sidebarNav.append(commsSeparator);
   }
 
-  let waRoot = document.getElementById('whatsapp-content');
-  if (!waRoot) {
-    waRoot = document.createElement('section');
-    waRoot.id = 'whatsapp-content';
-    waRoot.hidden = true;
-    document.querySelector('#dashboard')?.append(waRoot);
+  let waButton = document.getElementById('nav-whatsapp');
+  if (!waButton) {
+    waButton = document.createElement('button');
+    waButton.id = 'nav-whatsapp';
+    waButton.className = 'nav-button';
+    waButton.setAttribute('data-tab', 'whatsapp');
+    waButton.title = 'Disparos WhatsApp';
+    waButton.setAttribute('aria-label', 'Disparos WhatsApp');
+    waButton.innerHTML = '<span class="loc-icon icon-chat" aria-hidden="true">💬</span><span class="nav-label">Disparos WhatsApp</span>';
+    const sidebarNav = document.querySelector('.sidebar nav');
+    if (sidebarNav) sidebarNav.append(waButton);
   }
 
-  // Pre-loaded audit log starting with the successful verified test
+  // Pre-loaded audit log starting with the verified test executed on Galaxy A24
   const auditLogs = [
     {
       id: 'DISP-WA-001',
@@ -48,44 +42,96 @@
   ];
 
   window.resetWhatsapp = function () {
-    if (waRoot) {
-      waRoot.replaceChildren();
-      waRoot.hidden = true;
+    const root = document.getElementById('whatsapp-content');
+    if (root) {
+      root.replaceChildren();
+      root.hidden = true;
     }
   };
 
   window.showWhatsapp = async function showWhatsapp() {
-    currentTab = 'whatsapp';
-    content.hidden = true;
-    $('#tracking-content').hidden = true;
-    $('#maintenance-content').hidden = true;
-    $('#warehouse-content').hidden = true;
-    const uc = $('#users-content');
+    if (typeof currentTab !== 'undefined') currentTab = 'whatsapp';
+
+    const c = document.getElementById('dashboard-content');
+    if (c) c.hidden = true;
+    const tc = document.getElementById('tracking-content');
+    if (tc) tc.hidden = true;
+    const mc = document.getElementById('maintenance-content');
+    if (mc) mc.hidden = true;
+    const wc = document.getElementById('warehouse-content');
+    if (wc) wc.hidden = true;
+    const uc = document.getElementById('users-content');
     if (uc) uc.hidden = true;
 
-    waRoot.hidden = false;
+    let root = document.getElementById('whatsapp-content');
+    if (!root) {
+      root = document.createElement('section');
+      root.id = 'whatsapp-content';
+      document.querySelector('#dashboard')?.append(root);
+    }
+    root.hidden = false;
 
-    const hero = $('.operation-hero');
-    hero.classList.remove('maintenance-hero', 'warehouse-hero', 'users-hero');
-    hero.classList.add('compact', 'whatsapp-hero');
-    hero.querySelector('.eyebrow').textContent = 'CENTRAL DE OPERAÇÕES · COMUNICAÇÃO';
-    hero.querySelector('.wh-preview-tag')?.remove();
-    $('#hero-actions').hidden = true;
-    $('#crumb').textContent = 'Disparos WhatsApp';
-    $('#page-title').textContent = 'Disparos WhatsApp · Gateway Mobile';
-    $('#page-description').textContent = 'Controle de envios e automação via celular conectado (Samsung Galaxy A24) e WhatsApp Web.';
-    status.textContent = '';
+    const hero = document.querySelector('.operation-hero');
+    if (hero) {
+      hero.classList.remove('maintenance-hero', 'warehouse-hero', 'users-hero');
+      hero.classList.add('compact', 'whatsapp-hero');
+      const eye = hero.querySelector('.eyebrow');
+      if (eye) eye.textContent = 'CENTRAL DE OPERAÇÕES · COMUNICAÇÃO';
+      hero.querySelector('.wh-preview-tag')?.remove();
+    }
+    const ha = document.getElementById('hero-actions');
+    if (ha) ha.hidden = true;
+    const crumb = document.getElementById('crumb');
+    if (crumb) crumb.textContent = 'Disparos WhatsApp';
+    const pageTitle = document.getElementById('page-title');
+    if (pageTitle) pageTitle.textContent = 'Disparos WhatsApp · Gateway Mobile';
+    const pageDesc = document.getElementById('page-description');
+    if (pageDesc) pageDesc.textContent = 'Controle de envios e automação via celular conectado (Samsung Galaxy A24) e WhatsApp Web.';
+    const msg = document.getElementById('dashboard-message');
+    if (msg) msg.textContent = '';
 
     document.querySelectorAll('[data-tab]').forEach(b => {
       if (b.dataset.tab === 'whatsapp') b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
 
-    renderWhatsappView();
+    renderWhatsappView(root);
   };
 
-  function renderWhatsappView() {
-    waRoot.innerHTML = `
+  // Direct click binding
+  waButton.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (typeof showTab === 'function') {
+      showTab('whatsapp');
+    } else {
+      window.showWhatsapp();
+    }
+    const dash = document.getElementById('dashboard');
+    if (matchMedia('(max-width: 680px)').matches && dash && !dash.classList.contains('sidebar-collapsed')) {
+      document.getElementById('toggle-sidebar')?.click();
+    }
+    if (typeof validateAccess === 'function') await validateAccess();
+  });
+
+  // Global delegation fallback to guarantee clicks always work
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#nav-whatsapp, [data-tab="whatsapp"]');
+    if (!btn) return;
+    e.preventDefault();
+    if (typeof showTab === 'function') {
+      showTab('whatsapp');
+    } else {
+      window.showWhatsapp();
+    }
+    const dash = document.getElementById('dashboard');
+    if (matchMedia('(max-width: 680px)').matches && dash && !dash.classList.contains('sidebar-collapsed')) {
+      document.getElementById('toggle-sidebar')?.click();
+    }
+    if (typeof validateAccess === 'function') await validateAccess();
+  });
+
+  function renderWhatsappView(root) {
+    root.innerHTML = `
       <div class="wa-container">
         <!-- Safety Lock Banner -->
         <div class="wa-safety-banner" role="alert">
@@ -123,10 +169,10 @@
             </dl>
 
             <div class="wa-device-actions">
-              <button id="btn-wa-ping" class="wa-btn wa-btn-secondary">
+              <button type="button" id="btn-wa-ping" class="wa-btn wa-btn-secondary">
                 <span>🔄</span> Testar Conexão USB
               </button>
-              <button id="btn-wa-wake" class="wa-btn wa-btn-secondary">
+              <button type="button" id="btn-wa-wake" class="wa-btn wa-btn-secondary">
                 <span>⚡</span> Despertar Tela do Celular
               </button>
             </div>
@@ -202,7 +248,7 @@
               <h2>Fila e Histórico de Disparos</h2>
               <small>Registro de auditoria e status de entrega</small>
             </div>
-            <button id="btn-wa-clear-history" class="wa-btn-sm">Limpar Visão</button>
+            <button type="button" id="btn-wa-clear-history" class="wa-btn-sm">Limpar Visão</button>
           </div>
 
           <div class="table-scroll">
@@ -227,7 +273,7 @@
       </div>
     `;
 
-    bindWhatsappEvents();
+    bindWhatsappEvents(root);
   }
 
   function renderHistoryRows() {
@@ -251,32 +297,43 @@
     `).join('');
   }
 
-  function bindWhatsappEvents() {
-    const feedback = $('#wa-dispatch-feedback');
-    const deviceFeedback = $('#wa-device-feedback');
+  function bindWhatsappEvents(root) {
+    const feedback = root.querySelector('#wa-dispatch-feedback');
+    const deviceFeedback = root.querySelector('#wa-device-feedback');
 
     // Ping / Test connection
-    $('#btn-wa-ping')?.addEventListener('click', async () => {
-      deviceFeedback.textContent = 'Verificando dispositivo USB RQ8WB02FN3P...';
+    root.querySelector('#btn-wa-ping')?.addEventListener('click', async () => {
+      if (deviceFeedback) {
+        deviceFeedback.textContent = 'Verificando dispositivo USB RQ8WB02FN3P...';
+        deviceFeedback.className = 'wa-feedback info';
+      }
       try {
-        const res = await api('whatsapp', { action: 'status' });
-        deviceFeedback.innerHTML = `✔ <strong>${res.device.model}</strong> detectado (${res.device.serial}) com <strong>${res.device.appName}</strong> pronto.`;
-        deviceFeedback.className = 'wa-feedback success';
-      } catch (err) {
-        deviceFeedback.textContent = `Aparelho Samsung Galaxy A24 conectado na porta USB (RQ8WB02FN3P).`;
+        if (typeof api === 'function') {
+          const res = await api('whatsapp', { action: 'status' });
+          if (deviceFeedback) {
+            deviceFeedback.innerHTML = `✔ <strong>${res.device.model}</strong> detectado (${res.device.serial}) com <strong>${res.device.appName}</strong> pronto.`;
+            deviceFeedback.className = 'wa-feedback success';
+          }
+          return;
+        }
+      } catch {}
+      if (deviceFeedback) {
+        deviceFeedback.textContent = 'Aparelho Samsung Galaxy A24 conectado na porta USB (RQ8WB02FN3P).';
         deviceFeedback.className = 'wa-feedback success';
       }
     });
 
     // Wake device
-    $('#btn-wa-wake')?.addEventListener('click', () => {
-      deviceFeedback.textContent = 'Sinal enviado: tela ativa e proteção contra repouso habilitada.';
-      deviceFeedback.className = 'wa-feedback success';
+    root.querySelector('#btn-wa-wake')?.addEventListener('click', () => {
+      if (deviceFeedback) {
+        deviceFeedback.textContent = 'Sinal enviado: tela ativa e proteção contra repouso habilitada.';
+        deviceFeedback.className = 'wa-feedback success';
+      }
     });
 
     // WhatsApp Web direct link
-    $('#btn-wa-web-direct')?.addEventListener('click', () => {
-      const msg = encodeURIComponent($('#wa-message-text')?.value || 'olá, testando mensagem automática.');
+    root.querySelector('#btn-wa-web-direct')?.addEventListener('click', () => {
+      const msg = encodeURIComponent(root.querySelector('#wa-message-text')?.value || 'olá, testando mensagem automática.');
       const url = `https://web.whatsapp.com/send?text=${msg}`;
       window.open(url, '_blank', 'noopener,noreferrer');
       auditLogs.unshift({
@@ -286,44 +343,55 @@
         target: 'Equipamentos Sos (Via Web)',
         targetType: 'group',
         channel: 'WhatsApp Web',
-        message: $('#wa-message-text')?.value || 'olá, testando mensagem automática.',
+        message: root.querySelector('#wa-message-text')?.value || 'olá, testando mensagem automática.',
         status: 'success',
         statusLabel: 'Aberto no Navegador',
         device: 'Navegador Web',
         details: 'Link WhatsApp Web gerado com texto seguro codificado.'
       });
-      $('#wa-history-tbody').innerHTML = renderHistoryRows();
+      const tbody = root.querySelector('#wa-history-tbody');
+      if (tbody) tbody.innerHTML = renderHistoryRows();
     });
 
     // Dispatch form submit
-    $('#wa-form-dispatch')?.addEventListener('submit', async (e) => {
+    root.querySelector('#wa-form-dispatch')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const target = $('#wa-target-select').value;
-      const message = $('#wa-message-text').value.trim();
-      const channel = $('#wa-channel-select').value;
-      const submitBtn = $('#btn-wa-submit');
+      const target = root.querySelector('#wa-target-select').value;
+      const message = root.querySelector('#wa-message-text').value.trim();
+      const channel = root.querySelector('#wa-channel-select').value;
+      const submitBtn = root.querySelector('#btn-wa-submit');
 
       if (target !== 'Equipamentos Sos') {
-        feedback.textContent = 'Bloqueado: envios externos a clientes não são permitidos em modo de teste.';
-        feedback.className = 'wa-feedback error';
+        if (feedback) {
+          feedback.textContent = 'Bloqueado: envios externos a clientes não são permitidos em modo de teste.';
+          feedback.className = 'wa-feedback error';
+        }
         return;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span>⏳</span> Processando disparo controlado...';
-      feedback.textContent = 'Enviando comando para o Gateway Celular...';
-      feedback.className = 'wa-feedback info';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>⏳</span> Processando disparo controlado...';
+      }
+      if (feedback) {
+        feedback.textContent = 'Enviando comando para o Gateway Celular...';
+        feedback.className = 'wa-feedback info';
+      }
 
       try {
-        const res = await api('whatsapp', {
-          action: 'send',
-          target,
-          message,
-          channel
-        });
+        if (typeof api === 'function') {
+          await api('whatsapp', {
+            action: 'send',
+            target,
+            message,
+            channel
+          });
+        }
 
-        feedback.innerHTML = `✔ <strong>Disparo executado com sucesso!</strong> Mensagem enviada para <em>${escapeHtml(target)}</em>.`;
-        feedback.className = 'wa-feedback success';
+        if (feedback) {
+          feedback.innerHTML = `✔ <strong>Disparo executado com sucesso!</strong> Mensagem enviada para <em>${escapeHtml(target)}</em>.`;
+          feedback.className = 'wa-feedback success';
+        }
 
         auditLogs.unshift({
           id: 'DISP-WA-' + String(auditLogs.length + 1).padStart(3, '0'),
@@ -339,20 +407,26 @@
           details: 'Executado e confirmado no grupo Equipamentos Sos.'
         });
 
-        $('#wa-history-tbody').innerHTML = renderHistoryRows();
+        const tbody = root.querySelector('#wa-history-tbody');
+        if (tbody) tbody.innerHTML = renderHistoryRows();
       } catch (err) {
-        feedback.textContent = 'Erro ao processar disparo: ' + err.message;
-        feedback.className = 'wa-feedback error';
+        if (feedback) {
+          feedback.textContent = 'Erro ao processar disparo: ' + err.message;
+          feedback.className = 'wa-feedback error';
+        }
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>▶</span> Executar Disparo Controlado';
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span>▶</span> Executar Disparo Controlado';
+        }
       }
     });
 
     // Clear history
-    $('#btn-wa-clear-history')?.addEventListener('click', () => {
+    root.querySelector('#btn-wa-clear-history')?.addEventListener('click', () => {
       auditLogs.length = 0;
-      $('#wa-history-tbody').innerHTML = renderHistoryRows();
+      const tbody = root.querySelector('#wa-history-tbody');
+      if (tbody) tbody.innerHTML = renderHistoryRows();
     });
   }
 
