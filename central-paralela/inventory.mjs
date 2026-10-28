@@ -57,6 +57,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
   if(row.status!=='Estoque'||(data.branch?.id&&data.branch.id!==b.branch))fail(409,'A baixa só é permitida para aparelhos em Estoque da filial selecionada.');
   if(b.confirmed!==true)fail(400,'Confirme a baixa.');const plate=clean(b.plate).toUpperCase().replace(/[\s-]/g,'');if(!/^[A-Z]{3}\d[A-Z\d]\d{2}$/.test(plate))fail(400,'Placa inválida.');
   row.plate=plate;row.status='Instalado';row.installed_at=now;
+  if(b.client)row.owner_binding={branch:b.branch,serial:row.serial,plate,client:clean(b.client),checked_at:now};
  }else if(action==='refresh-equipment'){
   const e=await service.equipment(b.branch,row.serial);if(e.serial!==row.serial||!e.ok)fail(422,'Série não confirmada.');
   for(const k of ['iccid','phone','carrier','apn'])if(e[k])row[k]=e[k];
