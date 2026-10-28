@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RS Gateway Mobile</string>
+    <string name="service_name">Serviço de Disparos WhatsApp</string>
+    <string name="accessibility_description">Permite ao RS Gateway Mobile despachar e confirmar o envio de mensagens no WhatsApp Business de forma automática.</string>
+</resources>

@@ -576,7 +576,11 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 /* ==========================================================================
    WhatsApp Gateway UI - Visual Identity (Obsidian / Gold)
    ========================================================================== */
-.operation-hero.whatsapp-hero{border-color:rgba(37,211,102,.4);background:linear-gradient(110deg,#0a1a15,#07141f)}
+.operation-hero.whatsapp-hero{position:relative;overflow:hidden;border-color:rgba(37,211,102,.45);background:linear-gradient(110deg,#091319 0%,#07121b 100%)}
+.operation-hero.whatsapp-hero:before{content:"";position:absolute;inset:0 0 0 38%;z-index:0;background:url('/assets/whatsapp-hero.png') no-repeat 100% 50%;background-size:cover;mask-image:linear-gradient(90deg,transparent 0%,#000 25%);pointer-events:none}
+.operation-hero.whatsapp-hero .hero-device{display:none!important}
+.operation-hero.whatsapp-hero .hero-copy{position:relative;z-index:2;max-width:58%}
+@media(max-width:760px){.operation-hero.whatsapp-hero:before{inset:140px 0 0 0;mask-image:linear-gradient(180deg,transparent 0%,#000 30%);opacity:.85}.operation-hero.whatsapp-hero .hero-copy{max-width:100%}}
 .comms-separator{margin-top:14px}
 .icon-chat{display:inline-flex;align-items:center;justify-content:center;font-size:14px}
 

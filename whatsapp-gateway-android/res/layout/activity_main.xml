@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0A0E14"
+    android:padding="24dp">
+
+    <!-- Header Brand -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RS"
+            android:textColor="#F5A53C"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:background="#162232"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:layout_marginEnd="12dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="GRUPO RS CENTRAL"
+                android:textColor="#F5A53C"
+                android:textSize="11sp"
+                android:letterSpacing="0.1" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Gateway Mobile WhatsApp"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Card Status -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#121822"
+        android:padding="20dp"
+        android:layout_marginBottom="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="STATUS DE CONEXÃO COM A CENTRAL"
+            android:textColor="#889CB2"
+            android:textSize="11sp"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="● Conectado e Sincronizado"
+            android:textColor="#4ADE80"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/tv_details"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Escutando fila de mensagens em tempo real via Wi-Fi/4G."
+            android:textColor="#CBD5E1"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Controls -->
+    <Button
+        android:id="@+id/btn_toggle_service"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Reiniciar Serviço em Segundo Plano"
+        android:textColor="#FFFFFF"
+        android:background="#1E2838"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btn_accessibility"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Permissão de Acessibilidade (Auto-Envio)"
+        android:textColor="#F5A53C"
+        android:background="#162232"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Live Logs -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="HISTÓRICO DE DISPAROS REALIZADOS"
+        android:textColor="#889CB2"
+        android:textSize="11sp"
+        android:layout_marginBottom="8dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#070A0E"
+        android:padding="12dp">
+        <TextView
+            android:id="@+id/tv_logs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="[Iniciando Gateway...]\n"
+            android:textColor="#94A3B8"
+            android:fontFamily="monospace"
+            android:textSize="12sp" />
+    </ScrollView>
+
+</LinearLayout>

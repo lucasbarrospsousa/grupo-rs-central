@@ -24,8 +24,50 @@
     if (sidebarNav) sidebarNav.append(waButton);
   }
 
-  // Pre-loaded audit log including the 3 real tests executed on the device
+  // Pre-loaded audit log including the real tests executed on the device
   const auditLogs = [
+    {
+      id: 'DISP-WA-007',
+      time: '14:13:30',
+      date: '28/10/2026',
+      target: 'Dnilson Técnico (+55 99 99651-5160)',
+      targetType: 'contact',
+      channel: 'RS Gateway Mobile (App Android 24/7)',
+      message: 'Olá, eu estou mandando essa mensagem de teste, não precisa ter retorno',
+      variant: 'Variante 3',
+      status: 'success',
+      statusLabel: 'Enviado com Sucesso',
+      device: 'Samsung Galaxy A24 (SM-A245M)',
+      details: 'Confirmado no WhatsApp Business (com.whatsapp.w4b)'
+    },
+    {
+      id: 'DISP-WA-006',
+      time: '14:13:12',
+      date: '28/10/2026',
+      target: 'Lucas Técnico (+55 99 98414-5352)',
+      targetType: 'contact',
+      channel: 'RS Gateway Mobile (App Android 24/7)',
+      message: 'Olá, eu estou mandando essa mensagem de teste não precisa ter retorno',
+      variant: 'Variante 2',
+      status: 'success',
+      statusLabel: 'Enviado com Sucesso',
+      device: 'Samsung Galaxy A24 (SM-A245M)',
+      details: 'Confirmado no WhatsApp Business (com.whatsapp.w4b)'
+    },
+    {
+      id: 'DISP-WA-005',
+      time: '14:12:43',
+      date: '28/10/2026',
+      target: 'Ricardo Gerente (+55 99 98427-4848)',
+      targetType: 'contact',
+      channel: 'RS Gateway Mobile (App Android 24/7)',
+      message: 'Olá eu estou mandando essa mensagem de teste não precisa ter retorno',
+      variant: 'Variante 1',
+      status: 'success',
+      statusLabel: 'Enviado com Sucesso',
+      device: 'Samsung Galaxy A24 (SM-A245M)',
+      details: 'Confirmado no WhatsApp Business (com.whatsapp.w4b)'
+    },
     {
       id: 'DISP-WA-004',
       time: '13:25:46',
@@ -272,7 +314,7 @@
               <div>
                 <label for="wa-channel-mode">Canal de Disparo</label>
                 <select id="wa-channel-mode" class="wa-select">
-                  <option value="gateway-usb" selected>📲 Gateway Celular USB (Android Automator no Galaxy A24)</option>
+                  <option value="gateway-usb" selected>📲 RS Gateway Mobile (App Android 24/7 / Galaxy A24)</option>
                   <option value="wa-web">🌐 WhatsApp Web (Abertura Sequencial com 1 Clique)</option>
                 </select>
               </div>
