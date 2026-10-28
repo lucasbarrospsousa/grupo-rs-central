@@ -139,10 +139,10 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 /* Approved dashboard/tracking artwork. Buttons and headings stay native. */
 .operation-hero:not(.maintenance-hero){position:relative;overflow:hidden;min-height:245px;background:#07192b;border:1px solid rgba(245,165,60,.4);border-radius:18px;isolation:isolate}
 .operation-hero:not(.maintenance-hero):before{content:"";position:absolute;inset:0 0 0 38%;z-index:0;background:url('/assets/operation-heroes.png') no-repeat 100% 96%;background-size:auto 218%;mask-image:linear-gradient(90deg,transparent 0%,#000 24%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 24%);pointer-events:none}
-.operation-hero.compact:not(.maintenance-hero){min-height:126px;padding:22px 32px;border:1px solid rgba(56,152,255,.35);border-radius:16px;margin-bottom:18px}
-.operation-hero.compact:not(.maintenance-hero):before{inset:0 0 0 35%;background-position:100% 0;background-size:auto 200%;mask-image:linear-gradient(90deg,transparent 0%,#000 20%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 20%)}
-.operation-hero.compact .eyebrow{display:none!important}
-.operation-hero.compact h1{font-size:28px;margin:0 0 6px;font-weight:800}
+.operation-hero.compact:not(.maintenance-hero){min-height:150px;padding:24px 36px;border:1px solid rgba(245,165,60,.4);border-radius:18px;margin-bottom:18px}
+.operation-hero.compact:not(.maintenance-hero):before{inset:0 0 0 22%;background-position:100% 0;background-size:auto 200%;mask-image:linear-gradient(90deg,transparent 0%,#000 18%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 18%)}
+.operation-hero.compact .eyebrow{display:block!important;margin-bottom:4px;font-size:11px;letter-spacing:2px;color:#ffba44;font-weight:750}
+.operation-hero.compact h1{font-size:32px;margin:0 0 6px;font-weight:800}
 .operation-hero.compact p{margin:0;font-size:13.5px;color:#9eb2c8}
 .operation-hero:not(.maintenance-hero) .hero-device{display:none}
 .operation-hero:not(.maintenance-hero) .hero-copy{max-width:55%;position:relative;z-index:1}
