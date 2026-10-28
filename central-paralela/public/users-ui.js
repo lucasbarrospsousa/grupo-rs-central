@@ -1,40 +1,244 @@
 'use strict';
-const usersButton=document.createElement('button');usersButton.textContent='Usuários e permissões';usersButton.className='nav-button';usersButton.hidden=true;document.querySelector('.sidebar nav').append(usersButton);
-const usersDialog=document.createElement('dialog');usersDialog.id='users-dialog';usersDialog.style.cssText='width:min(920px,94vw);max-height:90vh;overflow:auto';document.body.append(usersDialog);
+const usersSeparator=document.createElement('p');usersSeparator.className='nav-section admin-separator';usersSeparator.id='admin-separator';usersSeparator.textContent='ADMINISTRAÇÃO';usersSeparator.hidden=true;
+const usersButton=document.createElement('button');usersButton.id='nav-users';usersButton.className='nav-button';usersButton.hidden=true;usersButton.title='Usuários e permissões';usersButton.setAttribute('aria-label','Usuários e permissões');usersButton.innerHTML='<span class="icon-user-shield" aria-hidden="true"></span><span class="nav-label">Usuários e permissões</span>';
+document.querySelector('.sidebar nav').append(usersSeparator,usersButton);
+const usersDialog=document.createElement('dialog');usersDialog.id='users-dialog';document.body.append(usersDialog);
 let usersGeneration=0;
-async function renderJobs(){
- usersDialog.replaceChildren(userEl('h2','Rotinas no servidor'));
- usersDialog.append(userEl('p','Continuam com o navegador fechado. Ative somente após desativar a rotina equivalente na Central antiga.'));
- const select=userEl('select');for(const b of session.branches)select.add(new Option(b.name||b.id,b.id));usersDialog.append(select);
- const result=userEl('div');usersDialog.append(result);
- const draw=async()=>{result.replaceChildren();for(const kind of ['status','global-status','codes','maintenance','warehouse','costs','warehouse-links']){if(['costs','warehouse-links'].includes(kind)&&select.value!=='imperatriz')continue;const j=await api('jobs',{action:'read',kind,branch:select.value}),box=userEl('section');box.className='card';box.append(userEl('h3',({status:'Comunicação dos 50 selecionados','global-status':'Comunicação do estoque e reserva',codes:'Conferência global de códigos',maintenance:'Comunicação em manutenção',warehouse:'Situação dos chips',costs:'Tarifas dos fornecedores','warehouse-links':'Inventário de vínculos'})[kind]),userEl('p',j.enabled?'Ativa':'Pausada'),userEl('p',j.lastCompleted?'Última conclusão: '+formatDate(j.lastCompleted):'Ainda não executada'));const schedule={};if(kind==='codes'){for(const [key,type,value,label] of [['nightly_enabled','checkbox',j.nightly_enabled,'Somente na janela noturna (Fortaleza)'],['night_start','time',j.night_start||'22:00','Início'],['night_end','time',j.night_end||'06:00','Fim'],['interval_seconds','number',j.interval_seconds||25,'Intervalo entre aparelhos (segundos)']]){const field=userEl('input'),caption=userEl('label',label+' ');field.type=type;if(type==='checkbox')field.checked=!!value;else field.value=value;if(type==='number'){field.min=25;field.max=3600;}field.disabled=!!j.enabled;schedule[key]=field;caption.append(field);box.append(caption);}}const toggle=userEl('button',j.enabled?'Pausar rotina':'Ativar rotina');toggle.onclick=async()=>{const serials=monitorSelection().filter(r=>r.branch===select.value).map(r=>r.serial);if(!j.enabled&&!confirm('Ativar consultas reais no servidor? Confirme que a rotina equivalente da Central antiga está desativada.'))return;toggle.disabled=true;try{await api('jobs',{action:'configure',branch:select.value,kind,enabled:!j.enabled,confirmed:true,serials,...(kind==='codes'?{nightly_enabled:schedule.nightly_enabled.checked,night_start:schedule.night_start.value,night_end:schedule.night_end.value,interval_seconds:Number(schedule.interval_seconds.value)}:{})});if(kind==='status'&&!j.enabled){stopMonitor();autoMonitorStarted=true;}await draw();}catch(e){box.append(userEl('p',e.message));toggle.disabled=false;}};box.append(toggle);result.append(box);}};
- select.onchange=()=>draw().catch(e=>result.textContent=e.message);const back=userEl('button','Voltar');back.onclick=renderUsers;usersDialog.append(back);await draw();
-}
+
 const userEl=(tag,text)=>{const e=document.createElement(tag);if(text)e.textContent=text;return e;};
-function resetUsers(){usersGeneration++;usersDialog.close();usersDialog.replaceChildren();usersButton.hidden=true;}
-function syncUsersAccess(){usersButton.hidden=!session?.permissions?.owner;if(!session)resetUsers();}
+function resetUsers(){usersGeneration++;usersDialog.close();usersDialog.replaceChildren();usersButton.hidden=true;usersSeparator.hidden=true;}
+function syncUsersAccess(){const show=!!session?.permissions?.owner;usersButton.hidden=!show;usersSeparator.hidden=!show;if(!session)resetUsers();}
 new MutationObserver(syncUsersAccess).observe(dashboard,{attributes:true,attributeFilter:['hidden']});
 syncUsersAccess();
+
 usersButton.addEventListener('click',async()=>{if(!await validateAccess())return;usersDialog.showModal();await renderUsers();});
+
 async function renderUsers(){
  const epoch=++usersGeneration;usersDialog.replaceChildren(userEl('p','Carregando usuários…'));
- try{const data=await api('users',{action:'list'});if(epoch!==usersGeneration||!session)return;
- usersDialog.replaceChildren();const head=userEl('div');head.className='head';head.append(userEl('h2','Usuários e permissões'));const close=userEl('button','Fechar');close.onclick=()=>{usersGeneration++;usersDialog.close();usersDialog.replaceChildren();};head.append(close);usersDialog.append(head);
- const create=userEl('button','Novo usuário');create.className='primary';create.onclick=()=>editUserForm(null,data);usersDialog.append(create);
- const jobs=userEl('button','Rotinas no servidor');jobs.onclick=()=>renderJobs().catch(e=>usersDialog.append(userEl('p',e.message)));usersDialog.append(jobs);
- for(const u of data.users){const row=userEl('div');row.className='card';row.style.marginTop='12px';row.append(userEl('strong',u.username+' · '+(u.active?'Ativo':'Inativo')),userEl('p',u.branches.map(b=>b.name||b.id).join(' · ')));const edit=userEl('button',u.permissions.owner?'Administrador protegido':'Editar acesso');edit.disabled=!!u.permissions.owner;edit.onclick=()=>editUserForm(u,data);row.append(edit);usersDialog.append(row);}
+ try{
+  const data=await api('users',{action:'list'});if(epoch!==usersGeneration||!session)return;
+  usersDialog.replaceChildren();
+  const head=userEl('div');head.className='head';head.append(userEl('h2','Usuários e permissões'));
+  const close=userEl('button','Fechar');close.onclick=()=>{usersGeneration++;usersDialog.close();usersDialog.replaceChildren();};
+  head.append(close);usersDialog.append(head);
+
+  const body=userEl('div');body.id='users-dialog-body';usersDialog.append(body);
+
+  const toolbar=userEl('div');toolbar.className='users-toolbar';
+  const toolbarDesc=userEl('p','Gerencie operadores, filiais autorizadas e acessos da Central.');toolbarDesc.className='users-toolbar-desc';
+  const toolbarActions=userEl('div');toolbarActions.className='users-toolbar-actions';
+  const jobs=userEl('button','Rotinas no servidor');jobs.onclick=()=>renderJobs().catch(e=>body.append(userEl('p',e.message)));
+  const create=userEl('button','Novo usuário');create.className='primary';create.onclick=()=>editUserForm(null,data);
+  toolbarActions.append(jobs,create);
+  toolbar.append(toolbarDesc,toolbarActions);
+  body.append(toolbar);
+
+  const list=userEl('div');list.className='users-list';
+  for(const u of data.users){
+   const row=userEl('div');row.className='card user-card';
+   const avatar=userEl('div',u.username.slice(0,2).toUpperCase());
+   avatar.className='user-avatar'+(u.permissions.owner?' is-admin':'');
+   row.append(avatar);
+
+   const info=userEl('div');info.className='user-info';
+   const titleRow=userEl('div');titleRow.className='user-title-row';
+   const strong=userEl('strong',u.username);
+   const statusBadge=userEl('span',u.active?'Ativo':'Inativo');
+   statusBadge.className='user-badge '+(u.active?'badge-active':'badge-inactive');
+   titleRow.append(strong,statusBadge);
+   if(u.permissions.owner){
+    const ownerBadge=userEl('span','Administrador');
+    ownerBadge.className='user-badge badge-owner';
+    titleRow.append(ownerBadge);
+   }
+   info.append(titleRow);
+
+   const branchP=userEl('p');branchP.className='user-branches-row';
+   for(const b of u.branches){
+    const bTag=userEl('span',b.name||b.id);bTag.className='user-branch-tag';
+    branchP.append(bTag);
+   }
+   if(!u.branches.length){
+    const emptyBranch=userEl('span','Nenhuma filial');emptyBranch.className='user-branch-tag';
+    branchP.append(emptyBranch);
+   }
+   info.append(branchP);
+   row.append(info);
+
+   const edit=userEl('button',u.permissions.owner?'Administrador protegido':'Editar acesso');
+   edit.disabled=!!u.permissions.owner;
+   edit.onclick=()=>editUserForm(u,data);
+   row.append(edit);
+
+   list.append(row);
+  }
+  body.append(list);
  }catch(e){if(epoch===usersGeneration)usersDialog.replaceChildren(userEl('p',e.message));}
 }
+
 function editUserForm(user,data){
- usersDialog.replaceChildren(userEl('h2',user?'Editar usuário':'Novo usuário'));const f=userEl('form');f.style.cssText='display:grid;gap:16px';usersDialog.append(f);
- const field=(label,type,value='')=>{const l=userEl('label',label),i=userEl('input');i.type=type;i.value=value;l.append(i);f.append(l);return i;};
- const username=field('Usuário','text',user?.username||'');username.required=true;username.disabled=!!user;
- const pw=field(user?'Nova senha (vazio mantém a atual)':'Senha','password');pw.autocomplete='new-password';pw.required=!user;pw.minLength=8;pw.maxLength=128;
- const active=field('Usuário ativo','checkbox');active.checked=user?.active??true;
- const branches=userEl('fieldset');branches.append(userEl('legend','Filiais permitidas'));f.append(branches);const branchChecks=data.branches.map(b=>{const l=userEl('label',b.name||b.id),i=userEl('input');i.type='checkbox';i.value=b.id;i.checked=user?.branches.some(x=>x.id===b.id)||false;l.prepend(i);branches.append(l);return i;});
- const table=userEl('table');const tr=userEl('tr');for(const title of ['Módulo','Consultar','Alterar / executar'])tr.append(userEl('th',title));table.append(tr);f.append(table);
+ usersDialog.replaceChildren();
+ const head=userEl('div');head.className='head';head.append(userEl('h2',user?'Editar usuário':'Novo usuário'));
+ const close=userEl('button','Fechar');close.onclick=()=>{usersGeneration++;usersDialog.close();usersDialog.replaceChildren();};
+ head.append(close);usersDialog.append(head);
+
+ const body=userEl('div');body.id='users-dialog-body';usersDialog.append(body);
+ const f=userEl('form');f.className='user-form-card';body.append(f);
+
+ const grid=userEl('div');grid.className='user-form-grid';f.append(grid);
+
+ const field=(label,type,value='',placeholder='')=>{
+  const l=userEl('label',label);
+  const i=userEl('input');i.type=type;i.value=value;if(placeholder)i.placeholder=placeholder;
+  l.append(i);grid.append(l);return i;
+ };
+
+ const username=field('Usuário','text',user?.username||'','Nome do usuário');
+ username.required=true;username.disabled=!!user;
+
+ const pw=field(user?'Nova senha (vazio mantém a atual)':'Senha','password','',user?'Manter senha atual':'Mínimo de 8 caracteres');
+ pw.autocomplete='new-password';pw.required=!user;pw.minLength=8;pw.maxLength=128;
+
+ const activeLabel=userEl('label');activeLabel.className='user-checkbox-label';activeLabel.style.gridColumn='1 / -1';
+ const active=userEl('input');active.type='checkbox';active.checked=user?.active??true;
+ activeLabel.append(active,document.createTextNode(' Usuário ativo e liberado para login'));
+ grid.append(activeLabel);
+
+ const branches=userEl('fieldset');branches.className='user-branches-fieldset';
+ branches.append(userEl('legend','Filiais permitidas'));f.append(branches);
+ const branchGrid=userEl('div');branchGrid.className='user-branches-grid';branches.append(branchGrid);
+ const branchChecks=data.branches.map(b=>{
+  const l=userEl('label',b.name||b.id);l.className='user-checkbox-label';
+  const i=userEl('input');i.type='checkbox';i.value=b.id;i.checked=user?.branches.some(x=>x.id===b.id)||false;
+  l.prepend(i);branchGrid.append(l);return i;
+ });
+
+ const tableWrap=userEl('div');tableWrap.className='user-table-wrap';
+ const table=userEl('table');
+ const tr=userEl('tr');for(const title of ['Módulo','Consultar','Alterar / executar'])tr.append(userEl('th',title));
+ table.append(tr);tableWrap.append(table);f.append(tableWrap);
+
  const labels={overview:'Dashboard',stock:'Rastreamento',maintenance:'Manutenções',warehouse:'Armazém',sms:'SMS'};
- const checks=data.modules.map(m=>{const row=userEl('tr');row.append(userEl('td',labels[m]||m));const view=userEl('input'),write=userEl('input');view.type=write.type='checkbox';view.checked=user?.permissions.views.includes(m)||false;write.disabled=!(data.writable||[]).includes(m);write.checked=user?.permissions.writes?.includes(m)||false;view.onchange=()=>{if(!view.checked)write.checked=false;};write.onchange=()=>{if(write.checked)view.checked=true;};for(const input of [view,write]){const cell=userEl('td');cell.append(input);row.append(cell);}table.append(row);return {m,view,write};});
- const note=userEl('p','Alterações de acesso invalidam as sessões do usuário.');f.append(note);const buttons=userEl('div');buttons.className='tools';const cancel=userEl('button','Cancelar');cancel.type='button';cancel.onclick=renderUsers;const save=userEl('button','Salvar acesso');save.className='primary';buttons.append(cancel,save);f.append(buttons);
- f.onsubmit=async e=>{e.preventDefault();const epoch=usersGeneration;save.disabled=true;try{await api('users',{action:'save',id:user?.id,version:user?.version,username:username.value,password:pw.value,active:active.checked,branches:branchChecks.filter(i=>i.checked).map(i=>i.value),views:checks.filter(x=>x.view.checked).map(x=>x.m),writes:checks.filter(x=>x.write.checked).map(x=>x.m)});pw.value='';if(epoch===usersGeneration&&session)await renderUsers();}catch(err){note.textContent=err.message;save.disabled=false;}};
+ const checks=data.modules.map(m=>{
+  const row=userEl('tr');row.append(userEl('td',labels[m]||m));
+  const view=userEl('input'),write=userEl('input');
+  view.type=write.type='checkbox';
+  view.checked=user?.permissions.views.includes(m)||false;
+  write.disabled=!(data.writable||[]).includes(m);
+  write.checked=user?.permissions.writes?.includes(m)||false;
+  view.onchange=()=>{if(!view.checked)write.checked=false;};
+  write.onchange=()=>{if(write.checked)view.checked=true;};
+  for(const input of [view,write]){const cell=userEl('td');cell.append(input);row.append(cell);}
+  table.append(row);return {m,view,write};
+ });
+
+ const note=userEl('p','Alterações de acesso invalidam as sessões do usuário.');note.className='user-form-note';f.append(note);
+ const buttons=userEl('div');buttons.className='tools users-toolbar-actions';
+ const cancel=userEl('button','Cancelar');cancel.type='button';cancel.onclick=renderUsers;
+ const save=userEl('button','Salvar acesso');save.className='primary';
+ buttons.append(cancel,save);f.append(buttons);
+
+ f.onsubmit=async e=>{
+  e.preventDefault();const epoch=usersGeneration;save.disabled=true;
+  try{
+   await api('users',{action:'save',id:user?.id,version:user?.version,username:username.value,password:pw.value,active:active.checked,branches:branchChecks.filter(i=>i.checked).map(i=>i.value),views:checks.filter(x=>x.view.checked).map(x=>x.m),writes:checks.filter(x=>x.write.checked).map(x=>x.m)});
+   pw.value='';if(epoch===usersGeneration&&session)await renderUsers();
+  }catch(err){note.textContent=err.message;save.disabled=false;}
+ };
+}
+
+async function renderJobs(){
+ usersDialog.replaceChildren();
+ const head=userEl('div');head.className='head';head.append(userEl('h2','Rotinas no servidor'));
+ const close=userEl('button','Fechar');close.onclick=()=>{usersGeneration++;usersDialog.close();usersDialog.replaceChildren();};
+ head.append(close);usersDialog.append(head);
+
+ const body=userEl('div');body.id='users-dialog-body';usersDialog.append(body);
+
+ const intro=userEl('div');intro.className='jobs-intro-card';
+ const introText=userEl('p','As rotinas continuam em execução no servidor mesmo com o navegador fechado. Ative somente após desativar a rotina equivalente da Central antiga.');
+ const branchSelectWrap=userEl('div');branchSelectWrap.className='jobs-branch-select';
+ const branchLabel=userEl('label','Filial: ');branchLabel.style.fontWeight='700';branchLabel.style.color='#ffaa2b';
+ const select=userEl('select');for(const b of session.branches)select.add(new Option(b.name||b.id,b.id));
+ branchSelectWrap.append(branchLabel,select);
+ const back=userEl('button','Voltar');back.onclick=renderUsers;
+ intro.append(introText,branchSelectWrap,back);
+ body.append(intro);
+
+ const result=userEl('div');result.className='jobs-grid';body.append(result);
+
+ const draw=async()=>{
+  result.replaceChildren();
+  for(const kind of ['status','global-status','codes','maintenance','warehouse','costs','warehouse-links']){
+   if(['costs','warehouse-links'].includes(kind)&&select.value!=='imperatriz')continue;
+   const j=await api('jobs',{action:'read',kind,branch:select.value});
+   const box=userEl('section');box.className='card job-card';
+
+   const info=userEl('div');info.className='job-info';
+   const title=userEl('h3',({
+    status:'Comunicação dos 50 selecionados',
+    'global-status':'Comunicação do estoque e reserva',
+    codes:'Conferência global de códigos',
+    maintenance:'Comunicação em manutenção',
+    warehouse:'Situação dos chips',
+    costs:'Tarifas dos fornecedores',
+    'warehouse-links':'Inventário de vínculos'
+   })[kind]);
+   info.append(title);
+
+   const metaRow=userEl('div');metaRow.className='job-meta-row';
+   const statusPill=userEl('span',j.enabled?'Ativa':'Pausada');
+   statusPill.className='job-status-pill '+(j.enabled?'is-active':'is-paused');
+   const lastRun=userEl('span',j.lastCompleted?'Última conclusão: '+formatDate(j.lastCompleted):'Ainda não executada');
+   lastRun.className='job-last-run';
+   metaRow.append(statusPill,lastRun);
+   info.append(metaRow);
+
+   const schedule={};
+   if(kind==='codes'){
+    const nightControls=userEl('div');nightControls.className='job-night-controls';
+    for(const [key,type,value,label] of [
+     ['nightly_enabled','checkbox',j.nightly_enabled,'Somente na janela noturna (Fortaleza)'],
+     ['night_start','time',j.night_start||'22:00','Início'],
+     ['night_end','time',j.night_end||'06:00','Fim'],
+     ['interval_seconds','number',j.interval_seconds||25,'Intervalo entre aparelhos (segundos)']
+    ]){
+     const field=userEl('input'),caption=userEl('label',label+' ');
+     field.type=type;
+     if(type==='checkbox')field.checked=!!value;
+     else field.value=value;
+     if(type==='number'){field.min=25;field.max=3600;}
+     field.disabled=!!j.enabled;
+     schedule[key]=field;
+     caption.append(field);
+     nightControls.append(caption);
+    }
+    info.append(nightControls);
+   }
+   box.append(info);
+
+   const actions=userEl('div');actions.className='job-actions';
+   const toggle=userEl('button',j.enabled?'Pausar rotina':'Ativar rotina');
+   toggle.className=j.enabled?'secondary':'primary';
+   toggle.onclick=async()=>{
+    const serials=monitorSelection().filter(r=>r.branch===select.value).map(r=>r.serial);
+    if(!j.enabled&&!confirm('Ativar consultas reais no servidor? Confirme que a rotina equivalente da Central antiga está desativada.'))return;
+    toggle.disabled=true;
+    try{
+     await api('jobs',{action:'configure',branch:select.value,kind,enabled:!j.enabled,confirmed:true,serials,...(kind==='codes'?{nightly_enabled:schedule.nightly_enabled.checked,night_start:schedule.night_start.value,night_end:schedule.night_end.value,interval_seconds:Number(schedule.interval_seconds.value)}:{})});
+     if(kind==='status'&&!j.enabled){stopMonitor();autoMonitorStarted=true;}
+     await draw();
+    }catch(e){
+     info.append(userEl('p',e.message));
+     toggle.disabled=false;
+    }
+   };
+   actions.append(toggle);
+   box.append(actions);
+
+   result.append(box);
+  }
+ };
+ select.onchange=()=>draw().catch(e=>result.textContent=e.message);
+ await draw();
 }
