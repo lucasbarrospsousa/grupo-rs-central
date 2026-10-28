@@ -164,8 +164,11 @@ export default {
         if(input.id){
           whatsappResults.set(input.id, {
             ok: input.status === 'sent',
+            status: input.status,
+            confirmed: input.confirmed === true || input.status === 'sent',
             error: input.error,
-            result: input.result
+            result: input.result,
+            reportedAt: Date.now()
           });
         }
         return secure(Response.json({ok:true,ack:true}));
@@ -237,14 +240,15 @@ export default {
               timestamp: Date.now()
             });
             const startWait = Date.now();
-            while (Date.now() - startWait < 3000) {
+            while (Date.now() - startWait < 22000) {
               if (whatsappResults.has(jobId)) {
                 const outcome = whatsappResults.get(jobId);
                 whatsappResults.delete(jobId);
-                if (outcome.ok) {
+                if (outcome.ok && outcome.confirmed) {
                   return secure(Response.json({
                     ok: true,
                     status: 'sent',
+                    confirmed: true,
                     target,
                     phone: input.phone || '',
                     name: input.name || '',
@@ -254,23 +258,12 @@ export default {
                     device: whatsappDeviceState
                   }));
                 } else {
-                  return error(500, outcome.error || 'Falha ao despachar para o celular.');
+                  return error(500, outcome.error || 'O aplicativo no celular não confirmou o envio da mensagem no WhatsApp.');
                 }
               }
-              await new Promise(r => setTimeout(r, 200));
+              await new Promise(r => setTimeout(r, 300));
             }
-            return secure(Response.json({
-              ok: true,
-              status: 'sent',
-              queued: true,
-              target,
-              phone: input.phone || '',
-              name: input.name || '',
-              message: msg,
-              timestamp: new Date().toISOString(),
-              channel: 'gateway-mobile',
-              device: whatsappDeviceState
-            }));
+            return error(504, 'Tempo limite esgotado: o aplicativo no celular não confirmou o clique de envio no WhatsApp dentro do prazo.');
           }
           return error(400,'Ação desconhecida.');
         }

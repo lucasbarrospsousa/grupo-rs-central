@@ -20,6 +20,10 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class WhatsAppGatewayService extends Service {
     private static final String TAG = "RS_WA_Service";
@@ -76,12 +80,12 @@ public class WhatsAppGatewayService extends Service {
                     processJob(job);
                 }
 
-                Thread.sleep(2500);
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
                 break;
             } catch (Exception e) {
-                Log.e(TAG, "Erro no loop de comunicação: " + e.getMessage());
-                try { Thread.sleep(4000); } catch (Exception ignored) {}
+                Log.e(TAG, "Erro no loop de comunicacao: " + e.getMessage());
+                try { Thread.sleep(3000); } catch (Exception ignored) {}
             }
         }
     }
@@ -99,6 +103,7 @@ public class WhatsAppGatewayService extends Service {
             status.put("whatsappPackage", TARGET_PKG);
             status.put("isFocused", true);
             status.put("mode", "apk-standalone-online");
+            status.put("accessibilityActive", WhatsAppAccessibilityService.isServiceRunning());
             status.put("safetyLock", true);
 
             payload.put("deviceStatus", status);
@@ -127,15 +132,46 @@ public class WhatsAppGatewayService extends Service {
     }
 
     private void processJob(JSONObject job) {
-        String jobId = job.optString("id");
-        String rawPhone = job.optString("phone");
-        String name = job.optString("name");
-        String message = job.optString("message");
+        final String jobId = job.optString("id");
+        final String rawPhone = job.optString("phone");
+        final String name = job.optString("name");
+        final String message = job.optString("message");
+        final String digits = normalizePhone(rawPhone);
 
-        Log.i(TAG, "Despachando job: " + jobId + " para " + name + " (" + rawPhone + ")");
+        Log.i(TAG, "Iniciando processamento real do job " + jobId + " para " + name + " (" + digits + ")");
+
+        // Wake screen up for dispatch
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        PowerManager.WakeLock screenLock = null;
+        if (pm != null) {
+            screenLock = pm.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
+                "RSGateway:DispatchScreenWake"
+            );
+            screenLock.acquire(20000);
+        }
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        final AtomicBoolean sendConfirmed = new AtomicBoolean(false);
+        final AtomicReference<String> errorReason = new AtomicReference<>(null);
+
+        WhatsAppAccessibilityService.armSend(digits, new WhatsAppAccessibilityService.SendConfirmationListener() {
+            @Override
+            public void onSentConfirmed(String targetPhone) {
+                Log.i(TAG, "SUCESSO: Acessibilidade confirmou clique de envio no WhatsApp para: " + targetPhone);
+                sendConfirmed.set(true);
+                latch.countDown();
+            }
+
+            @Override
+            public void onSendFailed(String reason) {
+                Log.w(TAG, "FALHA: Acessibilidade detectou erro no WhatsApp: " + reason);
+                errorReason.set(reason);
+                latch.countDown();
+            }
+        });
 
         try {
-            String digits = normalizePhone(rawPhone);
             String encodedMsg = URLEncoder.encode(message, "UTF-8");
             String deepLink = "https://api.whatsapp.com/send?phone=" + digits + "&text=" + encodedMsg;
 
@@ -145,35 +181,55 @@ public class WhatsAppGatewayService extends Service {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             startActivity(intent);
 
-            // Wait for AccessibilityService to click and send
-            Thread.sleep(3000);
+            // Aguarda ate 18 segundos pela confirmacao REAL do clique do botao de envio
+            boolean completedInTime = latch.await(18, TimeUnit.SECONDS);
+            WhatsAppAccessibilityService.disarmSend();
 
-            // Report success
             JSONObject report = new JSONObject();
             report.put("action", "gateway-report");
             report.put("id", jobId);
-            report.put("status", "sent");
 
-            JSONObject res = new JSONObject();
-            res.put("ok", true);
-            res.put("phone", digits);
-            res.put("name", name);
-            res.put("timestamp", System.currentTimeMillis());
-            report.put("result", res);
+            if (completedInTime && sendConfirmed.get()) {
+                report.put("status", "sent");
+                report.put("confirmed", true);
 
+                JSONObject res = new JSONObject();
+                res.put("ok", true);
+                res.put("phone", digits);
+                res.put("name", name);
+                res.put("confirmedAt", System.currentTimeMillis());
+                report.put("result", res);
+
+                Log.i(TAG, "Enviando feedback de SUCESSO para a Central (Job " + jobId + ")");
+            } else {
+                report.put("status", "failed");
+                report.put("confirmed", false);
+                String err = errorReason.get();
+                if (err == null) {
+                    err = "Tempo limite excedido: o WhatsApp nao abriu ou o botao de envio nao foi clicado a tempo.";
+                }
+                report.put("error", err);
+                Log.w(TAG, "Enviando feedback de FALHA para a Central: " + err);
+            }
+
+            // Post report feedback back to Central
             postJson(WORKER_URL, report);
-            Log.i(TAG, "Job " + jobId + " concluído com sucesso!");
 
         } catch (Exception e) {
-            Log.e(TAG, "Erro ao processar job " + jobId + ": " + e.getMessage());
+            Log.e(TAG, "Excecao no processamento do job " + jobId + ": " + e.getMessage());
             try {
                 JSONObject report = new JSONObject();
                 report.put("action", "gateway-report");
                 report.put("id", jobId);
                 report.put("status", "failed");
+                report.put("confirmed", false);
                 report.put("error", e.getMessage());
                 postJson(WORKER_URL, report);
             } catch (Exception ignored) {}
+        } finally {
+            if (screenLock != null && screenLock.isHeld()) {
+                screenLock.release();
+            }
         }
     }
 
@@ -193,8 +249,8 @@ public class WhatsAppGatewayService extends Service {
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
-        conn.setConnectTimeout(5000);
-        conn.setReadTimeout(7000);
+        conn.setConnectTimeout(6000);
+        conn.setReadTimeout(9000);
         conn.setDoOutput(true);
 
         try (OutputStream os = conn.getOutputStream()) {
@@ -220,7 +276,7 @@ public class WhatsAppGatewayService extends Service {
                     "RS Gateway Mobile Canal",
                     NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Serviço em segundo plano para gateway de mensagens");
+            channel.setDescription("Servico em segundo plano para gateway de mensagens");
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
         }

@@ -551,8 +551,9 @@
       const message = variations[varIndex];
       const variantLabel = `Variante ${varIndex + 1}`;
 
+      // 1. Notifica envio da solicitação e AGUARDA a confirmação de execução real do app
       if (feedback) {
-        feedback.innerHTML = `<span>⏳</span> Disparando para <strong>${escapeHtml(contact.name)}</strong> (${escapeHtml(contact.phone)}) com <em>${variantLabel}</em>...`;
+        feedback.innerHTML = `<span>⏳</span> Enviando linha ${batchState.currentIndex + 1} de ${contacts.length} para <strong>${escapeHtml(contact.name)}</strong> (${escapeHtml(contact.phone)})...<br><small style="opacity:0.85">Aguardando o aplicativo no celular abrir a conversa e confirmar o clique de envio no WhatsApp...</small>`;
         feedback.className = 'wa-feedback info';
       }
 
@@ -563,67 +564,55 @@
           const url = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
           window.open(url, '_blank', 'noopener,noreferrer');
         } else {
-          // Channel: RS Gateway Mobile (envio via App Android / fila em nuvem sem bloqueio por USB)
-          let dispatchResult = null;
-          try {
-            const localSend = await fetch('http://127.0.0.1:5038/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ phone: contact.phone, name: contact.name, message }),
-              signal: AbortSignal.timeout(4000)
-            });
-            if (localSend.ok) {
-              dispatchResult = await localSend.json();
-            } else {
-              throw new Error('Local bridge offline');
-            }
-          } catch (localErr) {
-            // Se o daemon USB local não estiver ativo, despacha direto pela API da Central
-            if (typeof api === 'function') {
-              dispatchResult = await api('whatsapp', {
-                action: 'send',
-                phone: contact.phone,
-                name: contact.name,
-                message,
-                channel: 'gateway-mobile'
-              });
-            } else {
-              dispatchResult = { ok: true, status: 'sent', channel: 'gateway-mobile' };
-            }
-          }
+          // Channel: RS Gateway Mobile
+          // Envia para a Central e AGUARDA O FEEDBACK REAL de envio do aplicativo
+          const dispatchResult = await api('whatsapp', {
+            action: 'send',
+            phone: contact.phone,
+            name: contact.name,
+            message,
+            channel: 'gateway-mobile'
+          });
 
-          if (dispatchResult && dispatchResult.error) {
-            throw new Error(dispatchResult.error);
+          if (!dispatchResult || !dispatchResult.ok || !dispatchResult.confirmed) {
+            throw new Error(dispatchResult?.error || 'O aplicativo no celular não confirmou o envio da mensagem.');
           }
         }
 
+        // 2. Feedback recebido e confirmado com sucesso! Registra no histórico de auditoria
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('pt-BR');
+        const dateStr = now.toLocaleDateString('pt-BR');
+
         auditLogs.unshift({
           id: 'DISP-WA-' + String(auditLogs.length + 1).padStart(3, '0'),
-          time: new Date().toLocaleTimeString('pt-BR'),
-          date: new Date().toLocaleDateString('pt-BR'),
+          time: timeStr,
+          date: dateStr,
           target: `${contact.name} (${contact.phone})`,
           targetType: 'contact',
-          channel: channel === 'gateway-usb' ? 'Gateway Celular USB (Galaxy A24)' : 'WhatsApp Web',
+          channel: 'RS Gateway Mobile (App Android 24/7)',
           message,
           variant: variantLabel,
           status: 'success',
-          statusLabel: 'Enviado com Sucesso',
+          statusLabel: 'Enviado e Confirmado',
           device: 'Samsung Galaxy A24 (SM-A245M)',
-          details: 'Iniciada conversa e transmitida no WhatsApp Business via USB'
+          details: 'Envio real confirmado pelo AccessibilityService no WhatsApp Business'
         });
 
         const tbody = root.querySelector('#wa-history-tbody');
         if (tbody) tbody.innerHTML = renderHistoryRows();
 
+        // 3. Avança o índice para a próxima linha da lista
         batchState.currentIndex++;
 
         if (batchState.currentIndex < contacts.length && batchState.running) {
+          // 4. SÓ DEPOIS DE RECEBER O FEEDBACK INICIA A CONTAGEM PROGRAMADA
           const delaySec = getRandomPacingSeconds(pacingMode);
           const delayMins = Math.round(delaySec / 60);
           batchState.secondsLeft = delaySec;
 
           if (feedback) {
-            feedback.innerHTML = `✔ Enviado para <strong>${escapeHtml(contact.name)}</strong>! Aguardando intervalo de cadência seguro (<strong>${delayMins >= 1 ? delayMins + ' min' : delaySec + 's'}</strong> aleatório)...`;
+            feedback.innerHTML = `✔ <strong>Envio confirmado pelo WhatsApp no celular (${escapeHtml(contact.name)})!</strong><br>Iniciando contagem programada de <strong>${delayMins >= 1 ? delayMins + ' min' : delaySec + 's'}</strong> antes da próxima linha (${batchState.currentIndex + 1} de ${contacts.length})...`;
             feedback.className = 'wa-feedback success';
           }
 
@@ -637,14 +626,16 @@
         } else {
           batchState.running = false;
           if (feedback) {
-            feedback.innerHTML = `✔ <strong>Lista concluída!</strong> Todos os contatos foram processados.`;
+            feedback.innerHTML = `✔ <strong>Todos os envios foram concluídos e confirmados no WhatsApp!</strong> Total de ${contacts.length} contatos processados.`;
             feedback.className = 'wa-feedback success';
           }
           updateUiState();
         }
       } catch (err) {
+        batchState.running = false;
+        updateUiState();
         if (feedback) {
-          feedback.innerHTML = `❌ <strong>Falha no envio para ${escapeHtml(contact.name)}:</strong> ${escapeHtml(err.message)}`;
+          feedback.innerHTML = `❌ <strong>Não foi possível confirmar envio para ${escapeHtml(contact.name)}:</strong> ${escapeHtml(err.message)}.<br><small>O processo foi pausado para não pular contatos. Clique em "Iniciar Disparos da Lista" para continuar de onde parou.</small>`;
           feedback.className = 'wa-feedback error';
         }
         auditLogs.unshift({
@@ -653,20 +644,16 @@
           date: new Date().toLocaleDateString('pt-BR'),
           target: `${contact.name} (${contact.phone})`,
           targetType: 'contact',
-          channel: channel === 'gateway-usb' ? 'Gateway Celular USB (Galaxy A24)' : 'WhatsApp Web',
+          channel: 'RS Gateway Mobile (App Android 24/7)',
           message,
           variant: variantLabel,
           status: 'failed',
-          statusLabel: 'Falha USB',
+          statusLabel: 'Não Confirmado',
           device: 'Samsung Galaxy A24 (SM-A245M)',
           details: err.message
         });
         const tbody = root.querySelector('#wa-history-tbody');
         if (tbody) tbody.innerHTML = renderHistoryRows();
-
-        batchState.running = false;
-        updateUiState();
-        checkUsbStatus(false);
       }
     }
 
