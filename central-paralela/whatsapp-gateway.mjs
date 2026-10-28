@@ -59,6 +59,48 @@ export function getDeviceStatus() {
   }
 }
 
+export function normalizePhone(rawPhone) {
+  let digits = String(rawPhone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 8) digits = '999' + digits;
+  else if (digits.length === 9) digits = '99' + digits;
+  if (digits.length === 10 || digits.length === 11) digits = '55' + digits;
+  if (digits.length === 12 && digits.startsWith('55')) {
+    digits = digits.slice(0, 4) + '9' + digits.slice(4);
+  }
+  return digits;
+}
+
+export async function sendDirectMessage({ phone, name = '', message = DEFAULT_TEST_MESSAGE }) {
+  const digits = normalizePhone(phone);
+  if (!digits) throw new Error('Número de telefone inválido.');
+
+  const status = getDeviceStatus();
+  if (!status.ok) throw new Error(`Gateway offline: ${status.error}`);
+
+  console.log(`[WhatsApp Gateway] Disparando para ${name || digits} (${digits})...`);
+  runAdb('shell "svc power stayon true && input keyevent KEYCODE_WAKEUP && wm dismiss-keyguard"');
+
+  const encodedText = encodeURIComponent(message);
+  const deepLink = `https://api.whatsapp.com/send?phone=${digits}&text=${encodedText}`;
+  runAdb(`shell "am start -a android.intent.action.VIEW -d '${deepLink}' ${PACKAGE_NAME}"`);
+
+  await new Promise(r => setTimeout(r, 2000));
+
+  // Click Send button
+  runAdb('shell "input tap 986 2122"');
+  await new Promise(r => setTimeout(r, 1000));
+
+  return {
+    ok: true,
+    phone: digits,
+    name: name || '',
+    message,
+    timestamp: new Date().toISOString(),
+    status: 'sent'
+  };
+}
+
 export async function sendControlledMessage({ target = AUTHORIZED_TEST_GROUP, message = DEFAULT_TEST_MESSAGE } = {}) {
   // Safety rule check
   if (target !== AUTHORIZED_TEST_GROUP) {

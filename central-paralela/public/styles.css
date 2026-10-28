@@ -642,3 +642,17 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .wa-table td{padding:11px 12px;border-bottom:1px solid #1c2430;font-size:12.5px;color:#d5e2f0}
 .wa-table tr:hover td{background:#141c26}
 .wa-msg-cell{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic;color:#e2ecf7}
+
+.wa-grid-inputs{display:grid;grid-template-columns:1fr 1.3fr;gap:18px;margin-bottom:14px}
+@media(max-width:850px){.wa-grid-inputs{grid-template-columns:1fr}}
+.wa-input-col{display:flex;flex-direction:column;gap:8px}
+.wa-hint{font-size:11.5px;color:#8ba2bb;line-height:1.4;margin:0 0 4px}
+.wa-textarea-contacts{font-family:monospace;font-size:13px;min-height:165px;line-height:1.6;background:#0a0e13;color:#ffca72}
+.wa-var-container{display:flex;flex-direction:column;gap:8px}
+.wa-var-item{display:flex;align-items:flex-start;gap:8px}
+.wa-var-num{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:#1a2330;border:1px solid #334458;color:#ffba44;font-size:11px;font-weight:800;flex-shrink:0;margin-top:6px}
+.wa-var-input{flex:1;min-height:48px;font-size:12.5px;padding:8px 10px;background:#0d131a;border:1px solid #2b394d;border-radius:8px;color:#f0f5fc}
+.wa-var-input:focus{outline:none;border-color:#25d366}
+.wa-pacing-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#1e1a0b;border:1px solid #634b15;border-radius:8px;color:#ffc107;font-size:11.5px;font-weight:700}
+.wa-countdown-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;background:#15261d;border:1px solid #256b46;color:#34d399;font-size:11px;font-weight:800;font-family:monospace}
+

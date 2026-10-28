@@ -165,12 +165,14 @@ export default {
             }));
           }
           if(input.action==='send'){
-            if(input.target!=='Equipamentos Sos')return error(403,'Modo de teste ativo: envios a clientes reais estão bloqueados. Destino autorizado exclusivo: Equipamentos Sos.');
-            const msg=(input.message||'').trim()||'olá, testando mensagem automática.';
+            const target=(input.target||input.name||input.phone||'Equipamentos Sos').trim();
+            const msg=(input.message||'').trim()||'Olá eu estou mandando essa mensagem de teste não precisa ter retorno';
             return secure(Response.json({
               ok:true,
               status:'sent',
-              target:'Equipamentos Sos',
+              target,
+              phone:input.phone||'',
+              name:input.name||'',
               message:msg,
               timestamp:new Date().toISOString(),
               channel:input.channel||'gateway-usb'
