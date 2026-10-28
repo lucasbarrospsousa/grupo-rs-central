@@ -11,14 +11,14 @@ export class AuthService {
  async users(){
   const now=Date.now();
   if(this._users&&now-(this._usersTime||0)<180000)return this._users;
-  try{
-   const u=decryptUsers(await driveUsers(JSON.parse(this.env.DRIVE_CONFIG||'null')),this.env.AUTH_DATA_KEY);
-   this._users=u;this._usersTime=now;
+  if(this._usersPending)return this._usersPending;
+  this._usersPending=(async()=>{
+   const u=await decryptUsers(await driveUsers(JSON.parse(this.env.DRIVE_CONFIG||'null')),this.env.AUTH_DATA_KEY);
+   this._users=u;this._usersTime=Date.now();
    return u;
-  }catch(e){
-   if(this._users)return this._users;
-   throw e;
-  }
+  })();
+  try{return await this._usersPending;}
+  finally{this._usersPending=null;}
  }
  async attempt(ip,username,now){
   return this.ctx.storage.transaction(async store=>{

@@ -47,3 +47,8 @@ test('login reuses tracking reads for authorized warehouse and excludes costs fo
  u=await run(['stock'],true);assert.equal(u.warehouse,undefined);assert.equal(u.tracking[0].warehouse,undefined);
  }finally{globalThis.fetch=original;}
 });
+
+test('lightweight login returns auth before operational data and does not call Drive',async()=>{
+ const original=globalThis.fetch;globalThis.fetch=()=>{throw Error('External access forbidden');};
+ try{const env={AUTH:{idFromName:x=>x,get:()=>({fetch:async()=>Response.json({username:'test',permissions:{views:['stock']},branches:[{id:'a'}]},{headers:{'Set-Cookie':'test-cookie'}})})},OPERATIONS:{get:()=>{throw Error('Barrier must not block auth');}}};const r=await worker.fetch(new Request('https://test.example/api/login?bootstrap=0',{method:'POST',headers:{origin:'https://test.example','content-type':'application/json'},body:'{}'}),env);assert.equal(r.status,200);assert.equal(r.headers.get('set-cookie'),'test-cookie');assert.equal((await r.json()).tracking,undefined);}finally{globalThis.fetch=original;}
+});

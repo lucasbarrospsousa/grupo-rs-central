@@ -302,6 +302,8 @@ export default {
         }
         return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)})));
       }
+      // Authentication does not depend on operational snapshots or write recovery.
+      if(url.pathname==='/api/login'&&url.searchParams.get('bootstrap')==='0')return secure(response);
       if(response.ok&&(tracking||dashboard||['/api/login','/api/session'].includes(url.pathname))&&env.OPERATIONS){
         try {
           const barrier=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v1')).fetch(new Request('https://operations.internal/barrier',{method:'POST',body:'{}'}));
