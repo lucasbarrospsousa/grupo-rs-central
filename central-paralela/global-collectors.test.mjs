@@ -1,6 +1,13 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {collect,chipPage,reconcileChips} from './global-collectors.mjs';
 const iccid='89123456789012345678';
+test('inactive legacy serials do not block pagination; active or unknown invalid serials still fail',()=>{
+ const inactive={numeroSerie:'990000000000000001',ativo:'I',numeroChip:iccid};
+ const page=equipamentos=>({ok:true,equipamentos,paginacao:{temMais:true,proximoSkip:300}});
+ assert.deepEqual(chipPage(page([inactive,{serial:'024000001',ativo:'A',iccid}]),250),{rows:[{serial:'024000001',iccid}],more:true,next:300});
+ assert.deepEqual(chipPage(page([inactive]),250),{rows:[],more:true,next:300});
+ for(const ativo of ['A',undefined])assert.throws(()=>chipPage(page([{...inactive,ativo}]),250),/Série ausente/);
+});
 function fixture(){const data=Object.fromEntries(['imperatriz','araguaina','acailandia','maraba'].map(b=>[b,{rows:[],warehouse:{rows:[],movements:[]}}]));return {data,document:async b=>{const clone=structuredClone(data[b]);return{data:clone,save:async()=>{data[b]=structuredClone(clone)}}}};}
 test('paginated global scan survives restart, commits only complete evidence, detects cross-branch conflict',async()=>{
  const f=fixture();f.data.imperatriz.warehouse.rows=[{kind:'chip',serial:iccid}];let calls=0;

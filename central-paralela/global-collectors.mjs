@@ -8,7 +8,9 @@ export function chipPage(data,skip){
  if(data?.ok!==true||!Array.isArray(data.equipamentos)||typeof data.paginacao?.temMais!=='boolean')throw Error('Página não confirmada');
  const more=data.paginacao.temMais,next=data.paginacao.proximoSkip;
  if(data.equipamentos.length>50||more&&(!Number.isInteger(next)||next<=skip||!data.equipamentos.length))throw Error('Paginação inválida');
- const rows=data.equipamentos.map(r=>{const n=normalize(r);if(!n.serial)throw Error('Série ausente');return {serial:n.serial,iccid:/^89\d{17,18}$/.test(n.iccid)&&!['I','INATIVO','0'].includes(String(r.ativo||'').toUpperCase())?n.iccid:''};});
+ // Inactive inventory cannot establish a current chip link. Filter it before
+ // validating serials; legacy inactive entries may carry unsupported identifiers.
+ const rows=data.equipamentos.filter(r=>!['I','INATIVO','0'].includes(String(r?.ativo??'').trim().toUpperCase())).map(r=>{const n=normalize(r);if(!n.serial)throw Error('Série ausente');return {serial:n.serial,iccid:/^89\d{17,18}$/.test(n.iccid)?n.iccid:''};});
  if(new Set(rows.map(r=>r.serial)).size!==rows.length)throw Error('Séries repetidas');
  return {rows,more,next};
 }

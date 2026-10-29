@@ -191,3 +191,7 @@ Validacao: 80 testes backend; navegador offline para login, armazem, manutencao,
 
 ## Disparos WhatsApp — 29/10/2026
 Fila e comprovantes persistidos no Durable Object, com identificador por contato e tentativa idempotente. Resposta 202 acompanha consulta curta de resultado; somente confirmação explícita do aplicativo avança a lista. Retomar preserva o índice quando lista/mensagens/canal não mudam. Heartbeat vencido indica offline. Removido fallback de fila em memória que poderia perder confirmações. Respostas não JSON são tratadas sem expor erro de parser. Sete testes locais passaram. Publicação validada por login real HTTP 200; fila retornou HTTP 503 CLOUDFLARE_RESOURCE_LIMIT. Testes físicos permanecem pendentes até recuperação da cota. Galaxy detectado por USB, sem disparos reais nesta validação.
+
+## Vínculos de chips — 29/10/2026
+A coleta paginada ignora cadastros explicitamente inativos antes de validar a série. Identificadores inválidos em aparelhos ativos ou de situação desconhecida continuam bloqueando a confirmação. O cursor da API é preservado mesmo em páginas somente com inativos; resultados só são reconciliados após completar as quatro bases. Validação: node --test central-paralela/global-collectors.test.mjs central-paralela/background-jobs.test.mjs.
+
