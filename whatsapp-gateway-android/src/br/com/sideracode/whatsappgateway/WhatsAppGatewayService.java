@@ -69,13 +69,15 @@ public class WhatsAppGatewayService extends Service {
 
     private void runLoop() {
         Log.i(TAG, "Loop do Gateway Mobile iniciado na nuvem!");
+        long retryDelayMs = 3000;
         while (isRunning) {
             try {
                 // 1. Send Heartbeat to Central
-                sendHeartbeat();
+                // Heartbeat travels with the poll: one request, same cadence.
 
                 // 2. Poll for pending job
                 JSONObject job = pollJob();
+                retryDelayMs = 3000;
                 if (job != null) {
                     processJob(job);
                 }
@@ -85,13 +87,13 @@ public class WhatsAppGatewayService extends Service {
                 break;
             } catch (Exception e) {
                 Log.e(TAG, "Erro no loop de comunicacao: " + e.getMessage());
-                try { Thread.sleep(3000); } catch (Exception ignored) {}
+                try { Thread.sleep(retryDelayMs); } catch (InterruptedException interrupted) { break; }
+                retryDelayMs = Math.min(60000, retryDelayMs * 2);
             }
         }
     }
 
-    private void sendHeartbeat() {
-        try {
+    private JSONObject heartbeatPayload() throws Exception {
             JSONObject payload = new JSONObject();
             payload.put("action", "gateway-heartbeat");
 
@@ -108,15 +110,11 @@ public class WhatsAppGatewayService extends Service {
 
             payload.put("deviceStatus", status);
 
-            postJson(WORKER_URL, payload);
-        } catch (Exception e) {
-            Log.w(TAG, "Falha no heartbeat: " + e.getMessage());
-        }
+            return payload;
     }
 
-    private JSONObject pollJob() {
-        try {
-            JSONObject payload = new JSONObject();
+    private JSONObject pollJob() throws Exception {
+            JSONObject payload = heartbeatPayload();
             payload.put("action", "gateway-poll");
             String response = postJson(WORKER_URL, payload);
             if (response != null && !response.isEmpty()) {
@@ -125,9 +123,6 @@ public class WhatsAppGatewayService extends Service {
                     return json.getJSONObject("job");
                 }
             }
-        } catch (Exception e) {
-            Log.w(TAG, "Falha no poll: " + e.getMessage());
-        }
         return null;
     }
 
@@ -264,9 +259,11 @@ public class WhatsAppGatewayService extends Service {
             String line;
             while ((line = br.readLine()) != null) sb.append(line);
             br.close();
+            conn.disconnect();
             return sb.toString();
         }
-        return null;
+        conn.disconnect();
+        throw new java.io.IOException("Gateway HTTP " + code);
     }
 
     private void createNotificationChannel() {
