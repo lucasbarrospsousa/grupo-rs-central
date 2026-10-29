@@ -8,9 +8,14 @@ import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDas
 export {AuthService} from './auth.mjs';
 async function displayRows(env,user,refresh=false){
  if(!env.OPERATIONS)return driveTracking(JSON.parse(env.DRIVE_CONFIG||'null'),user.branches.map(b=>b.id),fetch,{stock:user.permissions?.views?.includes('stock')||user.permissions?.views?.includes('overview'),warehouse:user.permissions?.views?.includes('warehouse'),maintenance:user.permissions?.views?.includes('maintenance'),owner:user.permissions?.owner===true});
- const response=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/display',{method:'POST',body:JSON.stringify({user,refresh})}));
- if(!response.ok)throw Error('DISPLAY_UNAVAILABLE');
- return response.json();
+ try{
+  const response=await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/display',{method:'POST',body:JSON.stringify({user,refresh})}));
+  if(response.ok)return await response.json();
+  console.warn('DO display returned ' + response.status + ', using direct Drive fallback');
+ }catch(e){
+  console.warn('DO display failed, using direct Drive fallback:', e?.message||e);
+ }
+ return driveTracking(JSON.parse(env.DRIVE_CONFIG||'null'),user.branches.map(b=>b.id),fetch,{stock:user.permissions?.views?.includes('stock')||user.permissions?.views?.includes('overview'),warehouse:user.permissions?.views?.includes('warehouse'),maintenance:user.permissions?.views?.includes('maintenance'),owner:user.permissions?.owner===true});
 }
 const routes = new Map([['/api/jobs','POST'],['/api/users','POST'],['/api/warehouse','POST'],['/api/maintenance','POST'],['/api/galaxy','POST'],['/api/inventory','POST'],['/api/live','POST'],['/api/access','GET'],['/api/tracking','GET'],['/api/login','POST'],['/api/session','GET'],['/api/logout','POST'],['/api/drive-status','GET'],['/api/dashboard','GET'],['/api/whatsapp','POST']]);
 const policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";

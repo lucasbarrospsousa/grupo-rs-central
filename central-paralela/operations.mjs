@@ -56,7 +56,7 @@ export class Operations {
     let value=await this.display.read(id,options);
     const refresh=()=>{
      if(!this.displayPending.has(id)){
-      const pending=this.queue.run('__writer',async()=>{await this.recoverConfig();const doc=await trackingDocument(this.config,id);await this.display.publish(id,doc.data);}).finally(()=>this.displayPending.delete(id));
+      const pending=(async()=>{const doc=await trackingDocument(this.config,id);await this.display.publish(id,doc.data);})().finally(()=>this.displayPending.delete(id));
       this.displayPending.set(id,pending);
      }
      return this.displayPending.get(id);
