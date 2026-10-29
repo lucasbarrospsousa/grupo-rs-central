@@ -1,11 +1,18 @@
 import {createHash} from 'node:crypto';
 export const documentCache=Symbol('documentCache');
 const connections=new Map();
+const pendingConnections=new Map();
 export async function connect(config,fetcher=fetch){
  const key=createHash('sha256').update(JSON.stringify(config||null)).digest('hex');
  const existing=connections.get(key);
  if(existing?.fetcher===fetcher&&existing.until>Date.now())return existing.connection;
- const connection=await openConnection(config,fetcher);
+ let pending=pendingConnections.get(key);
+ if(!pending||pending.fetcher!==fetcher){
+  pending={fetcher,promise:openConnection(config,fetcher)};
+  pendingConnections.set(key,pending);
+ }
+ let connection;
+ try{connection=await pending.promise;}finally{if(pendingConnections.get(key)===pending)pendingConnections.delete(key);}
  if(connection.expiresAt>Date.now()){if(connections.size>=8)connections.clear();connections.set(key,{fetcher,connection,until:connection.expiresAt});}
  return connection;
 }
