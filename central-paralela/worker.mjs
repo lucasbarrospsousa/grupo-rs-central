@@ -41,20 +41,6 @@ export function operationalFailure(cause) {
   },{status:503,headers:{'Retry-After':quota?'300':'30'}}));
 }
 
-const whatsappQueue = [];
-const whatsappResults = new Map();
-let whatsappDeviceState = {
-  ok: true,
-  connected: false,
-  lastHeartbeat: 0,
-  serial: 'RQ8WB02FN3P',
-  model: 'SM-A245M (Galaxy A24)',
-  whatsappPackage: 'com.whatsapp.w4b',
-  safetyLock: true,
-  authorizedGroup: 'Equipamentos Sos',
-  error: null
-};
-
 let lastDirectQueryTime = 0;
 async function directOperationalFallback(env, { jobs, wh, maint, inventory: isInv, input, user }) {
   const config = JSON.parse(env.DRIVE_CONFIG || 'null');
@@ -131,96 +117,9 @@ async function directOperationalFallback(env, { jobs, wh, maint, inventory: isIn
   }
 }
 
-async function handleWhatsappLocal(input) {
-  if (input.action === 'gateway-heartbeat') {
-    whatsappDeviceState = {
-      ...whatsappDeviceState,
-      ...(input.deviceStatus || {}),
-      connected: true,
-      lastHeartbeat: Date.now()
-    };
-    return secure(Response.json({ ok: true, ack: true }));
-  }
-
-  if (input.action === 'gateway-poll') {
-    const job = whatsappQueue.shift() || null;
-    return secure(Response.json({ ok: true, job }));
-  }
-
-  if (input.action === 'gateway-report') {
-    if (input.id) {
-      whatsappResults.set(input.id, {
-        ok: input.status === 'sent',
-        status: input.status,
-        confirmed: input.confirmed === true || input.status === 'sent',
-        error: input.error,
-        result: input.result,
-        reportedAt: Date.now()
-      });
-    }
-    return secure(Response.json({ ok: true, ack: true }));
-  }
-
-  if (input.action === 'status' || input.action === 'check-usb') {
-    const isOnline = (Date.now() - (whatsappDeviceState.lastHeartbeat || 0) < 45000);
-    return secure(Response.json({
-      ok: true,
-      connected: true,
-      device: {
-        model: whatsappDeviceState.model || 'Samsung Galaxy A24 (SM-A245M)',
-        serial: whatsappDeviceState.serial || 'RQ8WB02FN3P',
-        connection: 'mobile-app',
-        status: isOnline ? 'online' : 'standby',
-        app: whatsappDeviceState.whatsappPackage || 'com.whatsapp.w4b',
-        appName: 'WhatsApp Business'
-      },
-      lastHeartbeat: whatsappDeviceState.lastHeartbeat,
-      safety: { testMode: true, authorizedGroup: 'Equipamentos Sos', authorizedText: 'olá, testando mensagem automática.', externalBlocked: true },
-      error: null
-    }));
-  }
-
-  if (input.action === 'send') {
-    const target = (input.target || input.name || input.phone || 'Equipamentos Sos').trim();
-    const msg = (input.message || '').trim() || 'Olá eu estou mandando essa mensagem de teste não precisa ter retorno';
-    const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-
-    whatsappQueue.push({
-      id: jobId,
-      phone: input.phone || '',
-      name: input.name || '',
-      message: msg,
-      timestamp: Date.now()
-    });
-
-    const startWait = Date.now();
-    while (Date.now() - startWait < 28000) {
-      if (whatsappResults.has(jobId)) {
-        const outcome = whatsappResults.get(jobId);
-        whatsappResults.delete(jobId);
-        if (outcome.ok && outcome.confirmed) {
-          return secure(Response.json({
-            ok: true,
-            status: 'sent',
-            confirmed: true,
-            target,
-            phone: input.phone || '',
-            name: input.name || '',
-            message: msg,
-            timestamp: new Date().toISOString(),
-            channel: 'gateway-mobile',
-            device: whatsappDeviceState
-          }));
-        } else {
-          return error(500, outcome.error || 'O aplicativo no celular não confirmou o envio da mensagem no WhatsApp.');
-        }
-      }
-      await new Promise(r => setTimeout(r, 300));
-    }
-    return error(504, 'Tempo limite esgotado: o aplicativo no celular não confirmou o clique de envio no WhatsApp dentro do prazo.');
-  }
-
-  return error(400, 'Ação desconhecida.');
+async function forwardWhatsapp(env,input) {
+ try {return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)})));}
+ catch(cause){return operationalFailure(cause);}
 }
 
 
@@ -344,13 +243,7 @@ export default {
     if(url.pathname==='/api/whatsapp'){
       let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
       if(['gateway-heartbeat','gateway-poll','gateway-report'].includes(input.action)){
-        try {
-          const res = await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)}));
-          if (res.ok) return secure(res);
-        } catch(e) {
-          if (!/free tier|duration|Durable Object|limit|resource|quota/i.test(e.message || '')) throw e;
-        }
-        return await handleWhatsappLocal(input);
+        return forwardWhatsapp(env,input);
       }
     }
     const headers = new Headers({'x-parallel-ip':request.headers.get('cf-connecting-ip') || 'unknown'});
@@ -390,13 +283,7 @@ export default {
               channel:'wa-web'
             }));
           }
-          try {
-            const res = await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)}));
-            if (res.ok) return secure(res);
-          } catch(e) {
-            if (!/free tier|duration|Durable Object|limit|resource|quota/i.test(e.message || '')) throw e;
-          }
-          return await handleWhatsappLocal(input);
+          return forwardWhatsapp(env,input);
         }
         if(jobs&&!user.permissions?.owner)return error(403,'Somente administrador.');
         if(!jobs&&!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');

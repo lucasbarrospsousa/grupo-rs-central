@@ -528,7 +528,8 @@
       // Não exige conexão via cabo USB: o app Android processa os disparos online 24/7
 
       batchState.running = true;
-      batchState.currentIndex = 0;
+      const signature=JSON.stringify([contacts,variations,channel]);
+      if(batchState.signature!==signature){batchState.signature=signature;batchState.currentIndex=0;batchState.dispatchIds={};}
       updateUiState();
 
       processNextContact(contacts, variations, pacingMode, channel);
@@ -566,7 +567,10 @@
         } else {
           // Channel: RS Gateway Mobile
           // Envia para a Central e AGUARDA O FEEDBACK REAL de envio do aplicativo
-          const dispatchResult = await api('whatsapp', {
+          batchState.dispatchIds ||= {};
+          const requestId=batchState.dispatchIds[batchState.currentIndex] ||= crypto.randomUUID();
+          let dispatchResult = await api('whatsapp', {
+            requestId,
             action: 'send',
             phone: contact.phone,
             name: contact.name,
@@ -574,6 +578,11 @@
             channel: 'gateway-mobile'
           });
 
+          const deadline=Date.now()+60000;
+          while(dispatchResult?.ok&&!dispatchResult.confirmed&&Date.now()<deadline){
+            await new Promise(resolve=>setTimeout(resolve,2000));
+            dispatchResult=await api('whatsapp',{action:'result',requestId});
+          }
           if (!dispatchResult || !dispatchResult.ok || !dispatchResult.confirmed) {
             throw new Error(dispatchResult?.error || 'O aplicativo no celular não confirmou o envio da mensagem.');
           }

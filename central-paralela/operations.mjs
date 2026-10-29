@@ -1,3 +1,4 @@
+import {whatsappQueue} from './whatsapp-queue.mjs';
 import {collect} from './global-collectors.mjs';
 import {galaxyAndroid} from './galaxy-android.mjs';
 import {prepareConfig} from './configurator.mjs';
@@ -120,95 +121,5 @@ export class Operations {
   });
  }
 
-  async whatsapp(b){
-   if(!this.waQueue)this.waQueue=[];
-   if(!this.waResults)this.waResults=new Map();
-   if(!this.waDeviceState)this.waDeviceState={ok:true,connected:true,lastHeartbeat:Date.now(),serial:'RQ8WB02FN3P',model:'SM-A245M (Galaxy A24)',whatsappPackage:'com.whatsapp.w4b',safetyLock:true,authorizedGroup:'Equipamentos Sos',error:null};
-
-   if(b.action==='gateway-heartbeat'){
-    this.waDeviceState={...this.waDeviceState,...(b.deviceStatus||{}),lastHeartbeat:Date.now()};
-    return reply(200,{ok:true,ack:true});
-   }
-
-   if(b.action==='gateway-poll'){
-    const job=this.waQueue.shift()||null;
-    return reply(200,{ok:true,job});
-   }
-
-   if(b.action==='gateway-report'){
-    if(b.id){
-     this.waResults.set(b.id,{
-      ok:b.status==='sent',
-      status:b.status,
-      confirmed:b.confirmed===true||b.status==='sent',
-      error:b.error,
-      result:b.result,
-      reportedAt:Date.now()
-     });
-    }
-    return reply(200,{ok:true,ack:true});
-   }
-
-   if(b.action==='status'||b.action==='check-usb'){
-    const isOnline=(Date.now()-(this.waDeviceState.lastHeartbeat||0)<35000);
-    return reply(200,{
-     ok:true,
-     connected:true,
-     device:{
-      model:this.waDeviceState.model||'Samsung Galaxy A24 (SM-A245M)',
-      serial:this.waDeviceState.serial||'RQ8WB02FN3P',
-      connection:'mobile-app',
-      status:isOnline?'online':'standby',
-      app:this.waDeviceState.whatsappPackage||'com.whatsapp.w4b',
-      appName:'WhatsApp Business'
-     },
-     lastHeartbeat:this.waDeviceState.lastHeartbeat,
-     safety:{testMode:true,authorizedGroup:'Equipamentos Sos',authorizedText:'olá, testando mensagem automática.',externalBlocked:true},
-     error:null
-    });
-   }
-
-   if(b.action==='send'){
-    const target=(b.target||b.name||b.phone||'Equipamentos Sos').trim();
-    const msg=(b.message||'').trim()||'Olá eu estou mandando essa mensagem de teste não precisa ter retorno';
-    const jobId='job_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-
-    this.waQueue.push({
-     id:jobId,
-     phone:b.phone||'',
-     name:b.name||'',
-     message:msg,
-     timestamp:Date.now()
-    });
-
-    const startWait=Date.now();
-    while(Date.now()-startWait<28000){
-     if(this.waResults.has(jobId)){
-      const outcome=this.waResults.get(jobId);
-      this.waResults.delete(jobId);
-      if(outcome.ok&&outcome.confirmed){
-       return reply(200,{
-        ok:true,
-        status:'sent',
-        confirmed:true,
-        target,
-        phone:b.phone||'',
-        name:b.name||'',
-        message:msg,
-        timestamp:new Date().toISOString(),
-        channel:'gateway-mobile',
-        device:this.waDeviceState
-       });
-      }else{
-       return reply(500,{error:outcome.error||'O aplicativo no celular não confirmou o envio da mensagem no WhatsApp.'});
-      }
-     }
-     await new Promise(r=>setTimeout(r,300));
-    }
-    return reply(504,{error:'Tempo limite esgotado: o aplicativo no celular não confirmou o clique de envio no WhatsApp dentro do prazo.'});
-   }
-
-   return reply(400,{error:'Ação desconhecida.'});
-  }
-
+  async whatsapp(b){return whatsappQueue(this.ctx.storage,b);}
 }
