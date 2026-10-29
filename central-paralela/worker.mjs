@@ -3,7 +3,12 @@ import {Buffer} from 'node:buffer';
 import {verifyImport} from './maintenance-import.mjs';
 import {maintenance} from './maintenance.mjs';
 import {warehouse} from './warehouse.mjs';
-export {Operations} from './operations.mjs';
+import {inventory} from './inventory.mjs';
+import {queryStatus,latestLocation} from './query-flow.mjs';
+import {Integrations,ORIGINS} from './integrations.mjs';
+import {trackingDocument} from './drive.mjs';
+import {observation,Operations} from './operations.mjs';
+export {Operations};
 import {driveConnection,driveDashboard,driveDashboards,driveTracking,trackingDashboard,driveUsers} from './drive.mjs';
 export {AuthService} from './auth.mjs';
 async function displayRows(env,user,refresh=false){
@@ -25,6 +30,16 @@ function secure(response) {
   return result;
 }
 const error = (status,message) => secure(Response.json({error:message},{status}));
+export function operationalFailure(cause) {
+  const message=String(cause?.message||'');
+  const quota=/free tier|daily.*limit|exceeded.*(?:duration|quota)|duration.*exceeded|limit.*(?:exceeded|exhausted)/i.test(message);
+  const overloaded=cause?.overloaded===true||/overloaded|too many requests/i.test(message);
+  return secure(Response.json({
+    error:quota?'Limite de recursos da Cloudflare atingido. Consultas temporariamente indisponíveis; dados salvos preservados.':overloaded?'Serviço de consultas ocupado. Aguarde antes de tentar novamente.':'Serviço interno de consultas indisponível. Dados salvos preservados.',
+    code:quota?'CLOUDFLARE_RESOURCE_LIMIT':overloaded?'OPERATIONS_OVERLOADED':'OPERATIONS_UNAVAILABLE',
+    retry_after_ms:quota?300000:30000
+  },{status:503,headers:{'Retry-After':quota?'300':'30'}}));
+}
 
 const whatsappQueue = [];
 const whatsappResults = new Map();
@@ -39,6 +54,175 @@ let whatsappDeviceState = {
   authorizedGroup: 'Equipamentos Sos',
   error: null
 };
+
+let lastDirectQueryTime = 0;
+async function directOperationalFallback(env, { jobs, wh, maint, inventory: isInv, input, user }) {
+  const config = JSON.parse(env.DRIVE_CONFIG || 'null');
+  const service = new Integrations({ secrets: () => JSON.parse(env.INTEGRATIONS_CONFIG || 'null') || {} });
+
+  if (wh) {
+    try {
+      const res = await warehouse({ input, user, config, service });
+      return secure(Response.json(res));
+    } catch(e) {
+      return error(e.status || 500, e.message);
+    }
+  }
+
+  if (maint) {
+    try {
+      const res = await maintenance({ input, user, config });
+      return secure(Response.json(res));
+    } catch(e) {
+      return error(e.status || 500, e.message);
+    }
+  }
+
+  if (isInv) {
+    try {
+      const res = await inventory({ input, user, config, service });
+      return secure(Response.json(res));
+    } catch(e) {
+      return error(e.status || 500, e.message);
+    }
+  }
+
+  if (jobs) {
+    return error(503, 'Rotinas em segundo plano indisponíveis durante limite de recursos.');
+  }
+
+  if (!Object.hasOwn(ORIGINS, input?.branch || '') || !/^\d{6,17}$/.test(input?.serial || '') || !['status', 'location', 'history'].includes(input?.kind || '')) {
+    return error(400, 'Consulta inválida.');
+  }
+
+  try {
+    const doc = await trackingDocument(config, input.branch);
+    const rows = doc.data.rows.filter(r => !r.deleted_at && r.serial === input.serial);
+    if (rows.length !== 1) return error(404, 'Aparelho único não encontrado na cópia desta filial.');
+    const row = rows[0];
+
+    if (['status', 'location'].includes(input.kind) && row.live && Date.now() - Date.parse(row.live.queried_at) < (input.kind === 'location' ? 15000 : 30000)) {
+      return secure(Response.json({ serial: input.serial, branch: input.branch, live: row.live, cached: true, saved: true }));
+    }
+
+    const now = Date.now();
+    if (now - lastDirectQueryTime < 1300) {
+      await new Promise(r => setTimeout(r, 1300 - (now - lastDirectQueryTime)));
+    }
+    lastDirectQueryTime = Date.now();
+
+    if (input.kind === 'history') {
+      const result = await service.history(input.branch, input.serial, input.start, input.end);
+      return secure(Response.json({ serial: input.serial, branch: input.branch, partial: result.partial, rows: result.rows, queried_at: new Date().toISOString() }));
+    }
+
+    const result = await queryStatus(service, input.branch, row, { chip: input.kind !== 'location' });
+    const live = observation(result);
+    live.location = latestLocation(row.live?.location, live.location);
+    row.live = live;
+    if (live.chip.ok) {
+      row.connectivity = live.chip.connectivity;
+      row.checked_at = live.chip.queried_at;
+    }
+    await doc.save();
+    return secure(Response.json({ serial: input.serial, branch: input.branch, live, saved: true }));
+  } catch(e) {
+    return error(e.status || 503, e.message || 'Não foi possível concluir a consulta.');
+  }
+}
+
+async function handleWhatsappLocal(input) {
+  if (input.action === 'gateway-heartbeat') {
+    whatsappDeviceState = {
+      ...whatsappDeviceState,
+      ...(input.deviceStatus || {}),
+      connected: true,
+      lastHeartbeat: Date.now()
+    };
+    return secure(Response.json({ ok: true, ack: true }));
+  }
+
+  if (input.action === 'gateway-poll') {
+    const job = whatsappQueue.shift() || null;
+    return secure(Response.json({ ok: true, job }));
+  }
+
+  if (input.action === 'gateway-report') {
+    if (input.id) {
+      whatsappResults.set(input.id, {
+        ok: input.status === 'sent',
+        status: input.status,
+        confirmed: input.confirmed === true || input.status === 'sent',
+        error: input.error,
+        result: input.result,
+        reportedAt: Date.now()
+      });
+    }
+    return secure(Response.json({ ok: true, ack: true }));
+  }
+
+  if (input.action === 'status' || input.action === 'check-usb') {
+    const isOnline = (Date.now() - (whatsappDeviceState.lastHeartbeat || 0) < 45000);
+    return secure(Response.json({
+      ok: true,
+      connected: true,
+      device: {
+        model: whatsappDeviceState.model || 'Samsung Galaxy A24 (SM-A245M)',
+        serial: whatsappDeviceState.serial || 'RQ8WB02FN3P',
+        connection: 'mobile-app',
+        status: isOnline ? 'online' : 'standby',
+        app: whatsappDeviceState.whatsappPackage || 'com.whatsapp.w4b',
+        appName: 'WhatsApp Business'
+      },
+      lastHeartbeat: whatsappDeviceState.lastHeartbeat,
+      safety: { testMode: true, authorizedGroup: 'Equipamentos Sos', authorizedText: 'olá, testando mensagem automática.', externalBlocked: true },
+      error: null
+    }));
+  }
+
+  if (input.action === 'send') {
+    const target = (input.target || input.name || input.phone || 'Equipamentos Sos').trim();
+    const msg = (input.message || '').trim() || 'Olá eu estou mandando essa mensagem de teste não precisa ter retorno';
+    const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
+    whatsappQueue.push({
+      id: jobId,
+      phone: input.phone || '',
+      name: input.name || '',
+      message: msg,
+      timestamp: Date.now()
+    });
+
+    const startWait = Date.now();
+    while (Date.now() - startWait < 28000) {
+      if (whatsappResults.has(jobId)) {
+        const outcome = whatsappResults.get(jobId);
+        whatsappResults.delete(jobId);
+        if (outcome.ok && outcome.confirmed) {
+          return secure(Response.json({
+            ok: true,
+            status: 'sent',
+            confirmed: true,
+            target,
+            phone: input.phone || '',
+            name: input.name || '',
+            message: msg,
+            timestamp: new Date().toISOString(),
+            channel: 'gateway-mobile',
+            device: whatsappDeviceState
+          }));
+        } else {
+          return error(500, outcome.error || 'O aplicativo no celular não confirmou o envio da mensagem no WhatsApp.');
+        }
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+    return error(504, 'Tempo limite esgotado: o aplicativo no celular não confirmou o clique de envio no WhatsApp dentro do prazo.');
+  }
+
+  return error(400, 'Ação desconhecida.');
+}
+
 
 const fallbackSessions = new Map();
 async function sealSession(payload, secret) {
@@ -160,7 +344,13 @@ export default {
     if(url.pathname==='/api/whatsapp'){
       let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
       if(['gateway-heartbeat','gateway-poll','gateway-report'].includes(input.action)){
-        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)})));
+        try {
+          const res = await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)}));
+          if (res.ok) return secure(res);
+        } catch(e) {
+          if (!/free tier|duration|Durable Object|limit|resource|quota/i.test(e.message || '')) throw e;
+        }
+        return await handleWhatsappLocal(input);
       }
     }
     const headers = new Headers({'x-parallel-ip':request.headers.get('cf-connecting-ip') || 'unknown'});
@@ -200,11 +390,28 @@ export default {
               channel:'wa-web'
             }));
           }
-          return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)})));        }
+          try {
+            const res = await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/whatsapp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)}));
+            if (res.ok) return secure(res);
+          } catch(e) {
+            if (!/free tier|duration|Durable Object|limit|resource|quota/i.test(e.message || '')) throw e;
+          }
+          return await handleWhatsappLocal(input);
+        }
         if(jobs&&!user.permissions?.owner)return error(403,'Somente administrador.');
         if(!jobs&&!user.permissions?.views?.includes(wh?'warehouse':maint?'maintenance':'stock')||!user.branches?.some(b=>b.id===input?.branch))return error(403,'Sem acesso a esta filial ou módulo.');
         if(!env.OPERATIONS||(!jobs&&!inventory&&!maint&&!wh&&!env.INTEGRATIONS_CONFIG))return error(503,'Integrações ainda não configuradas.');
-        return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)})));
+        try {
+          const res = await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/'+(jobs?'jobs':wh?'warehouse':maint?'maintenance':inventory?'inventory':'query'),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(jobs||inventory||maint||wh?{input,user}:input)}));
+          if (res.ok) return secure(res);
+          const errData = await res.json().catch(() => ({}));
+          if (!/free tier|duration|Durable Object|limit|resource|quota/i.test(errData.error || errData.code || '')) {
+            return secure(Response.json(errData, { status: res.status }));
+          }
+        } catch(e) {
+          if (!/free tier|duration|Durable Object|limit|resource|quota/i.test(e.message || '')) throw e;
+        }
+        return await directOperationalFallback(env, { jobs, wh, maint, inventory, input, user });
       }
       // Authentication does not depend on operational snapshots or write recovery.
       if(url.pathname==='/api/login'&&url.searchParams.get('bootstrap')==='0')return secure(response);
@@ -243,6 +450,6 @@ export default {
       }
       const result=new Response(response.body,response);
       return secure(result);
-    } catch {return error(503,'Não foi possível conectar. Tente novamente.');}
+    } catch(cause) {return operationalFailure(cause);}
   }
 };
