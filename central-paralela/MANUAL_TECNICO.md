@@ -205,3 +205,7 @@ Opções da linha usam popover nativo na camada superior, fora do recorte da tab
 
 ### Navegação AJAX — 30/10/2026
 As abas utilizam fetch e alternância local, sem recarga de documento. Leituras simultâneas idênticas (GET e listagens de armazém/manutenções/usuários) compartilham a chamada em andamento por sessão; não há cache adicional de respostas nem deduplicação de mutações. Prefetch descarta respostas de sessões anteriores. A navegação oculta o painel WhatsApp antes de abrir outros módulos. Validação: test-ajax.mjs, test-ui.mjs, test-warehouse-ui.mjs e test-maintenance-ui.mjs, com dados simulados e sem APIs externas.
+
+### Abertura com dados preparados — 30/10/2026
+A entrada e a restauração de sessão exibem uma tela de preparação até a resposta autenticada e a renderização dos dados do dashboard. Não se mostra o dashboard a partir de sessão local antiga. Falhas permitem tentar novamente ou voltar ao login. Nenhuma consulta adicional foi adicionada ao fluxo normal. Teste offline: test-ui.mjs cobre resposta lenta, falha e recuperação, além de login e permissões.
+

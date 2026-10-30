@@ -741,3 +741,5 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .row-menu .stock-row-popover button:hover,.row-menu .stock-row-popover button:focus-visible{background:#23384c;color:#fff;outline:2px solid #359bd9;outline-offset:-2px}
 .row-menu .stock-row-popover [data-stock-action="delete"]{color:#ff9898;border-top:1px solid #2c3b4d;margin-top:4px}
 .row-menu summary::-webkit-details-marker{display:none}
+
+#startup-loading{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#0b111b;color:#edf4ff;padding:24px}#startup-loading[hidden]{display:none}.startup-card{text-align:center;max-width:460px;padding:40px;border:1px solid #28425b;border-radius:20px;background:linear-gradient(135deg,#142739,#111923)}.startup-card p{color:#a9bfd4;line-height:1.6}.startup-spinner{display:inline-block;width:40px;height:40px;border:3px solid #28425b;border-top-color:#ff9800;border-radius:50%;animation:startup-spin 1s linear infinite}.startup-spinner[hidden]{display:none}@keyframes startup-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.startup-spinner{animation:none}}
