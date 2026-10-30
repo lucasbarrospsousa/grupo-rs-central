@@ -28,7 +28,7 @@ secondary.addEventListener('click',e=>{if(e.target.closest('button'))secondary.o
 document.addEventListener('click',e=>{if(!secondary.contains(e.target))secondary.open=false;});
 secondary.addEventListener('keydown',e=>{if(e.key==='Escape'){secondary.open=false;secondary.querySelector('summary').focus();}});
 $('#device-search').placeholder='Buscar associado, placa, série, telefone, ICCID ou operadora';
-function resetStockTools(){if(typeof closeLocationView==='function')closeLocationView();stockToken++;analysisState=null;stockBusy=false;stockBatchCancel=true;stockSelected.clear();stockDialog.close();$('#stock-dialog-body').replaceChildren();$('#stock-feedback').textContent='';}
+function resetStockTools(){closeStockMenu();if(typeof closeLocationView==='function')closeLocationView();stockToken++;analysisState=null;stockBusy=false;stockBatchCancel=true;stockSelected.clear();stockDialog.close();$('#stock-dialog-body').replaceChildren();$('#stock-feedback').textContent='';}
 function clearStockFilters(){for(const id of ['stock-start','stock-end'])$('#'+id).value='';$('#stock-ignition').value='all';stockSort='';}
 function stockFilter(all){
  const scoped=all.filter(r=>branch.value==='all'||r.branch===branch.value),q=$('#device-search').value.trim(),batch=/[;\r\n]/.test(q),tokens=[...new Set(q.split(/[;\r\n]+/).map(x=>x.trim()).filter(Boolean))];
@@ -42,8 +42,34 @@ function stockFilter(all){
  const select=$('#device-status'),value=select.value;select.replaceChildren(...['','Estoque','Reserva','Instalado','Manutenção','Inativos'].map(x=>new Option((x?stockLabel(x):'Todos')+' ('+(x?scoped.filter(r=>stockVisible(r)===x).length:scoped.length)+')',x)));select.value=value;
  return list;
 }
-function stockActions(d){return '<details class="row-menu"><summary aria-label="Mais ações de '+esc(d.serial)+'">•••</summary><div><button data-stock-action="location" data-id="'+esc(d.id)+'">Localização</button>'+(stockWritable()?[['edit','Editar'],...(d.status==='Estoque'?[['install','Dar baixa']]:[]),['link','Vincular'],['delete','Excluir']].map(([a,l])=>'<button data-stock-action="'+a+'" data-id="'+esc(d.id)+'">'+l+'</button>').join(''):'')+(smsWritable()?'<button data-stock-action="sms" data-id="'+esc(d.id)+'">SMS</button>':'')+'</div></details>';}
+function stockActions(d){return '<details class="row-menu"><summary aria-label="Mais ações de '+esc(d.serial)+'">•••</summary><div class="stock-row-popover" popover="auto"><button data-stock-action="location" data-id="'+esc(d.id)+'">Localização</button>'+(stockWritable()?[['edit','Editar'],...(d.status==='Estoque'?[['install','Dar baixa']]:[]),['link','Vincular'],['delete','Excluir']].map(([a,l])=>'<button data-stock-action="'+a+'" data-id="'+esc(d.id)+'">'+l+'</button>').join(''):'')+(smsWritable()?'<button data-stock-action="sms" data-id="'+esc(d.id)+'">SMS</button>':'')+'</div></details>';}
+let activeStockMenu=null;
+function closeStockMenu(){
+ if(!activeStockMenu)return;
+ const menu=activeStockMenu;activeStockMenu=null;
+ menu.querySelector('.stock-row-popover').hidePopover();menu.open=false;
+ menu.querySelector('summary').setAttribute('aria-expanded','false');
+}
+$('#device-rows').addEventListener('click',e=>{
+ const trigger=e.target.closest('.row-menu summary');
+ if(!trigger){if(e.target.closest('[data-stock-action]'))closeStockMenu();return;}
+ e.preventDefault();const menu=trigger.parentElement,wasOpen=activeStockMenu===menu;
+ closeStockMenu();if(wasOpen)return;
+ const panel=menu.querySelector('.stock-row-popover');menu.open=true;activeStockMenu=menu;
+ trigger.setAttribute('aria-expanded','true');panel.showPopover();
+ const rect=trigger.getBoundingClientRect(),pad=12,gap=8;
+ panel.style.maxHeight=Math.max(80,innerHeight-pad*2)+'px';
+ const {height,width}=panel.getBoundingClientRect();
+ panel.style.left=Math.max(pad,Math.min(rect.right-width,innerWidth-width-pad))+'px';
+ panel.style.top=Math.max(pad,Math.min(rect.bottom+gap+height<=innerHeight-pad?rect.bottom+gap:rect.top-height-gap,innerHeight-height-pad))+'px';
+ panel.ontoggle=()=>{if(!panel.matches(':popover-open')&&activeStockMenu===menu)closeStockMenu();};
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeStockMenu){const trigger=activeStockMenu.querySelector('summary');closeStockMenu();trigger.focus();}});
+document.addEventListener('click',e=>{if(activeStockMenu&&!activeStockMenu.contains(e.target))closeStockMenu();});
+window.addEventListener('resize',closeStockMenu);
+document.addEventListener('scroll',e=>{if(activeStockMenu&&!activeStockMenu.querySelector('.stock-row-popover').contains(e.target))closeStockMenu();},true);
 function syncStockTools(){
+ closeStockMenu();
  for(const id of ['stock-new','stock-analyze','stock-update','stock-link-selected'])$('#'+id).hidden=!stockWritable();
  const visible=filtered.slice((page-1)*50,page*50),box=$('#select-page');box.checked=!!visible.length&&visible.every(d=>stockSelected.has(d.id));box.indeterminate=visible.some(d=>stockSelected.has(d.id))&&!box.checked;
  $('#stock-selection').hidden=!stockSelected.size;$('#stock-selected-count').textContent=stockSelected.size+' selecionados';
