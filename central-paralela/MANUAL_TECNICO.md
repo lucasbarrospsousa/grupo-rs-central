@@ -195,3 +195,7 @@ Fila e comprovantes persistidos no Durable Object, com identificador por contato
 ## Vínculos de chips — 29/10/2026
 A coleta paginada ignora cadastros explicitamente inativos antes de validar a série. Identificadores inválidos em aparelhos ativos ou de situação desconhecida continuam bloqueando a confirmação. O cursor da API é preservado mesmo em páginas somente com inativos; resultados só são reconciliados após completar as quatro bases. Validação: node --test central-paralela/global-collectors.test.mjs central-paralela/background-jobs.test.mjs.
 
+
+## Disparos WhatsApp — 30/10/2026
+Gateway Android 1.0.1 usa o domínio oficial sinderacodofc, mostra conexão somente após resposta e informa falhas na notificação. Consulta ociosa passa de 2 para 15 segundos (até 87% menos chamadas ociosas; retirada de trabalho pode aguardar 15 s), mantendo heartbeat abaixo dos 45 s e backoff de erro. A fila normaliza números brasileiros formatados, preservando a chave idempotente e rejeitando caracteres inválidos.
+Validação: 10 testes locais de fila, presença, duplicidade, confirmação e proteção de rotas aprovados. APK compilado e instalado no Galaxy; notificação de conexão confirmada no aparelho. Logs anteriores mostravam HTTP 503, sem evidência suficiente para atribuir cada ocorrência exclusivamente a cota. Worker publicado na versão d5ced39a-521d-4898-96a0-a22af7b8cabd. Nenhuma mensagem real enviada nesta verificação; destinatário solicitado ao usuário para teste final.

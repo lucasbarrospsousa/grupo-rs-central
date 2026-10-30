@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class WhatsAppGatewayService extends Service {
     private static final String TAG = "RS_WA_Service";
     private static final String CHANNEL_ID = "rs_gateway_channel";
-    private static final String WORKER_URL = "https://central-paralela.sinderacode.workers.dev/api/whatsapp";
+    private static final String WORKER_URL = "https://central-paralela.sinderacodofc.workers.dev/api/whatsapp";
     private static final String TARGET_PKG = "com.whatsapp.w4b";
 
     private PowerManager.WakeLock wakeLock;
@@ -56,7 +56,7 @@ public class WhatsAppGatewayService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(1001, buildNotification("Conectado à Central Nuvem (Escutando 24/7)"));
+        startForeground(1001, buildNotification("Conectando à Central..."));
 
         if (!isRunning) {
             isRunning = true;
@@ -78,15 +78,17 @@ public class WhatsAppGatewayService extends Service {
                 // 2. Poll for pending job
                 JSONObject job = pollJob();
                 retryDelayMs = 3000;
+                updateConnectionNotification("Central conectada; aguardando disparos");
                 if (job != null) {
                     processJob(job);
                 }
 
-                Thread.sleep(2000);
+                Thread.sleep(15000);
             } catch (InterruptedException e) {
                 break;
             } catch (Exception e) {
                 Log.e(TAG, "Erro no loop de comunicacao: " + e.getMessage());
+                updateConnectionNotification("Sem conexão: " + e.getMessage());
                 try { Thread.sleep(retryDelayMs); } catch (InterruptedException interrupted) { break; }
                 retryDelayMs = Math.min(60000, retryDelayMs * 2);
             }
@@ -277,6 +279,11 @@ public class WhatsAppGatewayService extends Service {
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
         }
+    }
+
+    private void updateConnectionNotification(String text) {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) nm.notify(1001, buildNotification(text));
     }
 
     private Notification buildNotification(String text) {

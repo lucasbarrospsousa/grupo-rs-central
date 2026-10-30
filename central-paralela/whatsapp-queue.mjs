@@ -1,6 +1,11 @@
 // Durable dispatch receipt: an uncertain dispatch is never automatically sent twice.
 export async function whatsappQueue(storage,b,now=Date.now()) {
  const reply=(status,data)=>Response.json(data,{status});
+ if(b.action==='send'){
+  let phone=String(b.phone||'').replace(/[\s()+.-]/g,'');
+  if(/^\d{10,11}$/.test(phone))phone='55'+phone;
+  b={...b,phone};
+ }
  const state=await storage.get('wa:device')||{};
  const online=state.ok===true&&state.connected===true&&now-(state.lastHeartbeat||0)<45000;
  if(b.action==='gateway-heartbeat'){await storage.put('wa:device',{...(b.deviceStatus||{}),lastHeartbeat:now});return reply(200,{ok:true});}
