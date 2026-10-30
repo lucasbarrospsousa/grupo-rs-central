@@ -1,4 +1,5 @@
 import {whatsappQueue} from './whatsapp-queue.mjs';
+import {gatewayPresence} from './gateway-presence.mjs';
 import {collect} from './global-collectors.mjs';
 import {galaxyAndroid} from './galaxy-android.mjs';
 import {prepareConfig} from './configurator.mjs';
@@ -121,5 +122,5 @@ export class Operations {
   });
  }
 
-  async whatsapp(b){return whatsappQueue(this.ctx.storage,b);}
+  async whatsapp(b){return whatsappQueue(gatewayPresence(this.ctx.storage),b);}
 }

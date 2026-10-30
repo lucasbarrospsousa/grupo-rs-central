@@ -26,3 +26,10 @@ test('cached bootstrap bypasses slow provider writer and includes only authorize
  assert.equal(response.status,200);const rows=await response.json();assert.equal(rows.length,1);assert.deepEqual(rows[0].rows,[]);assert.equal(rows[0].warehouse.costs,null);
  release();await writer;
 });
+test('identical display snapshots do not write again, including after restart',async()=>{
+ const storage=store();let writes=0;const put=storage.put;storage.put=async(...args)=>{writes++;return put(...args)};
+ const data=document();await new ReadModel(storage,key,'scope').publish('imperatriz',data);
+ const initial=writes;assert.ok(initial>0);
+ await new ReadModel(storage,key,'scope').publish('imperatriz',data);assert.equal(writes,initial);
+ data.rows[0].status='Instalado';await new ReadModel(storage,key,'scope').publish('imperatriz',data);assert.ok(writes>initial);
+});

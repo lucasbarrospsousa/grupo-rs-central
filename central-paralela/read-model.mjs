@@ -9,12 +9,14 @@ export class ReadModel {
  constructor(storage,key,scope){this.storage=storage;this.key=key;this.scope=createHash('sha256').update(scope||'').digest('hex');this.memory=new Map();}
  async publish(branch,data){
   const snapshot=projectTracking(data,{warehouse:true,maintenance:true,owner:true});
+  const fingerprint=createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
   const value={at:Date.now(),scope:this.scope,snapshot};
   this.memory.set(branch,value);
   if(!this.key)return;
   const prefix='display:'+branch;let previous;
   try{
    previous=await this.storage.get(prefix);
+   if(previous?.scope===this.scope&&previous?.fingerprint===fingerprint)return;
    const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',Buffer.from(this.key,'hex'),iv);
    cipher.setAAD(Buffer.from(this.scope+':'+branch));
    const bytes=Buffer.concat([cipher.update(gzipSync(JSON.stringify(value))),cipher.final()]).toString('base64');
@@ -22,7 +24,7 @@ export class ReadModel {
    const revision=randomBytes(12).toString('hex'),count=Math.ceil(bytes.length/100000),chunks={};
    for(let i=0;i<count;i++)chunks[prefix+':'+revision+':'+i]=bytes.slice(i*100000,(i+1)*100000);
    await this.storage.put(chunks);
-   await this.storage.put(prefix,{revision,count,iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64'),scope:this.scope});
+   await this.storage.put(prefix,{revision,count,iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64'),scope:this.scope,fingerprint});
   }catch{
    // Never report a successful Drive write as failed because of disposable cache.
    await this.storage.delete(prefix).catch(()=>{});
