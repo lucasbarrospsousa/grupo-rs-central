@@ -18,7 +18,7 @@ import javax.net.ssl.HttpsURLConnection
 class CloudGateway(private val ctx:Context,private val db:JobStore,private val identity:GatewayIdentity) {
  companion object {
   const val ENDPOINT="https://vwiayytzmorcjeaszowg.supabase.co/functions/v1/central-api/internal/sms-gateway"
-  const val VERSION="0.5.1-drive"
+  const val VERSION="0.5.2-drive"
   private const val ALIAS="rs-gateway-cloud-v1"
   @Volatile var state="Não conectado à Central"
   @Volatile var lastOk=0L
@@ -26,7 +26,7 @@ class CloudGateway(private val ctx:Context,private val db:JobStore,private val i
    val file=File(ctx.filesDir,"cloud-enrollment.json");if(!file.exists())return false
    try {
     val p=JSONObject(file.readText());val token=p.getString("token")
-    require(Regex("[a-f0-9]{64}").matches(token));val endpoint=p.getString("endpoint");require(endpoint==ENDPOINT || Regex("https://central-paralela\\.sinderacode\\.workers\\.dev/api/galaxy\\?branch=(imperatriz|araguaina|acailandia|maraba)").matches(endpoint))
+    require(Regex("[a-f0-9]{64}").matches(token));val endpoint=p.getString("endpoint");require(endpoint==ENDPOINT || Regex("https://central-paralela\\.sinderacodofc\\.workers\\.dev/api/galaxy\\?branch=(imperatriz|araguaina|acailandia|maraba)").matches(endpoint))
     val store=JobStore(ctx);try{store.readableDatabase.rawQuery("SELECT COUNT(*) FROM jobs WHERE state IN ('received','sending')",null).use { require(it.moveToFirst() && it.getInt(0)==0){"Finalize a fila antes de trocar a Central"} }}finally{store.close()}
     val keyStore=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
     if(!keyStore.containsAlias(ALIAS))KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply{

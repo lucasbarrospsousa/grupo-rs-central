@@ -209,3 +209,7 @@ As abas utilizam fetch e alternância local, sem recarga de documento. Leituras 
 ### Abertura com dados preparados — 30/10/2026
 A entrada e a restauração de sessão exibem uma tela de preparação até a resposta autenticada e a renderização dos dados do dashboard. Não se mostra o dashboard a partir de sessão local antiga. Falhas permitem tentar novamente ou voltar ao login. Nenhuma consulta adicional foi adicionada ao fluxo normal. Teste offline: test-ui.mjs cobre resposta lenta, falha e recuperação, além de login e permissões.
 
+
+## Disparos SMS — 30/10/2026
+A aba Disparos SMS usa os aparelhos 024 em estoque da filial selecionada e exige visualização de estoque e permissão SMS (ou administrador). A configuração padrão é validada por filial: Imperatriz grupors1 e Marabá grupors4; outras filiais não recebem padrão presumido. APN desconhecida bloqueia a geração. Confirmação usa chave idempotente reaproveitada em tentativas incertas; resultado de envio e entrega são distintos. A fila é consultada a cada 15 s somente enquanto há envios pendentes na aba visível.
+Gateway Drive 0.5.2 aceita o domínio atual central-paralela.sinderacodofc.workers.dev. O pareamento requer endereço HTTPS completo e habilitação de envio no Android. Testes offline: node --test inventory.test.mjs galaxy-android.test.mjs; node test-sms-ui.mjs (Playwright). Envio físico ainda pendente de pareamento manual: configuração via USB bloqueada pela revisão automática. Não afirmar entrega ou aplicação da configuração sem confirmação.

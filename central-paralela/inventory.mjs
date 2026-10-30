@@ -23,7 +23,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
  if(action==='gateway-pair'){if(!user.permissions.owner)fail(403,'Somente administrador.');const token=randomToken();data.gateway={token_hash:digest(token),created_at:new Date().toISOString(),last_seen:null};await doc.save();return {token,endpoint:'/api/galaxy',androidEndpoint:'/api/galaxy?branch='+encodeURIComponent(b.branch),branch:b.branch};}
  if(!['create'].includes(action)&&!row)fail(404,'Aparelho não encontrado nesta filial.');
  if(action.startsWith('swap-'))return swapInventory({action,input:b,user,doc,row,service});
- if(action==='sms-template'){if(!(user.permissions.owner||user.permissions.writes?.includes('sms')))fail(403,'Sem permissão de SMS.');return standardSms(row.serial,row.apn);}
+ if(action==='sms-template'){if(!(user.permissions.owner||user.permissions.writes?.includes('sms')))fail(403,'Sem permissão de SMS.');return standardSms(row.serial,row.apn,b.branch);}
  if(action==='analyze'){if(row.status!=='Estoque'||(data.branch?.id&&data.branch.id!==b.branch))fail(409,'A análise de baixa só é permitida para aparelhos em Estoque da filial selecionada.');const result=await service.binding(b.branch,row.serial);return {result};}
  const version=Number(row?.version||1);
  if(!reads.includes(action)&&action!=='create'&&Number(b.version)!==version)fail(409,'Cadastro mudou. Recarregue antes de continuar.');

@@ -10,7 +10,7 @@ Copy-Item -LiteralPath (Join-Path $source 'app/build.gradle') -Destination (Join
 Copy-Item -LiteralPath (Join-Path $source 'app/src') -Destination (Join-Path $target 'app') -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'clients/CloudGateway.kt') -Destination (Join-Path $target 'app/src/main/java/br/com/sideracode/smsgateway/CloudGateway.kt')
 $gradle=Join-Path $target 'app/build.gradle'
-$body=[IO.File]::ReadAllText($gradle).Replace('versionCode 5','versionCode 6').Replace("versionName '0.5.0'","versionName '0.5.1-drive'")
+$body=[IO.File]::ReadAllText($gradle).Replace('versionCode 5','versionCode 7').Replace("versionName '0.5.0'","versionName '0.5.2-drive'")
 [IO.File]::WriteAllText($gradle,$body)
 Push-Location $target
 try { & (Join-Path $source 'tools/build.ps1') -Task assembleDebug; if($LASTEXITCODE -ne 0){throw 'Build failed'} }
