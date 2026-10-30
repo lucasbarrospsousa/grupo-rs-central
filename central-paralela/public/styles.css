@@ -746,3 +746,20 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 #sms-content .sms-panel{margin-bottom:20px;background:linear-gradient(125deg,#142231,#0c1722);border:1px solid #294358;padding:24px;border-radius:18px}#sms-content label{display:grid;gap:8px;margin:18px 0}#sms-content textarea{box-sizing:border-box;width:100%;min-height:96px;resize:vertical;background:#101923;color:#dce8f5;border:1px solid #35516b;border-radius:10px;padding:14px;font:14px/1.6 monospace}#sms-content .head{display:flex;gap:16px;justify-content:space-between;align-items:center}#sms-content .head h2{margin:0}#sms-content .table-scroll{margin-top:18px}#sms-content th,#sms-content td{padding:14px}#sms-content #sms-feedback{color:#ffbe63}@media(max-width:650px){#sms-content .head{align-items:flex-start;flex-direction:column}}
 
 #sms-content .sms-filters{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:18px}#sms-content #sms-search-help{color:#a9bdd0;font-size:13px}@media(max-width:650px){#sms-content .sms-filters{grid-template-columns:1fr;gap:0}}
+
+/* SMS: shared messaging cards, compact command selection. */
+#sms-content .sms-panel{background:linear-gradient(120deg,#0e1b2c,#0b1522);border:1px solid #26465e;border-radius:18px;padding:24px;margin-bottom:20px}#sms-content .head{display:flex;align-items:center;justify-content:space-between;gap:16px}#sms-content .sms-presets{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}#sms-content .sms-presets button:focus{border-color:#ff9900}#sms-content textarea{display:block;width:100%;box-sizing:border-box;background:#080f1b;color:#eaf2ff;border:1px solid #294158;border-radius:12px;padding:16px;margin-top:10px}#sms-content #sms-queue{background:linear-gradient(110deg,#ffb019,#f07800);color:#101820;font-weight:700}#sms-content .sms-filters{display:grid;grid-template-columns:minmax(200px,1fr) 220px;gap:16px}#sms-content .sms-filters input,#sms-content .sms-filters select{width:100%;box-sizing:border-box;margin-top:8px}@media(max-width:680px){#sms-content .sms-filters{grid-template-columns:1fr}#sms-content .head{align-items:flex-start;flex-direction:column}}
+
+/* SMS: painel de comunicação em duas colunas. */
+#sms-content .sms-notice{border:1px solid #70501c;border-left:5px solid #ffa51e;border-radius:18px;background:linear-gradient(110deg,#241e10,#161d18);padding:22px 30px;margin-bottom:28px;color:#c6d3df}
+#sms-content .sms-notice strong{color:#ffad36;letter-spacing:1px}#sms-content .sms-notice p{margin:8px 0 0}
+#sms-content .sms-panel{background:linear-gradient(120deg,#14181e,#0f1318);padding:32px 36px;border-color:#344151}
+#sms-content .sms-panel>.head{border-bottom:1px solid #293340;padding-bottom:20px;margin-bottom:24px}
+#sms-bridge{padding:10px 16px;border:1px solid #355164;border-radius:24px;background:#11212b;font-size:13px}
+#sms-content .sms-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:36px}
+#sms-content h3{font-size:14px;color:#a7bcd0;letter-spacing:.6px;margin:4px 0 20px}#sms-content .sms-empty{padding:45px 24px;border:1px dashed #334759;border-radius:12px;color:#8fa5bb;line-height:1.7}
+#sms-content .sms-filters{grid-template-columns:minmax(0,1fr) 140px;gap:12px}#sms-content .sms-filters label{margin:0;font-size:13px}
+#sms-content .table-scroll{max-height:380px;overflow:auto}#sms-content th,#sms-content td{padding:12px 10px;font-size:13px}
+#sms-content #sms-compose{min-width:0}#sms-content #sms-compose h2{font-size:21px;margin-top:0}#sms-content .sms-presets{display:grid;grid-template-columns:1fr 1fr}
+#sms-content textarea{min-height:145px;background:#080e15}#sms-content #sms-queue{margin-top:20px;padding:16px 24px}#sms-content #sms-search-help{font-size:12px;color:#91a8be}
+@media(max-width:1000px){#sms-content .sms-workspace{grid-template-columns:1fr}#sms-content .sms-panel{padding:24px 20px}}@media(max-width:520px){#sms-content .sms-filters{grid-template-columns:1fr}}
