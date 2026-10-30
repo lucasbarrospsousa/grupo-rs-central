@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+let calls=0;const releases=[];const release=()=>releases.shift()();
+const context=vm.createContext({AbortSignal,fetch:async()=>{calls++;await new Promise(r=>releases.push(r));return {ok:true,json:async()=>({ok:true})};}});
+const source=fs.readFileSync('public/app.js','utf8');
+vm.runInContext("let generation=1,csrf='one';"+source.slice(source.indexOf('const pendingReads='),source.indexOf('function clearPrivate')),context);
+const a=vm.runInContext("api('warehouse',{action:'list',branch:'imperatriz'})",context);
+const b=vm.runInContext("api('warehouse',{action:'list',branch:'imperatriz'})",context);
+assert.equal(a,b);assert.equal(calls,1);release();await a;
+const c=vm.runInContext("api('warehouse',{action:'list',branch:'imperatriz'})",context);
+assert.equal(calls,2);release();await c;
+const d=vm.runInContext("api('access')",context);
+vm.runInContext("generation++;csrf='two'",context);
+const e=vm.runInContext("api('access')",context);
+assert.notEqual(d,e);assert.equal(calls,4);release();release();await Promise.all([d,e]);
+console.log('PASS concurrent reads deduplicated, subsequent reads fresh, session isolation');

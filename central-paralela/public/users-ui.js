@@ -31,10 +31,11 @@ new MutationObserver(syncUsersAccess).observe(dashboard,{attributes:true,attribu
 syncUsersAccess();
 
 window.prefetchUsers=async function prefetchUsers(){
+  const epoch=usersGeneration;
   if(!session?.permissions?.owner)return;
   try{
     const data=await api('users',{action:'list'});
-    if(session)usersCacheData=data;
+    if(epoch===usersGeneration&&session?.permissions?.owner)usersCacheData=data;
   }catch{}
 };
 

@@ -202,3 +202,6 @@ Validação: 10 testes locais de fila, presença, duplicidade, confirmação e p
 
 ### 30/10/2026 — Menu de ações do Rastreamento
 Opções da linha usam popover nativo na camada superior, fora do recorte da tabela. Posicionamento respeita a tela; Escape, clique externo, rolagem e troca de contexto fecham o menu. Ações e permissões existentes preservadas. Teste local test-inventory-ui.mjs verifica opções visíveis, fechamento, CRUD, permissões e viewport móvel com APIs simuladas e chamadas externas bloqueadas.
+
+### Navegação AJAX — 30/10/2026
+As abas utilizam fetch e alternância local, sem recarga de documento. Leituras simultâneas idênticas (GET e listagens de armazém/manutenções/usuários) compartilham a chamada em andamento por sessão; não há cache adicional de respostas nem deduplicação de mutações. Prefetch descarta respostas de sessões anteriores. A navegação oculta o painel WhatsApp antes de abrir outros módulos. Validação: test-ajax.mjs, test-ui.mjs, test-warehouse-ui.mjs e test-maintenance-ui.mjs, com dados simulados e sem APIs externas.
