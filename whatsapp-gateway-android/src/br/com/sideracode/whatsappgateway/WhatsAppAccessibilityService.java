@@ -1,8 +1,12 @@
 package br.com.sideracode.whatsappgateway;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.ComponentName;
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -28,6 +32,22 @@ public class WhatsAppAccessibilityService extends AccessibilityService {
 
     public static boolean isServiceRunning() {
         return instance != null;
+    }
+
+    /** True when Android lists this service as enabled, even while it is reconnecting. */
+    public static boolean isEnabledInSettings(Context context) {
+        String enabledServices = Settings.Secure.getString(
+                context.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (TextUtils.isEmpty(enabledServices)) return false;
+
+        ComponentName expected = new ComponentName(context, WhatsAppAccessibilityService.class);
+        TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
+        splitter.setString(enabledServices);
+        for (String flattened : splitter) {
+            ComponentName enabled = ComponentName.unflattenFromString(flattened);
+            if (expected.equals(enabled)) return true;
+        }
+        return false;
     }
 
     public static synchronized void armSend(String phone, String message, SendConfirmationListener listener) {

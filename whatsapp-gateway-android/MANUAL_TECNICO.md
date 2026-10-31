@@ -23,12 +23,19 @@ O PIN não é recuperável pelo servidor. Se for esquecido, limpar os dados do a
 
 ## Versão e verificação
 
-- Versão: **1.5.4**, `versionCode` 11; package `br.com.sideracode.whatsappgateway`.
-- Compilação Android Gradle offline, em cópia temporária isolada: `assembleDebug` concluído.
-- APK **debug** 1.5.4 instalado sobre a versão existente por `adb install -r`, preservando dados locais. SHA-256: `A3B736A821B177D1ABA143FA7E88737065CBCF6AFBDA348AB4E5BCD439AB0593`.
-- APK de teste local: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.4-debug.apk`.
+- Versão anterior instalada: **1.5.4**, `versionCode` 11; package `br.com.sideracode.whatsappgateway`.
+- A compilação 1.5.4 foi executada em cópia temporária isolada; o APK debug foi instalado preservando os dados locais. SHA-256: `A3B736A821B177D1ABA143FA7E88737065CBCF6AFBDA348AB4E5BCD439AB0593`.
+- APK anterior: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.4-debug.apk`.
 - Telefone USB `2410FPCC5G`, Android API 36: painel e abas de disparos renderizados; gateways mantidos pausados. O login SOS foi repetido após reiniciar o app e aceita as credenciais, mas `/api/auth/me` ainda retorna `writes` vazio para `thaoemerson`; o cliente recusa corretamente o pareamento dos canais sem o escopo gravável `disparos`.
 - Não foi feito envio real. O diagnóstico seguro está presente no app; a verificação ponta a ponta das filas e os envios ficam pendentes até o pareamento SOS ser autorizado pela permissão efetiva.
+
+### Correção de estado e início do gateway WhatsApp — 1.5.5
+
+- `versionCode` 12; o status agora distingue o serviço conectado do componente habilitado nas Configurações do Android, atualiza ao retornar ao app e não mostra “pendente” quando o Android ainda lista o componente habilitado.
+- O início do gateway valida a sessão da plataforma e a conexão real do serviço de acessibilidade. Se faltar uma condição, explica o motivo e oferece abrir as Configurações; ao iniciar, confirma o estado ativo em vez de exibir sucesso imediato.
+- Compilação `assembleDebug` offline bem-sucedida em cópia temporária isolada. Identidade conferida com `aapt`, assinatura com `apksigner` e alinhamento com `zipalign`. SHA-256 do APK: `561C1825BAE03C723153D4ADFF17529F6DF9E10C9561739AD149D6C4EA2E4297`.
+- APK gerado em `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.5-debug.apk`. Não instalado nesta validação: o serviço WhatsApp já estava ativo no telefone e substituí-lo encerraria esse processo, podendo interromper a fila. Nenhum disparo foi iniciado pelo teste.
+- Durante o diagnóstico, o Android listava o componente de acessibilidade como habilitado, mas sem serviço conectado e marcado como encerrado pelo sistema. É necessário reativá-lo nas Configurações do aparelho para retomar a conexão.
 
 ## Limites
 

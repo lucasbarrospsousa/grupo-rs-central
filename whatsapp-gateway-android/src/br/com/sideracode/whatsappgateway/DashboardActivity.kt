@@ -89,6 +89,11 @@ class DashboardActivity : Activity() {
         if (locked && lockDialog == null) window.decorView.post { promptUnlock() }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (!locked && ::body.isInitialized && selectedTab in 0..1) renderTab()
+    }
+
     override fun onStop() {
         statusHandler.removeCallbacks(refreshSmsStatus)
         if (biometricInProgress && !leftDuringBiometric) {
@@ -318,7 +323,7 @@ class DashboardActivity : Activity() {
     private fun dashboard() {
         heading("Visão geral", "Status dos gateways e atividade registrada neste aparelho.")
         val sms = smsCounts()
-        metric("WhatsApp", if (WhatsAppGatewayService.serviceRunning) "ATIVO" else "PAUSADO", "Acessibilidade: ${if (WhatsAppAccessibilityService.isServiceRunning()) "habilitada" else "pendente"}", amber)
+        metric("WhatsApp", if (WhatsAppGatewayService.serviceRunning) "ATIVO" else "PAUSADO", "Acessibilidade: ${whatsappAccessibilityStatus()}", amber)
         metric("SMS", if (GatewayService.active) "ATIVO" else "PAUSADO", if (CloudGateway.lastOk > 0) "Central: ${CloudGateway.state}" else "${CloudGateway.state}", blue)
         metric("Disparos WhatsApp", "${waCount("wa_sent") + waCount("wa_failed")}", "${waCount("wa_sent")} confirmados · ${waCount("wa_failed")} falhas", green)
         metric("Disparos SMS", "${sms.values.sum()}", "${sms["sent"] ?: 0} enviados · ${sms["failed"] ?: 0} falhas · ${sms["delivered"] ?: 0} entregues", blue)
@@ -331,12 +336,69 @@ class DashboardActivity : Activity() {
     private fun whatsappTab() {
         heading("Disparos WhatsApp", "Conexão, acessibilidade e relatório local do gateway.")
         metric("Gateway", if (WhatsAppGatewayService.serviceRunning) "ATIVO" else "INATIVO", "Serviço de comunicação com a Central", amber)
-        metric("Acessibilidade", if (WhatsAppAccessibilityService.isServiceRunning()) "CONECTADA" else "PENDENTE", "Necessária para confirmar o envio no WhatsApp Business", blue)
+        metric("Acessibilidade", whatsappAccessibilityStatus(), "Necessária para confirmar o envio no WhatsApp Business", blue)
         metric("Resultado registrado", "${waCount("wa_sent")} enviados", "${waCount("wa_failed")} falhas desde a instalação desta versão", green)
         action("Verificar conexão e fila", amber) { checkSafeQueues() }
-        action("Iniciar gateway WhatsApp", amber) { startForegroundService(Intent(this, WhatsAppGatewayService::class.java)); body.postDelayed({ renderTab() }, 400) }
+        action(if (WhatsAppGatewayService.serviceRunning) "Pausar gateway WhatsApp" else "Iniciar gateway WhatsApp", amber) {
+            toggleWhatsAppGateway()
+        }
         action("Configurar acessibilidade", blue) { startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
         infoCard("Privacidade do relatório", "Este painel mostra apenas totais. Destinatários e conteúdo não são guardados aqui; o histórico de campanhas está na Central.", amber)
+    }
+
+    private fun whatsappAccessibilityStatus(): String = when {
+        WhatsAppAccessibilityService.isServiceRunning() -> "CONECTADA"
+        WhatsAppAccessibilityService.isEnabledInSettings(this) -> "ATIVADA · SEM CONEXÃO"
+        else -> "PENDENTE"
+    }
+
+    private fun toggleWhatsAppGateway() {
+        if (WhatsAppGatewayService.serviceRunning) {
+            stopService(Intent(this, WhatsAppGatewayService::class.java))
+            body.postDelayed({ if (selectedTab == 1) renderTab() }, 350)
+            Toast.makeText(this, "Gateway WhatsApp pausado.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!platformSession.connected) {
+            Toast.makeText(this, "Conecte uma plataforma antes de iniciar o gateway.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!WhatsAppAccessibilityService.isServiceRunning()) {
+            val detail = if (WhatsAppAccessibilityService.isEnabledInSettings(this)) {
+                "A acessibilidade está ativada nas Configurações, mas o Android não conectou o serviço. Desative e ative novamente ‘RS Gateway Mobile’ para reconectar."
+            } else {
+                "Habilite o serviço RS Gateway Mobile nas Configurações de acessibilidade antes de iniciar."
+            }
+            AlertDialog.Builder(this)
+                .setTitle("Acessibilidade necessária")
+                .setMessage(detail)
+                .setPositiveButton("Abrir configurações") { _, _ ->
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+            return
+        }
+
+        try {
+            startForegroundService(Intent(this, WhatsAppGatewayService::class.java))
+            verifyWhatsAppGatewayStart(System.currentTimeMillis())
+        } catch (error: Exception) {
+            Toast.makeText(this, "Não foi possível iniciar o gateway: ${error.message ?: "erro do Android"}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun verifyWhatsAppGatewayStart(startedAt: Long) {
+        statusHandler.postDelayed({
+            if (selectedTab == 1) renderTab()
+            if (WhatsAppGatewayService.serviceRunning) {
+                Toast.makeText(this, "Gateway WhatsApp iniciado.", Toast.LENGTH_SHORT).show()
+            } else if (System.currentTimeMillis() - startedAt < 5000) {
+                verifyWhatsAppGatewayStart(startedAt)
+            } else {
+                Toast.makeText(this, "O Android não manteve o serviço ativo. Verifique a conexão com a plataforma e as permissões de notificações.", Toast.LENGTH_LONG).show()
+            }
+        }, 700)
     }
 
     private fun smsTab() {
