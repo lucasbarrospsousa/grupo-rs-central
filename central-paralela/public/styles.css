@@ -810,12 +810,29 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 #dashboard-content .cards .card.kpi{overflow:visible!important}
 #dashboard-content .cards .card.kpi .art,#tracking-content .tracking-metric .art{transform:scale(1.3)!important;transform-origin:left center}
 
-/* Blend the Dashboard, Tracking, and Maintenance hero art into their solid backgrounds gradually. */
-.operation-hero[data-page="dashboard"]:before,
-.operation-hero[data-page="tracking"]:before,
-.operation-hero[data-page="maintenance"]:before,
-.operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{
- mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.03) 15%,rgba(0,0,0,.1) 30%,rgba(0,0,0,.3) 45%,rgba(0,0,0,.56) 60%,rgba(0,0,0,.82) 75%,#000 92%)!important;
- -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.03) 15%,rgba(0,0,0,.1) 30%,rgba(0,0,0,.3) 45%,rgba(0,0,0,.56) 60%,rgba(0,0,0,.82) 75%,#000 92%)!important;
+/* Keep Maintenance as the reference; make Dashboard and Tracking artwork clearer. */
+.operation-hero[data-page="dashboard"]:before{
+ mask-image:linear-gradient(90deg,transparent 0%,transparent 22%,rgba(0,0,0,.15) 30%,rgba(0,0,0,.42) 42%,rgba(0,0,0,.72) 55%,rgba(0,0,0,.95) 70%,#000 84%)!important;
+ -webkit-mask-image:linear-gradient(90deg,transparent 0%,transparent 22%,rgba(0,0,0,.15) 30%,rgba(0,0,0,.42) 42%,rgba(0,0,0,.72) 55%,rgba(0,0,0,.95) 70%,#000 84%)!important;
  mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-size:100% 100%;-webkit-mask-size:100% 100%;
 }
+.operation-hero[data-page="tracking"]:before,
+.operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{
+ mask-image:linear-gradient(90deg,transparent 0%,transparent 30%,rgba(0,0,0,.15) 38%,rgba(0,0,0,.42) 50%,rgba(0,0,0,.72) 63%,rgba(0,0,0,.95) 78%,#000 90%)!important;
+ -webkit-mask-image:linear-gradient(90deg,transparent 0%,transparent 30%,rgba(0,0,0,.15) 38%,rgba(0,0,0,.42) 50%,rgba(0,0,0,.72) 63%,rgba(0,0,0,.95) 78%,#000 90%)!important;
+ mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-size:100% 100%;-webkit-mask-size:100% 100%;
+}
+@media(max-width:760px){
+ .operation-hero[data-page="dashboard"]:before,
+ .operation-hero[data-page="tracking"]:before,
+ .operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{
+  mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
+ }
+}
+.operation-hero[data-page="dashboard"]:before,
+.operation-hero[data-page="tracking"]:before,
+.operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{filter:brightness(1.22) saturate(1.08)}
+.operation-hero[data-page="dashboard"]:before{filter:brightness(1.5) saturate(1.12)}
+.operation-hero[data-page="tracking"]:before,
+.operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{filter:brightness(1.25) saturate(1.1)}
