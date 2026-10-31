@@ -1,5 +1,6 @@
 {
   "name": "central-paralela",
+  "account_id": "dadec3e9037188f4aded1e43fc014524",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": [

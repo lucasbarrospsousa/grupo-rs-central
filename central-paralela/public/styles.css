@@ -836,3 +836,24 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .operation-hero[data-page="dashboard"]:before{filter:brightness(1.5) saturate(1.12)}
 .operation-hero[data-page="tracking"]:before,
 .operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{filter:brightness(1.25) saturate(1.1)}
+/* Composition ratio: 40% solid copy space + 60% visible artwork. */
+.operation-hero[data-page="dashboard"]:before,
+.operation-hero[data-page="tracking"]:before,
+.operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{
+ inset:0 0 0 40%!important;
+ background-size:auto 100%!important;
+ background-position:right center!important;
+ mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.25) 25%,rgba(0,0,0,.55) 42%,rgba(0,0,0,.84) 66%,#000 88%)!important;
+ -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.25) 25%,rgba(0,0,0,.55) 42%,rgba(0,0,0,.84) 66%,#000 88%)!important;
+}
+@media(max-width:760px){
+ .operation-hero[data-page="dashboard"]:before,
+ .operation-hero[data-page="tracking"]:before,
+ .operation-hero.compact.tracking-hero:not(.maintenance-hero):not(.whatsapp-hero):not(.users-hero):before{
+  inset:100px 0 0 0!important;
+  background-size:auto 148%!important;
+  background-position:right bottom!important;
+  mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
+ }
+}
