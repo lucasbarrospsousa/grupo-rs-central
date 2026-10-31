@@ -222,3 +222,6 @@ Validação local sintética: `test-ui.mjs` confere os nove estados de banner, n
 ### Artes maiores nos cards métricos — 31/10/2026
 As artes dos cards do Dashboard e Rastreamento foram ampliadas em 30% e avançam discretamente pela borda externa; no Armazém, produtos ampliados em 40% também se projetam alguns pixels além dos cards. Ícones permanecem contidos, em escala até 25%. A transformação CSS preserva o fluxo, dimensões e posição dos cards. Em telas estreitas, os comportamentos responsivos existentes permanecem ativos. Sem imagens métricas nas outras abas, nenhuma arte nova foi criada.
 Validação: `test-ui.mjs`, `test-warehouse-ui.mjs`, `test-maintenance-ui.mjs`, `test-users-ui.mjs` e `test-sms-ui.mjs` aprovados com APIs simuladas e chamadas externas bloqueadas. Revisadas capturas desktop do Dashboard, Rastreamento e Chips.
+
+### Banner de Manutenções com arte fornecida — 31/10/2026
+A arte recebida substitui a imagem anterior do banner. A imagem não contém a cópia da página; o título e subtítulo continuam em HTML. A máscara da arte foi ajustada para mesclar a borda ao fundo no padrão do Dashboard. Teste da aba com Playwright e APIs simuladas; captura visual conferida.
