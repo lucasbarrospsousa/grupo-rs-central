@@ -37,7 +37,11 @@ class GatewayService:Service() {
    .setContentText("Ativo com a tela apagada • Central online").setSmallIcon(android.R.drawable.ic_dialog_email).setContentIntent(open)
    .setOngoing(true).setOnlyAlertOnce(true).addAction(Notification.Action.Builder(null,"Pausar gateway",pause).build()).build())
   db=JobStore(this);db.recover();identity=GatewayIdentity(this)
-  try { if(identity.prefs.getBoolean("cloud_enabled",false))cloud=CloudGateway(this,db,identity) else server=GatewayServer(this,db,identity).also { it.start(5000,false) };active=true }
+  try {
+   if(br.com.sideracode.whatsappgateway.PlatformSession(this).connected) cloud=CloudGateway(this,db,identity)
+   else { identity.prefs.edit().putString("last_error","Conecte-se à plataforma antes de ativar o gateway SMS").apply();stopSelf();return }
+   active=true
+  }
   catch(e:Exception){ identity.prefs.edit().putString("last_error","Falha HTTPS: "+e.javaClass.simpleName).apply();stopSelf();return }
   cpuLock=getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"RSMSGateway:LocalServer").apply { setReferenceCounted(false) }
   powerHandler.post(renewPower)
@@ -50,7 +54,7 @@ class GatewayService:Service() {
  private fun dispatch() {
   if(!active)return
   try {
-   val cloudMode=identity.prefs.getBoolean("cloud_enabled",false)
+   val cloudMode=br.com.sideracode.whatsappgateway.PlatformSession(this).connected
    if(cloudMode&&System.currentTimeMillis()>=nextCloud){
     val permissions=checkSelfPermission(android.Manifest.permission.SEND_SMS)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE)==PackageManager.PERMISSION_GRANTED
     val sim=if(permissions)getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList?.any{it.subscriptionId==identity.prefs.getInt("sim",-1)}==true else false
@@ -69,14 +73,15 @@ class GatewayService:Service() {
      checkSelfPermission(android.Manifest.permission.READ_PHONE_STATE)!=PackageManager.PERMISSION_GRANTED)return
    if(getSystemService(SubscriptionManager::class.java).activeSubscriptionInfoList?.none {it.subscriptionId==sub}!=false)return
    val sms=if(Build.VERSION.SDK_INT>=31)getSystemService(SmsManager::class.java).createForSubscriptionId(sub) else SmsManager.getSmsManagerForSubscriptionId(sub)
-   if(sms.divideMessage(p.getString("command")).size!=1){db.transition(id,listOf("received"),"failed","Comando exige múltiplos SMS");p.optString("batch_id").takeIf{it.isNotBlank()}?.let{db.stopBatch(it,"Lote interrompido: comando dividido")};return}
+   if(sms.divideMessage(p.getString("command")).size!=1){db.transition(id,listOf("received"),"failed","Mensagem excede um SMS");db.queueCloudReport(id,"failed","Mensagem excede um SMS");p.optString("batch_id").takeIf{it.isNotBlank()}?.let{db.stopBatch(it,"Lote interrompido: mensagem dividida")};return}
    if(!active)return
    if(!db.transition(id,listOf("received"),"sending"))return
+   db.queueCloudReport(id,"sending")
    fun callback(kind:String)=PendingIntent.getBroadcast(this,0,
     Intent(this,SmsResultReceiver::class.java).setAction("br.com.sideracode.smsgateway."+kind).setData(android.net.Uri.parse("rsgateway://$kind/$id")).putExtra("job_id",id),
     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
    try { sms.sendTextMessage(p.getString("phone"),null,p.getString("command"),callback("sent"),callback("delivered")) }
-   catch(e:Exception){db.transition(id,listOf("sending"),"indeterminate","Android não confirmou: "+e.javaClass.simpleName);p.optString("batch_id").takeIf{it.isNotBlank()}?.let{db.stopBatch(it,"Lote interrompido após resultado incerto")}}
+   catch(e:Exception){val detail="Android não confirmou: "+e.javaClass.simpleName;db.transition(id,listOf("sending"),"indeterminate",detail);db.queueCloudReport(id,"indeterminate",detail);p.optString("batch_id").takeIf{it.isNotBlank()}?.let{db.stopBatch(it,"Lote interrompido após resultado incerto")}}
   } catch(e:Exception){ identity.prefs.edit().putString("last_error",e.javaClass.simpleName).apply() }
  }
  override fun onDestroy(){
@@ -93,11 +98,14 @@ class SmsResultReceiver:BroadcastReceiver() {
    val job=db.get(id)
    if(resultCode==Activity.RESULT_OK){
     db.transition(id,listOf("sending","indeterminate"),"sent","Resultado Android: $resultCode")
+    db.queueCloudReport(id,"sent","SMS Manager confirmou o envio ao modem")
     ctx.getSharedPreferences("gateway",Context.MODE_PRIVATE).edit().putLong("last_sms_sent_at",System.currentTimeMillis()).putString("last_sms_batch",job?.optString("batch_id","")?:"").apply()
-   }else{db.transition(id,listOf("sending","indeterminate"),"failed","Resultado Android: $resultCode");job?.optString("batch_id")?.takeIf{it.isNotBlank()}?.let{db.stopBatch(it,"Lote interrompido após falha de envio")}}
+   }else{db.transition(id,listOf("sending","indeterminate"),"failed","Resultado Android: $resultCode");db.queueCloudReport(id,"failed","Resultado Android: $resultCode");job?.optString("batch_id")?.takeIf{it.isNotBlank()}?.let{db.stopBatch(it,"Lote interrompido após falha de envio")}}
   }
-  else if(intent.action?.endsWith(".delivered")==true && resultCode==Activity.RESULT_OK)
+  else if(intent.action?.endsWith(".delivered")==true && resultCode==Activity.RESULT_OK){
    db.transition(id,listOf("sending","sent","indeterminate"),"delivered","Confirmação da rede; não comprova configuração")
+   db.queueCloudReport(id,"delivered","Confirmação da rede")
+  }
   db.close()
  }
 }

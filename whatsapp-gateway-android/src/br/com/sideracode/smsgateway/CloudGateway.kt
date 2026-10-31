@@ -1,86 +1,153 @@
 package br.com.sideracode.smsgateway
 
 import android.content.Context
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import android.util.Base64
+import br.com.sideracode.whatsappgateway.PlatformSession
 import org.json.JSONObject
 
-import java.net.URL
-import java.security.KeyStore
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
-import javax.net.ssl.HttpsURLConnection
-
-/** Dedicated outbound HTTPS credential. No database or platform passwords on the phone. */
-class CloudGateway(private val ctx:Context,private val db:JobStore,private val identity:GatewayIdentity) {
- companion object {
-  const val ENDPOINT="https://central-paralela.sinderacodofc.workers.dev/api/galaxy"
-  const val VERSION="1.2.0"
-  private const val ALIAS="rs-gateway-cloud-v1"
-  @Volatile var state="Não conectado à Central"
-  @Volatile var lastOk=0L
-  val branches=listOf("imperatriz","araguaina","acailandia","maraba")
-  fun configure(identity:GatewayIdentity,branch:String,token:String) {
-   require(branch in branches && Regex("[a-f0-9]{64}").matches(token))
-   val store=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
-   if(!store.containsAlias(ALIAS))KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore").apply{
-    init(KeyGenParameterSpec.Builder(ALIAS,KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build());generateKey()
-   }
-   val cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,store.getKey(ALIAS,null) as SecretKey)
-   check(identity.prefs.edit().putString("cloud_token_"+branch,Base64.encodeToString(cipher.doFinal(token.toByteArray()),Base64.NO_WRAP)).putString("cloud_iv_"+branch,Base64.encodeToString(cipher.iv,Base64.NO_WRAP)).putBoolean("cloud_enabled",true).putBoolean("send_enabled",false).commit())
-   state="Base configurada; confira o chip antes de habilitar envios"
-  }
-
- }
- private var branchIndex=0
- private var currentBranch=""
-
- private fun token():String {
-  val keyStore=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
-  val cipher=Cipher.getInstance("AES/GCM/NoPadding")
-  cipher.init(Cipher.DECRYPT_MODE,keyStore.getKey(ALIAS,null) as SecretKey,GCMParameterSpec(128,Base64.decode(identity.prefs.getString("cloud_iv_"+currentBranch,"")!!,Base64.NO_WRAP)))
-  return String(cipher.doFinal(Base64.decode(identity.prefs.getString("cloud_token_"+currentBranch,"")!!,Base64.NO_WRAP)))
- }
- private fun request(body:JSONObject):JSONObject {
-
-  val connection=URL(ENDPOINT+"?branch="+currentBranch).openConnection() as HttpsURLConnection
-  try {
-   connection.requestMethod="POST";connection.connectTimeout=10000;connection.readTimeout=15000;connection.instanceFollowRedirects=false;connection.doOutput=true
-   connection.setRequestProperty("Content-Type","application/json");connection.setRequestProperty("x-rs-gateway",token())
-   connection.outputStream.use{it.write(body.toString().toByteArray())}
-   check(connection.responseCode==200){"Central HTTP ${connection.responseCode}"}
-   val bytes=connection.inputStream.use{input-> val output=java.io.ByteArrayOutputStream();val buffer=ByteArray(4096);var n=input.read(buffer);while(n!=-1){check(output.size()+n<=65536){"Resposta excedeu o limite"};output.write(buffer,0,n);n=input.read(buffer)};output.toByteArray()}
-   val result=JSONObject(String(bytes));check(result.optBoolean("ok")){"Central não confirmou"};return result
-  }finally{connection.disconnect()}
- }
- fun tick(ready:Boolean) {
-  if(!identity.prefs.getBoolean("cloud_enabled",false))return
-  val configured=branches.filter{identity.prefs.contains("cloud_token_"+it)}
-  if(configured.isEmpty()){state="Configure as bases no aplicativo";return}
-  currentBranch=configured[Math.floorMod(branchIndex++,configured.size)]
-  try {
-   val response=request(JSONObject().put("action","poll").put("ready",ready).put("app_version",VERSION))
-   val jobs=response.getJSONArray("jobs")
-   for(i in 0 until jobs.length()){
-    val item=jobs.getJSONObject(i);val id=item.getString("id")
-    var job=db.get(id)
-    if(job==null&&item.has("payload")){
-     try {val payload=item.getJSONObject("payload");require(payload.getString("branch")==currentBranch);job=db.accept(payload)}
-     catch(e:Exception){request(JSONObject().put("action","report").put("id",id).put("state","failed").put("detail","Pedido rejeitado pela validação do Gateway"));continue}
+/** Session-authenticated SMS adapter for the single platform selected in the app. */
+class CloudGateway(ctx: Context, private val db: JobStore, private val identity: GatewayIdentity) {
+    companion object {
+        const val VERSION = "1.5.0"
+        @Volatile var state = "Conecte-se à plataforma"
+        @Volatile var lastOk = 0L
+        val branches = listOf("imperatriz", "araguaina", "acailandia", "maraba")
     }
-    if(job==null){
-     if(item.getString("state")!="pending")request(JSONObject().put("action","report").put("id",id).put("state","indeterminate").put("detail","Registro local ausente; não reenviado"))
-     continue
+
+    private val session = PlatformSession(ctx)
+    private var branchIndex = 0
+    private var currentBranch = ""
+
+    fun tick(ready: Boolean) {
+        val platform = session.platform
+        if (!session.connected || platform == null) {
+            state = "Conecte-se à plataforma"
+            return
+        }
+        try {
+            flushReports()
+            if (platform == PlatformSession.Platform.CENTRAL) tickCentral(ready) else tickSales(ready)
+            lastOk = System.currentTimeMillis()
+            state = (if (platform == PlatformSession.Platform.CENTRAL) "Central" else "Vendas SOS") +
+                " conectada • " + if (ready) "chip pronto" else "diagnóstico"
+        } catch (error: Exception) {
+            state = (if (platform == PlatformSession.Platform.CENTRAL) "Central" else "Vendas SOS") +
+                " • " + (error.message?.take(90) ?: error.javaClass.simpleName)
+        }
     }
-    require(job.getString("branch")==currentBranch) { "Base do pedido divergente" }
-    val reported=request(JSONObject().put("action","report").put("id",id).put("state",job.getString("state")).put("detail",job.optString("detail")).put("updated_at",job.getLong("updated_at")))
-    // An accepted cloud acknowledgement is required before the physical send.
-    if(job.getString("state")=="received"&&reported.optString("state")=="received")db.authorizeCloud(id)
-   }
-   lastOk=System.currentTimeMillis();state=currentBranch+" • "+if(ready)"Central conectada • envio habilitado" else "Central conectada • diagnóstico"
-  }catch(e:Exception){state=currentBranch+" • "+(e.message?.takeIf{it.startsWith("Central HTTP")}?:e.javaClass.simpleName)}
- }
+
+    private fun tickCentral(ready: Boolean) {
+        val allowed = session.branchIds.filter { it in branches }
+        if (allowed.isEmpty()) throw IllegalStateException("A conta não possui filial autorizada.")
+        currentBranch = allowed[Math.floorMod(branchIndex++, allowed.size)]
+        val action = if (ready) "poll" else "heartbeat"
+        val response = session.request(
+            "/api/galaxy?branch=$currentBranch",
+            JSONObject().put("action", action).put("branch", currentBranch).put("ready", ready).put("app_version", VERSION)
+        )
+        if (!ready) return
+        processCentralJobs(response)
+    }
+
+    private fun processCentralJobs(response: JSONObject) {
+        val jobs = response.optJSONArray("jobs") ?: return
+        for (i in 0 until jobs.length()) {
+            val item = jobs.optJSONObject(i) ?: continue
+            val id = item.optString("id")
+            if (id.isBlank()) continue
+            val local = db.get(id)
+            if (local == null && item.has("payload")) {
+                try {
+                    val payload = item.getJSONObject("payload")
+                    require(payload.optString("branch") == currentBranch)
+                    val accepted = db.accept(payload)
+                    if (accepted.optString("state") == "received") db.authorizeCloud(id)
+                } catch (_: Exception) {
+                    session.request("/api/galaxy?branch=$currentBranch", JSONObject()
+                        .put("action", "report").put("branch", currentBranch).put("id", id)
+                        .put("state", "failed").put("detail", "Pedido rejeitado pelo Gateway Android"))
+                    continue
+                }
+            } else if (local != null) {
+                require(local.optString("branch") == currentBranch) { "Base do pedido divergente" }
+                val stateValue = local.optString("state")
+                val report = session.request("/api/galaxy?branch=$currentBranch", JSONObject()
+                    .put("action", "report").put("branch", currentBranch).put("id", id)
+                    .put("state", stateValue).put("detail", local.optString("detail")))
+                if (stateValue == "received" && report.optString("state") == "received") db.authorizeCloud(id)
+            } else if (item.optString("state") != "pending") {
+                session.request("/api/galaxy?branch=$currentBranch", JSONObject()
+                    .put("action", "report").put("branch", currentBranch).put("id", id)
+                    .put("state", "indeterminate").put("detail", "Registro local ausente; não reenviado"))
+            }
+        }
+    }
+
+    private fun tickSales(ready: Boolean) {
+        val response = session.request("/api/mobile-gateway", JSONObject()
+            .put("action", if (ready) "gateway-poll" else "gateway-heartbeat").put("ready", ready))
+        if (!ready) return
+        processSalesReceipts(response.optJSONArray("receipts"))
+        if (!ready) return
+        val job = response.optJSONObject("job") ?: return
+        val id = job.optString("id")
+        if (id.isBlank()) return
+        if (db.get(id) != null) {
+            session.reportSms(id, "imperatriz", "received")
+            return
+        }
+        val now = System.currentTimeMillis() / 1000
+        val phoneDigits = job.optString("phone").filter(Char::isDigit)
+        val phone = if (phoneDigits.startsWith("55")) "+$phoneDigits" else "+55$phoneDigits"
+        val created = job.optLong("created_at", now).coerceAtMost(now + 60)
+        val batch = job.optString("batch_id", id).ifBlank { id }
+        val payload = JSONObject()
+            .put("version", 3).put("id", id).put("branch", "imperatriz").put("serial", "")
+            .put("phone", phone).put("command", job.optString("command"))
+            .put("created_at", created).put("expires_at", created + 7200)
+            .put("status_snapshot", "Confirmado pela plataforma SOS")
+            .put("command_mode", "custom").put("source_phone_snapshot", phone)
+            .put("apn_snapshot", "").put("standard_command_snapshot", "")
+            .put("target_type", "contact").put("contact_name", job.optString("name", "Contato"))
+            .put("batch_id", batch).put("delay_seconds", job.optInt("delay_seconds", 10))
+        try {
+            val accepted = db.accept(payload)
+            if (accepted.optString("state") == "received") {
+                session.reportSms(id, "imperatriz", "received", "Aceito pelo aparelho")
+                db.authorizeCloud(id)
+            }
+        } catch (_: Exception) {
+            session.reportSms(id, "imperatriz", "failed", "Pedido incompatível com o chip selecionado")
+        }
+    }
+
+    private fun processSalesReceipts(receipts: org.json.JSONArray?) {
+        if (receipts == null) return
+        for (i in 0 until receipts.length()) {
+            val item = receipts.optJSONObject(i) ?: continue
+            val id = item.optString("id")
+            if (id.isBlank()) continue
+            val local = db.get(id)
+            if (local == null) {
+                if (item.optString("state") == "dispatched") session.reportSms(id, "imperatriz", "indeterminate", "Registro local ausente; não reenviado")
+            } else if (local.optString("state") == "received") {
+                session.reportSms(id, "imperatriz", "received", "Aceito pelo aparelho")
+                db.authorizeCloud(id)
+            }
+        }
+    }
+
+    private fun flushReports() {
+        val reports = db.pendingCloudReports()
+        for (i in 0 until reports.length()) {
+            val item = reports.optJSONObject(i) ?: continue
+            val id = item.optString("id")
+            val reportState = item.optString("state")
+            try {
+                session.reportSms(id, item.optString("branch").ifBlank { "imperatriz" }, reportState, item.optString("detail"))
+                db.clearCloudReport(id, reportState)
+            } catch (_: Exception) {
+                // Retain the outcome locally and retry on the next connection cycle.
+            }
+        }
+    }
 }

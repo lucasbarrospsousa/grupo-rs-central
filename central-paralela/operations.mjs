@@ -87,7 +87,7 @@ export class Operations {
    if(b.kind==='maintenance-import'&&typeof b.importBody!=='string')return reply(400,{error:'Missing import envelope'});
    if(new URL(request.url).pathname==='/maintenance-import'||b.kind==='maintenance-import'){if(!verifyImport(b.importBody,b.importSignature,this.env.AUTH_DATA_KEY,this.env.MAINTENANCE_IMPORT_UNTIL))return reply(403,{error:'Importação desabilitada.'});try{return reply(200,await (JSON.parse(b.importBody).action?.startsWith('migration')?importMigration:importMaintenance)(JSON.parse(b.importBody),this.config));}catch(e){return reply(503,{error:'Não foi possível concluir a importação.'});}}
    if(new URL(request.url).pathname==='/maintenance')return reply(200,await maintenance({input:b.input,user:b.user,config:this.config}));
-   if(new URL(request.url).pathname==='/galaxy'&&b.android)return reply(200,await galaxyAndroid({input:b.input,token:b.token,document:branch=>trackingDocument(this.config,branch),users:async()=>decryptUsers(await driveUsers(this.config),this.env.AUTH_DATA_KEY)}));
+   if(new URL(request.url).pathname==='/galaxy'&&b.android)return reply(200,await galaxyAndroid({input:b.input,token:b.token,mobileUser:b.mobileUser,document:branch=>trackingDocument(this.config,branch),users:async()=>decryptUsers(await driveUsers(this.config),this.env.AUTH_DATA_KEY)}));
    if(new URL(request.url).pathname==='/galaxy')return reply(200,await galaxy({input:b.input,token:b.token,config:this.config,key:this.env.AUTH_DATA_KEY}));
    if(new URL(request.url).pathname==='/inventory'){
       const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','swap-preview','swap-execute','swap-check'].includes(b.input?.action);

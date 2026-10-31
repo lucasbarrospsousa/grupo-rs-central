@@ -63,17 +63,23 @@ class DashboardActivity : Activity() {
     private var biometricInProgress = false
     private var leftDuringBiometric = false
     private lateinit var smsIdentity: GatewayIdentity
+    private lateinit var platformSession: PlatformSession
     private var smsStatus: TextView? = null
     private val statusHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         smsIdentity = GatewayIdentity(this)
+        platformSession = PlatformSession(this)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        showLockScreen()
-        promptUnlock()
+        if (platformSession.connected) {
+            showLockScreen()
+            promptUnlock()
+        } else {
+            showPlatformSetup()
+        }
     }
 
     override fun onStart() {
@@ -171,6 +177,124 @@ class DashboardActivity : Activity() {
         setContentView(content)
     }
 
+    private fun showPlatformSetup() {
+        if (isFinishing) return
+        lockDialog?.dismiss()
+        lockDialog = null
+        locked = true
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            setBackgroundColor(bg)
+        }
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = rounded(panel, amber, dp(1), 18)
+        }
+        card.addView(label("Escolha uma plataforma", 22, text, true))
+        card.addView(label("O Gateway Mobile fica conectado a uma plataforma por vez.", 14, muted, false).apply {
+            setPadding(0, dp(8), 0, dp(18))
+        })
+        PlatformSession.Platform.entries.forEach { target ->
+            val choice = TextView(this).apply {
+                this.text = target.label
+                textSize = 16f
+                setTextColor(this@DashboardActivity.text)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                background = rounded(panelAlt, amber, dp(1), 12)
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(14), dp(16), dp(14), dp(16))
+                setOnClickListener { showPlatformLogin(target) }
+            }
+            card.addView(choice, LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, dp(10)) })
+        }
+        content.addView(card, LinearLayout.LayoutParams(-1, -2))
+        setContentView(content)
+    }
+
+    private fun showPlatformLogin(target: PlatformSession.Platform) {
+        val username = EditText(this).apply {
+            hint = "Usuário da plataforma"
+            setSingleLine(true)
+            setTextColor(this@DashboardActivity.text)
+            setHintTextColor(this@DashboardActivity.muted)
+        }
+        val password = EditText(this).apply {
+            hint = "Senha da plataforma"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+            setTextColor(this@DashboardActivity.text)
+            setHintTextColor(this@DashboardActivity.muted)
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(8), dp(24), 0)
+            addView(label(target.label, 12, amber, true))
+            addView(username)
+            addView(password)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Conectar à plataforma")
+            .setMessage("Use seu usuário e senha pessoais. A senha não será salva no aparelho.")
+            .setView(content)
+            .setPositiveButton("Conectar", null)
+            .setNegativeButton("Voltar") { _, _ -> showPlatformSetup() }
+            .setCancelable(false)
+            .create()
+        dialog.setOnShowListener {
+            styleDialog(dialog)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val user = username.text.toString().trim()
+                val pass = password.text.toString()
+                if (user.isBlank() || pass.isEmpty()) {
+                    if (user.isBlank()) username.error = "Informe o usuário"
+                    if (pass.isEmpty()) password.error = "Informe a senha"
+                    return@setOnClickListener
+                }
+                username.isEnabled = false
+                password.text?.clear()
+                password.isEnabled = false
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                Thread {
+                    val result = runCatching { platformSession.login(target, user, pass) }
+                    runOnUiThread {
+                        if (isFinishing) return@runOnUiThread
+                        dialog.dismiss()
+                        result.onSuccess {
+                            Toast.makeText(this, "Conectado a ${target.label}.", Toast.LENGTH_LONG).show()
+                            if (!prefs.contains("pin_hash")) setupPin() else { showLockScreen(); promptUnlock() }
+                        }.onFailure { error ->
+                            Toast.makeText(this, error.message ?: "Não foi possível conectar.", Toast.LENGTH_LONG).show()
+                            showPlatformSetup()
+                        }
+                    }
+                }.start()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun confirmPlatformChange() {
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Trocar plataforma")
+            .setMessage("Os gateways ativos serão pausados e a sessão atual será removida. Depois, conecte uma única plataforma novamente.")
+            .setPositiveButton("Continuar") { _, _ ->
+                stopService(Intent(this, WhatsAppGatewayService::class.java))
+                stopService(Intent(this, GatewayService::class.java))
+                Thread { platformSession.disconnect() }.start()
+                locked = true
+                showPlatformSetup()
+            }
+            .setNegativeButton("Cancelar", null)
+            .create()
+        dialog.setOnShowListener { styleDialog(dialog) }
+        dialog.show()
+    }
+
     private fun renderTab() {
         body.removeAllViews()
         statusHandler.removeCallbacks(refreshSmsStatus)
@@ -228,7 +352,7 @@ class DashboardActivity : Activity() {
     }
 
     private fun settingsTab() {
-        heading("Configurações gerais", "Segurança, interface e configuração do gateway SMS.")
+        heading("Configurações gerais", "Segurança, plataforma conectada e configuração do chip.")
         val keep = Switch(this).apply {
             text = "Manter a tela sempre acesa"
             textSize = 15f
@@ -258,6 +382,9 @@ class DashboardActivity : Activity() {
         }
         settingCard(bio)
         action("Alterar PIN de acesso", amber) { changePin() }
+        section("Plataforma conectada")
+        infoCard(platformSession.platform?.label ?: "Sem plataforma", "Conta: ${platformSession.username}", amber)
+        action("Trocar plataforma conectada", amber) { confirmPlatformChange() }
         infoCard("Bloqueio do app", "Ao sair do aplicativo, a tela exige autenticação novamente. Os serviços de envio continuam independentes e podem operar com a tela apagada ou com o app bloqueado.", green)
         infoCard("Segurança", "O PIN fica protegido e a impressão digital é verificada pelo Android. O app não armazena sua biometria.", amber)
         if (!fingerprintAvailable()) infoCard("Impressão digital indisponível", "Cadastre uma impressão digital nas configurações do Android para habilitar essa forma de acesso.", muted)
@@ -267,12 +394,10 @@ class DashboardActivity : Activity() {
         smsStatus = label("", 13, muted, false).apply { setPadding(dp(2), 0, dp(2), dp(12)) }
         body.addView(smsStatus)
         action("Autorizar permissões", blue) { authorizeSmsPermissions() }
-        action("Configurar base da Central", blue) { configureSmsBase() }
+        action("Reconectar plataforma", amber) { confirmPlatformChange() }
         action("Selecionar chip", blue) { chooseSmsSim() }
         action(if (GatewayService.active) "Pausar gateway" else "Ativar gateway", amber) { toggleSmsGateway() }
         action("Permitir funcionamento com tela apagada", amber) { allowSmsInBackground() }
-        action("Gerar código de pareamento", blue) { showSmsPairCode() }
-        action("Revogar pareamento", 0xFFFF6B6B.toInt()) { revokeSmsPairing() }
         val realSms = Switch(this).apply {
             text = "Permitir envio real de SMS"
             textSize = 15f
@@ -291,42 +416,6 @@ class DashboardActivity : Activity() {
         val requested = mutableListOf(android.Manifest.permission.SEND_SMS, android.Manifest.permission.READ_PHONE_STATE)
         if (Build.VERSION.SDK_INT >= 33) requested.add(android.Manifest.permission.POST_NOTIFICATIONS)
         requestPermissions(requested.toTypedArray(), SMS_PERMISSION_REQUEST)
-    }
-
-    private fun configureSmsBase() {
-        AlertDialog.Builder(this).setTitle("Base da Central")
-            .setItems(CloudGateway.branches.map { it.replaceFirstChar(Char::uppercase) }.toTypedArray()) { _, index ->
-                val branch = CloudGateway.branches[index]
-                val token = EditText(this).apply {
-                    hint = "Token privado desta base"
-                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                    setTextColor(this@DashboardActivity.text)
-                    setHintTextColor(this@DashboardActivity.muted)
-                }
-                val content = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(dp(24), dp(8), dp(24), 0)
-                    addView(token)
-                }
-                val dialog = AlertDialog.Builder(this).setTitle("Conectar ${branch.replaceFirstChar(Char::uppercase)}")
-                    .setMessage("Na Central, selecione esta filial e prepare a conexão Galaxy. Cole o token privado. As outras bases permanecem configuradas.")
-                    .setView(content).setPositiveButton("Salvar", null).setNegativeButton("Cancelar", null).create()
-                dialog.setOnShowListener {
-                    styleDialog(dialog)
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                        try {
-                            stopService(Intent(this, GatewayService::class.java))
-                            CloudGateway.configure(smsIdentity, branch, token.text.toString().trim())
-                            dialog.dismiss()
-                            refreshSmsStatus.run()
-                            Toast.makeText(this, "Base configurada. Confira o chip antes de habilitar envios.", Toast.LENGTH_LONG).show()
-                        } catch (_: Exception) {
-                            token.error = "Token inválido; confira se tem 64 caracteres hexadecimais."
-                        }
-                    }
-                }
-                dialog.show()
-            }.show().also(::styleDialog)
     }
 
     private fun chooseSmsSim() {

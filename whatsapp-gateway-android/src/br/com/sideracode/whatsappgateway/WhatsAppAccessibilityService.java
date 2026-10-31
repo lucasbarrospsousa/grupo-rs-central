@@ -20,6 +20,9 @@ public class WhatsAppAccessibilityService extends AccessibilityService {
 
     private static volatile SendConfirmationListener activeListener = null;
     private static volatile String activeExpectedPhone = null;
+    private static volatile String activeExpectedMessage = null;
+    private static volatile int matchingMessagesBeforeClick = 0;
+    private static volatile boolean clickAttempted = false;
     private static volatile long armTimestamp = 0;
     private static volatile boolean isClicking = false;
 
@@ -27,18 +30,28 @@ public class WhatsAppAccessibilityService extends AccessibilityService {
         return instance != null;
     }
 
-    public static synchronized void armSend(String phone, SendConfirmationListener listener) {
+    public static synchronized void armSend(String phone, String message, SendConfirmationListener listener) {
         activeExpectedPhone = phone;
+        activeExpectedMessage = message == null ? "" : message.trim();
         activeListener = listener;
         armTimestamp = System.currentTimeMillis();
         isClicking = false;
+        clickAttempted = false;
+        matchingMessagesBeforeClick = 0;
         Log.i(TAG, "Armando deteccao de envio para: " + phone);
     }
 
     public static synchronized void disarmSend() {
         activeListener = null;
         activeExpectedPhone = null;
+        activeExpectedMessage = null;
         isClicking = false;
+        clickAttempted = false;
+    }
+
+    public static void returnHome() {
+        WhatsAppAccessibilityService service = instance;
+        if (service != null) service.handler.post(() -> service.performGlobalAction(GLOBAL_ACTION_HOME));
     }
 
     @Override
@@ -85,33 +98,45 @@ public class WhatsAppAccessibilityService extends AccessibilityService {
             if (!isClicking) {
                 AccessibilityNodeInfo sendButton = findSendButton(rootNode);
                 if (sendButton != null && sendButton.isEnabled()) {
+                    matchingMessagesBeforeClick = countVisibleMessageBubbles(rootNode, activeExpectedMessage);
                     isClicking = true;
                     Log.i(TAG, "Botao de envio localizado no WhatsApp! Acionando clique...");
                     boolean clicked = sendButton.performAction(AccessibilityNodeInfo.ACTION_CLICK);
 
                     if (clicked) {
+                        clickAttempted = true;
                         Log.i(TAG, "Clique executado com sucesso! Aguardando confirmacao de despacho...");
-                        final String phone = activeExpectedPhone;
-                        final SendConfirmationListener listener = activeListener;
-
-                        // Give WhatsApp 1000ms to register the message in chat
-                        handler.postDelayed(() -> {
-                            Log.i(TAG, "Confirmando envio de fato para Central: " + phone);
-                            disarmSend();
-                            if (listener != null) {
-                                listener.onSentConfirmed(phone);
-                            }
-                            // Return home cleanly
-                            handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_HOME), 1200);
-                        }, 1000);
                     } else {
                         isClicking = false;
                     }
                 }
+            } else if (clickAttempted && countVisibleMessageBubbles(rootNode, activeExpectedMessage) > matchingMessagesBeforeClick) {
+                String phone = activeExpectedPhone;
+                SendConfirmationListener listener = activeListener;
+                disarmSend();
+                if (listener != null) listener.onSentConfirmed(phone);
+                handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_HOME), 1200);
             }
         } finally {
             rootNode.recycle();
         }
+    }
+
+    private int countVisibleMessageBubbles(AccessibilityNodeInfo node, String expected) {
+        if (node == null || expected == null || expected.isEmpty()) return 0;
+        int count = 0;
+        CharSequence text = node.getText();
+        CharSequence className = node.getClassName();
+        if (node.isVisibleToUser() && text != null && expected.contentEquals(text.toString().trim()) &&
+                (className == null || !className.toString().contains("EditText"))) count++;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo child = node.getChild(i);
+            if (child != null) {
+                count += countVisibleMessageBubbles(child, expected);
+                child.recycle();
+            }
+        }
+        return count;
     }
 
     private AccessibilityNodeInfo findSendButton(AccessibilityNodeInfo root) {

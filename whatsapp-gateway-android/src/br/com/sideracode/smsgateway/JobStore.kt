@@ -5,13 +5,15 @@ import android.database.sqlite.SQLiteOpenHelper
 import android.database.sqlite.SQLiteDatabase
 import android.content.ContentValues
 import org.json.JSONObject
+import org.json.JSONArray
 import java.util.UUID
 
-class JobStore(ctx: Context, name:String="gateway.sqlite"): SQLiteOpenHelper(ctx, name, null, 3) {
+class JobStore(ctx: Context, name:String="gateway.sqlite"): SQLiteOpenHelper(ctx, name, null, 4) {
  override fun onCreate(db: SQLiteDatabase) {
   db.execSQL("CREATE TABLE jobs(id TEXT PRIMARY KEY,payload TEXT NOT NULL,state TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',updated INTEGER NOT NULL,cloud_ack INTEGER NOT NULL DEFAULT 0,batch_id TEXT NOT NULL DEFAULT '',delay_seconds INTEGER NOT NULL DEFAULT 0)")
+  db.execSQL("CREATE TABLE cloud_reports(id TEXT PRIMARY KEY,state TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',queued_at INTEGER NOT NULL)")
  }
- override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) { if(old<2)db.execSQL("ALTER TABLE jobs ADD COLUMN cloud_ack INTEGER NOT NULL DEFAULT 0");if(old<3){db.execSQL("ALTER TABLE jobs ADD COLUMN batch_id TEXT NOT NULL DEFAULT ''");db.execSQL("ALTER TABLE jobs ADD COLUMN delay_seconds INTEGER NOT NULL DEFAULT 0")} }
+ override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) { if(old<2)db.execSQL("ALTER TABLE jobs ADD COLUMN cloud_ack INTEGER NOT NULL DEFAULT 0");if(old<3){db.execSQL("ALTER TABLE jobs ADD COLUMN batch_id TEXT NOT NULL DEFAULT ''");db.execSQL("ALTER TABLE jobs ADD COLUMN delay_seconds INTEGER NOT NULL DEFAULT 0")};if(old<4)db.execSQL("CREATE TABLE cloud_reports(id TEXT PRIMARY KEY,state TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '',queued_at INTEGER NOT NULL)") }
  @Synchronized fun get(id: String): JSONObject? {
   readableDatabase.rawQuery("SELECT payload,state,detail,updated FROM jobs WHERE id=?", arrayOf(id)).use {
    if (!it.moveToFirst()) return null
@@ -27,7 +29,7 @@ class JobStore(ctx: Context, name:String="gateway.sqlite"): SQLiteOpenHelper(ctx
   require(targetType in listOf("device","contact")) { "Destino inválido" }
   require(Regex("\\+55[1-9][0-9]{9,10}").matches(p.getString("phone"))) { "Telefone inválido" }
   val cmd=p.getString("command")
-  require(cmd.isNotBlank() && cmd.length <= 160 && cmd.all { it.code in 32..126 }) { "Comando não autorizado" }
+  require(cmd.isNotBlank() && cmd.length <= 160 && (targetType=="contact" || cmd.all { it.code in 32..126 })) { "Comando ou mensagem inválidos" }
   if(version==1) require(cmd.startsWith("ST300NTW;$serial;")) { "Formato antigo inválido" }
   require(p.getLong("expires_at")-p.getLong("created_at")==7200L) { "Validade deve ser 2 horas" }
   require(p.getLong("created_at") <= System.currentTimeMillis()/1000+60) { "Relógios divergentes" }
@@ -66,6 +68,15 @@ class JobStore(ctx: Context, name:String="gateway.sqlite"): SQLiteOpenHelper(ctx
  }
  @Synchronized fun recover() { val batches=mutableSetOf<String>();readableDatabase.rawQuery("SELECT DISTINCT batch_id FROM jobs WHERE state='sending' AND batch_id<>''",null).use{while(it.moveToNext())batches.add(it.getString(0))};writableDatabase.execSQL("UPDATE jobs SET state='indeterminate',detail='Processo interrompido durante envio' WHERE state='sending'");batches.forEach{stopBatch(it,"Lote interrompido após resultado incerto")} }
  @Synchronized fun authorizeCloud(id:String) { writableDatabase.execSQL("UPDATE jobs SET cloud_ack=1 WHERE id=? AND state='received'",arrayOf(id)) }
+ @Synchronized fun queueCloudReport(id:String,state:String,detail:String="") {
+  writableDatabase.execSQL("INSERT OR REPLACE INTO cloud_reports(id,state,detail,queued_at) VALUES(?,?,?,?)",arrayOf(id,state,detail.take(240),System.currentTimeMillis()/1000))
+ }
+ @Synchronized fun pendingCloudReports(): JSONArray {
+  val rows=JSONArray();readableDatabase.rawQuery("SELECT r.id,r.state,r.detail,j.payload FROM cloud_reports r JOIN jobs j ON j.id=r.id ORDER BY r.queued_at LIMIT 100",null).use {
+   while(it.moveToNext()) { val payload=JSONObject(it.getString(3));rows.put(JSONObject().put("id",it.getString(0)).put("state",it.getString(1)).put("detail",it.getString(2)).put("branch",payload.optString("branch"))) }
+  };return rows
+ }
+ @Synchronized fun clearCloudReport(id:String,state:String) { writableDatabase.delete("cloud_reports","id=? AND state=?",arrayOf(id,state)) }
  @Synchronized fun stopBatch(batch:String,detail:String) { writableDatabase.execSQL("UPDATE jobs SET state='failed',detail=?,updated=? WHERE state='received' AND batch_id=?",arrayOf(detail,System.currentTimeMillis()/1000,batch)) }
  @Synchronized fun waitForBatchGap(id:String,now:Long,lastSentAt:Long,lastBatch:String):Boolean { val job=get(id)?:return false;val batch=job.optString("batch_id");if(batch.isBlank()||batch!=lastBatch||lastSentAt<=0)return false;readableDatabase.rawQuery("SELECT delay_seconds FROM jobs WHERE batch_id=? AND state IN ('sent','delivered') ORDER BY updated DESC LIMIT 1",arrayOf(batch)).use{if(!it.moveToFirst())return false;return now-lastSentAt<it.getInt(0)*1000L} }
  @Synchronized fun next(cloud:Boolean=false): JSONObject? {

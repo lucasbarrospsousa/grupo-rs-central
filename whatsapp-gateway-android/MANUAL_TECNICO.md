@@ -2,7 +2,7 @@
 
 ## Identidade e função
 
-Aplicativo Android do Gateway Mobile do Grupo RS Central. O pacote reúne os serviços existentes de WhatsApp e SMS. A versão 1.4.0 aplica os ícones oficiais usados pela Central e reúne a operação do gateway SMS na aba Geral.
+Aplicativo Android do Gateway Mobile do Grupo RS Central. O pacote reúne os serviços existentes de WhatsApp e SMS. A versão 1.5.3 oferece seleção entre Grupo RS Central e Vendas SOS, login de plataforma com sessão cifrada pelo Android Keystore, preserva todos os cookies emitidos pelo login, usa o escopo `disparos` da SOS para os dois canais, consulta diagnóstica de SMS sem retirar itens da fila e confirmação do WhatsApp baseada em evidência de mensagem visível no aparelho.
 
 ## Navegação
 
@@ -23,11 +23,11 @@ O PIN não é recuperável pelo servidor. Se for esquecido, limpar os dados do a
 
 ## Versão e verificação
 
-- Versão: **1.4.0**, `versionCode` 6; package `br.com.sideracode.whatsappgateway`.
+- Versão: **1.5.3**, `versionCode` 10; package `br.com.sideracode.whatsappgateway`.
 - Compilação Android Gradle offline, em cópia temporária isolada: `assembleDebug` concluído.
-- QA visual realizado no telefone USB `2410FPCC5G`, Android API 36, em variante isolada `.qa`: Painel, WhatsApp, SMS, Geral e opções migradas do gateway. Nenhum gateway foi iniciado durante o QA.
-- APK **debug** 1.4.0 instalado sobre a versão 1.3.0 sem apagar os dados do aplicativo.
-- APK de entrega local: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.4.0-debug.apk`.
+- APK **debug** 1.5.3 instalado sobre a versão existente por `adb install -r`, preservando dados locais. SHA-256: `A653FC13902FC60C1F4B0C702E2C339D54DD02CD1A70DBD1734CEA794F007C56`.
+- Teste no telefone USB `2410FPCC5G`, Android API 36: seletor de plataformas renderizado; login Central confirmado; diagnóstico Central conectado; SMS pausado ao concluir. Login SOS validou credenciais, mas a conta não possui o escopo `disparos`, então o app bloqueou a operação. Não foi feito envio manual ao destinatário de teste.
+- APK de teste local: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.3-debug.apk`.
 
 ## Limites
 

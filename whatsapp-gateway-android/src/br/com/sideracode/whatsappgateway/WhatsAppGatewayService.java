@@ -28,8 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class WhatsAppGatewayService extends Service {
     private static final String TAG = "RS_WA_Service";
     private static final String CHANNEL_ID = "rs_gateway_channel";
-    private static final String WORKER_URL = "https://central-paralela.sinderacodofc.workers.dev/api/whatsapp";
-    private static final String TARGET_PKG = "com.whatsapp.w4b";
+    private PlatformSession platformSession;
 
     private PowerManager.WakeLock wakeLock;
     private WifiManager.WifiLock wifiLock;
@@ -40,6 +39,7 @@ public class WhatsAppGatewayService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        platformSession = new PlatformSession(this);
         createNotificationChannel();
 
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -57,6 +57,10 @@ public class WhatsAppGatewayService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!platformSession.getConnected()) {
+            stopSelf(startId);
+            return START_NOT_STICKY;
+        }
         startForeground(1001, buildNotification("Conectando à Central..."));
 
         if (!isRunning) {
@@ -78,6 +82,7 @@ public class WhatsAppGatewayService extends Service {
                 // Heartbeat travels with the poll: one request, same cadence.
 
                 // 2. Poll for pending job
+                flushPendingReports();
                 JSONObject job = pollJob();
                 retryDelayMs = 3000;
                 updateConnectionNotification("Central conectada; aguardando disparos");
@@ -104,9 +109,8 @@ public class WhatsAppGatewayService extends Service {
             JSONObject status = new JSONObject();
             status.put("ok", true);
             status.put("connected", true);
-            status.put("serial", Build.SERIAL != null ? Build.SERIAL : "RQ8WB02FN3P");
-            status.put("model", Build.MODEL + " (Galaxy A24)");
-            status.put("whatsappPackage", TARGET_PKG);
+            status.put("model", Build.MANUFACTURER + " " + Build.MODEL);
+            status.put("whatsappPackage", whatsappPackage());
             status.put("isFocused", true);
             status.put("mode", "apk-standalone-online");
             status.put("accessibilityActive", WhatsAppAccessibilityService.isServiceRunning());
@@ -120,9 +124,8 @@ public class WhatsAppGatewayService extends Service {
     private JSONObject pollJob() throws Exception {
             JSONObject payload = heartbeatPayload();
             payload.put("action", "gateway-poll");
-            String response = postJson(WORKER_URL, payload);
-            if (response != null && !response.isEmpty()) {
-                JSONObject json = new JSONObject(response);
+            JSONObject json = platformSession.request("/api/whatsapp", payload);
+            if (json != null) {
                 if (json.optBoolean("ok") && json.has("job") && !json.isNull("job")) {
                     return json.getJSONObject("job");
                 }
@@ -137,7 +140,7 @@ public class WhatsAppGatewayService extends Service {
         final String message = job.optString("message");
         final String digits = normalizePhone(rawPhone);
 
-        Log.i(TAG, "Iniciando processamento real do job " + jobId + " para " + name + " (" + digits + ")");
+        Log.i(TAG, "Processando pedido WhatsApp " + jobId + " no aparelho.");
 
         // Wake screen up for dispatch
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -154,10 +157,10 @@ public class WhatsAppGatewayService extends Service {
         final AtomicBoolean sendConfirmed = new AtomicBoolean(false);
         final AtomicReference<String> errorReason = new AtomicReference<>(null);
 
-        WhatsAppAccessibilityService.armSend(digits, new WhatsAppAccessibilityService.SendConfirmationListener() {
+        WhatsAppAccessibilityService.armSend(digits, message, new WhatsAppAccessibilityService.SendConfirmationListener() {
             @Override
             public void onSentConfirmed(String targetPhone) {
-                Log.i(TAG, "SUCESSO: Acessibilidade confirmou clique de envio no WhatsApp para: " + targetPhone);
+                Log.i(TAG, "Mensagem visível no chat após o envio pelo WhatsApp: " + targetPhone);
                 sendConfirmed.set(true);
                 latch.countDown();
             }
@@ -176,11 +179,11 @@ public class WhatsAppGatewayService extends Service {
 
             Intent intent = new Intent(Intent.ACTION_VIEW);
             intent.setData(Uri.parse(deepLink));
-            intent.setPackage(TARGET_PKG);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            intent.setPackage(whatsappPackage());
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
 
-            // Aguarda ate 18 segundos pela confirmacao REAL do clique do botao de envio
+            // Confirma somente quando a nova bolha com o texto exato aparece no chat.
             boolean completedInTime = latch.await(18, TimeUnit.SECONDS);
             WhatsAppAccessibilityService.disarmSend();
 
@@ -193,13 +196,10 @@ public class WhatsAppGatewayService extends Service {
                 report.put("confirmed", true);
 
                 JSONObject res = new JSONObject();
-                res.put("ok", true);
-                res.put("phone", digits);
-                res.put("name", name);
-                res.put("confirmedAt", System.currentTimeMillis());
+                res.put("whatsappPackage", whatsappPackage());
+                res.put("model", Build.MANUFACTURER + " " + Build.MODEL);
                 report.put("result", res);
-
-                Log.i(TAG, "Enviando feedback de SUCESSO para a Central (Job " + jobId + ")");
+                Log.i(TAG, "Bolha da mensagem confirmada no chat (Job " + jobId + ")");
                 recordOutcome("wa_sent");
             } else {
                 report.put("status", "failed");
@@ -213,12 +213,7 @@ public class WhatsAppGatewayService extends Service {
                 recordOutcome("wa_failed");
             }
 
-            // Post report feedback back to Central
-            try {
-                postJson(WORKER_URL, report);
-            } catch (Exception reportError) {
-                Log.e(TAG, "Falha ao reportar resultado para a Central", reportError);
-            }
+            submitReport(report);
 
         } catch (Exception e) {
             Log.e(TAG, "Excecao no processamento do job " + jobId + ": " + e.getMessage());
@@ -229,12 +224,42 @@ public class WhatsAppGatewayService extends Service {
                 report.put("status", "failed");
                 report.put("confirmed", false);
                 report.put("error", e.getMessage());
-                postJson(WORKER_URL, report);
+                submitReport(report);
                 recordOutcome("wa_failed");
             } catch (Exception ignored) {}
         } finally {
+            WhatsAppAccessibilityService.returnHome();
             if (screenLock != null && screenLock.isHeld()) {
                 screenLock.release();
+            }
+        }
+    }
+
+    private void submitReport(JSONObject report) {
+        String id = report.optString("id");
+        String key = "pending_" + id;
+        android.content.SharedPreferences pending = getSharedPreferences("wa_reports", MODE_PRIVATE);
+        try {
+            JSONObject response = platformSession.request("/api/whatsapp", report);
+            if (response.optBoolean("ok")) pending.edit().remove(key).apply();
+            else pending.edit().putString(key, report.toString()).apply();
+        } catch (Exception reportError) {
+            pending.edit().putString(key, report.toString()).apply();
+            Log.w(TAG, "Resultado WhatsApp guardado localmente para nova tentativa", reportError);
+        }
+    }
+
+    private void flushPendingReports() {
+        android.content.SharedPreferences pending = getSharedPreferences("wa_reports", MODE_PRIVATE);
+        for (String key : pending.getAll().keySet()) {
+            if (!key.startsWith("pending_")) continue;
+            String raw = pending.getString(key, null);
+            if (raw == null) continue;
+            try {
+                JSONObject response = platformSession.request("/api/whatsapp", new JSONObject(raw));
+                if (response.optBoolean("ok")) pending.edit().remove(key).apply();
+            } catch (Exception error) {
+                Log.w(TAG, "Resultado WhatsApp continua pendente de sincronização", error);
             }
         }
     }
@@ -255,31 +280,10 @@ public class WhatsAppGatewayService extends Service {
         prefs.edit().putInt(key, prefs.getInt(key, 0) + 1).apply();
     }
 
-    private String postJson(String targetUrl, JSONObject json) throws Exception {
-        URL url = new URL(targetUrl);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setConnectTimeout(6000);
-        conn.setReadTimeout(9000);
-        conn.setDoOutput(true);
-
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(json.toString().getBytes("UTF-8"));
-        }
-
-        int code = conn.getResponseCode();
-        if (code >= 200 && code < 300) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) sb.append(line);
-            br.close();
-            conn.disconnect();
-            return sb.toString();
-        }
-        conn.disconnect();
-        throw new java.io.IOException("Gateway HTTP " + code);
+    private String whatsappPackage() {
+        if (getPackageManager().getLaunchIntentForPackage("com.whatsapp.w4b") != null) return "com.whatsapp.w4b";
+        if (getPackageManager().getLaunchIntentForPackage("com.whatsapp") != null) return "com.whatsapp";
+        throw new IllegalStateException("Instale o WhatsApp Messenger ou Business neste aparelho.");
     }
 
     private void createNotificationChannel() {

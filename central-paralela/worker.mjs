@@ -237,12 +237,31 @@ export default {
       let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
       const android=!!request.headers.get('x-rs-gateway');if(android)input.branch=url.searchParams.get('branch');
       if(!['imperatriz','araguaina','acailandia','maraba'].includes(input.branch))return error(400,'Filial inválida.');
-      const token=android?request.headers.get('x-rs-gateway'):request.headers.get('authorization')?.replace(/^Bearer /,'');if(!/^[a-f0-9]{64}$/.test(token||''))return error(401,'Credencial inválida.');
+      let mobileUser='';
+      if(!android&&!request.headers.get('authorization')){
+        const cookie=request.headers.get('cookie')||'';
+        if(!cookie)return error(401,'Entre na plataforma para conectar o Gateway Mobile.');
+        const session=await env.AUTH.get(env.AUTH.idFromName('central-paralela-auth-v1')).fetch(new Request('https://auth.internal/api/session',{headers:{cookie}}));
+        if(!session.ok)return error(401,'Sessão expirada. Entre novamente na plataforma.');
+        const account=await session.json();
+        if(!account.permissions?.owner&&!account.permissions?.writes?.includes('sms'))return error(403,'Sem permissão para o gateway SMS.');
+        if(!account.branches?.some(branch=>branch.id===input.branch))return error(403,'Sem acesso a esta filial.');
+        mobileUser=account.username;
+      }
+      const token=android?request.headers.get('x-rs-gateway'):request.headers.get('authorization')?.replace(/^Bearer /,'');if(!mobileUser&&!/^[a-f0-9]{64}$/.test(token||''))return error(401,'Credencial inválida.');
+      if(mobileUser)return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,mobileUser,android:true})})));
       return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,token,android})})));
     }
     if(url.pathname==='/api/whatsapp'){
       let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
       if(['gateway-heartbeat','gateway-poll','gateway-report'].includes(input.action)){
+        const cookie=request.headers.get('cookie')||'';
+        if(!cookie)return error(401,'Entre na plataforma para conectar o Gateway Mobile.');
+        const session=await env.AUTH.get(env.AUTH.idFromName('central-paralela-auth-v1')).fetch(new Request('https://auth.internal/api/session',{headers:{cookie}}));
+        if(!session.ok)return error(401,'Sessão expirada. Entre novamente na plataforma.');
+        const account=await session.json();
+        if(!account.permissions?.owner&&!account.permissions?.writes?.some(scope=>['bulk','link'].includes(scope)))return error(403,'Sem permissão para o gateway WhatsApp.');
+        input.actor=account.username;
         return forwardWhatsapp(env,input);
       }
     }
@@ -270,19 +289,8 @@ export default {
         if(request.headers.get('x-csrf-token')!==user.csrf)return error(403,'Sessão de formulário inválida.');
         let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Consulta inválida.');}
         if(wa){
-          if(!user.permissions?.owner&&!user.permissions?.writes?.includes('stock'))return error(403,'Sem permissão para esta integração.');
-          if(input.action==='send'&&input.channel==='wa-web'){
-            return secure(Response.json({
-              ok:true,
-              status:'sent',
-              target:(input.target||input.name||input.phone||'Equipamentos Sos').trim(),
-              phone:input.phone||'',
-              name:input.name||'',
-              message:(input.message||'').trim()||'Olá eu estou mandando essa mensagem de teste não precisa ter retorno',
-              timestamp:new Date().toISOString(),
-              channel:'wa-web'
-            }));
-          }
+          if(!user.permissions?.owner&&!user.permissions?.writes?.some(scope=>['bulk','link'].includes(scope)))return error(403,'Sem permissão para o gateway WhatsApp.');
+          input.actor=user.username;
           return forwardWhatsapp(env,input);
         }
         if(jobs&&!user.permissions?.owner)return error(403,'Somente administrador.');

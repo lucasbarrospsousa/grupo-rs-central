@@ -1,13 +1,25 @@
 import {digest} from './auth-crypto.mjs';
 const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
 const allowed={dispatched:['received','failed','expired','indeterminate'],received:['received','sending','sent','failed','expired','indeterminate'],sending:['sending','sent','failed','indeterminate'],sent:['sent','delivered','failed'],delivered:['delivered'],failed:['failed'],expired:['expired'],indeterminate:['indeterminate']};
-export async function galaxyAndroid({input,token,document,users}){
+export async function galaxyAndroid({input,token,mobileUser='',document,users}){
  const doc=await document(input.branch),data=doc.data;
- if(!/^[a-f0-9]{64}$/.test(token||'')||data.gateway?.token_hash!==digest(token))fail(401,'Credencial inválida.');
+ if(mobileUser){
+  const account=(await users()).users.find(u=>u.active&&u.username===mobileUser);
+  if(!account||!account.branches?.some(b=>b.id===input.branch)||!(account.permissions?.owner||account.permissions?.writes?.includes('sms')))fail(403,'Conta sem permissão para esta filial ou gateway SMS.');
+ }else if(!/^[a-f0-9]{64}$/.test(token||'')||data.gateway?.token_hash!==digest(token))fail(401,'Credencial inválida.');
  const now=new Date().toISOString();
  const authorized=async job=>(await users()).users.some(u=>u.active&&u.username===job.actor&&u.branches?.some(b=>b.id===input.branch)&&(u.permissions?.owner||u.permissions?.writes?.includes('sms')));
+ if(input.action==='heartbeat'){
+  data.gateway.last_seen=now;
+  data.gateway.ready=false;
+  data.gateway.protocol='android-v3';
+  data.gateway.app_version=String(input.app_version||'0.0.0');
+  await doc.save();
+  const pending=(data.operations||[]).filter(job=>job.kind==='sms'&&job.state==='queued'&&(!mobileUser||job.actor===mobileUser)).length;
+  return {ok:true,connected:true,queued:pending,receivedAt:now};
+ }
  if(input.action==='report'){
-  const job=data.operations?.find(o=>o.id===input.id&&o.kind==='sms');
+  const job=data.operations?.find(o=>o.id===input.id&&o.kind==='sms'&&(!mobileUser||o.actor===mobileUser));
   if(!job||!allowed[job.state]?.includes(input.state))fail(409,'Transição inválida.');
   if(input.state==='received'&&(!data.gateway.ready||!await authorized(job)||Date.now()-Date.parse(job.created_at)>600000)){job.state='cancelled';job.message='Envio não autorizado.';}else{job.state=input.state;job.message='Retorno do Galaxy: '+input.state;}
   job.updated_at=now;await doc.save();return {ok:true,state:job.state};
@@ -17,9 +29,9 @@ export async function galaxyAndroid({input,token,document,users}){
  Object.assign(data.gateway,{last_seen:now,ready:input.ready===true,protocol:supportsBatch?'android-v3':'android-v2',app_version:appVersion});
  const jobs=[];
  // Existing IDs request receipts only. Never retransmit a dispatched payload.
- for(const job of data.operations||[])if(job.kind==='sms'&&['dispatched','received','sending','sent'].includes(job.state)&&Date.now()-Date.parse(job.created_at)<7200000)jobs.push({id:job.id,state:job.state});
+ for(const job of data.operations||[])if(job.kind==='sms'&&(!mobileUser||job.actor===mobileUser)&&['dispatched','received','sending','sent'].includes(job.state)&&Date.now()-Date.parse(job.created_at)<7200000)jobs.push({id:job.id,state:job.state});
  if(data.gateway.ready){
-  const queued=(data.operations||[]).filter(o=>o.kind==='sms'&&o.state==='queued');
+  const queued=(data.operations||[]).filter(o=>o.kind==='sms'&&o.state==='queued'&&(!mobileUser||o.actor===mobileUser));
   if(queued.length){
    const first=queued[0],batch=first.batch_id?queued.filter(o=>o.batch_id===first.batch_id):[first];
    const deliveries=supportsBatch?batch:[first];
