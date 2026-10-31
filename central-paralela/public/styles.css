@@ -641,6 +641,7 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .operation-hero.whatsapp-hero:before{content:"";position:absolute;inset:0 0 0 40%;z-index:0;background:url('/assets/central-paralela-whatsapp-hero.webp') no-repeat right center;background-size:cover;mask-image:linear-gradient(90deg,transparent 0%,#000 47%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 47%);pointer-events:none}
 .operation-hero.whatsapp-hero .hero-device{display:none!important}
 .operation-hero.whatsapp-hero .hero-copy{position:relative;z-index:2;max-width:58%}
+.operation-hero.whatsapp-hero h1{color:#fff}
 @media(max-width:760px){.operation-hero.whatsapp-hero:before{inset:140px 0 0 0;mask-image:linear-gradient(180deg,transparent 0%,#000 30%);opacity:.85}.operation-hero.whatsapp-hero .hero-copy{max-width:100%}}
 .comms-separator{margin-top:14px}
 .icon-chat{display:inline-flex;align-items:center;justify-content:center;font-size:14px}

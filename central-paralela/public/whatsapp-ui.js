@@ -172,7 +172,7 @@
       hero.classList.remove('maintenance-hero', 'warehouse-hero', 'users-hero');
       hero.classList.add('compact', 'whatsapp-hero');
       const eye = hero.querySelector('.eyebrow');
-      if (eye) eye.textContent = 'CENTRAL DE OPERAÇÕES · COMUNICAÇÃO';
+      if (eye) eye.textContent = 'COMUNICAÇÕES';
       hero.querySelector('.wh-preview-tag')?.remove();
     }
     const ha = document.getElementById('hero-actions');
@@ -180,9 +180,9 @@
     const crumb = document.getElementById('crumb');
     if (crumb) crumb.textContent = 'Disparos WhatsApp';
     const pageTitle = document.getElementById('page-title');
-    if (pageTitle) pageTitle.textContent = 'Disparos WhatsApp · Gateway Mobile';
+    if (pageTitle) pageTitle.textContent = 'Disparos WhatsApp';
     const pageDesc = document.getElementById('page-description');
-    if (pageDesc) pageDesc.textContent = 'Disparos controlados com alternância de mensagens e intervalo dinâmico anti-bloqueio (1, 3 e 5 min).';
+    if (pageDesc) pageDesc.textContent = '';
     const msg = document.getElementById('dashboard-message');
     if (msg) msg.textContent = '';
 
