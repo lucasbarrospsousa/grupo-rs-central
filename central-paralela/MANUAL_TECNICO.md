@@ -244,3 +244,6 @@ A aba Aparelhos usa o sprite raster de microchip já empregado em Chips, renderi
 
 ### Banner de Disparos WhatsApp com imagem fornecida — 31/10/2026
 A arte central-paralela-whatsapp-hero.webp substitui a imagem anterior. Recorte panorâmico da imagem fornecida, sem texto incorporado; celular e painéis abstratos de mensagem à direita, espaço escuro para o título à esquerda. Banner usa 40% para base sólida e 60% para imagem com fade horizontal; no celular, o fade passa a vertical. A chamada do banner fica reduzida a “COMUNICAÇÕES” em laranja e “Disparos WhatsApp” em branco puro, sem descrição complementar. Ações, navegação e fluxo do gateway permanecem iguais.
+
+### Banner de Disparos SMS com imagem fornecida — 31/10/2026
+A arte gerada pelo usuário substitui a ilustração CSS anterior. Desktop reserva 40% à esquerda para a base escura e texto, e usa a imagem nos 60% à direita com transição gradual. Em celular, a composição passa ao fade vertical para preservar a leitura. O mockup CSS antigo do telefone é ocultado para evitar sobreposição. Funcionalidade de envio e regras operacionais não mudam.
