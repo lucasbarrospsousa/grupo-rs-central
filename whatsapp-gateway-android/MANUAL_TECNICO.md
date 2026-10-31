@@ -34,8 +34,9 @@ O PIN não é recuperável pelo servidor. Se for esquecido, limpar os dados do a
 - `versionCode` 12; o status agora distingue o serviço conectado do componente habilitado nas Configurações do Android, atualiza ao retornar ao app e não mostra “pendente” quando o Android ainda lista o componente habilitado.
 - O início do gateway valida a sessão da plataforma e a conexão real do serviço de acessibilidade. Se faltar uma condição, explica o motivo e oferece abrir as Configurações; ao iniciar, confirma o estado ativo em vez de exibir sucesso imediato.
 - Compilação `assembleDebug` offline bem-sucedida em cópia temporária isolada. Identidade conferida com `aapt`, assinatura com `apksigner` e alinhamento com `zipalign`. SHA-256 do APK: `561C1825BAE03C723153D4ADFF17529F6DF9E10C9561739AD149D6C4EA2E4297`.
-- APK gerado em `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.5-debug.apk`. Não instalado nesta validação: o serviço WhatsApp já estava ativo no telefone e substituí-lo encerraria esse processo, podendo interromper a fila. Nenhum disparo foi iniciado pelo teste.
-- Durante o diagnóstico, o Android listava o componente de acessibilidade como habilitado, mas sem serviço conectado e marcado como encerrado pelo sistema. É necessário reativá-lo nas Configurações do aparelho para retomar a conexão.
+- APK gerado em `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.5-debug.apk` e instalado após solicitação do usuário com `adb install -r`, preservando os dados locais. O Android confirmou `versionCode` 12 / `versionName` 1.5.5. O certificado do APK novo corresponde ao instalado anteriormente.
+- Após a atualização, o Android mostrou o serviço de acessibilidade conectado e sem serviços encerrados. A substituição deixou o poller WhatsApp parado; ele não foi reiniciado para evitar retirar itens da fila sem uma solicitação explícita. Nenhum disparo foi feito.
+- APK assinado para teste debug; não é distribuição de produção assinada por certificado de release.
 
 ## Limites
 
