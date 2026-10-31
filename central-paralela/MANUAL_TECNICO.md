@@ -228,3 +228,6 @@ A imagem panorâmica `central-paralela-manutencoes-hero.jpg` substitui a versão
 
 ### Banner de Rastreamento com arte fornecida — 31/10/2026
 A imagem panorâmica `central-paralela-rastreamento-hero.jpg` substitui a arte anterior. A faixa azul-marinho à esquerda preserva o título e o subtítulo HTML; mapa, módulo rastreador e marcador ocupam a direita no padrão azul e âmbar do Dashboard. Teste dos estados de banner via Playwright com APIs simuladas; captura visual conferida.
+
+### Mesclagem dos banners operacionais — 31/10/2026
+Dashboard, Rastreamento e Manutenções usam uma máscara alfa em múltiplas etapas com fade longo, para a arte se fundir gradualmente ao fundo sólido. Teste visual sintético e verificação de responsividade pela suíte `test-ui.mjs`.
