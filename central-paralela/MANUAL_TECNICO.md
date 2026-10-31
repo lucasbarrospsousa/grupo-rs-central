@@ -225,3 +225,6 @@ Validação: `test-ui.mjs`, `test-warehouse-ui.mjs`, `test-maintenance-ui.mjs`, 
 
 ### Banner de Manutenções com arte fornecida — 31/10/2026
 A imagem panorâmica `central-paralela-manutencoes-hero.jpg` substitui a versão anterior do banner. A faixa escura à esquerda preserva o espaço para título e subtítulo HTML; o produto e as ferramentas ocupam a área direita, no mesmo padrão azul e âmbar do Dashboard. Testes da aba e dos estados de banner com Playwright e APIs simuladas; captura visual conferida.
+
+### Banner de Rastreamento com arte fornecida — 31/10/2026
+A imagem panorâmica `central-paralela-rastreamento-hero.jpg` substitui a arte anterior. A faixa azul-marinho à esquerda preserva o título e o subtítulo HTML; mapa, módulo rastreador e marcador ocupam a direita no padrão azul e âmbar do Dashboard. Teste dos estados de banner via Playwright com APIs simuladas; captura visual conferida.
