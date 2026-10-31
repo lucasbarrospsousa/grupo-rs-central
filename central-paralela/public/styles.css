@@ -142,7 +142,7 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .swap-success-badge{display:inline-block;padding:3px 8px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.4);border-radius:6px;color:#4ade80;font-weight:700;font-size:12.5px}
 /* Approved maintenance artwork; live text remains accessible. */
 .operation-hero.maintenance-hero{min-height:240px;border-color:#b57b20;background:linear-gradient(110deg,#101e2d,#071727);isolation:isolate}
-.maintenance-hero:before{content:"";position:absolute;inset:0 0 0 44%;z-index:-1;background:url('/assets/maintenance-hero.png') no-repeat 98% 50%;background-size:auto 150%;mask-image:linear-gradient(90deg,transparent 20%,#000 32%)}
+.maintenance-hero:before{content:"";position:absolute;inset:0 0 0 44%;z-index:-1;background:url('/assets/central-paralela-manutencoes-hero.jpg') no-repeat 98% 50%;background-size:auto 150%;mask-image:linear-gradient(90deg,transparent 20%,#000 32%)}
 .maintenance-hero .hero-device{display:none}
 .maintenance-hero .hero-copy{max-width:54%;padding:14px 0}
 .maintenance-hero .eyebrow{color:#b8c9dc;letter-spacing:1px}
@@ -784,7 +784,7 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .operation-hero[data-page="dashboard"]{min-height:244px!important;background:linear-gradient(110deg,#0c1d2d,#0b1723)!important}
 .operation-hero[data-page="dashboard"]:before{inset:0 0 0 34%;background-image:url('/assets/hero-dashboard.png');background-size:auto 100%;mask-image:linear-gradient(90deg,transparent 2%,#000 42%);-webkit-mask-image:linear-gradient(90deg,transparent 2%,#000 42%)}
 .operation-hero[data-page="tracking"]:before{inset:0 0 0 28%;background-image:url('/assets/tracking-map-hero.png');background-position:right center;background-size:auto 100%;mask-image:linear-gradient(90deg,transparent 0%,#000 47%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 47%)}
-.operation-hero[data-page="maintenance"]:before{inset:0 0 0 34%;background-image:url('/assets/maintenance-hero.png');background-position:right 52%;background-size:auto 144%;mask-image:linear-gradient(90deg,transparent 60%,#000 80%);-webkit-mask-image:linear-gradient(90deg,transparent 60%,#000 80%)}
+.operation-hero[data-page="maintenance"]:before{inset:0 0 0 34%;background-image:url('/assets/central-paralela-manutencoes-hero.jpg');background-position:right 52%;background-size:auto 144%;mask-image:linear-gradient(90deg,transparent 0%,#000 47%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 47%)}
 .operation-hero[data-page="warehouse-chips"]:before{inset:0 0 0 35%;background-image:url('/assets/warehouse-chips.png');background-position:right 53%;background-size:auto 150%}
 .operation-hero[data-page="warehouse-devices"]:before{inset:0 0 0 35%;background-image:url('/assets/warehouse-devices.png');background-position:right 54%;background-size:auto 155%}
 .operation-hero[data-page="warehouse-values"]:before{inset:0 0 0 35%;background-image:url('/assets/warehouse-values.png');background-position:right 52%;background-size:auto 152%}

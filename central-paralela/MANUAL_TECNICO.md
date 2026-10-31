@@ -224,4 +224,4 @@ As artes dos cards do Dashboard e Rastreamento foram ampliadas em 30% e avançam
 Validação: `test-ui.mjs`, `test-warehouse-ui.mjs`, `test-maintenance-ui.mjs`, `test-users-ui.mjs` e `test-sms-ui.mjs` aprovados com APIs simuladas e chamadas externas bloqueadas. Revisadas capturas desktop do Dashboard, Rastreamento e Chips.
 
 ### Banner de Manutenções com arte fornecida — 31/10/2026
-A arte recebida substitui a imagem anterior do banner. A imagem não contém a cópia da página; o título e subtítulo continuam em HTML. A máscara da arte foi ajustada para mesclar a borda ao fundo no padrão do Dashboard. Teste da aba com Playwright e APIs simuladas; captura visual conferida.
+A imagem panorâmica `central-paralela-manutencoes-hero.jpg` substitui a versão anterior do banner. A faixa escura à esquerda preserva o espaço para título e subtítulo HTML; o produto e as ferramentas ocupam a área direita, no mesmo padrão azul e âmbar do Dashboard. Testes da aba e dos estados de banner com Playwright e APIs simuladas; captura visual conferida.
