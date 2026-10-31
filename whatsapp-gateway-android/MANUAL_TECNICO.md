@@ -2,14 +2,14 @@
 
 ## Identidade e função
 
-Aplicativo Android do Gateway Mobile do Grupo RS Central. O pacote reúne os serviços existentes de WhatsApp e SMS. A versão 1.3.0 adiciona uma interface de dashboard em grafite, azul e âmbar.
+Aplicativo Android do Gateway Mobile do Grupo RS Central. O pacote reúne os serviços existentes de WhatsApp e SMS. A versão 1.4.0 aplica os ícones oficiais usados pela Central e reúne a operação do gateway SMS na aba Geral.
 
 ## Navegação
 
-- **Painel:** estado dos dois gateways e contagens locais resumidas.
+- **Painel:** estado dos dois gateways e contagens locais resumidas, com ícone vetorial no padrão visual da Central.
 - **WhatsApp:** estado do serviço e acessibilidade, contadores locais e atalho para as configurações de acessibilidade do Android.
-- **SMS:** estado da conexão, histórico local agregado e acesso às configurações de filial, chip e gateway.
-- **Geral:** bloqueio por PIN, opção para manter a tela acesa enquanto o painel está visível e autenticação opcional por impressão digital.
+- **SMS:** estado da conexão e histórico local agregado. O ícone da aba usa o mesmo arquivo WebP da navegação do site Central.
+- **Geral:** bloqueio por PIN, opção para manter a tela acesa enquanto o painel está visível, autenticação opcional por impressão digital e todas as configurações do gateway SMS: permissões, bases, chip, serviço, execução com tela apagada, pareamento e autorização de envio real.
 
 Os contadores não mostram destinatários, números ou conteúdo das mensagens. O histórico detalhado de WhatsApp continua na Central. O painel resume os estados disponíveis no banco local de SMS.
 
@@ -23,11 +23,11 @@ O PIN não é recuperável pelo servidor. Se for esquecido, limpar os dados do a
 
 ## Versão e verificação
 
-- Versão: **1.3.0**, `versionCode` 5; package `br.com.sideracode.whatsappgateway`.
+- Versão: **1.4.0**, `versionCode` 6; package `br.com.sideracode.whatsappgateway`.
 - Compilação Android Gradle offline, em cópia temporária isolada: `assembleDebug` concluído.
-- QA realizado no telefone USB `2410FPCC5G`, Android API 36, em variante isolada `.qa`: primeira configuração do PIN; bloqueio ao voltar do app; Painel, WhatsApp, SMS e Geral; alternância da tela acesa; abertura do prompt biométrico. A variante QA foi removida após o teste.
-- Instalado no telefone o APK final **debug**. O app ficou na tela inicial de criação do PIN. Nenhum gateway foi iniciado e nenhum disparo real foi feito.
-- APK de entrega local: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.3.0-debug.apk`.
+- QA visual realizado no telefone USB `2410FPCC5G`, Android API 36, em variante isolada `.qa`: Painel, WhatsApp, SMS, Geral e opções migradas do gateway. Nenhum gateway foi iniciado durante o QA.
+- APK **debug** 1.4.0 instalado sobre a versão 1.3.0 sem apagar os dados do aplicativo.
+- APK de entrega local: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.4.0-debug.apk`.
 
 ## Limites
 
