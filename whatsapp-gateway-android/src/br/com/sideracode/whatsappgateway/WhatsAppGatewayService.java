@@ -34,6 +34,7 @@ public class WhatsAppGatewayService extends Service {
     private PowerManager.WakeLock wakeLock;
     private WifiManager.WifiLock wifiLock;
     private boolean isRunning = false;
+    public static volatile boolean serviceRunning = false;
     private Thread workerThread;
 
     @Override
@@ -60,6 +61,7 @@ public class WhatsAppGatewayService extends Service {
 
         if (!isRunning) {
             isRunning = true;
+            serviceRunning = true;
             workerThread = new Thread(this::runLoop);
             workerThread.start();
         }
@@ -198,6 +200,7 @@ public class WhatsAppGatewayService extends Service {
                 report.put("result", res);
 
                 Log.i(TAG, "Enviando feedback de SUCESSO para a Central (Job " + jobId + ")");
+                recordOutcome("wa_sent");
             } else {
                 report.put("status", "failed");
                 report.put("confirmed", false);
@@ -207,10 +210,15 @@ public class WhatsAppGatewayService extends Service {
                 }
                 report.put("error", err);
                 Log.w(TAG, "Enviando feedback de FALHA para a Central: " + err);
+                recordOutcome("wa_failed");
             }
 
             // Post report feedback back to Central
-            postJson(WORKER_URL, report);
+            try {
+                postJson(WORKER_URL, report);
+            } catch (Exception reportError) {
+                Log.e(TAG, "Falha ao reportar resultado para a Central", reportError);
+            }
 
         } catch (Exception e) {
             Log.e(TAG, "Excecao no processamento do job " + jobId + ": " + e.getMessage());
@@ -222,6 +230,7 @@ public class WhatsAppGatewayService extends Service {
                 report.put("confirmed", false);
                 report.put("error", e.getMessage());
                 postJson(WORKER_URL, report);
+                recordOutcome("wa_failed");
             } catch (Exception ignored) {}
         } finally {
             if (screenLock != null && screenLock.isHeld()) {
@@ -239,6 +248,11 @@ public class WhatsAppGatewayService extends Service {
             digits = digits.substring(0, 4) + "9" + digits.substring(4);
         }
         return digits;
+    }
+
+    private void recordOutcome(String key) {
+        android.content.SharedPreferences prefs = getSharedPreferences("wa_reports", MODE_PRIVATE);
+        prefs.edit().putInt(key, prefs.getInt(key, 0) + 1).apply();
     }
 
     private String postJson(String targetUrl, JSONObject json) throws Exception {
@@ -287,7 +301,7 @@ public class WhatsAppGatewayService extends Service {
     }
 
     private Notification buildNotification(String text) {
-        Intent notificationIntent = new Intent(this, MainActivity.class);
+        Intent notificationIntent = new Intent(this, DashboardActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this, 0, notificationIntent,
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0
@@ -310,6 +324,7 @@ public class WhatsAppGatewayService extends Service {
     public void onDestroy() {
         super.onDestroy();
         isRunning = false;
+        serviceRunning = false;
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
     }

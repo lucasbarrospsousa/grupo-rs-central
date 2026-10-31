@@ -31,7 +31,7 @@ class GatewayService:Service() {
   super.onCreate()
   val nm=getSystemService(NotificationManager::class.java)
   nm.createNotificationChannel(NotificationChannel("gateway","Gateway SMS ativo",NotificationManager.IMPORTANCE_LOW))
-  val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
+  val open=PendingIntent.getActivity(this,0,Intent(this,br.com.sideracode.whatsappgateway.DashboardActivity::class.java),PendingIntent.FLAG_IMMUTABLE)
   val pause=PendingIntent.getService(this,1,Intent(this,GatewayService::class.java).setAction(PAUSE),PendingIntent.FLAG_IMMUTABLE)
   startForeground(1,Notification.Builder(this,"gateway").setContentTitle("RS SMS Gateway")
    .setContentText("Ativo com a tela apagada • Central online").setSmallIcon(android.R.drawable.ic_dialog_email).setContentIntent(open)
