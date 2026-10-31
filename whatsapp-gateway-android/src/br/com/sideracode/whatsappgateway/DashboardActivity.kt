@@ -333,6 +333,7 @@ class DashboardActivity : Activity() {
         metric("Gateway", if (WhatsAppGatewayService.serviceRunning) "ATIVO" else "INATIVO", "Serviço de comunicação com a Central", amber)
         metric("Acessibilidade", if (WhatsAppAccessibilityService.isServiceRunning()) "CONECTADA" else "PENDENTE", "Necessária para confirmar o envio no WhatsApp Business", blue)
         metric("Resultado registrado", "${waCount("wa_sent")} enviados", "${waCount("wa_failed")} falhas desde a instalação desta versão", green)
+        action("Verificar conexão e fila", amber) { checkSafeQueues() }
         action("Iniciar gateway WhatsApp", amber) { startForegroundService(Intent(this, WhatsAppGatewayService::class.java)); body.postDelayed({ renderTab() }, 400) }
         action("Configurar acessibilidade", blue) { startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
         infoCard("Privacidade do relatório", "Este painel mostra apenas totais. Destinatários e conteúdo não são guardados aqui; o histórico de campanhas está na Central.", amber)
@@ -344,11 +345,41 @@ class DashboardActivity : Activity() {
         metric("Gateway SMS", if (GatewayService.active) "ATIVO" else "PAUSADO", "Proteção de processamento: ${if (GatewayService.cpuProtected) "ativa" else "pausada"}", blue)
         metric("Central", CloudGateway.state, "Última confirmação: ${if (CloudGateway.lastOk > 0) android.text.format.DateFormat.format("dd/MM HH:mm", CloudGateway.lastOk) else "sem conexão registrada"}", amber)
         metric("Histórico local", "${stats.values.sum()} pedidos", "${stats["received"] ?: 0} pendentes · ${stats["sent"] ?: 0} enviados · ${stats["failed"] ?: 0} falhas", green)
+        action("Verificar conexão e fila", amber) { checkSafeQueues() }
         action(if (GatewayService.active) "Pausar gateway SMS" else "Ativar gateway SMS", blue) {
             if (GatewayService.active) stopService(Intent(this, GatewayService::class.java)) else startForegroundService(Intent(this, GatewayService::class.java))
             body.postDelayed({ renderTab() }, 450)
         }
         infoCard("Envio em segundo plano", "O gateway SMS é um serviço foreground com proteção de CPU. A tela de login não interrompe a fila. O envio real continua sujeito à permissão, ao chip e à autorização já configurada.", blue)
+    }
+
+    /** Reads platform connection and queue counts only while both pollers are stopped. */
+    private fun checkSafeQueues() {
+        if (GatewayService.active || WhatsAppGatewayService.serviceRunning) {
+            Toast.makeText(this, "Pause os gateways SMS e WhatsApp antes de verificar a fila.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!platformSession.connected) {
+            Toast.makeText(this, "Conecte-se à plataforma antes do diagnóstico.", Toast.LENGTH_LONG).show()
+            return
+        }
+        infoCard("Verificando…", "Consulta somente leitura. Nenhum item será retirado da fila.", amber)
+        Thread {
+            val result = runCatching {
+                val sms = platformSession.smsQueueStatus()
+                val whatsapp = platformSession.whatsappQueueStatus()
+                val smsQueued = if (sms.optJSONArray("branches") != null) {
+                    val branches = sms.optJSONArray("branches")!!
+                    (0 until branches.length()).sumOf { branches.optJSONObject(it)?.optInt("queued", 0) ?: 0 }
+                } else sms.optInt("queued", sms.optInt("pending", 0))
+                val waQueued = whatsapp.optInt("queued", whatsapp.optInt("pending", 0))
+                val connected = sms.optBoolean("connected", sms.optBoolean("ok", true)) &&
+                    whatsapp.optBoolean("connected", whatsapp.optBoolean("ok", true))
+                "${platformSession.platform?.label ?: "Plataforma"}: ${if (connected) "conectada" else "sem conexão confirmada"}. " +
+                    "Fila SMS: $smsQueued; WhatsApp: $waQueued. Consulta não consumiu disparos."
+            }.fold({ it }, { "Não foi possível confirmar conexão e filas. ${it.message ?: "Falha de comunicação."}" })
+            runOnUiThread { infoCard("Diagnóstico seguro", result, if (result.startsWith("Não foi")) 0xFFFF6B6B.toInt() else green) }
+        }.start()
     }
 
     private fun settingsTab() {
@@ -564,6 +595,7 @@ class DashboardActivity : Activity() {
             title.contains("revogar", true) -> "revoke"
             title.contains("PIN", true) -> "lock"
             title.contains("acessibilidade", true) -> "message"
+            title.contains("verificar conexão", true) -> "cloud"
             else -> "settings"
         }
         val button = LinearLayout(this).apply {

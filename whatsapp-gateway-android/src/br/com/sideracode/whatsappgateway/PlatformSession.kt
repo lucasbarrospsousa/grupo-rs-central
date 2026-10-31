@@ -99,6 +99,35 @@ class PlatformSession(context: Context) {
         request(path, body)
     }
 
+    /** Safe diagnostics: heartbeats and status reads only; neither endpoint dequeues work. */
+    fun smsQueueStatus(): JSONObject {
+        val target = platform ?: throw IllegalStateException("Plataforma não conectada.")
+        if (target == Platform.VENDAS) {
+            return request(target, "/api/mobile-gateway", JSONObject().put("action", "gateway-heartbeat").put("ready", false),
+                decrypt(prefs.getString("session_blob", "") ?: "").optString("cookie"),
+                decrypt(prefs.getString("session_blob", "") ?: "").optString("csrf")).second
+        }
+        val session = decrypt(prefs.getString("session_blob", "") ?: "")
+        val counts = org.json.JSONArray()
+        for (branch in branchIds.filter { it in setOf("imperatriz", "araguaina", "acailandia", "maraba") }) {
+            val result = request(target, "/api/galaxy?branch=$branch",
+                JSONObject().put("action", "heartbeat").put("branch", branch).put("ready", false).put("app_version", "1.5.4"),
+                session.optString("cookie"), session.optString("csrf")).second
+            counts.put(JSONObject().put("branch", branch).put("queued", result.optInt("queued", 0)))
+        }
+        return JSONObject().put("ok", true).put("connected", true).put("branches", counts)
+    }
+
+    fun whatsappQueueStatus(): JSONObject {
+        val target = platform ?: throw IllegalStateException("Plataforma não conectada.")
+        val session = decrypt(prefs.getString("session_blob", "") ?: "")
+        return if (target == Platform.CENTRAL) {
+            request(target, "/api/whatsapp", JSONObject().put("action", "status"), session.optString("cookie"), session.optString("csrf")).second
+        } else {
+            request(target, "/api/whatsapp", null, session.optString("cookie"), session.optString("csrf")).second
+        }
+    }
+
     @Synchronized
     fun clear() {
         prefs.edit().clear().commit()

@@ -2,7 +2,7 @@
 
 ## Identidade e função
 
-Aplicativo Android do Gateway Mobile do Grupo RS Central. O pacote reúne os serviços existentes de WhatsApp e SMS. A versão 1.5.3 oferece seleção entre Grupo RS Central e Vendas SOS, login de plataforma com sessão cifrada pelo Android Keystore, preserva todos os cookies emitidos pelo login, usa o escopo `disparos` da SOS para os dois canais, consulta diagnóstica de SMS sem retirar itens da fila e confirmação do WhatsApp baseada em evidência de mensagem visível no aparelho.
+Aplicativo Android do Gateway Mobile do Grupo RS Central. O pacote reúne os serviços existentes de WhatsApp e SMS. A versão 1.5.4 oferece seleção entre Grupo RS Central e Vendas SOS, login de plataforma com sessão cifrada pelo Android Keystore, preserva todos os cookies emitidos pelo login, usa o escopo `disparos` da SOS para os dois canais, apresenta diagnóstico seguro de conexão e filas com os dois serviços pausados e confirma WhatsApp somente após evidência de mensagem visível no aparelho.
 
 ## Navegação
 
@@ -23,11 +23,12 @@ O PIN não é recuperável pelo servidor. Se for esquecido, limpar os dados do a
 
 ## Versão e verificação
 
-- Versão: **1.5.3**, `versionCode` 10; package `br.com.sideracode.whatsappgateway`.
+- Versão: **1.5.4**, `versionCode` 11; package `br.com.sideracode.whatsappgateway`.
 - Compilação Android Gradle offline, em cópia temporária isolada: `assembleDebug` concluído.
-- APK **debug** 1.5.3 instalado sobre a versão existente por `adb install -r`, preservando dados locais. SHA-256: `A653FC13902FC60C1F4B0C702E2C339D54DD02CD1A70DBD1734CEA794F007C56`.
-- Teste no telefone USB `2410FPCC5G`, Android API 36: seletor de plataformas renderizado; login Central confirmado; diagnóstico Central conectado; SMS pausado ao concluir. Login SOS validou credenciais, mas a conta não possui o escopo `disparos`, então o app bloqueou a operação. Não foi feito envio manual ao destinatário de teste.
-- APK de teste local: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.3-debug.apk`.
+- APK **debug** 1.5.4 instalado sobre a versão existente por `adb install -r`, preservando dados locais. SHA-256: `A3B736A821B177D1ABA143FA7E88737065CBCF6AFBDA348AB4E5BCD439AB0593`.
+- APK de teste local: `C:/Users/lugan/Downloads/RS-Gateway-Mobile-1.5.4-debug.apk`.
+- Telefone USB `2410FPCC5G`, Android API 36: painel e abas de disparos renderizados; gateways mantidos pausados. O login SOS foi repetido após reiniciar o app e aceita as credenciais, mas `/api/auth/me` ainda retorna `writes` vazio para `thaoemerson`; o cliente recusa corretamente o pareamento dos canais sem o escopo gravável `disparos`.
+- Não foi feito envio real. O diagnóstico seguro está presente no app; a verificação ponta a ponta das filas e os envios ficam pendentes até o pareamento SOS ser autorizado pela permissão efetiva.
 
 ## Limites
 
