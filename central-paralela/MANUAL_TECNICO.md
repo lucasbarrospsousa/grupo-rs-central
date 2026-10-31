@@ -235,3 +235,6 @@ Dashboard, Rastreamento e Manutenções dividem a largura dos banners em 40% par
 ### Cores dos botões de navegação — 31/10/2026
 Ícones das abas ficam laranja e rótulos brancos no estado normal. Ao passar o mouse, focar pelo teclado ou selecionar uma aba, o rótulo fica laranja e o ícone branco.
 O mesmo padrão cobre os três atalhos de Armazém e a aba injetada de Usuários e permissões, incluindo os sprites raster específicos dessas abas.
+
+### Identidade dos atalhos WhatsApp e SMS — 31/10/2026
+Os atalhos de comunicação usam ícones WebP raster de 512 × 512 do [WhatsApp Messenger](https://play.google.com/store/apps/details?id=com.whatsapp) e do [Google Messages](https://play.google.com/store/apps/details?id=com.google.android.apps.messaging), obtidos das listagens oficiais no Google Play. WhatsApp usa rótulo verde e realce verde com texto branco em hover/seleção; SMS usa rótulo azul e realce azul com texto branco. Os ícones mantêm as cores originais do aplicativo. `test-comms-nav-icons.mjs` verifica a resolução dos arquivos, o tamanho e alinhamento de exibição, além das cores normal, hover e seleção.
