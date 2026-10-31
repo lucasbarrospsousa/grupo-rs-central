@@ -638,7 +638,7 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 @media(max-width:760px){.operation-hero.users-hero:before{inset:140px 0 0 0;mask-image:linear-gradient(180deg,transparent 0%,#000 30%);-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%);opacity:.85}.operation-hero.users-hero .hero-copy{max-width:100%}}
 
 .operation-hero.whatsapp-hero{position:relative;overflow:hidden;border-color:rgba(37,211,102,.45);background:linear-gradient(110deg,#091319 0%,#07121b 100%)}
-.operation-hero.whatsapp-hero:before{content:"";position:absolute;inset:0 0 0 38%;z-index:0;background:url('/assets/whatsapp-hero.png') no-repeat 100% 50%;background-size:cover;mask-image:linear-gradient(90deg,transparent 0%,#000 25%);pointer-events:none}
+.operation-hero.whatsapp-hero:before{content:"";position:absolute;inset:0 0 0 40%;z-index:0;background:url('/assets/central-paralela-whatsapp-hero.webp') no-repeat right center;background-size:cover;mask-image:linear-gradient(90deg,transparent 0%,#000 47%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 47%);pointer-events:none}
 .operation-hero.whatsapp-hero .hero-device{display:none!important}
 .operation-hero.whatsapp-hero .hero-copy{position:relative;z-index:2;max-width:58%}
 @media(max-width:760px){.operation-hero.whatsapp-hero:before{inset:140px 0 0 0;mask-image:linear-gradient(180deg,transparent 0%,#000 30%);opacity:.85}.operation-hero.whatsapp-hero .hero-copy{max-width:100%}}
@@ -790,7 +790,7 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .operation-hero[data-page="warehouse-values"]:before{inset:0 0 0 35%;background-image:url('/assets/warehouse-values.png');background-position:right 52%;background-size:auto 152%}
 .operation-hero[data-page="warehouse-chips"] .hero-copy,.operation-hero[data-page="warehouse-devices"] .hero-copy,.operation-hero[data-page="warehouse-values"] .hero-copy{max-width:58%!important}
 .operation-hero[data-page="users"]:before{inset:0 0 0 34%;background-image:url('/assets/users-hero.png');background-position:right center;background-size:auto 112%;mask-image:linear-gradient(90deg,transparent 0%,#000 48%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 48%)}
-.operation-hero[data-page="whatsapp"]:before{inset:0 0 0 34%;background-image:url('/assets/whatsapp-hero.png');background-position:right 52%;background-size:auto 126%;mask-image:linear-gradient(90deg,transparent 0%,#000 47%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 47%)}
+.operation-hero[data-page="whatsapp"]:before{inset:0 0 0 40%;background-image:url('/assets/central-paralela-whatsapp-hero.webp');background-position:right center;background-size:cover;mask-image:linear-gradient(90deg,transparent 0%,#000 47%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 47%)}
 .operation-hero[data-page="sms"]{border-color:rgba(39,156,232,.34)!important;background:linear-gradient(112deg,#0b1b29,#0b1b2c 55%,#102c40)!important}
 .operation-hero[data-page="sms"]:before{inset:0 0 0 46%;background:radial-gradient(ellipse at 76% 50%,rgba(23,145,224,.25),transparent 54%),linear-gradient(135deg,transparent 42%,rgba(255,171,48,.12) 42.2%,transparent 43%),linear-gradient(155deg,transparent 56%,rgba(56,177,239,.12) 56.2%,transparent 57%);mask-image:linear-gradient(90deg,transparent,#000 34%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 34%)}
 .operation-hero[data-page="sms"] .hero-device{display:block!important;position:absolute;right:12%;top:50%;width:76px;height:126px;margin:0;transform:translateY(-50%) rotate(7deg);border:2px solid rgba(124,207,255,.76);border-radius:16px;background:linear-gradient(180deg,#172e40,#0b1824);box-shadow:0 0 0 8px rgba(60,172,236,.07),0 20px 36px rgba(0,0,0,.32);opacity:.9}
@@ -881,3 +881,5 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 .sidebar .nav-button:is(:hover,:focus-visible,[aria-current="page"]){color:#ff9800}
 .sidebar .nav-button:is(:hover,:focus-visible,[aria-current="page"]) .art{color:#fff}
 .sidebar .nav-button:is(:hover,:focus-visible,[aria-current="page"]) .loc-icon{filter:brightness(0) invert(1)}
+
+@media(max-width:760px){.operation-hero.whatsapp-hero:before{inset:140px 0 0;background-size:auto 100%;background-position:right center;mask-image:linear-gradient(180deg,transparent 0%,#000 30%);-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 30%);opacity:.85}}

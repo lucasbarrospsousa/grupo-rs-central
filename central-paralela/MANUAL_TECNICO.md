@@ -241,3 +241,6 @@ Os atalhos de comunicação usam ícones WebP raster de 512 × 512 do [WhatsApp 
 
 ### Ícones do menu Armazém — 31/10/2026
 A aba Aparelhos usa o sprite raster de microchip já empregado em Chips, renderizado a 22 px; Valores usa moeda CSS com relevo âmbar e símbolo monetário. Ambos ficam laranja no estado normal e brancos ao focar, passar o mouse ou selecionar; o degradê da moeda é preservado. Botões, dimensões e permissões preservados.
+
+### Banner de Disparos WhatsApp com imagem fornecida — 31/10/2026
+A arte central-paralela-whatsapp-hero.webp substitui a imagem anterior. Recorte panorâmico da imagem fornecida, sem texto incorporado; celular e painéis abstratos de mensagem à direita, espaço escuro para o título à esquerda. Banner usa 40% para base sólida e 60% para imagem com fade horizontal; no celular, o fade passa a vertical. Título, ações, navegação e fluxo do gateway permanecem iguais.
