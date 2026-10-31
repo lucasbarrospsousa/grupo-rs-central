@@ -234,3 +234,4 @@ Dashboard, Rastreamento e Manutenções dividem a largura dos banners em 40% par
 
 ### Cores dos botões de navegação — 31/10/2026
 Ícones das abas ficam laranja e rótulos brancos no estado normal. Ao passar o mouse, focar pelo teclado ou selecionar uma aba, o rótulo fica laranja e o ícone branco.
+O mesmo padrão cobre os três atalhos de Armazém e a aba injetada de Usuários e permissões, incluindo os sprites raster específicos dessas abas.

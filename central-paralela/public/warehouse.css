@@ -68,6 +68,18 @@ body:has(#warehouse-content:not([hidden])) .top{margin-bottom:18px}
 #nav-warehouse-values .loc-icon{background-position:-29px -533px!important}
 #nav-warehouse-devices[aria-current=page] .loc-icon,#nav-warehouse-values[aria-current=page] .loc-icon{opacity:1;filter:brightness(.84) contrast(1.45) sepia(1) saturate(8) hue-rotate(350deg) brightness(1.05)!important}
 
+/* Apply the navigation color rule to warehouse sprite icons and the injected admin tab. */
+.sidebar .nav-button .nav-label{color:#fff}
+.sidebar .nav-button:is(:hover,:focus-visible,[aria-current=page]) .nav-label{color:#ff9800!important}
+#nav-warehouse-chips .loc-icon,
+#nav-warehouse-devices .loc-icon,
+#nav-warehouse-values .loc-icon{filter:brightness(0) saturate(100%) invert(58%) sepia(98%) saturate(1900%) hue-rotate(359deg) brightness(103%) contrast(104%)!important;opacity:1}
+#nav-warehouse-chips:is(:hover,:focus-visible,[aria-current=page]) .loc-icon,
+#nav-warehouse-devices:is(:hover,:focus-visible,[aria-current=page]) .loc-icon,
+#nav-warehouse-values:is(:hover,:focus-visible,[aria-current=page]) .loc-icon{filter:brightness(0) invert(1)!important;opacity:1}
+#nav-users .icon-user-shield{color:#ff9800;transition:color .18s ease}
+#nav-users:is(:hover,:focus-visible,[aria-current=page]) .icon-user-shield{color:#fff}
+
 .wh-preview-tag{display:none!important}
 .operation-hero.warehouse-hero[data-warehouse=chips]{min-height:196px;padding:24px 32px;margin-bottom:14px;border-radius:15px;border:1px solid #6b4c23;background:linear-gradient(110deg,#081d2c 0%,#071724 55%,#091926 100%)}
 .operation-hero.warehouse-hero[data-warehouse=chips] .hero-device{width:700px;height:196px;right:0;bottom:0;background-image:url('/assets/warehouse-chips.png')!important;background-size:1586px 992px!important;background-position:-854px -68px!important;mask-image:linear-gradient(to right,transparent,#000 18%)!important;-webkit-mask-image:linear-gradient(to right,transparent,#000 18%)!important}
