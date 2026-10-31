@@ -159,3 +159,9 @@ body:has(#warehouse-content:not([hidden])) .top{margin-bottom:18px}
 @media(max-width:1480px){#warehouse-content .wh-metrics .card.wh-metric{padding:10px 12px;gap:10px}#warehouse-content .wh-metric .wh-metric-label{font-size:12px}#warehouse-content .wh-metric strong{font-size:25px}#warehouse-content[data-view=chips] .wh-product{transform:scale(.86)!important;transform-origin:right center!important;margin-left:auto!important}}
 @media(max-width:1100px){#warehouse-content .wh-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}#warehouse-content .wh-filter-row{grid-template-columns:1fr 1fr}#warehouse-content[data-view=chips] .wh-footer-bar{flex-direction:column;align-items:flex-start}#warehouse-content[data-view=chips] .wh-footer-nav{margin-left:0;width:100%;flex-wrap:wrap}}
 @media(max-width:760px){#warehouse-content .wh-metrics{grid-template-columns:1fr 1fr;gap:10px}#warehouse-content .wh-metrics .card.wh-metric{min-height:84px;height:auto;padding:10px;gap:8px}#warehouse-content .wh-metric-icon{display:none!important}#warehouse-content[data-view=chips] .wh-product{width:64px!important;flex:0 0 64px!important;transform:scale(.78)!important;transform-origin:right center!important}#warehouse-content .wh-filter-row{grid-template-columns:1fr}#warehouse-content .wh-actions{flex-wrap:wrap}#warehouse-content[data-view=chips] .wh-footer-nav{flex-direction:column;align-items:flex-start;gap:12px}}
+
+/* Let product art extend slightly past metric cards without changing their geometry. */
+#warehouse-content .wh-metrics .card.wh-metric{overflow:visible!important}
+#warehouse-content .wh-metric-icon{transform:scale(1.2)!important;transform-origin:right center}
+#warehouse-content .wh-value-icon{transform:scale(1.25)!important;transform-origin:right center}
+#warehouse-content[data-view] .wh-product{transform:scale(1.4)!important;transform-origin:left center}
