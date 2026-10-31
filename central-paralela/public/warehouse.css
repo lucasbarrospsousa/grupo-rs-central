@@ -188,3 +188,11 @@ body:has(#warehouse-content:not([hidden])) .top{margin-bottom:18px}
 #warehouse-content .wh-metric-icon{transform:scale(1.2)!important;transform-origin:right center}
 #warehouse-content .wh-value-icon{transform:scale(1.25)!important;transform-origin:right center}
 #warehouse-content[data-view] .wh-product{transform:scale(1.4)!important;transform-origin:left center}
+
+/* Ícones claros do menu lateral para as abas Aparelhos e Valores. */
+#nav-warehouse-devices .loc-icon{width:22px;height:22px;flex:0 0 22px;margin:0 3px;background-image:url('/assets/location-icons.png')!important;background-size:286px 22px!important;background-position:-44px 0!important;background-repeat:no-repeat;mix-blend-mode:normal!important;mask-image:none!important;-webkit-mask-image:none!important;opacity:1}
+#nav-warehouse-values .loc-icon{position:relative;display:inline-grid;place-items:center;width:22px;height:22px;flex:0 0 22px;margin:0 3px;background:none!important;mix-blend-mode:normal!important;mask-image:none!important;-webkit-mask-image:none!important;opacity:1}
+#nav-warehouse-values .loc-icon::before{content:'$';display:grid;place-items:center;box-sizing:border-box;width:19px;height:19px;border:2px solid currentColor;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffd36b 0%,#ffad21 48%,#e77900 100%);box-shadow:inset 0 0 0 1px #6d3d00,0 0 0 1px #ffb84a;color:#633500;font:bold 12px/1 Arial,sans-serif;text-shadow:0 1px 0 #ffe1a0}
+#nav-warehouse-devices .loc-icon,#nav-warehouse-values .loc-icon{filter:brightness(0) saturate(100%) invert(58%) sepia(98%) saturate(1900%) hue-rotate(359deg) brightness(103%) contrast(104%)!important}
+#nav-warehouse-devices:is(:hover,:focus-visible,[aria-current=page]) .loc-icon,#nav-warehouse-values:is(:hover,:focus-visible,[aria-current=page]) .loc-icon{filter:brightness(0) invert(1)!important}
+#nav-warehouse-values:is(:hover,:focus-visible,[aria-current=page]) .loc-icon::before{background:transparent;box-shadow:inset 0 0 0 1px currentColor,0 0 0 1px currentColor;color:#fff;text-shadow:none}

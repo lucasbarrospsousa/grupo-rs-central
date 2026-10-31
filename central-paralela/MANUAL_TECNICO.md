@@ -238,3 +238,6 @@ O mesmo padrão cobre os três atalhos de Armazém e a aba injetada de Usuários
 
 ### Identidade dos atalhos WhatsApp e SMS — 31/10/2026
 Os atalhos de comunicação usam ícones WebP raster de 512 × 512 do [WhatsApp Messenger](https://play.google.com/store/apps/details?id=com.whatsapp) e do [Google Messages](https://play.google.com/store/apps/details?id=com.google.android.apps.messaging), obtidos das listagens oficiais no Google Play. WhatsApp usa rótulo verde e realce verde com texto branco em hover/seleção; SMS usa rótulo azul e realce azul com texto branco. Os ícones mantêm as cores originais do aplicativo. `test-comms-nav-icons.mjs` verifica a resolução dos arquivos, o tamanho e alinhamento de exibição, além das cores normal, hover e seleção.
+
+### Ícones do menu Armazém — 31/10/2026
+A aba Aparelhos usa o sprite raster de microchip já empregado em Chips, renderizado a 22 px; Valores usa moeda CSS com relevo âmbar e símbolo monetário. Os dois seguem o filtro laranja no estado normal e ficam brancos ao focar, passar o mouse ou selecionar. Botões, dimensões e permissões preservados.
