@@ -231,3 +231,6 @@ A imagem panorâmica `central-paralela-rastreamento-hero.jpg` substitui a arte a
 
 ### Mesclagem dos banners operacionais — 31/10/2026
 Dashboard, Rastreamento e Manutenções dividem a largura dos banners em 40% para fundo e texto e 60% para arte, com gradiente suave entre as áreas e destaque maior para as imagens. No celular, o fade vertical é preservado. Suítes `test-ui.mjs` e `test-maintenance-ui.mjs` e capturas visuais conferidas.
+
+### Cores dos botões de navegação — 31/10/2026
+Ícones das abas ficam laranja e rótulos brancos no estado normal. Ao passar o mouse, focar pelo teclado ou selecionar uma aba, o rótulo fica laranja e o ícone branco.

@@ -873,3 +873,11 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
   -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
  }
 }
+
+/* Sidebar tab buttons: orange icons at rest; invert emphasis on hover/selection. */
+.sidebar .nav-button{color:#fff;transition:color .18s ease,background-color .18s ease,border-color .18s ease}
+.sidebar .nav-button .art{color:#ff9800;transition:color .18s ease}
+.sidebar .nav-button .loc-icon{filter:brightness(0) saturate(100%) invert(58%) sepia(98%) saturate(1900%) hue-rotate(359deg) brightness(103%) contrast(104%);transition:filter .18s ease}
+.sidebar .nav-button:is(:hover,:focus-visible,[aria-current="page"]){color:#ff9800}
+.sidebar .nav-button:is(:hover,:focus-visible,[aria-current="page"]) .art{color:#fff}
+.sidebar .nav-button:is(:hover,:focus-visible,[aria-current="page"]) .loc-icon{filter:brightness(0) invert(1)}
