@@ -247,3 +247,6 @@ A arte central-paralela-whatsapp-hero.webp substitui a imagem anterior. Recorte 
 
 ### Banner de Disparos SMS com imagem fornecida — 31/10/2026
 A arte gerada pelo usuário substitui a ilustração CSS anterior. Desktop reserva 40% à esquerda para a base escura e texto, e usa a imagem nos 60% à direita com transição gradual. Em celular, a composição passa ao fade vertical para preservar a leitura. O mockup CSS antigo do telefone é ocultado para evitar sobreposição. Funcionalidade de envio e regras operacionais não mudam.
+
+### Blocos da aba Disparos SMS — 31/10/2026
+Os painéis de preparação e histórico de SMS agora usam a hierarquia visual dos cartões de WhatsApp: cabeçalho com ícone/título/subtítulo, divisor, painel principal e histórico com cabeçalho de auditoria. O estado do Galaxy indica conexão disponível/indisponível; o histórico exibe ID curto, horário, aparelho/telefone, comando e estado. Mantidos filtros, confirmação unitária, chave idempotente, atualização da fila e sem função para apagar registros. O layout móvel mantém as tabelas contidas com rolagem interna. `test-sms-ui.mjs` valida os cartões, estados do gateway, histórico, fluxo, permissões e largura móvel com APIs simuladas.

@@ -906,3 +906,53 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
   -webkit-mask-image:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.18) 15%,#000 42%)!important;
  }
 }
+
+/* SMS blocks follow the communication card hierarchy while keeping SMS-only controls. */
+#sms-content .sms-container{margin-top:18px;gap:22px}
+#sms-content .sms-notice{margin:0 0 0;padding:16px 22px;border-radius:14px;font-size:13px}
+#sms-content .sms-notice p{font-size:13px;line-height:1.5}
+#sms-content .sms-panel{padding:26px 30px;margin:0;background:linear-gradient(155deg,#15181f 0%,#0f1217 100%);border-color:rgba(245,165,60,.35);border-radius:16px}
+#sms-content .sms-panel.wa-history-card{border-color:rgba(56,152,255,.35)}
+#sms-content .sms-panel .wa-card-header{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #202b3a}
+#sms-content .sms-title-icon img{display:block;width:27px;height:27px;object-fit:contain}
+#sms-content .sms-card-heading{min-width:0;flex:1}
+#sms-content .sms-panel .wa-card-header h2{font-size:19px;margin:0}
+#sms-content .sms-panel .wa-card-header small{display:block;margin-top:3px;color:#859bb3;font-size:12px}
+#sms-content #sms-bridge{margin-left:auto;padding:6px 12px;font-size:12px;white-space:nowrap}
+#sms-content .sms-workspace{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}
+#sms-content .sms-workspace h3{font-size:12px;color:#a2b6cc;letter-spacing:.8px;margin:2px 0 14px}
+#sms-content .sms-filters{grid-template-columns:minmax(0,1fr) 140px;gap:12px;margin:0}
+#sms-content .sms-filters label{font-size:12px;font-weight:750;color:#a2b6cc;letter-spacing:.3px}
+#sms-content .sms-field-hint{font-size:12px;color:#91a8be;line-height:1.5;margin:10px 0 14px}
+#sms-content .sms-device-scroll{max-height:380px;margin-top:0;overflow:auto}
+#sms-content .sms-device-table{min-width:500px}
+#sms-content .sms-device-table th{padding:11px 10px}
+#sms-content .sms-device-table td{padding:12px 10px}
+#sms-content .sms-device-table td small,#sms-content .sms-recipient-phone{display:block;color:#91a8be;font-size:11px;margin-top:4px}
+#sms-content .sms-command-column{min-width:0}
+#sms-content .sms-command-column .sms-empty{padding:32px 20px}
+#sms-content #sms-compose h2{font-size:19px;margin:0 0 10px}
+#sms-content #sms-compose>p:not(.sms-empty){color:#9eb2c7;font-size:13px}
+#sms-content .sms-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}
+#sms-content .sms-presets button{min-height:42px}
+#sms-content #sms-compose label{display:block;color:#a2b6cc;font-size:12px;font-weight:750;letter-spacing:.5px;margin:16px 0 8px}
+#sms-content #sms-compose textarea{min-height:112px;margin:8px 0 0;padding:14px;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}
+#sms-content #sms-preview-note{min-height:18px;color:#91a8be;font-size:12px}
+#sms-content #sms-queue{margin-top:12px;padding:13px 20px;border-radius:9px}
+#sms-content .sms-history-card .wa-card-header{margin-bottom:18px}
+#sms-content .sms-history-card #sms-feedback:empty{display:none}
+#sms-content .sms-history-scroll{max-height:520px;overflow:auto}
+#sms-content .sms-table{min-width:800px}
+#sms-content .sms-table td code{font-size:11px;color:#c5d3e2;white-space:nowrap}
+#sms-content .sms-table .sms-recipient-phone{font-weight:400}
+#sms-content .sms-state-pill{display:inline-flex;align-items:center;border-radius:8px;padding:6px 9px;font-size:11px;font-weight:750;line-height:1.25}
+#sms-content .sms-state-pill.is-success{background:#0e3b29;color:#8ce0b5}
+#sms-content .sms-state-pill.is-pending{background:#14283a;color:#9ac8ee}
+#sms-content .sms-state-pill.is-error{background:#3b1c20;color:#ff9b9b}
+#sms-content .sms-history-empty{margin:0;padding:22px 14px;color:#91a8be;border:1px dashed #2b3c50;border-radius:10px}
+@media(max-width:1000px){#sms-content .sms-workspace{grid-template-columns:1fr;gap:24px}}
+@media(max-width:680px){#sms-content .sms-panel{padding:22px 18px}#sms-content .sms-panel .wa-card-header{align-items:flex-start;flex-wrap:wrap}#sms-content #sms-bridge{margin-left:58px}#sms-content .sms-filters{grid-template-columns:1fr;gap:8px}#sms-content .sms-presets{grid-template-columns:1fr}#sms-content .sms-history-card .wa-btn-sm{margin-left:58px}}
+#sms-content #sms-bridge.online{background:#0e3020;border-color:#1c6843;color:#4ade80}
+#sms-content #sms-bridge.offline{background:#341c1c;border-color:#7c3333;color:#f87171}
+#sms-content .sms-recipient-column{min-width:0}
+#sms-content .sms-device-scroll,#sms-content .sms-history-scroll{width:100%;min-width:0;max-width:100%}
