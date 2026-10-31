@@ -956,3 +956,15 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 #sms-content #sms-bridge.offline{background:#341c1c;border-color:#7c3333;color:#f87171}
 #sms-content .sms-recipient-column{min-width:0}
 #sms-content .sms-device-scroll,#sms-content .sms-history-scroll{width:100%;min-width:0;max-width:100%}
+#sms-content .sms-mode-switch{display:flex;gap:10px;margin:8px 0 24px;padding:5px;background:#09111c;border:1px solid #25394d;border-radius:14px;width:max-content;max-width:100%}
+#sms-content .sms-mode-switch button{border:1px solid transparent;border-radius:10px;background:transparent;color:#b8c9dc;padding:11px 16px;font-weight:750;cursor:pointer}
+#sms-content .sms-mode-switch button[aria-pressed="true"]{background:#f28a08;color:#111923}
+#sms-content .sms-mode-switch button:focus-visible,#sms-content #sms-queue:focus-visible,#sms-content .sms-device-table input:focus-visible{outline:2px solid #ffc15a;outline-offset:2px}
+#sms-content #sms-compose>label{display:block;margin:14px 0;color:#a9bdd2;font-size:13px;font-weight:650}
+#sms-content #sms-compose select{display:block;width:100%;margin-top:7px;box-sizing:border-box;background:#0a1320;color:#eaf2ff;border:1px solid #2a4055;border-radius:10px;padding:12px}
+#sms-content #sms-compose #sms-queue{display:inline-flex;align-items:center;gap:9px;min-height:46px;padding:12px 18px;border:0;border-radius:11px}
+#sms-content #sms-compose #sms-queue:disabled{opacity:.65;cursor:wait}
+#sms-content .sms-device-table input[type=checkbox]{width:17px;height:17px;accent-color:#ff9900;cursor:pointer}
+#sms-content .sms-command-column{padding:18px;border:1px solid #26394d;border-radius:14px;background:rgba(6,13,21,.5)}
+#sms-content .sms-mode-switch button:hover:not([aria-pressed="true"]){border-color:#e58b18;color:#fff}
+@media(max-width:520px){#sms-content .sms-mode-switch{width:100%}#sms-content .sms-mode-switch button{flex:1;padding:10px 7px;font-size:12px}#sms-content .sms-command-column{padding:14px}}

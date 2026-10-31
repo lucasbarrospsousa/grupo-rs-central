@@ -38,6 +38,12 @@ public class MainActivity extends Activity {
         btnToggle = findViewById(R.id.btn_toggle_service);
         btnAccessibility = findViewById(R.id.btn_accessibility);
 
+        android.view.ViewGroup content = findViewById(android.R.id.content);
+        android.view.ViewGroup panel = (android.view.ViewGroup) content.getChildAt(0);
+        Button sms = new Button(this);
+        sms.setText("SMS · configurar bases e chip");
+        sms.setOnClickListener(v -> startActivity(new Intent(this, br.com.sideracode.smsgateway.MainActivity.class)));
+        panel.addView(sms, 0);
         updateStatus();
 
         btnToggle.setOnClickListener(v -> {

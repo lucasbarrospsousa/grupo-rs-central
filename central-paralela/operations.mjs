@@ -90,7 +90,7 @@ export class Operations {
    if(new URL(request.url).pathname==='/galaxy'&&b.android)return reply(200,await galaxyAndroid({input:b.input,token:b.token,document:branch=>trackingDocument(this.config,branch),users:async()=>decryptUsers(await driveUsers(this.config),this.env.AUTH_DATA_KEY)}));
    if(new URL(request.url).pathname==='/galaxy')return reply(200,await galaxy({input:b.input,token:b.token,config:this.config,key:this.env.AUTH_DATA_KEY}));
    if(new URL(request.url).pathname==='/inventory'){
-    const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','sms-send','swap-preview','swap-execute','swap-check'].includes(b.input?.action);
+      const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','swap-preview','swap-execute','swap-check'].includes(b.input?.action);
     if(remote){const allowed=await this.reserveQuery(true);if(!allowed)return reply(429,{error:'Aguarde dez segundos entre consultas.'});}
     return reply(200,await inventory({input:b.input,user:b.user,config:this.config,service:this.service}));
    }

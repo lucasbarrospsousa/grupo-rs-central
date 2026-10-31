@@ -229,7 +229,7 @@ export default {
     if (request.method === 'POST') {
       if (!request.headers.get('content-type')?.startsWith('application/json')) return error(415,'Formato inválido.');
       const reader=request.body?.getReader();const chunks=[];let length=0;
-      if(reader) { while(true) { const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>(['/api/maintenance','/api/warehouse'].includes(url.pathname)?16384:4096)){await reader.cancel();return error(413,'Solicitação muito grande.');}chunks.push(value); } }
+        if(reader) { while(true) { const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>(url.pathname==='/api/inventory'?65536:['/api/maintenance','/api/warehouse'].includes(url.pathname)?16384:4096)){await reader.cancel();return error(413,'Solicitação muito grande.');}chunks.push(value); } }
       body=new Uint8Array(length);let offset=0;for(const part of chunks){body.set(part,offset);offset+=part.length;}
     }
     if(url.pathname==='/api/galaxy'){
