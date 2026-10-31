@@ -230,4 +230,4 @@ A imagem panorâmica `central-paralela-manutencoes-hero.jpg` substitui a versão
 A imagem panorâmica `central-paralela-rastreamento-hero.jpg` substitui a arte anterior. A faixa azul-marinho à esquerda preserva o título e o subtítulo HTML; mapa, módulo rastreador e marcador ocupam a direita no padrão azul e âmbar do Dashboard. Teste dos estados de banner via Playwright com APIs simuladas; captura visual conferida.
 
 ### Mesclagem dos banners operacionais — 31/10/2026
-Manutenções preserva seu fade, validado como referência. Dashboard e Rastreamento dividem a largura do banner em 40% para fundo e texto e 60% para arte, com gradiente suave entre as áreas e destaque maior para as imagens. No celular, o fade vertical é preservado. Suíte `test-ui.mjs` e capturas visuais conferidas.
+Dashboard, Rastreamento e Manutenções dividem a largura dos banners em 40% para fundo e texto e 60% para arte, com gradiente suave entre as áreas e destaque maior para as imagens. No celular, o fade vertical é preservado. Suítes `test-ui.mjs` e `test-maintenance-ui.mjs` e capturas visuais conferidas.

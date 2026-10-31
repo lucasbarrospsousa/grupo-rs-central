@@ -857,3 +857,19 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
   -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
  }
 }
+.operation-hero[data-page="maintenance"]:before{
+ inset:0 0 0 40%!important;
+ background-size:auto 144%!important;
+ background-position:right 52%!important;
+ mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.25) 25%,rgba(0,0,0,.55) 42%,rgba(0,0,0,.84) 66%,#000 88%)!important;
+ -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.25) 25%,rgba(0,0,0,.55) 42%,rgba(0,0,0,.84) 66%,#000 88%)!important;
+}
+@media(max-width:760px){
+ .operation-hero[data-page="maintenance"]:before{
+  inset:145px 0 0 18%!important;
+  background-size:auto 150%!important;
+  background-position:right center!important;
+  mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
+ }
+}
