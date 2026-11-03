@@ -1,6 +1,6 @@
 # Central paralela — Drive e Cloudflare
 
-Raiz: Grupo RS Central/app/central-paralela. Aplicação experimental independente da Central original. Worker público: https://central-paralela.sinderacode.workers.dev . Não gera EXE ou instalador.
+Raiz: Grupo RS Central/app/central-paralela. Aplicação experimental independente da Central original. Worker público: https://central-paralela.sinderacodofc.workers.dev . Não gera EXE ou instalador.
 
 ## Login independente — 26/10/2026
 O runtime não consulta Supabase. auth.mjs lê cadastro criptografado no Drive, valida hashes scrypt ou legacy-sha256 e preserva usuários ativos, filiais e permissões copiados. auth-crypto.mjs usa AES-256-GCM com IV aleatório e contexto autenticado. A chave AUTH_DATA_KEY fica em segredo Cloudflare, separada do Drive. Nunca salvar senha em texto, hash ou token em assets, Git, relatórios públicos ou localStorage.
@@ -152,7 +152,7 @@ Rotinas permanecem pausadas para evitar coexistência com os coletores antigos. 
 
 ## Corte operacional autorizado — 26/10/2026
 
-A Central Drive passa a ser a Central operacional no endereço https://central-paralela.sinderacode.workers.dev. Esta decisão substitui a condição de preparação das seções anteriores. O usuário dispensou o SMS como bloqueador: ponte própria preparada, envio físico ainda não homologado por indisponibilidade do Galaxy.
+A Central Drive passa a ser a Central operacional no endereço https://central-paralela.sinderacodofc.workers.dev. Esta decisão substitui a condição de preparação das seções anteriores. O usuário dispensou o SMS como bloqueador: ponte própria preparada, envio físico ainda não homologado por indisponibilidade do Galaxy.
 
 Origem colocada em modo off e drenada antes da fotografia final. Pausadas somente central-background-sync, central-maintenance-ignition, central-device-codes e central-warehouse; backups, retenção e outros sistemas preservados. Código e banco antigos não foram excluídos. Snapshot final cifrado, backup anterior do Drive e recibos ficam na área privada de homologação. Delta aplicado em 28 lotes; 1307 campos conferidos por hash em leitura posterior, sem conflito encontrado. Importação não reexecuta filas históricas. cutover-delta.mjs exige filial, campos permitidos e hash anterior; valida o lote antes de gravar e aceita repetição idempotente. A rota de importação deve permanecer desabilitada fora da janela assinada.
 
