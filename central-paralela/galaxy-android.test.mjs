@@ -132,3 +132,23 @@ test('global gateway receives authorized branch jobs from another operator while
  assert.equal(receipt.report_results[0].accepted,true);
  assert.equal(receipt.report_results[0].branch,'imperatriz');
 });
+
+test('global gateway releases stale dispatch holds without retrying and stops the uncertain batch',async()=>{
+ const device='d'.repeat(64),stale=new Date(Date.now()-180000).toISOString(),fresh=new Date(Date.now()-1000).toISOString();
+ const byBranch={imperatriz:{gateway:{},operations:[
+  {id:'old-dispatch',kind:'sms',serial:'024000010',phone:'99999999997',command:'reset,123456',actor:'sender',created_at:stale,updated_at:stale,state:'dispatched',batch_id:'old-batch'},
+  {id:'old-sibling',kind:'sms',serial:'024000011',phone:'99999999996',command:'reset,123456',actor:'sender',created_at:fresh,updated_at:fresh,state:'queued',batch_id:'old-batch'},
+  {id:'new-job',kind:'sms',serial:'024000012',phone:'99999999995',command:'reset,123456',actor:'sender',created_at:fresh,updated_at:fresh,state:'queued',batch_id:'new-batch'}
+ ]}};
+ let gateway={scope:'all',ready:false};
+ const users=async()=>({users:[
+  {active:true,username:'gateway',branches:[{id:'imperatriz'}],permissions:{owner:true}},
+  {active:true,username:'sender',branches:[{id:'imperatriz'}],permissions:{writes:['sms']}}
+ ]});
+ const call=async input=>galaxyAndroidUnified({input:{action:'poll',ready:true,app_version:'1.5.12',device_id:device,...input},mobileUser:'gateway',gateway,branches:['imperatriz'],document:async branch=>({data:byBranch[branch],save:async()=>{}}),users,saveGateway:async value=>{gateway=structuredClone(value);}});
+ const result=await call({});
+ assert.equal(byBranch.imperatriz.operations[0].state,'indeterminate');
+ assert.equal(byBranch.imperatriz.operations[1].state,'cancelled');
+ assert.equal(result.jobs.some(item=>item.id==='old-dispatch'&&item.payload),false);
+ assert.equal(result.jobs.some(item=>item.id==='new-job'&&item.payload),true);
+});

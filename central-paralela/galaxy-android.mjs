@@ -111,6 +111,19 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
  const appVersion=String(input.app_version||'0.0.0'),parts=appVersion.split('.').map(Number);
  const supportsBatch=parts.length===3&&parts.every(Number.isInteger)&&(parts[0]>1||parts[0]===1&&parts[1]>=2);
  const supportsSafeRetry=canRetryPayload(input),mobileJobs=operations.filter(job=>job.kind==='sms'&&(!mobileUser||input.global===true||job.actor===mobileUser));
+ if(input.global){
+  for(const job of mobileJobs){
+   if(!['dispatched','received','sending'].includes(job.state))continue;
+   const updated=Date.parse(job.updated_at||job.dispatched_at||job.created_at),age=Date.now()-updated;
+   const retryUntil=Date.parse(job.dispatch_retry_until||'');
+   const stale=job.state==='dispatched'?(Number.isFinite(retryUntil)?retryUntil<=Date.now():age>120000):age>120000;
+   if(!stale)continue;
+   job.state='indeterminate';job.updated_at=now;job.message='Gateway não confirmou o resultado dentro do prazo; não houve reenvio.';
+   if(job.batch_id)for(const sibling of mobileJobs)if(sibling.id!==job.id&&sibling.batch_id===job.batch_id&&sibling.state==='queued'){
+    sibling.state='cancelled';sibling.updated_at=now;sibling.message='Lote interrompido após resultado incerto.';
+   }
+  }
+ }
  Object.assign(data.gateway,{last_seen:now,ready:input.ready===true,protocol:supportsBatch?'android-v3':'android-v2',app_version:appVersion});
 
  const reportResults=[];
