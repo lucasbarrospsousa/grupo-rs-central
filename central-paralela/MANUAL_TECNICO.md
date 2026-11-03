@@ -276,3 +276,5 @@ O endpoint `/api/galaxy` aceita até oito recibos por consulta `poll` e devolve 
 A versão 1.5.11 do app é identificada por versão e ID de instalação aleatório persistido localmente. A Central pode repetir por até dois minutos o mesmo payload e ID apenas ao mesmo ID de instalação; após isso o resultado passa a incerto e não há reenvio. O app deduplica o ID no SQLite antes de autorizar o SMS. Versões anteriores mantêm despacho de tentativa única. `heartbeat` permanece sem despacho; recibos de pedidos já despachados são processados mesmo com o gateway pausado. Cada filial, permissão de usuário, validação de mensagem e serialização de lote continuam aplicadas.
 
 Validação offline cobre reenvio restrito, recibos atrasados e lote de recibos. Nenhum SMS real foi enviado nesta alteração. O fluxo Vendas SOS não usa este endpoint nem foi alterado.
+
+Implantado no Worker `central-paralela` em 03/11/2026, versão Cloudflare `b77bb5ae-1d56-4db8-b4d1-278d5de02129`. A rota pública principal respondeu HTTP 200 após a implantação. Isso confirma publicação e disponibilidade da página, não entrega de SMS; nenhum disparo real foi feito.
