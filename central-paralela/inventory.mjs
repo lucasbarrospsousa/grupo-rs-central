@@ -21,7 +21,7 @@ function pendingLinkMessage(error){
 export const canWrite=u=>u?.permissions?.owner===true||u?.permissions?.writes?.includes('stock');
 export async function inventory({input:b,user,config,service,document=trackingDocument}){
  if(!user?.permissions?.views?.includes('stock')||!user.branches?.some(x=>x.id===b.branch))fail(403,'Sem acesso à filial.');
- const action=String(b.action||''),reads=['operations','analyze','lookup','link-preview','integrations','sms-template'];
+ const action=String(b.action||''),reads=['operations','analyze','lookup','link-preview','link-check','integrations','sms-template'];
  if(!reads.includes(action)&&!(action.startsWith('sms-')?(user.permissions.owner||user.permissions.writes?.includes('sms')):action==='gateway-pair'?user.permissions.owner:canWrite(user)))fail(403,'Usuário somente de leitura.');
  if(['link-preview','analyze','lookup'].includes(action)&&!canWrite(user))fail(403,'Sem permissão de vinculação.');
  const doc=await document(config,b.branch),data=doc.data;data.operations??=[];data.audit??=[];
