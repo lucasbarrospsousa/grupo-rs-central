@@ -30,11 +30,11 @@ test('link still rejects a vehicle ID that differs from the exact equipment look
  await assert.rejects(service.prepareLink('imperatriz','024307717','AAA - 468'),e=>e.status===409&&/vinculado a outro veículo/.test(e.message));
 });
 
-test('link accepts the exact equipment ID from vehicle summary when reverse vehicle ID is omitted',async()=>{
+test('link reads top-level CodEquipamento from vehicle summary when reverse vehicle ID is omitted',async()=>{
  const request=async(url)=>{
   if(url.endsWith('/login'))return{text:JSON.stringify({access_token:'test-token'}),status:200,headers:new Headers()};
   if(url.includes('/equipamentos?'))return{text:JSON.stringify({equipamentos:[{codEquipamento:1234,numeroSerie:'024307717',status:'A',veiculo:null}],paginacao:{temMais:false}}),status:200,headers:new Headers()};
-  if(url.includes('/veiculos?'))return{text:JSON.stringify({veiculos:[{codVeiculo:5678,placa:'AAA - 468',codCliente:901,nomeCliente:'RS300',qtdClientesVinculadosAtivos:1,equipamento:{codEquipamento:1234}}],paginacao:{temMais:false}}),status:200,headers:new Headers()};
+  if(url.includes('/veiculos?'))return{text:JSON.stringify({veiculos:[{codVeiculo:5678,placa:'AAA - 468',codCliente:901,nomeCliente:'RS300',qtdClientesVinculadosAtivos:1,CodEquipamento:1234}],paginacao:{temMais:false}}),status:200,headers:new Headers()};
   throw new Error('Unexpected mocked API request: '+url);
  };
  const service=new Integrations({secrets:()=>({grupo_rs_api_imperatriz_user:'test',grupo_rs_api_imperatriz_password:'test'}),request});
