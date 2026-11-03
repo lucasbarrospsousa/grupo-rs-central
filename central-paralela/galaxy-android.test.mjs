@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {galaxyAndroid} from './galaxy-android.mjs';import {digest} from './auth-crypto.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {galaxyAndroid,galaxyAndroidUnified} from './galaxy-android.mjs';import {digest} from './auth-crypto.mjs';
 test('Android diagnosis blocks payload; lost dispatch response retries the same ID until receipt, then never resends',async()=>{
  const token='a'.repeat(64),device='d'.repeat(64),id=crypto.randomUUID();let data={gateway:{token_hash:digest(token)},operations:[{id,kind:'sms',serial:'024000001',phone:'99999999999',command:'reset,123456',actor:'test',created_at:new Date().toISOString(),state:'queued'}]};let active=true;
  const call=input=>galaxyAndroid({input:{branch:'imperatriz',app_version:'1.5.11',device_id:device,...input},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users:async()=>({users:[{active,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});
@@ -76,4 +76,40 @@ test('poll batches reports independently and still dispatches when one report is
  assert.equal(response.report_results[0].accepted,true);assert.equal(response.report_results[0].state,'received');
  assert.equal(response.report_results[1].accepted,false);assert.equal(response.report_results[1].finalized,true);assert.equal(response.jobs.some(x=>x.id===fresh&&x.payload),false); // prior dispatched job keeps this dispatch cycle serialized
  assert.equal(data.operations[0].state,'received');assert.equal(data.operations[1].state,'queued');assert.equal(saves,1);
+});
+
+test('unified session poll resolves each job to its source branch and serves the oldest branch queue first',async()=>{
+ const device='a'.repeat(64),old=new Date(Date.now()-2000).toISOString(),fresh=new Date(Date.now()-1000).toISOString();
+ const byBranch={imperatriz:{gateway:{ready:false,last_seen:'2026-01-01T00:00:00.000Z'},operations:[{id:'imp-job',kind:'sms',serial:'024000001',phone:'99999999999',command:'reset,123456',actor:'operator',created_at:old,state:'queued',batch_id:'imp-batch'}]},maraba:{gateway:{ready:true,last_seen:'2026-01-02T00:00:00.000Z'},operations:[{id:'mab-job',kind:'sms',serial:'024000002',phone:'99999999998',command:'reset,123456',actor:'operator',created_at:fresh,state:'queued',batch_id:'mab-batch'}]},araguaina:{operations:[]},acailandia:{operations:[]}};
+ let gateway={scope:'all',ready:false,last_seen:null};const branches=['imperatriz','maraba','araguaina','acailandia'];
+ const document=async branch=>{const data=structuredClone(byBranch[branch]);return{data,save:async()=>{byBranch[branch]=structuredClone(data);}};};
+ const users=async()=>({users:[{active:true,username:'operator',branches:branches.map(id=>({id})),permissions:{owner:true}}]});
+ const call=async input=>galaxyAndroidUnified({input:{app_version:'1.5.11',device_id:device,...input},mobileUser:'operator',gateway,branches,document,users,saveGateway:async value=>{gateway=structuredClone(value);}});
+ await call({action:'heartbeat'});
+ const first=await call({action:'poll',ready:true});
+ const firstPayload=first.jobs.find(job=>job.payload).payload;
+ assert.equal(firstPayload.id,'imp-job');assert.equal(firstPayload.branch,'imperatriz');
+ const mismatch=await call({action:'poll',ready:true,reports:[{id:'imp-job',state:'received',branch:'maraba',device_id:device}]});
+ assert.equal(mismatch.report_results[0].accepted,false);assert.equal(byBranch.imperatriz.operations[0].state,'dispatched');
+ const received=await call({action:'poll',ready:true,reports:[{id:'imp-job',state:'received',branch:'imperatriz',device_id:device}]});
+ assert.equal(received.report_results[0].accepted,true);assert.equal(received.report_results[0].branch,'imperatriz');
+ assert.equal(received.jobs.find(job=>job.id==='imp-job').branch,'imperatriz');
+ const wrongDevice=await call({action:'poll',ready:true,reports:[{id:'imp-job',state:'sent',branch:'imperatriz',device_id:'b'.repeat(64)}]});
+ assert.equal(wrongDevice.report_results[0].accepted,false);assert.equal(byBranch.imperatriz.operations[0].state,'received');
+ await call({action:'poll',ready:true,reports:[{id:'imp-job',state:'sent',branch:'imperatriz',device_id:device}]});
+ const next=await call({action:'poll',ready:true});
+ const nextPayload=next.jobs.find(job=>job.payload).payload;
+ assert.equal(nextPayload.id,'mab-job');assert.equal(nextPayload.branch,'maraba');
+ assert.equal(byBranch.maraba.operations[0].state,'dispatched');
+ assert.deepEqual(byBranch.imperatriz.gateway,{ready:false,last_seen:'2026-01-01T00:00:00.000Z'});
+ assert.deepEqual(byBranch.maraba.gateway,{ready:true,last_seen:'2026-01-02T00:00:00.000Z'});
+});
+
+test('unified session reports must include the branch resolved from the payload',async()=>{
+ const branches=['imperatriz','maraba'],gateway={scope:'all',ready:false,last_seen:null};let data={imperatriz:{operations:[]},maraba:{operations:[{id:'mab-job',kind:'sms',serial:'024000002',phone:'99999999998',command:'reset,123456',actor:'operator',created_at:new Date().toISOString(),state:'dispatched'}]}};
+ const document=async branch=>{const copy=structuredClone(data[branch]);return{data:copy,save:async()=>{data[branch]=structuredClone(copy);}};};
+ const call=input=>galaxyAndroidUnified({input,mobileUser:'operator',gateway,branches,document,users:async()=>({users:[{active:true,username:'operator',branches:branches.map(id=>({id})),permissions:{owner:true}}]}),saveGateway:async()=>{}});
+ await assert.rejects(call({action:'report',id:'mab-job',state:'sent'}),e=>e.status===400);
+ const result=await call({action:'poll',ready:false,reports:[{id:'mab-job',state:'sent'}]});
+ assert.equal(result.report_results[0].accepted,false);assert.equal(data.maraba.operations[0].state,'dispatched');
 });

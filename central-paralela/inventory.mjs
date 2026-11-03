@@ -20,7 +20,7 @@ function pendingLinkMessage(error){
  return 'A resposta da API não confirmou a operação e não trouxe uma causa técnica. Estado salvo; use Conferir antes de qualquer nova tentativa.';
 }
 export const canWrite=u=>u?.permissions?.owner===true||u?.permissions?.writes?.includes('stock');
-export async function inventory({input:b,user,config,service,document=trackingDocument}){
+export async function inventory({input:b,user,config,service,document=trackingDocument,gatewayStatus=null}){
  if(!user?.permissions?.views?.includes('stock')||!user.branches?.some(x=>x.id===b.branch))fail(403,'Sem acesso à filial.');
  const action=String(b.action||''),reads=['operations','analyze','lookup','link-preview','link-check','integrations','sms-template'];
  if(!reads.includes(action)&&!(action.startsWith('sms-')?(user.permissions.owner||user.permissions.writes?.includes('sms')):action==='gateway-pair'?user.permissions.owner:canWrite(user)))fail(403,'Usuário somente de leitura.');
@@ -29,7 +29,8 @@ export async function inventory({input:b,user,config,service,document=trackingDo
  const fingerprint=JSON.stringify({action,id:b.id||'',values:b.values,plate:b.plate,operation:b.operation,command:b.command,phone:b.phone,target_type:b.target_type,contact_name:b.contact_name,batch_id:b.batch_id,items:b.items,delay_seconds:b.delay_seconds});
   const replay=data.audit.find(a=>a.key===b.key);if(replay){if(replay.actor!==user.username||replay.fingerprint!==fingerprint)fail(409,'Chave já utilizada.');if(action==='sms-batch')return {ok:true,replayed:true,batch_id:replay.batch_id};return {ok:true,replayed:true,row:data.rows.find(r=>r.id===replay.result_id&&!r.deleted_at)||null};}
  const active=()=>data.rows.filter(r=>!r.deleted_at),row=active().find(r=>r.id===b.id),now=new Date().toISOString();
- if(action==='integrations')return {ok:true,apis:'Consultas diretas configuradas',storage:'Drive independente',sms:{connected:!!data.gateway&&Date.now()-Date.parse(data.gateway.last_seen||'')<120000,send_enabled:data.gateway?.ready===true&&Date.now()-Date.parse(data.gateway.last_seen||'')<120000,app_version:data.gateway?.app_version||'',protocol:data.gateway?.protocol||'',message:data.gateway?.last_seen?'Último contato do Galaxy: '+data.gateway.last_seen:'Conexão própria do Galaxy ainda não autorizada. Nenhum envio disponível.'}};
+ const smsGateway=gatewayStatus?.scope==='all'?gatewayStatus:data.gateway;
+ if(action==='integrations')return {ok:true,apis:'Consultas diretas configuradas',storage:'Drive independente',sms:{connected:!!smsGateway&&Date.now()-Date.parse(smsGateway.last_seen||'')<120000,send_enabled:smsGateway?.ready===true&&Date.now()-Date.parse(smsGateway.last_seen||'')<120000,app_version:smsGateway?.app_version||'',protocol:smsGateway?.protocol||'',message:smsGateway?.last_seen?'Último contato do Galaxy: '+smsGateway.last_seen:'Conexão própria do Galaxy ainda não autorizada. Nenhum envio disponível.'}};
  if(action==='operations')return {rows:data.operations.filter(o=>o.kind!=='sms'||user.permissions.owner||user.permissions.writes?.includes('sms')).map(({payload,...op})=>op).slice(-100).reverse()};
  if(action==='lookup'){if(!/^\d{9}$/.test(b.serial||''))fail(400,'Série deve ter 9 dígitos.');const e=await service.equipment(b.branch,b.serial);return {row:Object.fromEntries(['serial',...fields].map(k=>[k,e[k]||'']))};}
  if(action==='gateway-pair'){if(!user.permissions.owner)fail(403,'Somente administrador.');const token=randomToken();data.gateway={token_hash:digest(token),created_at:new Date().toISOString(),last_seen:null};await doc.save();return {token,endpoint:'/api/galaxy',androidEndpoint:'/api/galaxy?branch='+encodeURIComponent(b.branch),branch:b.branch};}
@@ -39,7 +40,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
   if(action==='sms-batch'){
    if(!(user.permissions.owner||user.permissions.writes?.includes('sms')))fail(403,'Sem permissão de SMS.');
    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(b.key||'')))fail(400,'Chave idempotente inválida.');
-   if(b.confirmed!==true||!data.gateway||data.gateway.ready!==true||Date.now()-Date.parse(data.gateway.last_seen||'')>=120000||!Number.isFinite(Date.parse(data.gateway.last_seen||'')))fail(409,'Galaxy próprio não conectado.');
+   if(b.confirmed!==true||!smsGateway||smsGateway.ready!==true||Date.now()-Date.parse(smsGateway.last_seen||'')>=120000||!Number.isFinite(Date.parse(smsGateway.last_seen||'')))fail(409,'Galaxy próprio não conectado.');
    if(!Array.isArray(b.items)||!b.items.length||b.items.length>50)fail(400,'Selecione de 1 a 50 destinatários.');
    const delay=Number(b.delay_seconds);if(![3,10,20].includes(delay))fail(400,'Intervalo entre linhas inválido.');
    const batchId=crypto.randomUUID(),prepared=[],phones=new Set();
@@ -122,7 +123,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
    const manual=action==='sms-send'&&b.target_type==='contact';
    if(!manual&&(!row||!/^024\d{6}$/.test(row.serial)))fail(400,'SMS disponível para aparelhos 024.');
   const command=clean(b.command);if(!validSmsCommand(command,manual))fail(400,'Texto SMS inválido ou maior que 160 caracteres.');
-   let phone='',serial='',deviceId='',contactName='';if(action==='sms-send'){if(b.confirmed!==true||!data.gateway||data.gateway.ready!==true||Date.now()-Date.parse(data.gateway.last_seen||'')>=120000||!Number.isFinite(Date.parse(data.gateway.last_seen||'')))fail(409,'Galaxy próprio não conectado.');if(manual){phone=clean(b.phone).replace(/\D/g,'');contactName=clean(b.contact_name);if(!/^\d{10,13}$/.test(phone)||!contactName||contactName.length>80||/[\r\n]/.test(contactName))fail(400,'Telefone ou nome do contato inválido.');}else{const e=await service.equipment(b.branch,row.serial);phone=clean(e.phone).replace(/\D/g,'');if(e.serial!==row.serial||!/^\d{10,13}$/.test(phone)||phone!==clean(b.phone).replace(/\D/g,''))fail(409,'Telefone não confirmado. Atualize o aparelho.');serial=row.serial;deviceId=row.id;}}
+   let phone='',serial='',deviceId='',contactName='';if(action==='sms-send'){if(b.confirmed!==true||!smsGateway||smsGateway.ready!==true||Date.now()-Date.parse(smsGateway.last_seen||'')>=120000||!Number.isFinite(Date.parse(smsGateway.last_seen||'')))fail(409,'Galaxy próprio não conectado.');if(manual){phone=clean(b.phone).replace(/\D/g,'');contactName=clean(b.contact_name);if(!/^\d{10,13}$/.test(phone)||!contactName||contactName.length>80||/[\r\n]/.test(contactName))fail(400,'Telefone ou nome do contato inválido.');}else{const e=await service.equipment(b.branch,row.serial);phone=clean(e.phone).replace(/\D/g,'');if(e.serial!==row.serial||!/^\d{10,13}$/.test(phone)||phone!==clean(b.phone).replace(/\D/g,''))fail(409,'Telefone não confirmado. Atualize o aparelho.');serial=row.serial;deviceId=row.id;}}
    data.operations.push({id:crypto.randomUUID(),kind:'sms',phone,device_id:deviceId,serial,contact_name:contactName,target_type:manual?'contact':'device',batch_id:clean(b.batch_id).slice(0,80),state:action==='sms-send'?'queued':'blocked',command,created_at:now,actor:user.username,message:action==='sms-send'?'Aguardando Galaxy.':'Rascunho salvo; não enviado.'});
  }else fail(400,'Ação inválida.');
  if(result&&!action.startsWith('sms-')){result.version=Number(result.version||1)+1;result.updated_at=now;}

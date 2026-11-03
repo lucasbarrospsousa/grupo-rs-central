@@ -71,16 +71,19 @@ export async function driveTracking(config,branches,fetcher=fetch,options={}){
 // Only the single Operations object may call this writer. Original SQL is never touched.
 export async function trackingDocument(config,branch,fetcher=fetch){
  const id=config?.tracking?.[branch];if(!id||!/^[a-zA-Z0-9_-]+$/.test(id))throw Error('TRACKING_MISSING');
- const cached=config[documentCache]?.value;
+ const storedCache=config[documentCache]?.value;
+ const cache=storedCache instanceof Map?storedCache:new Map(storedCache?.id?[[storedCache.id,storedCache]]:[]);
+ const cached=cache.get(id);
  const connection=await connect(config,fetcher);
  if(cached?.id===id&&cached.until>Date.now())return documentHandle(structuredClone(cached.data),connection);
  const meta=await connection.read('files/'+id+'?fields=parents,shared,trashed,size');
  if(meta.shared||meta.trashed||!meta.parents?.includes(config.folder_id)||Number(meta.size)>20000000)throw Error('TRACKING_PRIVATE');
  const data=await connection.read('files/'+id+'?alt=media');
  if(data.schemaVersion!==1||data.kind!=='tracking'||data.branch?.id!==branch||!Array.isArray(data.rows)||data.rows.length>20000)throw Error('TRACKING_INVALID');
- if(config[documentCache])config[documentCache].value={id,data:structuredClone(data),until:Date.now()+30000};
+ cacheDocument(data);
  return documentHandle(data,connection);
- function documentHandle(data,connection){return {data,save:async()=>{if(new TextEncoder().encode(JSON.stringify(data)).length>20000000)throw Error('TRACKING_LIMIT');await connection.writeTracking(id,data);if(config[documentCache])config[documentCache].value={id,data:structuredClone(data),until:Date.now()+30000};if(config[onTrackingSaved])await config[onTrackingSaved](branch,data);}};}
+ function cacheDocument(value){if(!config[documentCache])return;cache.set(id,{id,data:structuredClone(value),until:Date.now()+30000});for(const [key,item] of cache)if(item.until<=Date.now())cache.delete(key);config[documentCache].value=cache;}
+ function documentHandle(data,connection){return {data,save:async()=>{if(new TextEncoder().encode(JSON.stringify(data)).length>20000000)throw Error('TRACKING_LIMIT');await connection.writeTracking(id,data);cacheDocument(data);if(config[onTrackingSaved])await config[onTrackingSaved](branch,data);}};}
 }
 
 export function trackingDashboard(snapshot){const rows=snapshot.rows;const group=key=>{const m=new Map();for(const r of rows){const value=r[key]||'Não informado';m.set(value,(m.get(value)||0)+1);}return [...m].map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count);};return {schemaVersion:1,branch:snapshot.branch,copiedAt:snapshot.copiedAt,total:rows.length,statuses:group('status'),carriers:group('carrier'),models:group('model'),source:'Google Drive',snapshot:true};}

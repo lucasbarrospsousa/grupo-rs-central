@@ -235,9 +235,11 @@ export default {
     if(url.pathname==='/api/galaxy'){
       if(!env.OPERATIONS)return error(503,'Gateway indisponível.');
       let input;try{input=JSON.parse(new TextDecoder().decode(body));}catch{return error(400,'Solicitação inválida.');}
-      const android=!!request.headers.get('x-rs-gateway');if(android)input.branch=url.searchParams.get('branch');
-      if(!['imperatriz','araguaina','acailandia','maraba'].includes(input.branch))return error(400,'Filial inválida.');
-      let mobileUser='';
+      const android=!!request.headers.get('x-rs-gateway');
+      if(android||url.searchParams.has('branch'))input.branch=url.searchParams.get('branch')||'';
+      const globalSession=!android&&!request.headers.get('authorization')&&!url.searchParams.has('branch');
+      if((!globalSession&&!['imperatriz','araguaina','acailandia','maraba'].includes(input.branch))||(input.branch&&!['imperatriz','araguaina','acailandia','maraba'].includes(input.branch)))return error(400,'Filial inválida.');
+      let mobileUser='',mobileBranches=[];
       if(!android&&!request.headers.get('authorization')){
         const cookie=request.headers.get('cookie')||'';
         if(!cookie)return error(401,'Entre na plataforma para conectar o Gateway Mobile.');
@@ -245,11 +247,16 @@ export default {
         if(!session.ok)return error(401,'Sessão expirada. Entre novamente na plataforma.');
         const account=await session.json();
         if(!account.permissions?.owner&&!account.permissions?.writes?.includes('sms'))return error(403,'Sem permissão para o gateway SMS.');
-        if(!account.branches?.some(branch=>branch.id===input.branch))return error(403,'Sem acesso a esta filial.');
+        if(input.branch&&!account.branches?.some(branch=>branch.id===input.branch))return error(403,'Sem acesso a esta filial.');
+        if(globalSession){
+          mobileBranches=(account.branches||[]).map(branch=>branch.id).filter(branch=>['imperatriz','araguaina','acailandia','maraba'].includes(branch));
+          if(!mobileBranches.length)return error(403,'Sem acesso às filiais do gateway SMS.');
+          input.global=true;
+        }
         mobileUser=account.username;
       }
       const token=android?request.headers.get('x-rs-gateway'):request.headers.get('authorization')?.replace(/^Bearer /,'');if(!mobileUser&&!/^[a-f0-9]{64}$/.test(token||''))return error(401,'Credencial inválida.');
-      if(mobileUser)return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,mobileUser,android:true})})));
+      if(mobileUser)return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,mobileUser,mobileGlobal:globalSession,mobileBranches,android:true})})));
       return secure(await env.OPERATIONS.get(env.OPERATIONS.idFromName('central-paralela-operations-v2')).fetch(new Request('https://operations.internal/galaxy',{method:'POST',body:JSON.stringify({input,token,android})})));
     }
     if(url.pathname==='/api/whatsapp'){

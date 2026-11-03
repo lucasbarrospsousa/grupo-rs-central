@@ -2,6 +2,18 @@
 
 Estado: protocolo preparado; exige configurar/adaptar o cliente Galaxy ou sua ponte para estes endpoints. Não modificar o aplicativo ou a ponte da Central original automaticamente.
 
+## Sessão global — Central-only
+
+`POST /api/galaxy` sem `branch` na URL ou no corpo usa a sessão autenticada da plataforma. A sessão precisa ter permissão SMS e filiais autorizadas. O Worker consulta somente essas filiais e reúne as filas existentes, que continuam salvas no documento privado de cada filial. A filial de cada pedido é determinada pelo documento de origem do lote, não por alternância/round-robin; todo item de `jobs[]`, inclusive resumos sem payload, e todo payload incluem `branch`. Lotes permanecem juntos e a Central escolhe primeiro o pedido mais antigo entre as filas autorizadas. A conexão global grava presença no Durable Object e preserva os estados de gateway das quatro cópias de filial.
+
+Contrato do cliente para o modo global: não enviar `currentBranch` nem `branch` no poll; usar o `branch` do payload em cada recibo (`reports: [{id, branch, device_id, state}]`) e preservar também o `device_id` estável da instalação. O resultado de cada recibo em `report_results` informa sua filial. Recibo sem filial ou com filial divergente é rejeitado. Repetições de payload continuam limitadas à mesma instalação identificada por `device_id`, somente antes de `received`; o prazo vencido vira `indeterminate` e não reenvia. O servidor não altera ou identifica um SMS como entregue sem recibo correspondente.
+
+O RS Gateway Mobile 1.5.12 usa esta sessão global para a Central. Polls e recibos passam por `/api/galaxy` sem query de filial; o app preserva o `branch` recebido e o envia nos recibos, junto ao identificador estável da instalação. A rota legada por filial continua disponível para clientes antigos. O fluxo de Vendas SOS usa `/api/mobile-gateway` e não foi alterado. Esta revisão não fez envio real de SMS.
+
+## Conexão legada por filial
+
+O protocolo abaixo permanece disponível para clientes pareados por filial. Não é necessário para o modo global de sessão.
+
 1. Administrador abre Rastreamento, escolhe filial, Integrações, Preparar conexão própria do Galaxy.
 2. Guarda no cliente autorizado o endpoint HTTPS, filial e token Bearer exibidos. Nova preparação invalida o token anterior. Nunca colocar esse token no GitHub, em URL, relatório ou log.
 3. Cliente envia POST /api/galaxy, Content-Type application/json, Authorization Bearer TOKEN, corpo {"action":"poll","branch":"imperatriz"}. Use intervalo de pelo menos 10 segundos, respeite 429 e não faça chamadas paralelas.

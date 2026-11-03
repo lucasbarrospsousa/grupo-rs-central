@@ -1,7 +1,7 @@
 import {whatsappQueue} from './whatsapp-queue.mjs';
 import {gatewayPresence} from './gateway-presence.mjs';
 import {collect} from './global-collectors.mjs';
-import {galaxyAndroid} from './galaxy-android.mjs';
+import {galaxyAndroid,galaxyAndroidUnified} from './galaxy-android.mjs';
 import {prepareConfig} from './configurator.mjs';
 import {recoverConfig,commitConfig} from './configurator-journal.mjs';
 import {importMigration} from './migration.mjs';
@@ -41,8 +41,11 @@ export class Operations {
   if(new URL(request.url).pathname==='/display')return this.displayResponse(b);
   let imported;try{imported=typeof b.importBody==='string'?JSON.parse(b.importBody):null;}catch{return reply(400,{error:'Importação inválida.'});}
   if(new URL(request.url).pathname==='/barrier'){try{await this.queue.run('__writer',()=>this.recoverConfig());return reply(200,{ok:true});}catch{return reply(503,{error:'Recuperação pendente.'});}}
+  const path=new URL(request.url).pathname;
+  const globalGalaxy=path==='/galaxy'&&b.android&&b.mobileGlobal===true;
   const branch=b.input?.branch||b.branch||imported?.branch;
-  if(!Object.hasOwn(ORIGINS,branch))return reply(400,{error:'Filial inválida.'});
+  if(!globalGalaxy&&!Object.hasOwn(ORIGINS,branch))return reply(400,{error:'Filial inválida.'});
+  if(globalGalaxy&&branch&&!Object.hasOwn(ORIGINS,branch))return reply(400,{error:'Filial inválida.'});
   if(new URL(request.url).pathname==='/jobs'){try{return reply(200,await this.queue.run('__jobs',()=>this.jobs.configure(b.input,b.user)));}catch(e){return reply(e.status||503,{error:e.message});}}
   try{return await this.queue.run('__writer',async()=>{await this.recoverConfig();return this.execute(request,b);});}catch(e){return reply(e.status||503,{error:e.status?e.message:'Operação indisponível.'});}
  }
@@ -87,12 +90,21 @@ export class Operations {
    if(b.kind==='maintenance-import'&&typeof b.importBody!=='string')return reply(400,{error:'Missing import envelope'});
    if(new URL(request.url).pathname==='/maintenance-import'||b.kind==='maintenance-import'){if(!verifyImport(b.importBody,b.importSignature,this.env.AUTH_DATA_KEY,this.env.MAINTENANCE_IMPORT_UNTIL))return reply(403,{error:'Importação desabilitada.'});try{return reply(200,await (JSON.parse(b.importBody).action?.startsWith('migration')?importMigration:importMaintenance)(JSON.parse(b.importBody),this.config));}catch(e){return reply(503,{error:'Não foi possível concluir a importação.'});}}
    if(new URL(request.url).pathname==='/maintenance')return reply(200,await maintenance({input:b.input,user:b.user,config:this.config}));
+   if(new URL(request.url).pathname==='/galaxy'&&b.android&&b.mobileGlobal){
+    const branches=[...new Set((b.mobileBranches||[]).filter(id=>Object.hasOwn(ORIGINS,id)))];
+    if(!branches.length||!b.mobileUser)return reply(403,{error:'Sem acesso às filiais do gateway SMS.'});
+    const gateway=await this.ctx.storage.get('sms-gateway-global')||{scope:'all',ready:false,last_seen:null};
+    return reply(200,await galaxyAndroidUnified({input:b.input,mobileUser:b.mobileUser,gateway,branches,document:branch=>trackingDocument(this.config,branch),users:async()=>decryptUsers(await driveUsers(this.config),this.env.AUTH_DATA_KEY),saveGateway:value=>this.ctx.storage.put('sms-gateway-global',value)}));
+   }
    if(new URL(request.url).pathname==='/galaxy'&&b.android)return reply(200,await galaxyAndroid({input:b.input,token:b.token,mobileUser:b.mobileUser,document:branch=>trackingDocument(this.config,branch),users:async()=>decryptUsers(await driveUsers(this.config),this.env.AUTH_DATA_KEY)}));
    if(new URL(request.url).pathname==='/galaxy')return reply(200,await galaxy({input:b.input,token:b.token,config:this.config,key:this.env.AUTH_DATA_KEY}));
    if(new URL(request.url).pathname==='/inventory'){
       const remote=['analyze','lookup','link-preview','link-confirm','link-check','refresh-equipment','swap-preview','swap-execute','swap-check'].includes(b.input?.action);
     if(remote){const allowed=await this.reserveQuery(true);if(!allowed)return reply(429,{error:'Aguarde dez segundos entre consultas.'});}
-    return reply(200,await inventory({input:b.input,user:b.user,config:this.config,service:this.service}));
+    const globalGateway=await this.ctx.storage.get('sms-gateway-global');
+    const gatewayAge=Date.now()-Date.parse(globalGateway?.last_seen||'');
+    const gatewayStatus=globalGateway?.scope==='all'&&Number.isFinite(gatewayAge)&&gatewayAge<120000?{scope:'all',ready:globalGateway.ready===true,last_seen:globalGateway.last_seen||null,app_version:globalGateway.app_version||'',protocol:globalGateway.protocol||''}:null;
+    return reply(200,await inventory({input:b.input,user:b.user,config:this.config,service:this.service,gatewayStatus}));
    }
    if(!Object.hasOwn(ORIGINS,b.branch)||!/^\d{6,17}$/.test(b.serial||'')||!['status','location','history'].includes(b.kind))return reply(400,{error:'Consulta inválida.'});
    const doc=await trackingDocument(this.config,b.branch);

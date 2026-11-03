@@ -26,10 +26,13 @@ const authorized=(list,job,branch)=>list.some(u=>u.active&&u.username===job.acto
 function applyReport(data,input,job,userList,now){
  const id=String(input?.id||'');
  const state=String(input?.state||'');
- if(!id||!reportStates.has(state))return {id,report_state:state,accepted:false,finalized:true,state:job?.state||'',error:'Recibo inválido.'};
- if(!job)return {id,report_state:state,accepted:false,finalized:true,state:'',error:'Pedido não encontrado.'};
+ const branch=job?.__branch||input?.branch||'';
+ if(!id||!reportStates.has(state))return {id,branch,report_state:state,accepted:false,finalized:true,state:job?.state||'',error:'Recibo inválido.'};
+ if(!job)return {id,branch:input?.branch||'',report_state:state,accepted:false,finalized:true,state:'',error:'Pedido não encontrado.'};
+ if(input.global&&(!input.branch||input.branch!==branch))return {id,branch,report_state:state,accepted:false,finalized:true,state:job.state,conflict:true,error:'Filial do recibo incompatível.'};
+ if(input.global&&job.dispatch_device_id&&input.device_id!==job.dispatch_device_id)return {id,branch,report_state:state,accepted:false,finalized:true,state:job.state,conflict:true,error:'Recibo de outro dispositivo.'};
  const current=job.state;
- if(current===state)return {id,report_state:state,accepted:true,state:current,applied:false,duplicate:true};
+ if(current===state)return {id,branch,report_state:state,accepted:true,state:current,applied:false,duplicate:true};
 
  // A late lower-state report is acknowledged without rolling back newer evidence.
  const predecessors={
@@ -38,15 +41,15 @@ function applyReport(data,input,job,userList,now){
   sent:new Set(['queued','dispatched','received','sending','expired','failed','indeterminate']),
   delivered:new Set(['queued','dispatched','received','sending','sent','expired','failed','indeterminate'])
  };
- if(terminal.has(current)&&current!=='delivered'&&!(['failed','expired'].includes(current)&&['sent','delivered'].includes(state)))return {id,report_state:state,accepted:true,state:current,applied:false,stale:true};
- if(predecessors[current]?.has(state))return {id,report_state:state,accepted:true,state:current,applied:false,stale:true};
- if(!transitions[current]?.has(state))return {id,report_state:state,accepted:false,finalized:true,state:current,conflict:true,error:'Transição incompatível.'};
+ if(terminal.has(current)&&current!=='delivered'&&!(['failed','expired'].includes(current)&&['sent','delivered'].includes(state)))return {id,branch,report_state:state,accepted:true,state:current,applied:false,stale:true};
+ if(predecessors[current]?.has(state))return {id,branch,report_state:state,accepted:true,state:current,applied:false,stale:true};
+ if(!transitions[current]?.has(state))return {id,branch,report_state:state,accepted:false,finalized:true,state:current,conflict:true,error:'Transição incompatível.'};
 
  // Readiness gates new dispatch. A receipt for a payload already dispatched remains valid
  // after a heartbeat or a temporary loss of SIM readiness.
- if(state==='received'&&!authorized(userList,job,input.branch)){
+ if(state==='received'&&!authorized(userList,job,job.__branch||input.branch)){
   job.state='cancelled';job.message='Envio não autorizado.';job.updated_at=now;
-  return {id,report_state:state,accepted:false,finalized:true,state:job.state,applied:true,error:'Autorização revogada antes do envio.'};
+  return {id,branch,report_state:state,accepted:false,finalized:true,state:job.state,applied:true,error:'Autorização revogada antes do envio.'};
  }
  job.state=state;
  job.message='Retorno do Galaxy: '+state;
@@ -57,10 +60,11 @@ function applyReport(data,input,job,userList,now){
    sibling.state='cancelled';sibling.message='Lote interrompido após '+state+'.';sibling.updated_at=now;
   }
  }
- return {id,report_state:state,accepted:true,state,applied:true};
+ return {id,branch,report_state:state,accepted:true,state,applied:true};
 }
 
 function payloadFor(job,branch,supportsBatch){
+ branch=job.__branch||branch;
  let digits=String(job.phone).replace(/\D/g,'');
  if(digits.length===10||digits.length===11)digits='55'+digits;
  if(!/^55[1-9]\d{9,10}$/.test(digits))return null;
@@ -115,15 +119,15 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
  if(reports.some(r=>r?.state==='received')||(data.gateway.ready&&queued))await getUsers();
  for(const report of reports){
   const job=mobileJobs.find(o=>o.id===report?.id);
-  reportResults.push(applyReport(data,{...report,branch:input.branch},job,userList||[],now));
+  reportResults.push(applyReport(data,{...report,branch:input.global?report?.branch:(report?.branch||input.branch),device_id:report?.device_id||input.device_id,global:input.global===true},job,userList||[],now));
  }
 
  const jobs=[];
  const activeStates=new Set(['dispatched','received','sending','sent','indeterminate']);
- for(const job of mobileJobs)if(activeStates.has(job.state)&&Date.now()-Date.parse(job.created_at)<7200000)jobs.push({id:job.id,state:job.state});
+ for(const job of mobileJobs)if(activeStates.has(job.state)&&Date.now()-Date.parse(job.created_at)<7200000)jobs.push({id:job.id,...(input.global?{branch:job.__branch||input.branch}:{}),state:job.state});
 
  if(data.gateway.ready){
-  const pending=mobileJobs.filter(o=>o.state==='queued');
+  const pending=mobileJobs.filter(o=>o.state==='queued').sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||String(a.__branch||input.branch).localeCompare(String(b.__branch||input.branch)));
   const newlyDispatched=new Set();
   if(pending.length){
    const first=pending[0],batch=first.batch_id?pending.filter(o=>o.batch_id===first.batch_id):[first];
@@ -132,7 +136,7 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
    const deliveries=supportsBatch?batch:[first];
    for(const job of (sameBatchActive||otherBatchActive?[]:deliveries)){
     if(Date.now()-Date.parse(job.created_at)>600000){job.state='expired';job.updated_at=now;continue;}
-    if(!authorized(userList,job,input.branch)){job.state='cancelled';job.updated_at=now;job.message='Envio não autorizado.';continue;}
+    if(!authorized(userList,job,job.__branch||input.branch)){job.state='cancelled';job.updated_at=now;job.message='Envio não autorizado.';continue;}
     const payload=payloadFor(job,input.branch,supportsBatch);
     if(!payload){job.state='failed';job.updated_at=now;job.message='Pedido incompatível com Gateway Android atualizado.';continue;}
     job.state='dispatched';job.updated_at=now;job.dispatched_at=now;
@@ -142,7 +146,7 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
      job.dispatch_attempts=1;
     }
     newlyDispatched.add(job.id);
-    jobs.push({id:job.id,state:job.state,payload});
+    jobs.push({id:job.id,...(input.global?{branch:job.__branch||input.branch}:{}),state:job.state,payload});
    }
   }
 
@@ -156,7 +160,7 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
      continue;
     }
     const payload=payloadFor(job,input.branch,supportsBatch);
-    if(payload){job.dispatch_attempts=(job.dispatch_attempts||0)+1;jobs.push({id:job.id,state:job.state,payload});}
+    if(payload){job.dispatch_attempts=(job.dispatch_attempts||0)+1;jobs.push({id:job.id,...(input.global?{branch:job.__branch||input.branch}:{}),state:job.state,payload});}
    }
   }else{
    // Legacy dispatched jobs keep the original at-most-once contract.
@@ -169,4 +173,39 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
  }
  await doc.save();
  return {ok:true,jobs:jobs.slice(-50),report_results:reportResults};
+}
+
+export async function galaxyAndroidUnified({input,mobileUser='',gateway,branches,document,users,saveGateway}){
+ if(!gateway||gateway.scope!=='all'||!branches.length)fail(401,'Conexão global indisponível.');
+ if(input.action==='report'&&!input.branch)fail(400,'Informe a filial do recibo.');
+ const docs=new Map();
+ for(const branch of branches)if(!branchIds.has(branch))fail(400,'Filial inválida.');
+ const loaded=await Promise.all(branches.map(async branch=>[branch,await document(branch)]));
+ for(const [branch,doc] of loaded)docs.set(branch,doc);
+ const operations=[];
+ const originals=new Map();
+ for(const [branch,doc] of docs){
+  doc.data.operations??=[];
+  originals.set(branch,JSON.stringify(doc.data));
+  for(const job of doc.data.operations){
+   if(job.kind!=='sms')continue;
+   Object.defineProperty(job,'__branch',{value:branch,configurable:true});
+   operations.push(job);
+  }
+ }
+ const duplicateIds=new Set();
+ const seen=new Set();
+ for(const job of operations){if(seen.has(job.id))duplicateIds.add(job.id);seen.add(job.id);}
+ const uniqueOperations=operations.filter(job=>!duplicateIds.has(job.id));
+ const data={gateway:structuredClone(gateway),operations:uniqueOperations};
+ const combined={data,save:async()=>{
+  for(const [branch,doc] of docs){
+   if(JSON.stringify(doc.data)!==originals.get(branch))await doc.save();
+  }
+  await saveGateway(data.gateway);
+ }};
+ const anchor=branches.includes(gateway.anchor_branch)?gateway.anchor_branch:branches[0];
+ if(!branchIds.has(anchor))fail(400,'Filial inválida.');
+ const inputWithBranch={...input,branch:input.action==='report'?(input.branch||anchor):anchor,global:true};
+ return galaxyAndroid({input:inputWithBranch,mobileUser,document:async()=>combined,users});
 }
