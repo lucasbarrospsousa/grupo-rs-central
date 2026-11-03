@@ -261,3 +261,5 @@ Validação offline: `node --test inventory.test.mjs galaxy-android.test.mjs` (1
 ## Vinculação usa versão informada pelo Configurador — 03/11/2026
 
 O prefixo da identificação é definido pela versão de firmware (`tracker_version`) informada pelo Configurador; registros antigos sem esse campo usam `model` como compatibilidade. Alterar a identificação não preenche nem modifica a versão. A janela individual de vinculação exibe a versão usada e, após a resposta HTTP da Central ser salva, fecha e deixa o resultado no feedback da aba; respostas sem confirmação continuam sinalizadas para conferência, e erros HTTP permanecem visíveis na janela.
+
+As respostas inconclusivas distinguem recusa de autorização, conflito, dados inválidos, limite da API, indisponibilidade e falha de conferência. O estado fica pendente e a interface orienta a conferir sem reenviar automaticamente; a causa da tentativa original não pode ser recuperada quando foi descartada por versões anteriores.

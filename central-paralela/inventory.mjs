@@ -7,6 +7,17 @@ const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
 const statuses=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const fields=['identification','plate','model','carrier','iccid','phone','apn'];
 const clean=v=>String(v??'').trim();
+function pendingLinkMessage(error){
+ if(error?.message==='Resposta sem confirmação do vínculo.')return 'A resposta chegou, mas a conferência posterior não confirmou o vínculo. Estado salvo; use Conferir antes de qualquer nova tentativa.';
+ const status=Number(error?.upstreamStatus||error?.status);
+ if(status===401||status===403)return `A API recusou a autorização (HTTP ${status}). Estado salvo; use Conferir antes de qualquer nova tentativa.`;
+ if(status===409)return 'A API apontou conflito no vínculo (HTTP 409). Estado salvo; use Conferir antes de qualquer nova tentativa.';
+ if(status===422)return 'A API não validou os dados do vínculo (HTTP 422). Estado salvo; confira o cadastro antes de tentar novamente.';
+ if(status===429)return 'A API limitou a operação (HTTP 429). Estado salvo; aguarde e use Conferir antes de qualquer nova tentativa.';
+ if(status===502||status===503||status===504)return `A API não confirmou a operação (HTTP ${status}). Estado salvo; use Conferir antes de qualquer nova tentativa.`;
+ if(Number.isInteger(status)&&status>0)return `A API não confirmou a operação (HTTP ${status}). Estado salvo; use Conferir antes de qualquer nova tentativa.`;
+ return 'A resposta da API não confirmou a operação e não trouxe uma causa técnica. Estado salvo; use Conferir antes de qualquer nova tentativa.';
+}
 export const canWrite=u=>u?.permissions?.owner===true||u?.permissions?.writes?.includes('stock');
 export async function inventory({input:b,user,config,service,document=trackingDocument}){
  if(!user?.permissions?.views?.includes('stock')||!user.branches?.some(x=>x.id===b.branch))fail(403,'Sem acesso à filial.');
@@ -103,7 +114,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
    if(op.state!=='prepared'||op.version!==version||b.confirmed!==true)fail(409,'Vínculo já enviado ou cadastro mudou. Confira sem reenviar.');
    op.state='submitted';op.message='Envio iniciado; conferir se houver interrupção.';await doc.save();
    try{await service.createLink(b.branch,op.payload);const proof=await service.prepareLink(b.branch,row.serial,op.plate);if(!proof.confirmed)throw Error('Resposta sem confirmação do vínculo.');op.state='confirmed';op.message='Vínculo confirmado.';row.identification=op.plate;}
-   catch{op.state='pending';op.message='Envio inconclusivo. Use Conferir; não será reenviado automaticamente.';}
+   catch(error){op.state='pending';op.message=pendingLinkMessage(error);}
   }
  }else if(action==='sms-draft'||action==='sms-send'){
   if(!(user.permissions.owner||user.permissions.writes?.includes('sms')))fail(403,'Sem permissão de SMS.');
