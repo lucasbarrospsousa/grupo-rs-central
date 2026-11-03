@@ -258,6 +258,11 @@ Configuração para números digitados exige que o telefone corresponda a exatam
 
 Validação offline: `node --test inventory.test.mjs galaxy-android.test.mjs` (12 aprovados) e `test-sms-ui.mjs` com Playwright, APIs simuladas e nenhuma chamada externa ou SMS físico. O APK debug 1.2.0 compilou em cópia temporária do projeto; não foi instalado no Galaxy. A confirmação do Android e da operadora exige atualização manual do app e envio autorizado separado.
 
+### Correção de texto Unicode em SMS manual — 03/11/2026
+Na preparação de SMS para contatos digitados, a interface, a API da Central e o protocolo Android agora aceitam texto imprimível Unicode (incluindo acentos), até 160 pontos de código. Caracteres de controle, como quebra de linha, continuam bloqueados. Comandos destinados a aparelhos seguem aceitando somente ASCII para preservar a sintaxe dos equipamentos. A plataforma pode, assim, enfileirar mensagens com acentos para contatos; o gateway Android compatível divide e envia o texto pelo SMS do sistema.
+
+Validação offline: testes unitários da API, protocolo Android e interface cobrem acentos e rejeição de quebras de linha. O teste do navegador usa dados sintéticos e não envia SMS físico. O envio real autorizado pela tarefa ainda depende da implantação do Worker e do diagnóstico do telefone.
+
 ## Vinculação usa versão informada pelo Configurador — 03/11/2026
 
 O prefixo da identificação é definido pela versão de firmware (`tracker_version`) informada pelo Configurador; registros antigos sem esse campo usam `model` como compatibilidade. Alterar a identificação não preenche nem modifica a versão. A janela individual de vinculação exibe a versão usada e, após a resposta HTTP da Central ser salva, fecha e deixa o resultado no feedback da aba; respostas sem confirmação continuam sinalizadas para conferência, e erros HTTP permanecem visíveis na janela. A API de veículos pode retornar `CodEquipamento` no nível superior, sem série ou objeto `equipamento` aninhado. O normalizador lê tanto o código superior quanto o aninhado; a confirmação exige uma relação exata pelo ID do equipamento ou pelo `codVeiculo` reverso, e série, equipamento ou veículo conflitantes continuam bloqueando a operação.

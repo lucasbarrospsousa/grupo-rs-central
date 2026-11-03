@@ -1,6 +1,7 @@
 import {digest} from './auth-crypto.mjs';
 const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
 const allowed={dispatched:['received','failed','expired','indeterminate'],received:['received','sending','sent','failed','expired','indeterminate'],sending:['sending','sent','failed','indeterminate'],sent:['sent','delivered','failed'],delivered:['delivered'],failed:['failed'],expired:['expired'],indeterminate:['indeterminate']};
+const validSmsCommand=(value,manual)=>typeof value==='string'&&value.trim().length>0&&Array.from(value).length<=160&&(manual?/^[\p{L}\p{M}\p{N}\p{P}\p{S}\p{Zs}]+$/u.test(value):/^[\x20-\x7e]{1,160}$/.test(value));
 export async function galaxyAndroid({input,token,mobileUser='',document,users}){
  const doc=await document(input.branch),data=doc.data;
  if(mobileUser){
@@ -40,7 +41,7 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
     if(Date.now()-Date.parse(job.created_at)>600000){job.state='expired';continue;}
     if(!await authorized(job)){job.state='cancelled';continue;}
     const manual=job.target_type==='contact';
-    if((manual?!supportsBatch:!/^024\d{6}$/.test(job.serial))||!/^55[1-9]\d{9,10}$/.test(digits)||!/^[\x20-\x7e]{1,160}$/.test(job.command)){job.state='failed';job.message='Pedido incompatível com Gateway Android atualizado.';continue;}
+    if((manual?!supportsBatch:!/^024\d{6}$/.test(job.serial))||!/^55[1-9]\d{9,10}$/.test(digits)||!validSmsCommand(job.command,manual)){job.state='failed';job.message='Pedido incompatível com Gateway Android atualizado.';continue;}
     const created=Math.floor(Date.parse(job.created_at)/1000),phone='+'+digits;
     job.state='dispatched';job.updated_at=now;
     const payload={version:supportsBatch?3:2,id:job.id,branch:input.branch,serial:job.serial||'',phone,command:job.command,created_at:created,expires_at:created+7200,status_snapshot:'Confirmado pela Central',command_mode:'custom',source_phone_snapshot:phone,apn_snapshot:'',standard_command_snapshot:''};

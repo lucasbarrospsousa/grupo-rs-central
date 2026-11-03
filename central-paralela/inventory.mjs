@@ -7,6 +7,7 @@ const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
 const statuses=['Estoque','Reserva','Instalado','Manutenção','Inativos'];
 const fields=['identification','plate','model','carrier','iccid','phone','apn'];
 const clean=v=>String(v??'').trim();
+const validSmsCommand=(value,manual=false)=>value.trim().length>0&&Array.from(value).length<=160&&(manual?/^[\p{L}\p{M}\p{N}\p{P}\p{S}\p{Zs}]+$/u.test(value):/^[\x20-\x7e]{1,160}$/.test(value));
 function pendingLinkMessage(error){
  if(error?.message==='Resposta sem confirmação do vínculo.')return 'A resposta chegou, mas a conferência posterior não confirmou o vínculo. Estado salvo; use Conferir antes de qualquer nova tentativa.';
  const status=Number(error?.upstreamStatus||error?.status);
@@ -44,7 +45,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
    const batchId=crypto.randomUUID(),prepared=[],phones=new Set();
    for(const item of b.items){
     const phone=clean(item.phone).replace(/\D/g,'');if(!/^\d{10,13}$/.test(phone)||phones.has(phone))fail(400,'Telefone inválido ou repetido na lista.');phones.add(phone);
-    const command=clean(item.command);if(!command||command.length>160||/[^\x20-\x7e]/.test(command))fail(400,'Use comandos de até 160 caracteres simples.');
+    const command=clean(item.command),manual=item.target_type==='contact';if(!validSmsCommand(command,manual))fail(400,'Texto SMS inválido ou maior que 160 caracteres.');
     let target=null,serial='',contactName='';
     if(item.target_type==='device'){
      target=active().find(r=>r.id===item.id);if(!target||!/^024\d{6}$/.test(target.serial))fail(400,'Aparelho 024 não encontrado.');
@@ -120,7 +121,7 @@ export async function inventory({input:b,user,config,service,document=trackingDo
   if(!(user.permissions.owner||user.permissions.writes?.includes('sms')))fail(403,'Sem permissão de SMS.');
    const manual=action==='sms-send'&&b.target_type==='contact';
    if(!manual&&(!row||!/^024\d{6}$/.test(row.serial)))fail(400,'SMS disponível para aparelhos 024.');
-  const command=clean(b.command);if(!command||command.length>160||/[^\x20-\x7e]/.test(command))fail(400,'Use até 160 caracteres simples.');
+  const command=clean(b.command);if(!validSmsCommand(command,manual))fail(400,'Texto SMS inválido ou maior que 160 caracteres.');
    let phone='',serial='',deviceId='',contactName='';if(action==='sms-send'){if(b.confirmed!==true||!data.gateway||data.gateway.ready!==true||Date.now()-Date.parse(data.gateway.last_seen||'')>=120000||!Number.isFinite(Date.parse(data.gateway.last_seen||'')))fail(409,'Galaxy próprio não conectado.');if(manual){phone=clean(b.phone).replace(/\D/g,'');contactName=clean(b.contact_name);if(!/^\d{10,13}$/.test(phone)||!contactName||contactName.length>80||/[\r\n]/.test(contactName))fail(400,'Telefone ou nome do contato inválido.');}else{const e=await service.equipment(b.branch,row.serial);phone=clean(e.phone).replace(/\D/g,'');if(e.serial!==row.serial||!/^\d{10,13}$/.test(phone)||phone!==clean(b.phone).replace(/\D/g,''))fail(409,'Telefone não confirmado. Atualize o aparelho.');serial=row.serial;deviceId=row.id;}}
    data.operations.push({id:crypto.randomUUID(),kind:'sms',phone,device_id:deviceId,serial,contact_name:contactName,target_type:manual?'contact':'device',batch_id:clean(b.batch_id).slice(0,80),state:action==='sms-send'?'queued':'blocked',command,created_at:now,actor:user.username,message:action==='sms-send'?'Aguardando Galaxy.':'Rascunho salvo; não enviado.'});
  }else fail(400,'Ação inválida.');
