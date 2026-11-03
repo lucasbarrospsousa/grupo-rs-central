@@ -859,24 +859,6 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
  }
 }
 
-/* Tracking uses the isolated RS300 cutout; other tabs keep their own artwork. */
-.operation-hero[data-page="tracking"]:before{
- inset:0 0 0 38%!important;
- background-image:url('/assets/tracking-rs300-cutout.png')!important;
- background-repeat:no-repeat!important;
- background-size:auto 155%!important;
- background-position:right 4% center!important;
- mask-image:none!important;
- -webkit-mask-image:none!important;
- filter:none!important;
-}
-@media(max-width:760px){
- .operation-hero[data-page="tracking"]:before{
-  inset:92px 0 0 0!important;
-  background-size:auto 166%!important;
-  background-position:right 4% bottom!important;
- }
-}
 .operation-hero[data-page="maintenance"]:before{
  inset:0 0 0 40%!important;
  background-size:auto 144%!important;
@@ -987,3 +969,15 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
 #sms-content .sms-command-column{padding:18px;border:1px solid #26394d;border-radius:14px;background:rgba(6,13,21,.5)}
 #sms-content .sms-mode-switch button:hover:not([aria-pressed="true"]){border-color:#e58b18;color:#fff}
 @media(max-width:520px){#sms-content .sms-mode-switch{width:100%}#sms-content .sms-mode-switch button{flex:1;padding:10px 7px;font-size:12px}#sms-content .sms-command-column{padding:14px}}
+
+/* Use the transparent tracker photo only in the first tracking metric card. */
+#tracking-content .tracking-metric:first-child .art-device{
+ background-image:url('/assets/tracking-rs300-cutout.png')!important;
+ background-size:contain!important;
+ background-repeat:no-repeat!important;
+ background-position:center!important;
+ width:112px!important;
+ height:84px!important;
+ margin:-8px -4px!important;
+ transform:none!important;
+}
