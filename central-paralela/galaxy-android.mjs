@@ -95,11 +95,11 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
  if(input.action==='heartbeat'){
   data.gateway.last_seen=now;data.gateway.ready=false;data.gateway.protocol='android-v3';data.gateway.app_version=String(input.app_version||'0.0.0');
   await doc.save();
-  const pending=operations.filter(job=>job.kind==='sms'&&job.state==='queued'&&(!mobileUser||job.actor===mobileUser)).length;
+  const pending=operations.filter(job=>job.kind==='sms'&&job.state==='queued'&&(!mobileUser||input.global===true||job.actor===mobileUser)).length;
   return {ok:true,connected:true,queued:pending,receivedAt:now};
  }
  if(input.action==='report'){
-  const job=operations.find(o=>o.id===input.id&&o.kind==='sms'&&(!mobileUser||o.actor===mobileUser));
+  const job=operations.find(o=>o.id===input.id&&o.kind==='sms'&&(!mobileUser||input.global===true||o.actor===mobileUser));
   if(input.state==='received'&&!userList)await getUsers();
   const result=applyReport(data,input,job,userList||[],now);
   if(!result.accepted)fail(result.conflict?409:result.error==='Pedido não encontrado.'?404:400,result.error);
@@ -110,7 +110,7 @@ export async function galaxyAndroid({input,token,mobileUser='',document,users}){
 
  const appVersion=String(input.app_version||'0.0.0'),parts=appVersion.split('.').map(Number);
  const supportsBatch=parts.length===3&&parts.every(Number.isInteger)&&(parts[0]>1||parts[0]===1&&parts[1]>=2);
- const supportsSafeRetry=canRetryPayload(input),mobileJobs=operations.filter(job=>job.kind==='sms'&&(!mobileUser||job.actor===mobileUser));
+ const supportsSafeRetry=canRetryPayload(input),mobileJobs=operations.filter(job=>job.kind==='sms'&&(!mobileUser||input.global===true||job.actor===mobileUser));
  Object.assign(data.gateway,{last_seen:now,ready:input.ready===true,protocol:supportsBatch?'android-v3':'android-v2',app_version:appVersion});
 
  const reportResults=[];

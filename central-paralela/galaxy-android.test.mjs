@@ -113,3 +113,22 @@ test('unified session reports must include the branch resolved from the payload'
  const result=await call({action:'poll',ready:false,reports:[{id:'mab-job',state:'sent'}]});
  assert.equal(result.report_results[0].accepted,false);assert.equal(data.maraba.operations[0].state,'dispatched');
 });
+
+test('global gateway receives authorized branch jobs from another operator while legacy sessions stay actor-scoped',async()=>{
+ const device='c'.repeat(64),job={id:'shared-job',kind:'sms',serial:'024000009',phone:'99999999999',command:'reset,123456',actor:'sender',created_at:new Date().toISOString(),state:'queued',batch_id:'shared-batch'};
+ const branches=['imperatriz'],users=async()=>({users:[
+  {active:true,username:'gateway',branches:[{id:'imperatriz'}],permissions:{owner:true}},
+  {active:true,username:'sender',branches:[{id:'imperatriz'}],permissions:{writes:['sms']}}
+ ]});
+ const legacy={gateway:{},operations:[structuredClone(job)]};
+ const old=await galaxyAndroid({input:{action:'poll',branch:'imperatriz',ready:true,app_version:'1.5.12',device_id:device},mobileUser:'gateway',document:async()=>({data:legacy,save:async()=>{}}),users});
+ assert.equal(old.jobs.some(item=>item.id===job.id),false);
+ const docs={imperatriz:{gateway:{},operations:[structuredClone(job)]}};let gateway={scope:'all',ready:false};
+ const unified=async input=>galaxyAndroidUnified({input:{action:'poll',ready:true,app_version:'1.5.12',device_id:device,...input},mobileUser:'gateway',gateway,branches,document:async branch=>({data:docs[branch],save:async()=>{}}),users,saveGateway:async value=>{gateway=structuredClone(value);}});
+ const dispatched=await unified({});
+ assert.equal(dispatched.jobs.find(item=>item.payload)?.payload.id,job.id);
+ assert.equal(dispatched.jobs.find(item=>item.payload)?.branch,'imperatriz');
+ const receipt=await unified({reports:[{id:job.id,branch:'imperatriz',device_id:device,state:'received'}]});
+ assert.equal(receipt.report_results[0].accepted,true);
+ assert.equal(receipt.report_results[0].branch,'imperatriz');
+});
