@@ -858,6 +858,25 @@ button:hover{border-color:#b88a36;background:#252a32}button.primary,#refresh-pag
   -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 38%)!important;
  }
 }
+
+/* Tracking uses the isolated RS300 cutout; other tabs keep their own artwork. */
+.operation-hero[data-page="tracking"]:before{
+ inset:0 0 0 38%!important;
+ background-image:url('/assets/tracking-rs300-cutout.png')!important;
+ background-repeat:no-repeat!important;
+ background-size:auto 155%!important;
+ background-position:right 4% center!important;
+ mask-image:none!important;
+ -webkit-mask-image:none!important;
+ filter:none!important;
+}
+@media(max-width:760px){
+ .operation-hero[data-page="tracking"]:before{
+  inset:92px 0 0 0!important;
+  background-size:auto 166%!important;
+  background-position:right 4% bottom!important;
+ }
+}
 .operation-hero[data-page="maintenance"]:before{
  inset:0 0 0 40%!important;
  background-size:auto 144%!important;
