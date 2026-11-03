@@ -257,3 +257,7 @@ A aba SMS possui os modos Aparelhos e Escrever telefone. Aparelhos usam caixas d
 Configuração para números digitados exige que o telefone corresponda a exatamente um aparelho 024 ativo da filial. A API confere de novo o aparelho e o telefone, usa a APN atual e verifica o comando completo com a série daquela linha; correspondência ausente, duplicada ou comando divergente bloqueia todo o lote. Disparos múltiplos ou manuais exigem o Gateway 1.2.0; versões antigas não recebem esses lotes.
 
 Validação offline: `node --test inventory.test.mjs galaxy-android.test.mjs` (12 aprovados) e `test-sms-ui.mjs` com Playwright, APIs simuladas e nenhuma chamada externa ou SMS físico. O APK debug 1.2.0 compilou em cópia temporária do projeto; não foi instalado no Galaxy. A confirmação do Android e da operadora exige atualização manual do app e envio autorizado separado.
+
+## Vinculação usa versão informada pelo Configurador — 03/11/2026
+
+O prefixo da identificação é definido pela versão de firmware (`tracker_version`) informada pelo Configurador; registros antigos sem esse campo usam `model` como compatibilidade. Alterar a identificação não preenche nem modifica a versão. A janela individual de vinculação exibe a versão usada e, após a resposta HTTP da Central ser salva, fecha e deixa o resultado no feedback da aba; respostas sem confirmação continuam sinalizadas para conferência, e erros HTTP permanecem visíveis na janela.

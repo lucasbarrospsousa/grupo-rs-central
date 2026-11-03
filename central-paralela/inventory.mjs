@@ -60,15 +60,16 @@ export async function inventory({input:b,user,config,service,document=trackingDo
  if(!reads.includes(action)&&action!=='create'&&action!=='sms-batch'&&!(action==='sms-send'&&b.target_type==='contact')&&Number(b.version)!==version)fail(409,'Cadastro mudou. Recarregue antes de continuar.');
  if(action==='link-preview'){
   if(!['Estoque','Reserva','Manutenção'].includes(row.status))fail(409,'Aparelho fora do estoque/reserva/reparo.');
+  const firmwareVersion=clean(row.tracker_version||row.model);
   const previous=data.operations.find(o=>o.serial===row.serial&&o.kind==='link'&&['prepared','submitted','pending'].includes(o.state));
-  if(previous)return {operation:{id:previous.id,state:previous.state,plate:previous.plate,message:previous.message}};
-  const prefix=({'7.3.2':'GRS','7.3.5':'XRS','7.2.2':'AAA','7.1.6':'AAA','7.2.2/7.1.6':'AAA'})[clean(row.model).replace(/^V/i,'')];
+  if(previous)return {operation:{id:previous.id,state:previous.state,plate:previous.plate,firmware_version:previous.firmware_version||firmwareVersion,message:previous.message}};
+  const prefix=({'7.3.2':'GRS','7.3.5':'XRS','7.2.2':'AAA','7.1.6':'AAA','7.2.2/7.1.6':'AAA'})[firmwareVersion.replace(/^V/i,'')];
   if(!prefix)fail(422,'Salve a versão do aparelho antes de vincular.');
   let identification=clean(b.identification);
   if(!identification){const owner=await service.linkStockOwner(b.branch);const occupied=new Set([...owner.vehicles.map(v=>v.plate),...data.operations.filter(o=>o.kind==='link').map(o=>o.plate),...active().map(r=>r.identification)].map(x=>clean(x).replace(/[\s-]/g,'').toUpperCase()));let n=450;while(occupied.has(prefix+n)&&n<999999)n++;identification=prefix+' - '+n;}
   const preview=await service.prepareLink(b.branch,row.serial,identification);
-  const op={id:crypto.randomUUID(),kind:'link',serial:row.serial,device_id:row.id,version,state:preview.confirmed?'confirmed':'prepared',plate:preview.plate,payload:preview.payload,created_at:new Date().toISOString(),actor:user.username,message:preview.confirmed?'Vínculo já confirmado.':'Preparado; aguarda confirmação.'};
-  data.operations.push(op);await doc.save();return {operation:{id:op.id,state:op.state,plate:op.plate,message:op.message}};
+  const op={id:crypto.randomUUID(),kind:'link',serial:row.serial,device_id:row.id,version,state:preview.confirmed?'confirmed':'prepared',plate:preview.plate,firmware_version:firmwareVersion,payload:preview.payload,created_at:new Date().toISOString(),actor:user.username,message:preview.confirmed?'Vínculo já confirmado.':'Preparado; aguarda confirmação.'};
+  data.operations.push(op);await doc.save();return {operation:{id:op.id,state:op.state,plate:op.plate,firmware_version:op.firmware_version,message:op.message}};
  }
  if(!/^[a-f0-9-]{36}$/i.test(b.key||''))fail(400,'Chave da operação inválida.');
 
