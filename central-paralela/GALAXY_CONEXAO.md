@@ -1,6 +1,6 @@
 # Conexão própria do Galaxy — Central paralela
 
-Estado: protocolo preparado; exige configurar/adaptar o cliente Galaxy ou sua ponte para estes endpoints. Não modificar o aplicativo ou a ponte da Central original automaticamente.
+Estado: sessão global de SMS do RS Gateway Mobile implantada no Worker da Central paralela. A rota legada por token continua disponível para clientes pareados por filial. A Central original permanece fora deste fluxo.
 
 ## Sessão global — Central-only
 
