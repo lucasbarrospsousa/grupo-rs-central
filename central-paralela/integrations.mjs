@@ -146,7 +146,11 @@ export class Integrations{
   if(!/^[1-9]\d*$/.test(target.vehicle_id)||!target.client_id||target.client.toUpperCase()!=='RS300'||Number(target.owner_count)>1)throw err('Titular RS300 único não confirmado para esta identificação.',422);
   if((target.equipment_id&&target.equipment_id!==equipment.id)||(target.serial&&target.serial!==serial))throw err('A identificação já possui outro aparelho. Nenhum vínculo será substituído.',409);
   if(equipment.vehicle_id&&equipment.vehicle_id!==target.vehicle_id)throw err('O aparelho está vinculado a outro veículo. Revise a desvinculação na base antes de continuar.',409);
-  const confirmed=target.serial===serial&&equipment.vehicle_id===target.vehicle_id;
+  // Some /veiculos summaries omit the nested equipment serial even when the
+  // exact /equipamentos lookup already points back to this unique vehicle.
+  // Earlier checks above reject any conflicting serial/equipment/vehicle ID;
+  // the exact reverse vehicle ID is therefore sufficient confirmation.
+  const confirmed=equipment.vehicle_id===target.vehicle_id;
   if(!confirmed&&(target.serial||equipment.vehicle_id))throw err('A API retornou vínculo divergente entre aparelho e veículo. Consulte novamente.',409);
   return{plate,serial,confirmed,payload:{serial,plate,vehicle_id:target.vehicle_id,equipment_id:equipment.id,client_id:target.client_id}};
  }
