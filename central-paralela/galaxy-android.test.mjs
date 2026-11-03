@@ -1,13 +1,14 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {galaxyAndroid} from './galaxy-android.mjs';import {digest} from './auth-crypto.mjs';
-test('Android diagnosis blocks payload; explicit readiness, receipt barrier and delivery never resend',async()=>{
- const token='a'.repeat(64),id=crypto.randomUUID();let data={gateway:{token_hash:digest(token)},operations:[{id,kind:'sms',serial:'024000001',phone:'99999999999',command:'reset,123456',actor:'test',created_at:new Date().toISOString(),state:'queued'}]};let active=true;
- const call=input=>galaxyAndroid({input:{branch:'imperatriz',...input},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users:async()=>({users:[{active,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});
+test('Android diagnosis blocks payload; lost dispatch response retries the same ID until receipt, then never resends',async()=>{
+ const token='a'.repeat(64),device='d'.repeat(64),id=crypto.randomUUID();let data={gateway:{token_hash:digest(token)},operations:[{id,kind:'sms',serial:'024000001',phone:'99999999999',command:'reset,123456',actor:'test',created_at:new Date().toISOString(),state:'queued'}]};let active=true;
+ const call=input=>galaxyAndroid({input:{branch:'imperatriz',app_version:'1.5.11',device_id:device,...input},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users:async()=>({users:[{active,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});
  assert.deepEqual((await call({action:'poll',ready:false})).jobs,[]);
- const job=(await call({action:'poll',ready:true})).jobs[0];assert.equal(job.payload.expires_at-job.payload.created_at,7200);assert.equal(job.payload.phone,'+5599999999999');assert.equal(job.payload.version,2);
- assert.equal((await call({action:'poll',ready:true})).jobs[0].payload,undefined);
+ const job=(await call({action:'poll',ready:true})).jobs[0];assert.equal(job.payload.expires_at-job.payload.created_at,7200);assert.equal(job.payload.phone,'+5599999999999');assert.equal(job.payload.version,3);
+ const retry=(await call({action:'poll',ready:true})).jobs.find(x=>x.payload);assert.equal(retry.payload.id,job.payload.id);assert.deepEqual(retry.payload,job.payload);assert.equal(data.operations[0].dispatch_attempts,2);
  assert.equal((await call({action:'report',id,state:'received'})).state,'received');
+ assert.equal((await call({action:'report',id,state:'received'})).duplicate,true);
  await call({action:'report',id,state:'sent'});await call({action:'report',id,state:'delivered'});assert.deepEqual((await call({action:'poll',ready:true})).jobs,[]);
- await assert.rejects(call({action:'report',id,state:'received'}),e=>e.status===409);
+ assert.equal((await call({action:'report',id,state:'received'})).stale,true);assert.equal(data.operations[0].state,'delivered');
  data.operations.push({...data.operations[0],id:crypto.randomUUID(),state:'queued'});active=false;assert.deepEqual((await call({action:'poll',ready:true})).jobs,[]);assert.equal(data.operations[1].state,'cancelled');
 });
 test('Android heartbeat only validates connection and never reads or dispatches queued work',async()=>{
@@ -25,7 +26,7 @@ test('session-authenticated Galaxy polls only its owner jobs and cannot change a
  const call=input=>galaxyAndroid({input:{branch:'imperatriz',app_version:'1.5.0',...input},token,mobileUser:'mobile-user',document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users});
  const check=await call({action:'heartbeat'});assert.equal(check.queued,1);assert.equal(data.operations[0].state,'queued');assert.equal(data.operations[1].state,'queued');
  const dispatch=await call({action:'poll',ready:true});assert.deepEqual(dispatch.jobs.filter(job=>job.payload).map(job=>job.id),[own]);assert.equal(data.operations.find(job=>job.id===other).state,'queued');
- await assert.rejects(call({action:'report',id:other,state:'failed'}),e=>e.status===409);
+ await assert.rejects(call({action:'report',id:other,state:'failed'}),e=>e.status===404);
 });
 test('Android 1.2 receives a contact and apparatus batch once with line cadence and no duplicate delivery',async()=>{
  const token='b'.repeat(64),batch='batch-1',created_at=new Date().toISOString(),ops=[{id:crypto.randomUUID(),kind:'sms',serial:'024000001',phone:'99999999999',command:'reset,123456',actor:'test',created_at,state:'queued',target_type:'device',batch_id:batch,delay_seconds:3},{id:crypto.randomUUID(),kind:'sms',serial:'024000002',phone:'99999999998',command:'locache,123456,1',actor:'test',created_at,state:'queued',target_type:'contact',contact_name:'Contato',batch_id:batch,delay_seconds:20}];let data={gateway:{token_hash:digest(token),ready:true},operations:ops};const call=input=>galaxyAndroid({input:{branch:'imperatriz',app_version:'1.2.0',...input},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users:async()=>({users:[{active:true,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});const delivered=await call({action:'poll',ready:true});assert.equal(delivered.jobs.filter(x=>x.payload).length,2);const [device,contact]=delivered.jobs.filter(x=>x.payload);assert.equal(device.payload.version,3);assert.equal(device.payload.delay_seconds,3);assert.equal(contact.payload.target_type,'contact');assert.equal(contact.payload.serial,'024000002');assert.equal(contact.payload.contact_name,'Contato');assert.deepEqual((await call({action:'poll',ready:true})).jobs.filter(x=>x.payload),[]);
@@ -33,6 +34,46 @@ test('Android 1.2 receives a contact and apparatus batch once with line cadence 
 test('Android contact SMS accepts printable Unicode but rejects control characters',async()=>{
  const token='e'.repeat(64),created_at=new Date().toISOString(),id=crypto.randomUUID();let data={gateway:{token_hash:digest(token)},operations:[{id,kind:'sms',serial:'',phone:'99999999991',command:'Olá, teste Unicode!',actor:'test',created_at,state:'queued',target_type:'contact',contact_name:'Teste',batch_id:id,delay_seconds:10}]};
  const call=async()=>galaxyAndroid({input:{action:'poll',branch:'imperatriz',ready:true,app_version:'1.5.8'},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users:async()=>({users:[{active:true,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});
- const result=await call();assert.equal(result.jobs[0].payload.command,'Olá, teste Unicode!');assert.equal(data.operations[0].state,'dispatched');
+ const result=await call();assert.equal(result.jobs[0].payload.command,'Olá, teste Unicode!');assert.equal(data.operations[0].state,'dispatched');data.operations[0].state='sent';
  const blocked={...data.operations[0],id:crypto.randomUUID(),state:'queued',command:'Olá\nteste'};data.operations.push(blocked);const second=await call();assert.equal(second.jobs.some(job=>job.id===blocked.id&&job.payload),false);assert.equal(data.operations.find(job=>job.id===blocked.id).state,'failed');
+});
+
+test('Android receipt evidence advances monotonically and cannot migrate a dispatched payload to another device',async()=>{
+ const token='f'.repeat(64),device='1'.repeat(64),otherDevice='2'.repeat(64),id=crypto.randomUUID(),created_at=new Date().toISOString();
+ let data={gateway:{token_hash:digest(token)},operations:[{id,kind:'sms',serial:'',phone:'99999999991',command:'Olá',actor:'test',created_at,state:'queued',target_type:'contact',contact_name:'Teste',batch_id:id,delay_seconds:10}]};
+ const call=(input,device_id=device)=>galaxyAndroid({input:{branch:'imperatriz',app_version:'1.5.11',device_id,...input},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users:async()=>({users:[{active:true,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});
+ const first=(await call({action:'poll',ready:true})).jobs.find(x=>x.payload);assert.equal(first.payload.id,id);
+ assert.equal((await call({action:'poll',ready:true},otherDevice)).jobs.some(x=>x.payload),false);
+ const retry=(await call({action:'poll',ready:true})).jobs.find(x=>x.payload);assert.deepEqual(retry.payload,first.payload);
+ await call({action:'report',id,state:'received'});await call({action:'report',id,state:'sending'});
+ await call({action:'report',id,state:'indeterminate'});await call({action:'report',id,state:'sent'});
+ const delayed=await call({action:'report',id,state:'failed'});assert.equal(delayed.stale,true);assert.equal(data.operations[0].state,'sent');
+ await call({action:'report',id,state:'delivered'});assert.equal(data.operations[0].state,'delivered');
+ assert.equal((await call({action:'poll',ready:true})).jobs.some(x=>x.id===id&&x.payload),false);
+});
+
+test('later sent or delivered evidence repairs an earlier failed or expired receipt',async()=>{
+ const token='7'.repeat(64),id=crypto.randomUUID(),created_at=new Date().toISOString();
+ let data={gateway:{token_hash:digest(token)},operations:[{id,kind:'sms',serial:'024000001',phone:'99999999999',command:'reset,123456',actor:'test',created_at,state:'dispatched'}]};
+ const call=input=>galaxyAndroid({input:{branch:'imperatriz',...input},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{data=copy}}},users:async()=>({users:[{active:true,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});
+ await call({action:'report',id,state:'failed'});
+ const sent=await call({action:'report',id,state:'sent'});assert.equal(sent.state,'sent');
+ await call({action:'report',id,state:'failed'});assert.equal(data.operations[0].state,'sent');
+ const delivered=await call({action:'report',id,state:'delivered'});assert.equal(delivered.state,'delivered');
+ const stale=await call({action:'poll',ready:false,reports:[{id,state:'failed'}]});
+ assert.equal(stale.report_results[0].report_state,'failed');assert.equal(stale.report_results[0].state,'delivered');
+ assert.equal(data.operations[0].state,'delivered');
+});
+
+test('poll batches reports independently and still dispatches when one report is unknown',async()=>{
+ const token='9'.repeat(64),device='8'.repeat(64),id=crypto.randomUUID(),fresh=crypto.randomUUID(),created_at=new Date().toISOString();
+ let saves=0;let data={gateway:{token_hash:digest(token)},operations:[
+  {id,kind:'sms',serial:'024000001',phone:'99999999999',command:'reset,123456',actor:'test',created_at,state:'dispatched',dispatched_at:created_at,dispatch_device_id:device,dispatch_retry_until:new Date(Date.now()+120000).toISOString(),dispatch_attempts:1},
+  {id:fresh,kind:'sms',serial:'024000002',phone:'99999999998',command:'reset,123456',actor:'test',created_at,state:'queued'}
+ ]};
+ const call=input=>galaxyAndroid({input:{branch:'imperatriz',app_version:'1.5.11',device_id:device,...input},token,document:async()=>{const copy=structuredClone(data);return {data:copy,save:async()=>{saves++;data=copy}}},users:async()=>({users:[{active:true,username:'test',branches:[{id:'imperatriz'}],permissions:{owner:true}}]})});
+ const response=await call({action:'poll',ready:true,reports:[{id,state:'received'},{id:'missing',state:'sent'}]});
+ assert.equal(response.report_results[0].accepted,true);assert.equal(response.report_results[0].state,'received');
+ assert.equal(response.report_results[1].accepted,false);assert.equal(response.report_results[1].finalized,true);assert.equal(response.jobs.some(x=>x.id===fresh&&x.payload),false); // prior dispatched job keeps this dispatch cycle serialized
+ assert.equal(data.operations[0].state,'received');assert.equal(data.operations[1].state,'queued');assert.equal(saves,1);
 });
